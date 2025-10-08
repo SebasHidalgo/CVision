@@ -1,0 +1,57 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Resume {
+  id             Int       @id @default(autoincrement())
+  companyName    String
+  jobTitle       String
+  jobdescription String
+  feedback       Feedback?
+  createdAt      DateTime  @default(now())
+}
+
+model Feedback {
+  id       Int               @id @default(autoincrement())
+  resume   Resume            @relation(fields: [resumeId], references: [id])
+  resumeId Int               @unique
+  sections FeedbackSection[]
+}
+
+model FeedbackSection {
+  id         Int                 @id @default(autoincrement())
+  name       FeedbackSectionName
+  score      Float
+  feedback   Feedback            @relation(fields: [feedbackId], references: [id])
+  feedbackId Int
+  tips       Tip[]
+}
+
+model Tip {
+  id          Int             @id @default(autoincrement())
+  type        TipType
+  tip         String
+  explanation String?
+  section     FeedbackSection @relation(fields: [sectionId], references: [id])
+  sectionId   Int
+}
+
+enum TipType {
+  strong
+  improve
+}
+
+enum FeedbackSectionName {
+  overall
+  ATS
+  toneAndStyle
+  content
+  structure
+  skills
+}
