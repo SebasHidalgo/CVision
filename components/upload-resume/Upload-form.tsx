@@ -14,18 +14,47 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import FileUploader from "./File-uploader";
+import { useRouter } from "next/navigation";
 
 export default function UploadForm() {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [statusText, setStatusText] = useState("");
+  const router = useRouter();
+
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileSelect = (file: File | null) => {
     setFile(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setIsProcessing(true);
+
+    if (!file) return;
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const companyName = formData.get("companyName") as string;
+    const jobTitle = formData.get("jobTitle") as string;
+    const jobDescription = formData.get("jobDescription") as string;
+
+    const body = new FormData();
+    body.append("companyName", companyName);
+    body.append("jobTitle", jobTitle);
+    body.append("jobDescription", jobDescription);
+    body.append("resume", file);
+
+    const response = await fetch("/api/resume/analyze", {
+      method: "POST",
+      body: body,
+    });
+
+    const resumeId: string = await response.json();
+
+    setIsProcessing(false);
+    router.push(`/resume/analysis/${resumeId}`);
+  };
   return (
     <Card className="border-border/50 bg-card/50 backdrop-blur">
       {!isProcessing && (
@@ -44,7 +73,12 @@ export default function UploadForm() {
       <CardContent>
         {isProcessing ? (
           <div>
-            <h2 className="text-center">{statusText}</h2>
+            <h2 className="text-center text-2xl font-semibold">
+              Analizing your resume...
+            </h2>
+            <p className="text-center text-muted-foreground mt-4 text-sm">
+              This may take a few moments.
+            </p>
             <img
               src="/images/resume-scan.gif"
               alt="Resume scan"
@@ -96,19 +130,11 @@ export default function UploadForm() {
             <Button
               type="submit"
               className="w-full bg-primary hover:bg-primary/90"
-              disabled={isUploading}
             >
-              {isUploading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Analyzing Resume...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Analyze Resume with AI
-                </>
-              )}
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Analyze Resume with AI
+              </>
             </Button>
           </form>
         )}

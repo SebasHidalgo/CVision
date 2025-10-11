@@ -9,49 +9,25 @@ generator client {
 }
 
 model Resume {
-  id             Int       @id @default(autoincrement())
+  id             String   @id @default(uuid())
   companyName    String
   jobTitle       String
-  jobdescription String
-  feedback       Feedback?
-  createdAt      DateTime  @default(now())
+  resumeUrl      String
+  resumeImageUrl String
+  createdAt      DateTime @default(now())
+
+  feedback Feedback? @relation("ResumeFeedback")
 }
 
 model Feedback {
-  id       Int               @id @default(autoincrement())
-  resume   Resume            @relation(fields: [resumeId], references: [id])
-  resumeId Int               @unique
-  sections FeedbackSection[]
-}
-
-model FeedbackSection {
-  id         Int                 @id @default(autoincrement())
-  name       FeedbackSectionName
-  score      Float
-  feedback   Feedback            @relation(fields: [feedbackId], references: [id])
-  feedbackId Int
-  tips       Tip[]
-}
-
-model Tip {
-  id          Int             @id @default(autoincrement())
-  type        TipType
-  tip         String
-  explanation String?
-  section     FeedbackSection @relation(fields: [sectionId], references: [id])
-  sectionId   Int
-}
-
-enum TipType {
-  strong
-  improve
-}
-
-enum FeedbackSectionName {
-  overall
-  ATS
-  toneAndStyle
-  content
-  structure
-  skills
+  id                      String @id @default(uuid())
+  resumeId                String @unique
+  resume                  Resume @relation("ResumeFeedback", fields: [resumeId], references: [id])
+  overall                 Json
+  atsCompatibility        Json
+  experience              Json
+  education               Json
+  skills                  Json
+  toneAndLanguage         Json
+  jobDescriptionAlignment Json
 }
