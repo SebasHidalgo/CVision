@@ -3,7 +3,7 @@
 import { SignInButton } from "@clerk/nextjs";
 import CVisionLogo from "./Logo";
 import { Button } from "../ui/button";
-import { SignedIn, SignedOut } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignOutButton } from "@clerk/clerk-react";
 
 export function Header() {
   return (
@@ -17,9 +17,11 @@ export function Header() {
           </div>
 
           <SignedIn>
+            <SignOutButton>
             <Button size="sm" variant="outline">
               Sign out
             </Button>
+            </SignOutButton>
           </SignedIn>
 
           <SignedOut>

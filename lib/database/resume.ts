@@ -6,6 +6,7 @@ import { handleError } from "../error/handleError";
 import ollama from "ollama";
 import { extractTextFromPDFFile } from "@/utils/pdf-parse";
 import { defaultPrompt } from "@/constants";
+import { uploadFileToSupabase } from "../supabase";
 
 type ResumeInput = {
   companyName: string;
@@ -33,11 +34,12 @@ export async function analyzeResume(input: ResumeInput) {
 
     const analysisData = JSON.parse(ollamaResponse.message.content);
 
+    const resumeUrl = await uploadFileToSupabase(resume, resume.name);
+
     const analysis: ResumeAnalysisInput = {
       companyName: companyName,
       jobTitle: jobTitle,
-      resumeUrl: "example.com/resume.pdf",
-      resumeImageUrl: "example.com/resume-image.jpg",
+      resumeUrl: resumeUrl,
       feedback: analysisData,
     };
 
@@ -58,7 +60,6 @@ export async function createResume(analysis: ResumeAnalysis) {
         companyName: analysis.companyName,
         jobTitle: analysis.jobTitle,
         resumeUrl: analysis.resumeUrl,
-        resumeImageUrl: analysis.resumeImageUrl,
         feedback: {
           create: {
             overall: analysis.feedback

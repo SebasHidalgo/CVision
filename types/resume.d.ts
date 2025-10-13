@@ -1,13 +1,8 @@
-export type Tip = {
-  type: "Excellent" | "Good" | "Improve";
-  description: string;
-};
-
 export type SectionFeedback = {
   score: number;
   description: string;
   highlights: string[];
-  tips: Tip[];
+  tips: string[];
 };
 
 export type ResumeAnalysis = {
@@ -15,7 +10,6 @@ export type ResumeAnalysis = {
   companyName: string;
   jobTitle: string;
   resumeUrl: string;
-  resumeImageUrl: string;
   feedback: Feedback;
   createdAt: string;
 };

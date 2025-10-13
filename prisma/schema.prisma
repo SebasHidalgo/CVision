@@ -9,12 +9,11 @@ generator client {
 }
 
 model Resume {
-  id             String   @id @default(uuid())
-  companyName    String
-  jobTitle       String
-  resumeUrl      String
-  resumeImageUrl String
-  createdAt      DateTime @default(now())
+  id          String   @id @default(uuid())
+  companyName String
+  jobTitle    String
+  resumeUrl   String
+  createdAt   DateTime @default(now())
 
   feedback Feedback? @relation("ResumeFeedback")
 }
