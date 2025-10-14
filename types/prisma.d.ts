@@ -6,6 +6,7 @@ declare module "@prisma/client" {
     companyName: string;
     jobTitle: string;
     resumeUrl: string;
+    userId: string;
     feedback: Feedback;
     createdAt: Date;
   };

@@ -11,6 +11,7 @@ import ollama from "ollama";
 import { extractTextFromPDFFile } from "@/utils/pdf-parse";
 import { defaultPrompt } from "@/constants";
 import { uploadFileToSupabase } from "../supabase";
+import { getAuthUser } from "../auth";
 
 type ResumeAnalysisInput = {
   companyName: string;
@@ -58,11 +59,13 @@ export async function analyzeResume(input: CreateResumeInput) {
 
 export async function createResume(analysis: ResumeAnalysis) {
   try {
+    const user = await getAuthUser();
     const created = await prisma.resumeAnalysis.create({
       data: {
         companyName: analysis.companyName,
         jobTitle: analysis.jobTitle,
         resumeUrl: analysis.resumeUrl,
+        userId: user.id,
         feedback: {
           create: {
             overall: analysis.feedback
@@ -92,6 +95,7 @@ export async function createResume(analysis: ResumeAnalysis) {
 
 export async function fetchAllResumes() {
   try {
+    const user = await getAuthUser();
     const dbResumes = await prisma.resumeAnalysis.findMany({
       include: {
         feedback: {
@@ -101,11 +105,15 @@ export async function fetchAllResumes() {
           },
         },
       },
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     });
 
+    console.log(user.id)
+
     return dbResumes.map((db) => mapDbResume(db as DBResumeAnalysis));
   } catch (error) {
+    console.log(error);
     handleError(error, "Failed to retrieve all resume analysis records");
   }
 }

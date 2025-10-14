@@ -8,6 +8,7 @@ export function mapDbResume(db: DBResumeAnalysis): ResumeAnalysis {
     companyName: db.companyName,
     jobTitle: db.jobTitle,
     resumeUrl: db.resumeUrl,
+    userId: db.userId,
     feedback: db.feedback as Feedback,
     createdAt: db.createdAt.toISOString(),
   };

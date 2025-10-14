@@ -13,6 +13,7 @@ model ResumeAnalysis {
   companyName String
   jobTitle    String
   resumeUrl   String
+  userId      String
   createdAt   DateTime @default(now())
 
   feedback Feedback?

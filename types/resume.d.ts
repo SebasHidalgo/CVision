@@ -10,6 +10,7 @@ export type ResumeAnalysis = {
   companyName: string;
   jobTitle: string;
   resumeUrl: string;
+  userId: string;
   feedback: Feedback;
   createdAt: string;
 };
