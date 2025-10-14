@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Header } from "@/components/shared/Header";
+import Providers from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CVision",
-  description: "Get instant feedback on your resume with CVision, the AI-powered resume reviewer. Improve your chances of landing your dream job today!",
+  description:
+    "Get instant feedback on your resume with CVision, the AI-powered resume reviewer. Improve your chances of landing your dream job today!",
 };
 
 export default function RootLayout({
@@ -30,8 +32,10 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <Header />
-          <main>{children}</main>
+          <Providers>
+            <Header />
+            <main>{children}</main>
+          </Providers>
         </body>
       </html>
     </ClerkProvider>

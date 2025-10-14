@@ -1,16 +1,14 @@
-import { DBResume } from "@prisma/client";
-import type { ResumeAnalysis } from "../types/resume";
+import { DBResumeAnalysis } from "@prisma/client";
+import type { Feedback, ResumeAnalysis } from "../types/resume";
 
 //Converts a Prisma `Resume` record (where JSON fields are `any`) to the strongly typed `ResumeAnalysis`.
-export function mapDbResume(db: DBResume): ResumeAnalysis {
+export function mapDbResume(db: DBResumeAnalysis): ResumeAnalysis {
   return {
     id: db.id,
     companyName: db.companyName,
     jobTitle: db.jobTitle,
     resumeUrl: db.resumeUrl,
-    feedback: db.feedback as ResumeAnalysis["feedback"],
+    feedback: db.feedback as Feedback,
     createdAt: db.createdAt.toISOString(),
   };
 }
-
-

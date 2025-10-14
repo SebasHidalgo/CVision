@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
 interface FileUploaderProps {
-  onFileSelect?: (file: File | null) => void;
+  onFileSelect: (file: File | null) => void;
 }
 
 export default function FileUploader({ onFileSelect }: FileUploaderProps) {
@@ -35,8 +35,8 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
       <div {...getRootProps()} className="w-full cursor-pointer p-6">
         <input
           {...getInputProps()}
-          name="resume-upload"
-          id="resume-upload"
+          name="resume"
+          id="resume"
           required
         />
         {isDragActive ? (

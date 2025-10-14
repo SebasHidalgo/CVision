@@ -13,31 +13,48 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
-import FileUploader from "./File-uploader";
+import FileUploader from "./File-Uploader";
 import { useRouter } from "next/navigation";
-
+import { useForm } from "react-hook-form";
+import ErrorMessage from "@/components/shared/Error-Message";
+import { CreateResumeInput } from "@/types/resume";
+import { toast } from "sonner";
 export default function UploadForm() {
   const router = useRouter();
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
 
-  const handleFileSelect = (file: File | null) => {
-    setFile(file);
+  const initialValues: CreateResumeInput = {
+    companyName: "",
+    jobTitle: "",
+    jobDescription: "",
+    resume: null,
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    defaultValues: initialValues,
+  });
+
+  const handleFileSelect = (file: File | null) => {
+    setFile(file);
+    setValue("resume", file);
+  };
+
+  const onSubmit = async (data: CreateResumeInput) => {
+    if (!file) {
+      toast.warning("Please upload your resume");
+      return;
+    }
 
     setIsProcessing(true);
 
-    if (!file) return;
-
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const companyName = formData.get("companyName") as string;
-    const jobTitle = formData.get("jobTitle") as string;
-    const jobDescription = formData.get("jobDescription") as string;
+    const { companyName, jobTitle, jobDescription } = data;
 
     const body = new FormData();
     body.append("companyName", companyName);
@@ -86,43 +103,65 @@ export default function UploadForm() {
             />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form
+            noValidate
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-6"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company-name">Company Name</Label>
-                <Input
-                  id="company-name"
-                  name="companyName"
-                  placeholder="Enter company name"
-                  required
-                  className="bg-background/50"
-                />
+                <div>
+                  <Input
+                    id="company-name"
+                    {...register("companyName", {
+                      required: "Company name is required",
+                    })}
+                    placeholder="Enter company name"
+                    className="bg-background/50"
+                  />
+                  {errors.companyName?.message && (
+                    <ErrorMessage text={errors.companyName.message} />
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="job-title">Job Title</Label>
-                <Input
-                  id="job-title"
-                  name="jobTitle"
-                  placeholder="Enter job title"
-                  required
-                  className="bg-background/50"
-                />
+                <div>
+                  <Input
+                    id="job-title"
+                    {...register("jobTitle", {
+                      required: "Job title is required",
+                    })}
+                    placeholder="Enter job title"
+                    className="bg-background/50"
+                  />
+                  {errors.jobTitle?.message && (
+                    <ErrorMessage text={errors.jobTitle.message} />
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="job-description">Job Description</Label>
-              <Textarea
-                id="job-description"
-                name="jobDescription"
-                placeholder="Paste the complete job description here..."
-                required
-                className="bg-background/50 resize-none"
-              />
+              <div>
+                <Textarea
+                  id="job-description"
+                  {...register("jobDescription", {
+                    required: "Job description is required",
+                  })}
+                  placeholder="Paste the complete job description here..."
+                  className="bg-background/50 resize-none"
+                />
+                {errors.jobDescription?.message && (
+                  <ErrorMessage text={errors.jobDescription.message} />
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="resume-upload">Resume Upload</Label>
+              <Label htmlFor="resume">Resume Upload</Label>
 
               <FileUploader onFileSelect={handleFileSelect} />
             </div>

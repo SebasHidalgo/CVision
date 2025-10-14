@@ -1,5 +1,4 @@
 import { CheckCircle2, TriangleAlert } from "lucide-react";
-import { Feedback } from "@/types/resume";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Accordion,
@@ -7,13 +6,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Feedback } from "@/types/resume";
 
 interface AtsSectionProps {
   atsCompatibility: Feedback["atsCompatibility"];
 }
 
 export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
-  const { score, tips, description, highlights } = atsCompatibility;
+  const { score, description, evidence, fixes, problems } = atsCompatibility;
 
   const subtitle =
     score > 69
@@ -41,16 +41,16 @@ export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
             <Accordion type="single" collapsible className="space-y-3">
               <AccordionItem value="item-1">
                 <AccordionTrigger className="p-4 bg-secondary border-border/50 hover:bg-secondary/50 transition-colors">
-                  Tips to improve your ATS score
+                  Warnings to fix
                 </AccordionTrigger>
                 <AccordionContent>
                   <Card className="mt-2 lg:p-4 bg-secondary border-border/50">
                     <CardContent className="space-y-3">
-                      {tips.map((tip, index) => (
+                      {problems.map((problem, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <TriangleAlert className="w-4 h-4 text-amber-700 flex-shrink-0" />
                           <span className="text-amber-700 text-sm">
-                            {tip}
+                            {problem}
                           </span>
                         </div>
                       ))}
@@ -61,18 +61,33 @@ export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
 
               <AccordionItem value="item-2">
                 <AccordionTrigger className="p-4 bg-secondary border-border/50 hover:bg-secondary/50 transition-colors">
-                  Highlights to keep
+                  Ways to fix it
                 </AccordionTrigger>
                 <AccordionContent>
                   <Card className="mt-2 lg:p-4 bg-secondary border-border/50">
                     <CardContent className="space-y-3">
-                      {highlights.map((highlight, index) => (
+                      {fixes.map((fix, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-green-700  flex-shrink-0" />
 
-                          <span className="text-green-700 text-sm">
-                            {highlight}
-                          </span>
+                          <span className="text-green-700 text-sm">{fix}</span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3">
+                <AccordionTrigger className="p-4 bg-secondary border-border/50 hover:bg-secondary/50 transition-colors">
+                  Evidence found
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Card className="mt-2 lg:p-4 bg-secondary border-border/50">
+                    <CardContent className="space-y-3">
+                      {evidence.map((e, index) => (
+                        <div key={index}>
+                          <span className="text-sm">• {e}</span>
                         </div>
                       ))}
                     </CardContent>

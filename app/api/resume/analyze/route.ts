@@ -3,6 +3,7 @@ import { analyzeResume } from "@/lib/database/resume";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
+
   const companyName = formData.get("companyName") as string;
   const jobTitle = formData.get("jobTitle") as string;
   const jobDescription = formData.get("jobDescription") as string;

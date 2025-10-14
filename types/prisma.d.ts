@@ -1,7 +1,7 @@
-import type { Feedback, ResumeAnalysis } from "./resume";
+import type { ResumeAnalysis, Feedback } from "./resume";
 
 declare module "@prisma/client" {
-  export type DBResume = {
+  export type DBResumeAnalysis = {
     id: string;
     companyName: string;
     jobTitle: string;

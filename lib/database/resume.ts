@@ -1,25 +1,29 @@
 import prisma from "./database";
-import type { ResumeAnalysis, ResumeAnalysisInput } from "../../types/resume";
+import type {
+  CreateResumeInput,
+  Feedback,
+  ResumeAnalysis,
+} from "@/types/resume";
 import { mapDbResume } from "../prisma";
-import type { DBResume, Prisma } from "@prisma/client";
+import type { DBResumeAnalysis, Prisma } from "@prisma/client";
 import { handleError } from "../error/handleError";
 import ollama from "ollama";
 import { extractTextFromPDFFile } from "@/utils/pdf-parse";
 import { defaultPrompt } from "@/constants";
 import { uploadFileToSupabase } from "../supabase";
 
-type ResumeInput = {
+type ResumeAnalysisInput = {
   companyName: string;
   jobTitle: string;
-  jobDescription: string;
-  resume: File;
+  resumeUrl: string;
+  feedback: Feedback;
 };
 
-export async function analyzeResume(input: ResumeInput) {
+export async function analyzeResume(input: CreateResumeInput) {
   try {
     const { companyName, jobTitle, jobDescription, resume } = input;
 
-    const resumeParsed = await extractTextFromPDFFile(resume);
+    const resumeParsed = await extractTextFromPDFFile(resume!);
 
     const prompt = defaultPrompt({
       jobTitle: jobTitle,
@@ -34,7 +38,7 @@ export async function analyzeResume(input: ResumeInput) {
 
     const analysisData = JSON.parse(ollamaResponse.message.content);
 
-    const resumeUrl = await uploadFileToSupabase(resume, resume.name);
+    const resumeUrl = await uploadFileToSupabase(resume!, resume!.name);
 
     const analysis: ResumeAnalysisInput = {
       companyName: companyName,
@@ -49,13 +53,12 @@ export async function analyzeResume(input: ResumeInput) {
     return resumeAnalysis;
   } catch (error) {
     handleError(error, "Failed to analyze resume");
-    throw error;
   }
 }
 
 export async function createResume(analysis: ResumeAnalysis) {
   try {
-    const created = await prisma.resume.create({
+    const created = await prisma.resumeAnalysis.create({
       data: {
         companyName: analysis.companyName,
         jobTitle: analysis.jobTitle,
@@ -66,16 +69,16 @@ export async function createResume(analysis: ResumeAnalysis) {
               .overall as unknown as Prisma.InputJsonValue,
             atsCompatibility: analysis.feedback
               .atsCompatibility as unknown as Prisma.InputJsonValue,
-            experience: analysis.feedback
-              .experience as unknown as Prisma.InputJsonValue,
-            education: analysis.feedback
-              .education as unknown as Prisma.InputJsonValue,
+            experienceAndImpact: analysis.feedback
+              .experienceAndImpact as unknown as Prisma.InputJsonValue,
+            educationAndCertifications: analysis.feedback
+              .educationAndCertifications as unknown as Prisma.InputJsonValue,
             skills: analysis.feedback
               .skills as unknown as Prisma.InputJsonValue,
-            toneAndLanguage: analysis.feedback
-              .toneAndLanguage as unknown as Prisma.InputJsonValue,
-            jobDescriptionAlignment: analysis.feedback
-              .jobDescriptionAlignment as unknown as Prisma.InputJsonValue,
+            toneAndClarity: analysis.feedback
+              .toneAndClarity as unknown as Prisma.InputJsonValue,
+            jobFit: analysis.feedback
+              .jobFit as unknown as Prisma.InputJsonValue,
           },
         },
       },
@@ -89,9 +92,9 @@ export async function createResume(analysis: ResumeAnalysis) {
 
 export async function fetchAllResumes() {
   try {
-    const dbResumes = await prisma.resume.findMany({});
+    const dbResumes = await prisma.resumeAnalysis.findMany({});
 
-    return dbResumes.map((db) => mapDbResume(db as DBResume));
+    return dbResumes.map((db) => mapDbResume(db as DBResumeAnalysis));
   } catch (error) {
     handleError(error, "Failed to retrieve all resume analysis records");
   }
@@ -99,7 +102,7 @@ export async function fetchAllResumes() {
 
 export async function fetchResumeById(id: string) {
   try {
-    const resumeAnalysis = await prisma.resume.findUnique({
+    const resumeAnalysis = await prisma.resumeAnalysis.findUnique({
       where: { id },
       include: {
         feedback: {
@@ -111,7 +114,7 @@ export async function fetchResumeById(id: string) {
       },
     });
     if (!resumeAnalysis) throw new Error("Resume analysis record not found");
-    return mapDbResume(resumeAnalysis as DBResume);
+    return mapDbResume(resumeAnalysis as DBResumeAnalysis);
   } catch (error) {
     handleError(error, "Failed to retrieve resume analysis record");
   }

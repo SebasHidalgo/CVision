@@ -8,25 +8,25 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Resume {
+model ResumeAnalysis {
   id          String   @id @default(uuid())
   companyName String
   jobTitle    String
   resumeUrl   String
   createdAt   DateTime @default(now())
 
-  feedback Feedback? @relation("ResumeFeedback")
+  feedback Feedback?
 }
 
 model Feedback {
-  id                      String @id @default(uuid())
-  resumeId                String @unique
-  resume                  Resume @relation("ResumeFeedback", fields: [resumeId], references: [id])
-  overall                 Json
-  atsCompatibility        Json
-  experience              Json
-  education               Json
-  skills                  Json
-  toneAndLanguage         Json
-  jobDescriptionAlignment Json
+  id                         String         @id @default(uuid())
+  resumeId                   String         @unique
+  resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id])
+  overall                    Json
+  atsCompatibility           Json
+  experienceAndImpact        Json
+  skills                     Json
+  educationAndCertifications Json
+  toneAndClarity             Json
+  jobFit                     Json
 }

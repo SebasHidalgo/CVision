@@ -1,54 +1,211 @@
+// export const AIResponseFormat = `
+// {
+//   overall: {
+//     globalScore: number; //max 100
+//     verdict: "Excellent" | "Good" | "Average" | "Poor";
+//     summaryText: string;
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//   };
+//   atsCompatibility: {
+//     score: number; //rate based on ATS suitability
+//     description: string; // min 150 characters, include specific examples of what helps or hurts ATS parsing
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always 3-4 actionable and concrete improvements
+//   };
+//   experience: {
+//     score: number; //max 100
+//     description: string; // min 150 characters, mention how well the roles match the job title and how achievements are presented
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//   };
+//   education: {
+//     score: number; //max 100
+//     description: string; // min 150 characters, describe how education relates to the target job and if degrees/certifications stand out
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//   };
+//   skills: {
+//     score: number; //max 100
+//     description: string; // min 150 characters, reference specific skills mentioned or missing in the resume compared to the job description
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//     missingSkills: string[];
+//     matchedSkills: string[];
+//   };
+//   toneAndLanguage: {
+//     score: number; //max 100
+//     description: string; // min 150 characters, describe tone and clarity using specific examples (e.g., overly casual phrases, strong verbs used)
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//     tone: "Formal" | "Informal" | "Neutral";
+//     readabilityscore: number; //max 100
+//   };
+//   jobDescriptionAlignment: {
+//     score: number; //max 100
+//     description: string; // min 150 characters, mention how closely the resume aligns with the job description, citing examples of keyword overlap
+//     highlights: string[]; // always 3-4 specific strengths, not generic statements
+//     tips: string[]; // always give 3-4 specific and actionable tips
+//     matchedKeywords: string[];
+//     missingKeywords: string[];
+//   };
+// }`;
+
 export const AIResponseFormat = `
 {
   overall: {
-    globalScore: number; //max 100
+    // Final global score (0-100) reflecting the overall quality and alignment
+    // between the resume and the job description.
+    globalScore: number;
+
+    // One-word summary of the resume’s overall quality and readiness.
+    // Options: "Excellent", "Good", "Average", or "Poor".
     verdict: "Excellent" | "Good" | "Average" | "Poor";
+
+    // 2-4 sentences summarizing the resume’s key strengths and weaknesses,
+    // ending with the top 3 priorities for improvement.
     summaryText: string;
-    tips: string[]; // always give 3-4 specific and actionable tips
+
+    // A short, prioritized roadmap of the main fixes to make.
+    // Each item should describe one concrete action and its expected impact.
+    prioritizedFixes: {
+      // Short title describing what to improve (e.g., “Add measurable results”)
+      title: string;
+
+      // Level of impact this change would have on overall resume quality.
+      impact: "High" | "Medium" | "Low";
+
+      // A clear, actionable step explaining how to fix it.
+      action: string;
+    }[];
   };
+
   atsCompatibility: {
-    score: number; //rate based on ATS suitability
-    description: string; // min 150 characters, include specific examples of what helps or hurts ATS parsing
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always 3-4 actionable and concrete improvements
+    // 0-100 score evaluating how well the resume can be parsed by ATS systems.
+    // Should consider formatting, keyword structure, and section labeling.
+    score: number;
+
+    // At least 150 characters explaining how formatting, sections, or keyword usage
+    // help or hurt ATS readability. Include specific examples when possible.
+    description: string;
+
+    // 2-4 concrete, specific problems that affect ATS parsing.
+    // Example: “Dates formatted inconsistently”, “Section headers not standard”.
+    problems: string[];
+
+    // 2-4 actionable fixes to improve ATS performance.
+    // Must not repeat recommendations from other sections.
+    fixes: string[];
+
+    // 1-3 short text snippets or phrases from the resume
+    // that serve as evidence of the analysis above.
+    evidence: string[];
   };
-  experience: {
-    score: number; //max 100
-    description: string; // min 150 characters, mention how well the roles match the job title and how achievements are presented
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always give 3-4 specific and actionable tips
+
+  experienceAndImpact: {
+    // 0-100 score evaluating experience quality, job relevance,
+    // and use of measurable achievements.
+    score: number;
+
+    // At least 150 characters analyzing how experience is presented.
+    // Mention clarity, structure, and whether achievements are quantified.
+    description: string;
+
+    // 2-4 concrete strengths, focusing on writing style, metrics, or clarity.
+    // Example: “Uses strong action verbs”, “Achievements are measurable”.
+    strengths: string[];
+
+    // 2-4 specific weaknesses that limit impact.
+    // Example: “No metrics provided”, “Bullets too long”, “Generic descriptions”.
+    weaknesses: string[];
+
+    // Suggest 1-3 example bullet points rewritten for the most relevant role(s),
+    // showing improved phrasing and quantifiable results.
+    suggestedBullets: {
+      // Job role name (e.g., “Marketing Manager”)
+      role: string;
+
+      // 1-3 rewritten bullet examples demonstrating better phrasing.
+      examples: string[];
+    }[];
   };
-  education: {
-    score: number; //max 100
-    description: string; // min 150 characters, describe how education relates to the target job and if degrees/certifications stand out
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always give 3-4 specific and actionable tips
-  };
+
   skills: {
-    score: number; //max 100
-    description: string; // min 150 characters, reference specific skills mentioned or missing in the resume compared to the job description
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always give 3-4 specific and actionable tips
+    // 0-100 score evaluating the relevance, completeness, and clarity
+    // of the skills section compared to the job description.
+    score: number;
+
+    // At least 150 characters explaining how the skills align or fail
+    // to align with the job requirements. Reference specific examples.
+    description: string;
+
+    // List of skills that match the job description, with a short piece of
+    // evidence showing where or how they appear in the resume.
+    matchedSkills: { name: string; evidence: string }[];
+
+    // List of missing or weakly represented skills from the job description.
     missingSkills: string[];
-    matchedSkills: string[];
+
+    // 2-4 clear and actionable steps explaining how to improve the skills section.
+    // Example: “Group technical skills by category”, “Add proficiency levels”.
+    actionPlan: string[];
   };
-  toneAndLanguage: {
-    score: number; //max 100
-    description: string; // min 150 characters, describe tone and clarity using specific examples (e.g., overly casual phrases, strong verbs used)
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always give 3-4 specific and actionable tips
-    tone: "Formal" | "Informal" | "Neutral";
-    readabilityscore: number; //max 100
+
+  educationAndCertifications: {
+    // 0-100 score reflecting how strong and relevant the education
+    // and certifications are for the job.
+    score: number;
+
+    // At least 120 characters describing degree relevance, visibility, and order.
+    description: string;
+
+    // 1-3 positive highlights (e.g., “Strong relevant degree”, “Certifications add credibility”).
+    highlights: string[];
+
+    // 1-3 specific, practical improvements (e.g., “Add graduation year”, “Reorder education before skills”).
+    improvements: string[];
+
+    // Optional: list of certifications that could strengthen the resume
+    // (e.g., “AWS Certified Developer”, “Google Analytics Certification”).
+    recommendedCerts: string[];
   };
-  jobDescriptionAlignment: {
-    score: number; //max 100
-    description: string; // min 150 characters, mention how closely the resume aligns with the job description, citing examples of keyword overlap
-    highlights: string[]; // always 3-4 specific strengths, not generic statements
-    tips: string[]; // always give 3-4 specific and actionable tips
+
+  toneAndClarity: {
+    // 0-100 score assessing tone, grammar, and overall readability.
+    score: number;
+
+    // At least 120 characters analyzing writing clarity and tone.
+    // Include good and bad examples from the resume.
+    description: string;
+
+    // Readability index from 0-100 (higher = easier to read).
+    // Based on Flesch or a similar readability metric.
+    readability: number;
+
+    // 2-4 suggestions for tone and language improvements.
+    // Example: “Avoid jargon”, “Use shorter sentences”, “Replace passive verbs”.
+    suggestions: string[];
+  };
+
+  jobFit: {
+    // 0-100 score measuring alignment with the provided job description.
+    score: number;
+
+    // At least 150 characters explaining how closely the resume content
+    // matches job requirements, keywords, and role expectations.
+    description: string;
+
+    // List of keywords that appear in both the job description and resume.
     matchedKeywords: string[];
+
+    // Important keywords missing from the resume.
     missingKeywords: string[];
+
+    // 3 specific strategic recommendations to better align the resume
+    // with the target role (e.g., “Add a Key Achievements section”, “Reorder skills”).
+    strategicRecommendations: string[];
   };
-}`;
+}
+`;
 
 export const defaultPrompt = ({
   jobTitle,

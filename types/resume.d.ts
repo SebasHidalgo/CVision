@@ -19,23 +19,67 @@ export type Feedback = {
     globalScore: number;
     verdict: "Excellent" | "Good" | "Average" | "Poor";
     summaryText: string;
-    tips: Tip[];
+    prioritizedFixes: {
+      title: string;
+      impact: "High" | "Medium" | "Low";
+      action: string;
+    }[];
   };
-  atsCompatibility: SectionFeedback;
-  experience: SectionFeedback;
-  education: SectionFeedback;
-  skills: SectionFeedback & {
+
+  atsCompatibility: {
+    score: number;
+    description: string;
+    problems: string[];
+    fixes: string[];
+    evidence: string[];
+  };
+
+  experienceAndImpact: {
+    score: number;
+    description: string;
+    strengths: string[];
+    weaknesses: string[];
+    suggestedBullets: {
+      role: string;
+      examples: string[];
+    }[];
+  };
+
+  skills: {
+    score: number;
+    description: string;
+    matchedSkills: { name: string; evidence: string }[];
     missingSkills: string[];
-    matchedSkills: string[];
+    actionPlan: string[];
   };
-  toneAndLanguage: SectionFeedback & {
-    tone: "Formal" | "Informal" | "Neutral";
-    readabilityScore: number;
+
+  educationAndCertifications: {
+    score: number;
+    description: string;
+    highlights: string[];
+    improvements: string[];
+    recommendedCerts: string[];
   };
-  jobDescriptionAlignment: SectionFeedback & {
+
+  toneAndClarity: {
+    score: number;
+    description: string;
+    readability: number;
+    suggestions: string[];
+  };
+
+  jobFit: {
+    score: number;
+    description: string;
     matchedKeywords: string[];
     missingKeywords: string[];
+    strategicRecommendations: string[];
   };
 };
 
-export type ResumeAnalysisInput = Omit<ResumeAnalysis, "id" | "createdAt">;
+export type CreateResumeInput = {
+  companyName: string;
+  jobTitle: string;
+  jobDescription: string;
+  resume: File | null;
+};

@@ -1,7 +1,7 @@
-import { ResumeAnalysis } from "@/types/resume";
 import React from "react";
 import PdfPreview from "./Pdf-Viewer";
 import ResumeFeedback from "./Resume-Feedback";
+import { ResumeAnalysis } from "@/types/resume";
 
 type ResumeAnalysisProps = {
   resumeAnalysis: ResumeAnalysis;
