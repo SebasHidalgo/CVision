@@ -92,7 +92,17 @@ export async function createResume(analysis: ResumeAnalysis) {
 
 export async function fetchAllResumes() {
   try {
-    const dbResumes = await prisma.resumeAnalysis.findMany({});
+    const dbResumes = await prisma.resumeAnalysis.findMany({
+      include: {
+        feedback: {
+          omit: {
+            id: true,
+            resumeId: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
     return dbResumes.map((db) => mapDbResume(db as DBResumeAnalysis));
   } catch (error) {

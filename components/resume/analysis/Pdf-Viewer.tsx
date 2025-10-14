@@ -21,7 +21,7 @@ export default function PdfPreviewCard({ resumeUrl }: PdfPreviewCardProps) {
         data={`${resumeUrl}#view=FitH`}
         type="application/pdf"
         className="w-full h-[600px] z-50"
-        aria-label="Vista previa del PDF"
+        aria-label="Resume Preview"
       ></object>
     </Card>
   );
