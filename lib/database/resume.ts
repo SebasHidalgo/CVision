@@ -93,9 +93,8 @@ export async function createResume(analysis: ResumeAnalysis) {
   }
 }
 
-export async function fetchAllResumes() {
+export async function fetchAllResumesByUser(userId: string) {
   try {
-    const user = await getAuthUser();
     const dbResumes = await prisma.resumeAnalysis.findMany({
       include: {
         feedback: {
@@ -105,7 +104,7 @@ export async function fetchAllResumes() {
           },
         },
       },
-      where: { userId: user.id },
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
 
