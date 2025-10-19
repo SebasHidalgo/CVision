@@ -4,7 +4,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
+} from "@/components/ui/card";
 import { Brain, Zap, Shield, BarChart3 } from "lucide-react";
 
 const features = [

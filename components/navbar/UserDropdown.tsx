@@ -11,7 +11,7 @@ import {
 import { SignOutButton, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 export default function UserDropdown() {
   const { user } = useUser();
 

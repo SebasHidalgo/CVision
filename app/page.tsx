@@ -1,6 +1,6 @@
-import { CTASection } from "@/components/home/Cta-section";
-import { FeaturesSection } from "@/components/home/Features-section";
-import { HeroSection } from "@/components/home/Hero-section";
+import { CTASection } from "@/components/home/CtaSection";
+import { FeaturesSection } from "@/components/home/FeaturesSection";
+import { HeroSection } from "@/components/home/HeroSection";
 
 export default function Home() {
   return (

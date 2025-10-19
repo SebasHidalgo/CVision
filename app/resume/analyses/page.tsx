@@ -1,4 +1,4 @@
-import ResumesAnalysesContentPage from "@/components/resume/Resumes-Analyses-Content-Page";
+import ResumesAnalysesContentPage from "@/components/resume/ResumesAnalysesContentPage";
 import { fetchAllResumesByUser } from "@/lib/database/resume";
 import { auth } from "@clerk/nextjs/server";
 

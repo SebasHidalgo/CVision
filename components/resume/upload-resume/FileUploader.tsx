@@ -1,6 +1,6 @@
 import { formatFileSize } from "@/utils/format";
 import { Upload } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 
 interface FileUploaderProps {

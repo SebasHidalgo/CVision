@@ -1,7 +1,7 @@
 import {
   ReviewsGridSkeleton,
   ReviewsStatsSkeleton,
-} from "@/components/skeletons/analyses-skeleton";
+} from "@/components/skeletons/AnalysesSkeleton";
 
 export default function loading() {
   return (

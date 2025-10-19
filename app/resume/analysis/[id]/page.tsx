@@ -1,4 +1,4 @@
-import ResumeAnalysisContent from "@/components/resume/analysis/Resume-Analysis";
+import ResumeAnalysisContent from "@/components/resume/analysis/ResumeAnalysis";
 import { fetchResumeById } from "@/lib/database/resume";
 import React from "react";
 

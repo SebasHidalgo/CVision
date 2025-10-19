@@ -1,8 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Feedback } from "@/types/resume";
-import AtsSection from "./Ats-Section";
-import OverallScore from "./Overall-Score";
-import CategoriesDetails from "./Categories-Details";
+import AtsSection from "./AtsSection";
+import OverallScore from "./OverallScore";
+import CategoriesDetails from "./CategoriesDetails";
 
 type ResumeFeedbackProps = {
   feedback: Feedback;

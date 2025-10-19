@@ -1,4 +1,4 @@
-import UploadForm from "@/components/resume/upload-resume/Upload-Form";
+import UploadForm from "@/components/resume/upload-resume/UploadForm";
 
 export default function UploadResumePage() {
   return (

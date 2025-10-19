@@ -13,12 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
-import FileUploader from "./File-Uploader";
+import FileUploader from "./FileUploader";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import ErrorMessage from "@/components/shared/Error-Message";
+import ErrorMessage from "@/components/shared/ErrorMessage";
 import { CreateResumeInput } from "@/types/resume";
 import { toast } from "sonner";
+
 export default function UploadForm() {
   const router = useRouter();
 

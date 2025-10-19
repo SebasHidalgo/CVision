@@ -1,6 +1,6 @@
 import React from "react";
-import PdfPreview from "./Pdf-Viewer";
-import ResumeFeedback from "./Resume-Feedback";
+import PdfPreview from "./PdfViewer";
+import ResumeFeedback from "./ResumeFeedback";
 import { ResumeAnalysis } from "@/types/resume";
 
 type ResumeAnalysisProps = {
