@@ -4,7 +4,7 @@ import type {
   Feedback,
   ResumeAnalysis,
 } from "@/types/resume";
-import { mapDbResume } from "../prisma";
+import { mapDbResume } from "./prisma";
 import type { DBResumeAnalysis, Prisma } from "@prisma/client";
 import { handleError } from "../error/handleError";
 import ollama from "ollama";
@@ -109,11 +109,8 @@ export async function fetchAllResumes() {
       orderBy: { createdAt: "desc" },
     });
 
-    console.log(user.id)
-
     return dbResumes.map((db) => mapDbResume(db as DBResumeAnalysis));
   } catch (error) {
-    console.log(error);
     handleError(error, "Failed to retrieve all resume analysis records");
   }
 }

@@ -31,3 +31,15 @@ model Feedback {
   toneAndClarity             Json
   jobFit                     Json
 }
+
+model Interview {
+  id        String   @id @default(uuid())
+  role      String
+  level     String
+  questions String[]
+  techstack String[]
+  userId    String
+  type      String
+  finalized Boolean
+  createdAt DateTime @default(now())
+}

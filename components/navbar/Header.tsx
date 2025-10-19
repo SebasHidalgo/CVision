@@ -1,9 +1,11 @@
 "use client";
 
 import { SignInButton } from "@clerk/nextjs";
-import CVisionLogo from "./Logo";
-import { Button } from "../ui/button";
-import { SignedIn, SignedOut, SignOutButton } from "@clerk/clerk-react";
+import CVisionLogo from "@/components/navbar/Logo";
+import { Button } from "@/components/ui/button";
+import { SignedIn, SignedOut } from "@clerk/clerk-react";
+import UserDropdown from "./User-Dropdown";
+import Link from "next/link";
 
 export function Header() {
   return (
@@ -17,11 +19,13 @@ export function Header() {
           </div>
 
           <SignedIn>
-            <SignOutButton>
-            <Button size="sm" variant="outline">
-              Sign out
-            </Button>
-            </SignOutButton>
+            <div className="flex gap-3">
+              <Link href="/resume/upload">
+                <Button size={"sm"}>Analyse Resume</Button>
+              </Link>
+
+              <UserDropdown />
+            </div>
           </SignedIn>
 
           <SignedOut>
