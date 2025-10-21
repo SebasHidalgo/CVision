@@ -26,22 +26,19 @@ export default function ResumesAnalysesContentPage({
   };
 
   return (
-    <main className="container mx-auto px-4 py-12">
-      <div className="mb-8">
+    <div className="container mx-auto px-4 py-12">
+      <section className="mb-8">
         <h1 className="text-4xl font-bold mb-2 text-balance">
           Your Resume Reviews
         </h1>
         <p className="text-muted-foreground text-lg">
           View and manage all your resume analysis results
         </p>
-      </div>
+      </section>
 
-      {/* Stats Overview */}
-
-      {/* Empty State (if no reviews) */}
       {resumesAnalysis.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-primary/10">
@@ -72,8 +69,9 @@ export default function ResumesAnalysesContentPage({
                 </div>
               </div>
             </Card>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resumesAnalysis.map((resume) => {
               const { overall } = resume.feedback;
               return (
@@ -141,10 +139,10 @@ export default function ResumesAnalysesContentPage({
                 </Link>
               );
             })}
-          </div>
+          </section>
         </>
       ) : (
-        <div className="flex justify-center mx-auto">
+        <section className="flex justify-center mx-auto">
           <Card className="p-12 text-center bg-card/50 backdrop-blur border-border/40 space-y-1">
             <FileSearch className="h-16 w-16 text-muted-foreground mx-auto" />
             <h3 className="text-xl font-semibold">No reviews yet</h3>
@@ -155,8 +153,8 @@ export default function ResumesAnalysesContentPage({
               <Link href="/resume/upload">Upload Resume</Link>
             </Button>
           </Card>
-        </div>
+        </section>
       )}
-    </main>
+    </div>
   );
 }

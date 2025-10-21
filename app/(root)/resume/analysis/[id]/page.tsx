@@ -16,7 +16,5 @@ export default async function ResumeAnalysisPage({
     return <div>Resume analysis not found.</div>;
   }
 
-  console.log(resumeAnalysis);
-
   return <ResumeAnalysisContent resumeAnalysis={resumeAnalysis} />;
 }

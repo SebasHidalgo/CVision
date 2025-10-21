@@ -7,5 +7,5 @@ export type Interview = {
   userId: string;
   type: string;
   finalized: boolean;
-  createdAt: string;
+  createdAt: Date;
 };

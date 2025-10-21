@@ -5,7 +5,7 @@ import {
 
 export default function loading() {
   return (
-    <main className="container mx-auto px-4 py-12">
+    <section className="container mx-auto px-4 py-12">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 text-balance">
           Your Resume Reviews
@@ -16,6 +16,6 @@ export default function loading() {
       </div>
       <ReviewsStatsSkeleton />
       <ReviewsGridSkeleton />
-    </main>
+    </section>
   );
 }
