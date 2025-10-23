@@ -17,32 +17,6 @@ type InterviewsContainerProps = {
 export default function InterviewsContainer({
   interviews,
 }: InterviewsContainerProps) {
-  const getLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case "senior":
-        return "bg-purple-500/10 text-purple-500 border-purple-500/20";
-      case "mid-level":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      case "junior":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "technical":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      case "behavioral":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-      case "design":
-        return "bg-pink-500/10 text-pink-500 border-pink-500/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-12">
       {/* Header Section */}
@@ -108,10 +82,6 @@ export default function InterviewsContainer({
                     <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors text-balance">
                       {interview.role}
                     </h3>
-
-                    <Badge className={getLevelColor(interview.level)}>
-                      {interview.level}
-                    </Badge>
                   </div>
                   <div>
                     {interview.finalized ? (
