@@ -5,20 +5,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Brain, Zap, Shield, BarChart3 } from "lucide-react";
+import {
+  Brain,
+  Zap,
+  Shield,
+  BarChart3,
+  MessageSquare,
+  Target,
+} from "lucide-react";
 
 const features = [
   {
     icon: Brain,
-    title: "Smart Analysis",
+    title: "Smart CV Analysis",
     description:
-      "Our AI analyzes skills, experience, and cultural fit with advanced precision.",
+      "Our AI analyzes skills, experience, and job compatibility with advanced precision.",
+  },
+  {
+    icon: MessageSquare,
+    title: "AI-Powered Interviews",
+    description:
+      "Simulates realistic interviews tailored to the job position to objectively assess candidates.",
   },
   {
     icon: Zap,
     title: "Fast Processing",
     description:
-      "Analyzes hundreds of resumes in minutes, not days. Accelerate your selection process.",
+      "Analyzes hundreds of resumes and conducts multiple interviews in minutes, not days.",
+  },
+  {
+    icon: Target,
+    title: "Accurate Evaluation",
+    description:
+      "Obtains detailed scores for both the CV and performance in the simulated interview.",
   },
   {
     icon: Shield,
@@ -30,7 +49,7 @@ const features = [
     icon: BarChart3,
     title: "Detailed Insights",
     description:
-      "Get comprehensive reports with scores, comparisons, and personalized recommendations.",
+      "Comprehensive reports with CV analysis, interview transcripts, and personalized recommendations.",
   },
 ];
 
@@ -40,16 +59,16 @@ export function FeaturesSection() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-balance">
-            The most advanced platform for resume analysis
+            The complete platform for smart recruiting
           </h2>
           <p className="mt-6 text-lg leading-8 text-muted-foreground text-pretty">
-            Combine cutting-edge artificial intelligence with an intuitive
-            interface to transform your recruiting process.
+            Combines cutting-edge AI resume analysis and interview simulation to
+            transform your recruiting process from start to finish.
           </p>
         </div>
 
-        <div className="mx-auto mt-16 max-w-5xl">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto mt-16 max-w-6xl">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => (
               <Card
                 key={index}

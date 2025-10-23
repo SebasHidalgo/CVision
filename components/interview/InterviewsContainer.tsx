@@ -45,6 +45,7 @@ export default function InterviewsContainer({
 
   return (
     <div className="container mx-auto px-4 py-12">
+      {/* Header Section */}
       <section className="mb-8">
         <h1 className="text-4xl font-bold mb-2 text-balance">
           Your Interviews
@@ -54,6 +55,7 @@ export default function InterviewsContainer({
         </p>
       </section>
 
+      {/* Stats Section */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
           <div className="flex items-center gap-4">
@@ -94,6 +96,7 @@ export default function InterviewsContainer({
         </Card>
       </section>
 
+      {/* Interviews Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {interviews.map((interview) => (
           <Link key={interview.id} href={`/interview/${interview.id}`}>
@@ -105,14 +108,10 @@ export default function InterviewsContainer({
                     <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors text-balance">
                       {interview.role}
                     </h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={getLevelColor(interview.level)}>
-                        {interview.level}
-                      </Badge>
-                      <Badge className={getTypeColor(interview.type)}>
-                        {interview.type}
-                      </Badge>
-                    </div>
+
+                    <Badge className={getLevelColor(interview.level)}>
+                      {interview.level}
+                    </Badge>
                   </div>
                   <div>
                     {interview.finalized ? (
@@ -159,10 +158,6 @@ export default function InterviewsContainer({
                         }
                       )}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <MessageSquare className="h-3 w-3" />
-                    <span>{interview.questions.length} questions</span>
                   </div>
                 </div>
               </div>

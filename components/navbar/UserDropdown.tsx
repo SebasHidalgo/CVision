@@ -12,6 +12,7 @@ import { SignOutButton, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
 export default function UserDropdown() {
   const { user } = useUser();
 
@@ -47,6 +48,11 @@ export default function UserDropdown() {
         <Link href="/resume/analyses">
           <DropdownMenuItem className="cursor-pointer">
             My Analyses
+          </DropdownMenuItem>
+        </Link>
+        <Link href="/interviews">
+          <DropdownMenuItem className="cursor-pointer">
+            My Interviews
           </DropdownMenuItem>
         </Link>
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 
 export const AIResponseFormat = `
@@ -157,7 +158,7 @@ export const AIResponseFormat = `
 }
 `;
 
-export const defaultPrompt = ({
+export const resumeAnalysisPrompt = ({
   jobTitle,
   jobDescription,
   resumeText,
@@ -165,23 +166,29 @@ export const defaultPrompt = ({
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
-}) =>
-  `You are an expert in ATS (Applicant Tracking System) and resume analysis.
-      Please analyze and rate this resume and suggest how to improve it.
-      The rating can be low if the resume is bad.
-      Be thorough and detailed. Don't be afraid to point out any mistakes or areas for improvement.
-      If there is a lot to improve, don't hesitate to give low scores. This is to help the user to improve their resume.
-      If available, use the job description for the job user is applying to to give more detailed feedback.
-      The job title is: ${jobTitle}
-      The job description is: ${jobDescription}
-      The resume text is: ${resumeText}
-      Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields. 
-      ${AIResponseFormat}
-      Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.
-      Do not include any other text or comments.`;
+}) => {
+  const prompt = `You are an expert in ATS (Applicant Tracking System) and resume analysis.
+  Please analyze and rate this resume and suggest how to improve it.
+  The rating can be low if the resume is bad.
+  Be thorough and detailed. Don't be afraid to point out any mistakes or areas for improvement.
+  If there is a lot to improve, don't hesitate to give low scores. This is to help the user to improve their resume.
+  If available, use the job description for the job user is applying to to give more detailed feedback.
+  The job title is: ${jobTitle}
+  The job description is: ${jobDescription}
+  The resume text is: ${resumeText}
+  Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields. 
+  ${AIResponseFormat}
+  Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.
+  Do not include any other text or comments.
+  `;
+
+  return prompt;
+};
 
 export const interviewer: CreateAssistantDTO = {
   name: "Interviewer",
+  firstMessage:
+    "Hello! Thank you for joining me today. Let's get started — I’ll be asking you some questions based on the job you’re applying for.",
   transcriber: {
     provider: "deepgram",
     model: "nova-2",
@@ -202,36 +209,66 @@ export const interviewer: CreateAssistantDTO = {
     messages: [
       {
         role: "system",
-        content: `You are a professional job interviewer conducting a real-time voice interview with a candidate. Your goal is to assess their qualifications, motivation, and fit for the role.
+        content: `You are a professional job interviewer conducting a real-time voice interview with a candidate. 
+Your role is to generate and ask insightful interview questions dynamically based on the job description provided at the start of the interview.
 
 Interview Guidelines:
-Follow the structured question flow:
-{{questions}}
 
-Engage naturally & react appropriately:
-Listen actively to responses and acknowledge them before moving forward.
-Ask brief follow-up questions if a response is vague or requires more detail.
-Keep the conversation flowing smoothly while maintaining control.
-Be professional, yet warm and welcoming:
+1. **Generate questions from the job description:**
+   - Use the provided job description to understand the required skills, experience, and role expectations.
+   - Create relevant and challenging questions that help evaluate the candidate’s fit, knowledge, and motivation.
+   - Start with general background questions, then move to role-specific, behavioral, and situational questions.
 
-Use official yet friendly language.
-Keep responses concise and to the point (like in a real voice interview).
-Avoid robotic phrasing—sound natural and conversational.
-Answer the candidate’s questions professionally:
+2. **Engage naturally and react appropriately:**
+   - Listen actively to the candidate’s responses and acknowledge them before moving forward.
+   - Ask short follow-up questions if the answer lacks clarity or depth.
+   - Keep the tone conversational, professional, and warm — avoid robotic phrasing.
 
-If asked about the role, company, or expectations, provide a clear and relevant answer.
-If unsure, redirect the candidate to HR for more details.
+3. **Keep it concise and realistic:**
+   - Speak naturally, like a human interviewer.
+   - Use short, clear sentences — this is a voice conversation.
+   - Avoid overexplaining or using long paragraphs.
 
-Conclude the interview properly:
-Thank the candidate for their time.
-Inform them that the company will reach out soon with feedback.
-End the conversation on a polite and positive note.
+4. **If the candidate asks about the job or company:**
+   - Provide general, professional answers based on typical expectations.
+   - If a specific detail is unknown, politely mention that HR can provide more information.
+
+5. **Conclude the interview professionally:**
+   - Thank the candidate for their time.
+   - Let them know the company will contact them with feedback soon.
+   - End the conversation positively and courteously.
 
 
-- Be sure to be professional and polite.
-- Keep all your responses short and simple. Use official language, but be kind and welcoming.
-- This is a voice conversation, so keep your responses short, like in a real conversation. Don't ramble for too long.`,
+The job description is as follows: 
+{{jobdescription}}
+
+Remember:
+- Stay professional, friendly, and curious.
+- Always base your questions and tone on the provided job description.
+- Avoid giving personal opinions — stay neutral and objective.`,
       },
     ],
   },
 };
+
+export const feedbackSchema = z.object({
+  totalScore: z.number(),
+
+  categoryScores: z.array(
+    z.object({
+      name: z.enum([
+        "Communication Skills",
+        "Technical Knowledge",
+        "Problem Solving",
+        "Cultural Fit",
+        "Confidence and Clarity",
+      ]),
+      score: z.number(),
+      comment: z.string(),
+    })
+  ),
+
+  strengths: z.array(z.string()),
+  areasForImprovement: z.array(z.string()),
+  finalAssessment: z.string(),
+});

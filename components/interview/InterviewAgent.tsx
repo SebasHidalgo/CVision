@@ -11,6 +11,7 @@ import { Loader2, MessageSquare, Phone, PhoneOff } from "lucide-react";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { ScrollArea } from "../ui/scroll-area";
+import { createInterviewFeedback } from "@/lib/database/interview";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -24,25 +25,23 @@ type SavedMessage = {
   content: string;
 };
 
-type AgentProps = {
+type InterviewAgentProps = {
+  interviewId: string;
+  jobDescription: string;
   userName: string;
-  userId?: string;
-  interviewId?: string;
+  userId: string;
   feedbackId?: string;
-  type: "generate" | "interview";
-  questions?: string[];
   userProfilePic: string;
 };
 
-export default function Agent({
+export default function InterviewAgent({
   userName,
-  userId,
   interviewId,
+  jobDescription,
+  userId,
   feedbackId,
-  type,
-  questions,
   userProfilePic,
-}: AgentProps) {
+}: InterviewAgentProps) {
   const router = useRouter();
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
@@ -52,6 +51,7 @@ export default function Agent({
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -88,37 +88,42 @@ export default function Agent({
     };
   }, []);
 
+  const handleGenerateFeedback = async (messages: SavedMessage[]) => {
+    const feedback = await createInterviewFeedback({
+      interviewId: interviewId!,
+      userId: userId!,
+      transcript: messages,
+      feedbackId,
+    });
+
+    if (!feedback) {
+      console.log("Error generating feedback");
+      router.push("/");
+      return;
+    }
+
+    if (feedback.success && feedback.feedbackId) {
+      router.push(`/interview/${interviewId}/feedback`);
+    } else {
+      console.log("Error saving feedback");
+      router.push("/");
+    }
+  };
+
   useEffect(() => {
     if (callStatus === CallStatus.FINISHED) {
-      if (type === "generate") {
-        router.push("/");
-      } else {
-        // Generate feedback logic if needed
-      }
+      handleGenerateFeedback(messages);
     }
-  }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
+  }, [messages, callStatus, feedbackId, interviewId, router, userId]);
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(
-        undefined,
-        undefined,
-        undefined,
-        process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!,
-        { variableValues: { username: userName, userid: userId } }
-      );
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions.map((q) => `- ${q}`).join("\n");
-      }
-
-      await vapi.start(interviewer, {
-        variableValues: { questions: formattedQuestions },
-      });
-    }
+    await vapi.start(interviewer, {
+      variableValues: {
+        jobdescription: jobDescription,
+      },
+    });
   };
 
   const handleDisconnect = () => {
@@ -127,7 +132,7 @@ export default function Agent({
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-12">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
         {/* Left Column: Interview Controls */}
         <section className="lg:col-span-1 flex flex-col gap-6">

@@ -9,13 +9,14 @@ export type ResumeAnalysis = {
   id: string;
   companyName: string;
   jobTitle: string;
+  jobDescription: string;
   resumeUrl: string;
   userId: string;
-  feedback: Feedback;
+  feedback: ResumeAnalysisFeedback;
   createdAt: string;
 };
 
-export type Feedback = {
+export type ResumeAnalysisFeedback = {
   overall: {
     globalScore: number;
     verdict: "Excellent" | "Good" | "Average" | "Poor";

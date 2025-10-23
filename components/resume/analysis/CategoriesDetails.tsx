@@ -2,7 +2,7 @@ import type React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Feedback } from "@/types/resume";
+import type { ResumeAnalysisFeedback } from "@/types/resume";
 import {
   CheckCircle2,
   TriangleAlert,
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 interface CategoriesDetailsProps {
-  feedback: Feedback;
+  feedback: ResumeAnalysisFeedback;
 }
 
 export default function CategoriesDetails({

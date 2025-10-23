@@ -1,7 +1,7 @@
 import prisma from "./database";
 import type {
   CreateResumeInput,
-  Feedback,
+  ResumeAnalysisFeedback,
   ResumeAnalysis,
 } from "@/types/resume";
 import { mapDbResume } from "./prisma";
@@ -9,15 +9,16 @@ import type { DBResumeAnalysis, Prisma } from "@prisma/client";
 import { handleError } from "../error/handleError";
 import ollama from "ollama";
 import { extractTextFromPDFFile } from "@/utils/pdf-parse";
-import { defaultPrompt } from "@/constants";
+import { resumeAnalysisPrompt } from "@/constants";
 import { uploadFileToSupabase } from "../supabase";
 import { getAuthUser } from "../auth";
 
 type ResumeAnalysisInput = {
   companyName: string;
   jobTitle: string;
+  jobDescription: string;
   resumeUrl: string;
-  feedback: Feedback;
+  feedback: ResumeAnalysisFeedback;
 };
 
 export async function analyzeResume(input: CreateResumeInput) {
@@ -26,7 +27,7 @@ export async function analyzeResume(input: CreateResumeInput) {
 
     const resumeParsed = await extractTextFromPDFFile(resume!);
 
-    const prompt = defaultPrompt({
+    const prompt = resumeAnalysisPrompt({
       jobTitle: jobTitle,
       jobDescription: jobDescription,
       resumeText: resumeParsed,
@@ -44,6 +45,7 @@ export async function analyzeResume(input: CreateResumeInput) {
     const analysis: ResumeAnalysisInput = {
       companyName: companyName,
       jobTitle: jobTitle,
+      jobDescription: jobDescription,
       resumeUrl: resumeUrl,
       feedback: analysisData,
     };
@@ -64,6 +66,7 @@ export async function createResume(analysis: ResumeAnalysis) {
       data: {
         companyName: analysis.companyName,
         jobTitle: analysis.jobTitle,
+        jobDescription: analysis.jobDescription,
         resumeUrl: analysis.resumeUrl,
         userId: user.id,
         feedback: {

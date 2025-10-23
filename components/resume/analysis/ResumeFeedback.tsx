@@ -1,14 +1,21 @@
 import { Card } from "@/components/ui/card";
-import { Feedback } from "@/types/resume";
+import { ResumeAnalysisFeedback } from "@/types/resume";
 import AtsSection from "./AtsSection";
 import OverallScore from "./OverallScore";
 import CategoriesDetails from "./CategoriesDetails";
+import { InterviewDetails } from "@/types/interview";
 
 type ResumeFeedbackProps = {
-  feedback: Feedback;
+  feedback: ResumeAnalysisFeedback;
+  interviewDetails: InterviewDetails;
 };
 
-export default function ResumeFeedback({ feedback }: ResumeFeedbackProps) {
+export default function ResumeFeedback({
+  feedback,
+  interviewDetails,
+}: ResumeFeedbackProps) {
+  const { jobRole, jobDescription, resumeId } = interviewDetails;
+
   return (
     <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
       <div className="space-y-6">
@@ -20,7 +27,14 @@ export default function ResumeFeedback({ feedback }: ResumeFeedbackProps) {
         <OverallScore score={feedback.overall.globalScore} />
 
         {/* ATS Score Section */}
-        <AtsSection atsCompatibility={feedback.atsCompatibility} />
+        <AtsSection
+          atsCompatibility={feedback.atsCompatibility}
+          interviewDetails={{
+            jobRole,
+            jobDescription,
+            resumeId,
+          }}
+        />
 
         {/* Detailed Feedback */}
         <CategoriesDetails feedback={feedback} />

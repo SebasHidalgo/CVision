@@ -1,4 +1,6 @@
-import { CheckCircle2, TriangleAlert } from "lucide-react";
+"use client";
+
+import { CheckCircle2, TriangleAlert, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Accordion,
@@ -6,14 +8,25 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Feedback } from "@/types/resume";
+import type { ResumeAnalysisFeedback } from "@/types/resume";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createInterview } from "@/lib/database/interview";
+import { InterviewDetails } from "@/types/interview";
 
 interface AtsSectionProps {
-  atsCompatibility: Feedback["atsCompatibility"];
+  atsCompatibility: ResumeAnalysisFeedback["atsCompatibility"];
+  interviewDetails: InterviewDetails;
 }
 
-export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
+export default function AtsSection({
+  atsCompatibility,
+  interviewDetails,
+}: AtsSectionProps) {
   const { score, description, evidence, fixes, problems } = atsCompatibility;
+  const [isCreatingInterview, setIsCreatingInterview] = useState(false);
+  const router = useRouter();
 
   const subtitle =
     score > 69
@@ -21,6 +34,15 @@ export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
       : score > 49
       ? "Solid start"
       : "Requires improvement";
+
+  const handleSimulateInterview = async () => {
+    setIsCreatingInterview(true);
+
+    const interviewId = await createInterview(interviewDetails);
+
+    router.push(`/interview/${interviewId}`);
+  };
+
   return (
     <Card className="bg-secondary/50 border-border/50">
       <CardContent className="space-y-10">
@@ -97,6 +119,45 @@ export default function AtsSection({ atsCompatibility }: AtsSectionProps) {
             </Accordion>
           </div>
         </div>
+
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h4 className="text-lg font-semibold text-foreground mb-2">
+                    Ready for the next step?
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Practice your interview skills with our AI-powered mock
+                    interview. Get personalized feedback and improve your
+                    chances of landing the job.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSimulateInterview}
+                  disabled={isCreatingInterview}
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                >
+                  {isCreatingInterview ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Creating Interview...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Start Mock Interview
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </CardContent>
     </Card>
   );

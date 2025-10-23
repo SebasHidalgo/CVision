@@ -9,17 +9,19 @@ generator client {
 }
 
 model ResumeAnalysis {
-  id          String   @id @default(uuid())
-  companyName String
-  jobTitle    String
-  resumeUrl   String
-  userId      String
-  createdAt   DateTime @default(now())
+  id             String   @id @default(uuid())
+  companyName    String
+  jobTitle       String
+  jobDescription String
+  resumeUrl      String
+  userId         String
+  createdAt      DateTime @default(now())
 
-  feedback Feedback?
+  feedback  ResumeFeedback?
+  Interview Interview?
 }
 
-model Feedback {
+model ResumeFeedback {
   id                         String         @id @default(uuid())
   resumeId                   String         @unique
   resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id])
@@ -35,11 +37,24 @@ model Feedback {
 model Interview {
   id        String   @id @default(uuid())
   role      String
-  level     String
-  questions String[]
   techstack String[]
   userId    String
-  type      String
-  finalized Boolean
+  finalized Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  resumeAnalysisId String?         @unique // <- conexión opcional al ResumeAnalysis
+  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id])
+
+  InterviewFeedback InterviewFeedback?
+}
+
+model InterviewFeedback {
+  id                  String    @id @default(uuid())
+  interviewId         String    @unique
+  interview           Interview @relation(fields: [interviewId], references: [id])
+  totalScore          Int
+  categoryScores      Json
+  strengths           String[]
+  areasForImprovement String[]
+  finalAssessment     String
 }
