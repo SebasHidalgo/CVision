@@ -17,6 +17,10 @@ export type Interview = {
 export type InterviewFeedback = {
   id: string;
   interviewId: string;
+  /** From the interview: what the report is about and when it happened. */
+  role: string;
+  createdAt: string;
+  recordingUrl: string | null;
   totalScore: number;
   categoryScores: Array<{
     name: string;

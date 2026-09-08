@@ -1,21 +1,11 @@
-import {
-  ReviewsGridSkeleton,
-  ReviewsStatsSkeleton,
-} from "./components/AnalysesSkeleton";
+import PageIntro from "@/components/layout/PageIntro";
+import { AnalysesListSkeleton } from "./components/AnalysesSkeleton";
 
 export default function ResumeAnalysesLoading() {
   return (
-    <section className="container mx-auto px-4 py-12">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 text-balance">
-          Your Resume Reviews
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          View and manage all your resume analysis results
-        </p>
-      </div>
-      <ReviewsStatsSkeleton />
-      <ReviewsGridSkeleton />
-    </section>
+    <div className="wrap py-12 lg:py-16">
+      <PageIntro eyebrow="Your analyses" title="Every CV you have measured." />
+      <AnalysesListSkeleton />
+    </div>
   );
 }

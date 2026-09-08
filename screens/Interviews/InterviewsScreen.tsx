@@ -1,136 +1,99 @@
-import Link from "next/link";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  MessageSquare,
-  Calendar,
-  Code2,
-  CheckCircle2,
-  Clock,
-} from "lucide-react";
+import EmptyState from "@/components/layout/EmptyState";
+import IndexRow from "@/components/layout/IndexRow";
+import PageIntro from "@/components/layout/PageIntro";
 import { fetchAllInterviews } from "@/lib/database/interview";
+import { formatDate, ordinal } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const VISIBLE_TECH = 4;
 
 export default async function InterviewsScreen() {
   const interviews = await fetchAllInterviews();
+  const completed = interviews.filter((interview) => interview.finalized).length;
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      {/* Header Section */}
-      <section className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 text-balance">
-          Your Interviews
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Manage and review all your interview sessions
-        </p>
-      </section>
+    <div className="wrap py-12 lg:py-16">
+      <PageIntro
+        eyebrow="Your interviews"
+        title="Every rehearsal, on the record."
+        aside={
+          interviews.length > 0 && (
+            <dl className="flex gap-10 md:gap-14">
+              <div>
+                <dt className="eyebrow">Interviews</dt>
+                <dd className="figure mt-3 text-5xl text-ink">
+                  {interviews.length}
+                </dd>
+              </div>
+              <div>
+                <dt className="eyebrow">Completed</dt>
+                <dd className="figure mt-3 text-5xl text-ink">{completed}</dd>
+              </div>
+            </dl>
+          )
+        }
+      />
 
-      {/* Stats Section */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <MessageSquare className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Interviews</p>
-              <p className="text-2xl font-bold">{interviews.length}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-green-500/10">
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Completed</p>
-              <p className="text-2xl font-bold">
-                {interviews.filter((i) => i.finalized).length}
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-amber-500/10">
-              <Clock className="h-6 w-6 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">In Progress</p>
-              <p className="text-2xl font-bold">
-                {interviews.filter((i) => !i.finalized).length}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </section>
+      {interviews.length === 0 ? (
+        <EmptyState
+          title="No rehearsals yet."
+          body="Interviews start from an analysis, so the questions come from the actual job post you are applying to."
+          action={{ href: "/resume/analyses", label: "Pick an analysis" }}
+        />
+      ) : (
+        <ol className="divide-y divide-line border-b border-line">
+          {interviews.map((interview, i) => {
+            const hidden = interview.techstack.length - VISIBLE_TECH;
 
-      {/* Interviews Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {interviews.map((interview) => (
-          <Link key={interview.id} href={`/interview/${interview.id}`}>
-            <Card className="group bg-card/50 backdrop-blur border-border/40 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer h-full">
-              <div className="p-6">
-                {/* Header with Status */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors text-balance">
-                      {interview.role}
-                    </h3>
-                  </div>
-                  <div>
-                    {interview.finalized ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Clock className="h-5 w-5 text-amber-500" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Tech Stack */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Code2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Tech Stack
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {interview.techstack.slice(0, 3).map((tech, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {tech}
-                      </Badge>
-                    ))}
-                    {interview.techstack.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{interview.techstack.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-4 border-t border-border/40">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>
-                      {new Date(interview.createdAt).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        }
+            return (
+              <IndexRow
+                key={interview.id}
+                index={ordinal(i)}
+                // A finished interview opens its feedback; an unfinished one,
+                // the room.
+                href={
+                  interview.finalized
+                    ? `/interview/${interview.id}/feedback`
+                    : `/interview/${interview.id}`
+                }
+                title={interview.role}
+                subtitle={
+                  interview.techstack.length > 0 ? (
+                    <span className="flex flex-wrap gap-1.5">
+                      {interview.techstack.slice(0, VISIBLE_TECH).map((tech) => (
+                        <span
+                          key={tech}
+                          className="border border-line px-1.5 py-px font-mono text-[11px] text-ink-2"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                      {hidden > 0 && (
+                        <span className="px-1 py-px font-mono text-[11px] text-ink-3">
+                          +{hidden}
+                        </span>
                       )}
                     </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        ))}
-      </section>
+                  ) : undefined
+                }
+                meta={formatDate(interview.createdAt)}
+                reading={
+                  <p className="flex items-center gap-3 text-sm font-medium text-ink">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-2 rounded-full",
+                        interview.finalized ? "bg-strong" : "bg-signal animate-blink",
+                      )}
+                    />
+                    {interview.finalized ? "Completed · view feedback" : "Ready to start"}
+                  </p>
+                }
+              />
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }

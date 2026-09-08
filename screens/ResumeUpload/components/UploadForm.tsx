@@ -1,42 +1,33 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Sparkles } from "lucide-react";
-import { useState } from "react";
-import FileUploader from "./FileUploader";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ErrorMessage from "./ErrorMessage";
+import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import {
   createResumeInputSchema,
   MAX_JOB_DESCRIPTION_CHARS,
   type CreateResumeInput,
 } from "@/lib/schemas/resumeSchema";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import AnalysisInProgress from "./AnalysisInProgress";
+import Field from "./Field";
+import FileUploader from "./FileUploader";
 
 export default function UploadForm() {
   const router = useRouter();
-
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const {
     register,
     handleSubmit,
     setValue,
     resetField,
+    watch,
     formState: { errors },
   } = useForm<CreateResumeInput>({
     // Same schema the server action validates with.
@@ -47,6 +38,8 @@ export default function UploadForm() {
       jobDescription: "",
     },
   });
+
+  const descriptionLength = watch("jobDescription").length;
 
   const handleFileSelect = (file: File | null) => {
     if (!file) {
@@ -82,114 +75,72 @@ export default function UploadForm() {
     }
   };
 
+  if (isProcessing) return <AnalysisInProgress />;
+
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur">
-      {!isProcessing && (
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Job & Resume Details
-          </CardTitle>
-          <CardDescription>
-            Fill in the job information and upload the candidate&apos;s resume
-            for AI analysis.
-          </CardDescription>
-        </CardHeader>
-      )}
+    <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      <div className="grid gap-x-10 gap-y-2 md:grid-cols-2">
+        <Field id="company-name" label="Company" error={errors.companyName?.message}>
+          <input
+            id="company-name"
+            type="text"
+            autoComplete="organization"
+            maxLength={100}
+            placeholder="Northwind"
+            aria-invalid={Boolean(errors.companyName)}
+            className="field"
+            {...register("companyName")}
+          />
+        </Field>
 
-      <CardContent>
-        {isProcessing ? (
-          <div>
-            <h2 className="text-center text-2xl font-semibold">
-              Analyzing your resume...
-            </h2>
-            <p className="text-center text-muted-foreground mt-4 text-sm">
-              This may take a few moments.
-            </p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/resume-scan.gif"
-              alt="Resume scan"
-              className="w-84 mx-auto"
-            />
-          </div>
-        ) : (
-          <form
-            noValidate
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="company-name">Company Name</Label>
-                <div>
-                  <Input
-                    id="company-name"
-                    maxLength={100}
-                    {...register("companyName")}
-                    placeholder="Enter company name"
-                    className="bg-background/50"
-                  />
-                  {errors.companyName?.message && (
-                    <ErrorMessage text={errors.companyName.message} />
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="job-title">Job Title</Label>
-                <div>
-                  <Input
-                    id="job-title"
-                    maxLength={120}
-                    {...register("jobTitle")}
-                    placeholder="Enter job title"
-                    className="bg-background/50"
-                  />
-                  {errors.jobTitle?.message && (
-                    <ErrorMessage text={errors.jobTitle.message} />
-                  )}
-                </div>
-              </div>
-            </div>
+        <Field id="job-title" label="Job title" error={errors.jobTitle?.message}>
+          <input
+            id="job-title"
+            type="text"
+            autoComplete="organization-title"
+            maxLength={120}
+            placeholder="Frontend Engineer"
+            aria-invalid={Boolean(errors.jobTitle)}
+            className="field"
+            {...register("jobTitle")}
+          />
+        </Field>
+      </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="job-description">Job Description</Label>
-              <div>
-                <Textarea
-                  id="job-description"
-                  // This text goes straight into the prompt.
-                  maxLength={MAX_JOB_DESCRIPTION_CHARS}
-                  {...register("jobDescription")}
-                  placeholder="Paste the complete job description here..."
-                  className="bg-background/50 resize-none"
-                />
-                {errors.jobDescription?.message && (
-                  <ErrorMessage text={errors.jobDescription.message} />
-                )}
-              </div>
-            </div>
+      <Field
+        id="job-description"
+        label="Job description"
+        hint={`${descriptionLength.toLocaleString("en-US")} / ${MAX_JOB_DESCRIPTION_CHARS.toLocaleString("en-US")}`}
+        error={errors.jobDescription?.message}
+      >
+        <textarea
+          id="job-description"
+          rows={9}
+          // This text goes straight into the prompt.
+          maxLength={MAX_JOB_DESCRIPTION_CHARS}
+          placeholder="Paste the full posting: responsibilities, requirements, nice-to-haves."
+          aria-invalid={Boolean(errors.jobDescription)}
+          className="field min-h-[12rem] resize-y leading-relaxed"
+          {...register("jobDescription")}
+        />
+      </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="resume">Resume Upload</Label>
+      <Field id="resume" label="Your CV" error={errors.resume?.message}>
+        <div className="mt-3">
+          <FileUploader
+            onFileSelect={handleFileSelect}
+            invalid={Boolean(errors.resume)}
+          />
+        </div>
+      </Field>
 
-              <FileUploader onFileSelect={handleFileSelect} />
-              {errors.resume?.message && (
-                <ErrorMessage text={errors.resume.message} />
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Analyze Resume with AI
-              </>
-            </Button>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+      <div className="flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <p className="eyebrow">Runs while you wait · about a minute</p>
+        <Button type="submit" size="lg" className="group h-12 px-7 text-base">
+          Run the analysis
+          <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
+        </Button>
+      </div>
+    </form>
   );
 }

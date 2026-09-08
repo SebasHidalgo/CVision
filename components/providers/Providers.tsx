@@ -1,6 +1,5 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 
 type ProvidersProps = {
@@ -8,12 +7,19 @@ type ProvidersProps = {
 };
 
 export default function Providers({ children }: ProvidersProps) {
-  const queryClient = new QueryClient();
-
   return (
     <>
-      <Toaster richColors />
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      {children}
+      <Toaster
+        theme="light"
+        position="bottom-center"
+        toastOptions={{
+          classNames: {
+            toast: "font-sans shadow-float",
+            title: "font-medium",
+          },
+        }}
+      />
     </>
   );
 }

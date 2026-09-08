@@ -1,167 +1,100 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Calendar, FileSearch, FileText, TrendingUp } from "lucide-react";
+import EmptyState from "@/components/layout/EmptyState";
+import IndexRow from "@/components/layout/IndexRow";
+import PageIntro from "@/components/layout/PageIntro";
+import ScoreMeter from "@/components/score/ScoreMeter";
 import { fetchAllResumes } from "@/lib/database/resume";
+import { formatDate, ordinal } from "@/lib/format";
+import { FIT_LABEL, scoreTone, TONE_CLASS } from "@/lib/score";
 
 export default async function ResumeAnalysesScreen() {
-  const resumesAnalysis = await fetchAllResumes();
+  const analyses = await fetchAllResumes();
 
-  // Rows that no longer match the feedback schema come back with null feedback;
-  // keeping them out stops one bad analysis from breaking the whole average.
-  const scores = resumesAnalysis
-    .map((resume) => resume.feedback?.overall.globalScore)
+  // Rows that no longer match the feedback schema come back with null
+  // feedback; keeping them out stops one bad analysis from skewing the average.
+  const scores = analyses
+    .map((analysis) => analysis.feedback?.overall.globalScore)
     .filter((score): score is number => typeof score === "number");
 
   const averageScore = scores.length
     ? Math.round(scores.reduce((acc, score) => acc + score, 0) / scores.length)
-    : 0;
-
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return "text-green-500";
-    if (score >= 70) return "text-blue-500";
-    if (score >= 50) return "text-amber-500";
-    return "text-red-500";
-  };
-
-  const getScoreBgColor = (score: number) => {
-    if (score >= 90) return "bg-green-500";
-    if (score >= 70) return "bg-blue-500";
-    if (score >= 50) return "bg-amber-500";
-    return "bg-red-500";
-  };
+    : null;
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <section className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 text-balance">
-          Your Resume Reviews
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          View and manage all your resume analysis results
-        </p>
-      </section>
-
-      {resumesAnalysis.length > 0 ? (
-        <>
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <FileText className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Reviews</p>
-                  <p className="text-2xl font-bold">{resumesAnalysis.length}</p>
-                </div>
+    <div className="wrap py-12 lg:py-16">
+      <PageIntro
+        eyebrow="Your analyses"
+        title="Every CV you have measured."
+        aside={
+          analyses.length > 0 && (
+            <dl className="flex gap-10 md:gap-14">
+              <div>
+                <dt className="eyebrow">Analyses</dt>
+                <dd className="figure mt-3 text-5xl text-ink">
+                  {analyses.length}
+                </dd>
               </div>
-            </Card>
-            <Card className="p-6 bg-card/50 backdrop-blur border-border/40">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Average Score</p>
-                  <p className="text-2xl font-bold">
-                    {averageScore}
-                    <span className="text-sm text-muted-foreground">/100</span>
-                  </p>
-                </div>
+              <div>
+                <dt className="eyebrow">Average fit</dt>
+                <dd className="figure mt-3 flex items-baseline gap-1.5 text-5xl text-ink">
+                  {averageScore ?? "–"}
+                  <span className="eyebrow">/100</span>
+                </dd>
               </div>
-            </Card>
-          </section>
+            </dl>
+          )
+        }
+      />
 
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {resumesAnalysis.map((resume) => {
-              const overall = resume.feedback?.overall;
-              return (
-                <Link key={resume.id} href={`/resume/analysis/${resume.id}`}>
-                  <Card className="group overflow-hidden py-0 bg-card/50 backdrop-blur border-border/40 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer h-full">
-                    {/* Resume Thumbnail */}
-                    <div className="aspect-[3/3] overflow-hidden rounded-xl p-1">
-                      <object
-                        data={`${resume.resumeUrl}#toolbar=0&view=FitH`}
-                        type="application/pdf"
-                        className="w-full h-full rounded-xl"
-                        aria-label="Resume Preview"
-                      ></object>
-                    </div>
-
-                    {/* Review Info */}
-                    <div className="p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors text-balance">
-                            {resume.companyName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground line-clamp-1">
-                            {resume.jobTitle}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          {new Date(resume.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Score Indicator */}
-                      {overall ? (
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${getScoreBgColor(
-                                overall.globalScore
-                              )} transition-all duration-500`}
-                              style={{
-                                width: `${overall.globalScore}%`,
-                              }}
-                            />
-                          </div>
-                          <span
-                            className={`text-sm font-semibold ${getScoreColor(
-                              overall.globalScore
-                            )}`}
-                          >
-                            {overall.globalScore}%
-                          </span>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          We couldn&apos;t read this analysis. Try uploading the
-                          resume again.
-                        </p>
-                      )}
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
-          </section>
-        </>
+      {analyses.length === 0 ? (
+        <EmptyState
+          title="Nothing measured yet."
+          body="Paste a job post, upload your CV, and this page becomes the record of how each application stacks up."
+          action={{ href: "/resume/upload", label: "Start your first analysis" }}
+        />
       ) : (
-        <section className="flex justify-center mx-auto">
-          <Card className="p-12 text-center bg-card/50 backdrop-blur border-border/40 space-y-1">
-            <FileSearch className="h-16 w-16 text-muted-foreground mx-auto" />
-            <h3 className="text-xl font-semibold">No reviews yet</h3>
-            <p className="text-muted-foreground">
-              Upload your first resume to get started with AI-powered analysis
-            </p>
-            <Button asChild>
-              <Link href="/resume/upload">Upload Resume</Link>
-            </Button>
-          </Card>
-        </section>
+        <ol className="divide-y divide-line border-b border-line">
+          {analyses.map((analysis, i) => {
+            const overall = analysis.feedback?.overall;
+            const score = overall?.globalScore;
+            const tone = typeof score === "number" ? scoreTone(score) : null;
+
+            return (
+              <IndexRow
+                key={analysis.id}
+                index={ordinal(i)}
+                href={overall ? `/resume/analysis/${analysis.id}` : undefined}
+                title={analysis.companyName}
+                subtitle={analysis.jobTitle}
+                meta={formatDate(analysis.createdAt)}
+                reading={
+                  typeof score === "number" && tone ? (
+                    <div className="flex items-center gap-4">
+                      <span className="figure w-10 shrink-0 text-3xl text-ink tabular">
+                        {score}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <ScoreMeter
+                          score={score}
+                          size="sm"
+                          reveal="mount"
+                          delay={0.1 + i * 0.05}
+                          label={`Fit score for ${analysis.jobTitle} at ${analysis.companyName}`}
+                        />
+                        <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[tone].text}`}>
+                          {FIT_LABEL[tone]}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-signal">
+                      We couldn&apos;t read this analysis. Run it again.
+                    </p>
+                  )
+                }
+              />
+            );
+          })}
+        </ol>
       )}
     </div>
   );

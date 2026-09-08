@@ -1,42 +1,102 @@
+import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { ArrowRight } from "lucide-react";
+import Eyebrow from "@/components/layout/Eyebrow";
+import Reveal from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { HeroSpecimen } from "./HeroSpecimen";
+
+const CONTENTS = [
+  { index: "01", label: "Fit score" },
+  { index: "02", label: "Priority fixes" },
+  { index: "03", label: "Voice mock interview" },
+];
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-background">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+    <section className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="grid-paper pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 lg:block"
+      />
 
-      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-8 inline-flex items-center rounded-full border border-border/40 bg-muted/50 px-3 py-1 text-sm text-muted-foreground">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Powered by Artificial Intelligence
-          </div>
+      <div className="wrap relative grid gap-14 pt-14 pb-20 lg:grid-cols-12 lg:items-center lg:gap-10 lg:pt-20 lg:pb-28">
+        <div className="lg:col-span-7">
+          <Reveal>
+            <Eyebrow tick>CV × job fit, measured</Eyebrow>
+          </Reveal>
 
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl text-balance">
-            Analyze resumes and simulate interviews with{" "}
-            <span className="text-primary">advanced AI</span>
-          </h1>
+          <Reveal delay={0.08}>
+            <h1 className="display-xl mt-6 text-ink">
+              Does your CV{" "}
+              <span className="relative inline-block whitespace-nowrap">
+                actually fit
+                <svg
+                  aria-hidden
+                  viewBox="0 0 300 14"
+                  preserveAspectRatio="none"
+                  className="absolute -bottom-[0.06em] left-0 h-[0.16em] w-full overflow-visible text-signal"
+                >
+                  <path
+                    d="M2 9 C 60 3, 120 12, 180 6 S 260 4, 298 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    pathLength="1"
+                    className="[stroke-dasharray:1] [stroke-dashoffset:1] motion-safe:animate-draw motion-reduce:[stroke-dashoffset:0]"
+                  />
+                </svg>
+              </span>{" "}
+              the job?
+            </h1>
+          </Reveal>
 
-          <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto text-pretty">
-            Revolutionize your selection process with our platform for
-            intelligent analysis and interview simulation. Identify the best
-            candidates and prepare them with realistic AI-driven interviews.
-          </p>
+          <Reveal delay={0.16}>
+            <p className="lede mt-7 max-w-xl">
+              Paste the posting, upload your CV, and get read the way a
+              demanding recruiter would read you: what matches, what&apos;s
+              missing, and what to fix first. Then rehearse the interview out
+              loud.
+            </p>
+          </Reveal>
 
-          <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Button
-              size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Start Now
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="lg">
-              View Live Demo
-            </Button>
-          </div>
+          <Reveal delay={0.24} className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <SignedOut>
+              <SignInButton mode="modal" forceRedirectUrl="/resume/upload">
+                <Button size="lg" className="group h-12 px-6 text-base">
+                  Analyze my CV
+                  <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
+                </Button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <Button asChild size="lg" className="group h-12 px-6 text-base">
+                <Link href="/resume/upload">
+                  Analyze my CV
+                  <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
+                </Link>
+              </Button>
+            </SignedIn>
+            <a href="#how" className="link-rule text-sm font-medium text-ink-2">
+              See how it works
+            </a>
+          </Reveal>
+
+          <Reveal delay={0.34} className="mt-14 hidden sm:block">
+            <ol className="flex flex-wrap gap-x-8 gap-y-2 border-t border-line pt-4">
+              {CONTENTS.map((item) => (
+                <li key={item.index} className="eyebrow flex items-center gap-3">
+                  <span className="text-ink">{item.index}</span>
+                  {item.label}
+                </li>
+              ))}
+            </ol>
+          </Reveal>
+        </div>
+
+        <div className="lg:col-span-5">
+          <HeroSpecimen />
         </div>
       </div>
     </section>
