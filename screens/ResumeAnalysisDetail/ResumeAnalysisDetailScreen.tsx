@@ -1,15 +1,18 @@
-import React from "react";
-import PdfPreview from "./PdfViewer";
-import ResumeFeedback from "./ResumeFeedback";
-import { ResumeAnalysis } from "@/types/resume";
+import { redirect } from "next/navigation";
+import { fetchResumeById } from "@/lib/database/resume";
+import PdfPreview from "./components/PdfViewer";
+import ResumeFeedback from "./components/ResumeFeedback";
 
-type ResumeAnalysisProps = {
-  resumeAnalysis: ResumeAnalysis;
+type ResumeAnalysisDetailScreenProps = {
+  resumeAnalysisId: string;
 };
 
-export default function ResumeAnalysisContent({
-  resumeAnalysis,
-}: ResumeAnalysisProps) {
+export default async function ResumeAnalysisDetailScreen({
+  resumeAnalysisId,
+}: ResumeAnalysisDetailScreenProps) {
+  const resumeAnalysis = await fetchResumeById(resumeAnalysisId);
+  if (!resumeAnalysis) redirect("/");
+
   return (
     <div className="relative overflow-hidden bg-background min-h-screen">
       <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-background to-background pointer-events-none" />

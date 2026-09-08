@@ -16,7 +16,7 @@ import { useState } from "react";
 import FileUploader from "./FileUploader";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import ErrorMessage from "@/components/shared/ErrorMessage";
+import ErrorMessage from "./ErrorMessage";
 import { CreateResumeInput } from "@/types/resume";
 import { toast } from "sonner";
 

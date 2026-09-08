@@ -2,7 +2,7 @@ import { DBInterviewFeedback, DBResumeAnalysis } from "@prisma/client";
 import type {
   ResumeAnalysisFeedback,
   ResumeAnalysis,
-} from "../../types/resume";
+} from "@/types/resume";
 import { InterviewFeedback } from "@/types/interview";
 
 //Converts a Prisma `Resume` record (where JSON fields are `any`) to the strongly typed `ResumeAnalysis`.
@@ -21,7 +21,7 @@ export function mapDbResume(db: DBResumeAnalysis): ResumeAnalysis {
 
 // Converts a Prisma `InterviewFeedback` record to the strongly typed `InterviewFeedback`.
 export function mapDbInterviewFeedback(
-  db: DBInterviewFeedback
+  db: DBInterviewFeedback,
 ): InterviewFeedback {
   return {
     id: db.id,

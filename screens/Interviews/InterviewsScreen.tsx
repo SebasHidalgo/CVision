@@ -1,5 +1,5 @@
-import { Interview } from "@/types/interview";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,14 +9,16 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import { fetchAllInterviewsByUser } from "@/lib/database/interview";
 
-type InterviewsContainerProps = {
-  interviews: Interview[];
-};
+export default async function InterviewsScreen() {
+  const { userId } = await auth();
+  const interviews = await fetchAllInterviewsByUser(userId!);
 
-export default function InterviewsContainer({
-  interviews,
-}: InterviewsContainerProps) {
+  if (!interviews) {
+    return <div>No interviews found</div>;
+  }
+
   return (
     <div className="container mx-auto px-4 py-12">
       {/* Header Section */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { SignInButton } from "@clerk/nextjs";
-import CVisionLogo from "@/components/navbar/Logo";
+import CVisionLogo from "./Logo";
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut } from "@clerk/clerk-react";
 import UserDropdown from "./UserDropdown";

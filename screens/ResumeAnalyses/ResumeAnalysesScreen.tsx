@@ -1,16 +1,18 @@
-import { ResumeAnalysis } from "@/types/resume";
+import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar, FileSearch, FileText, TrendingUp } from "lucide-react";
-import Link from "next/link";
+import { fetchAllResumesByUser } from "@/lib/database/resume";
 
-type ResumesAnalysesContentPageProps = {
-  resumesAnalysis: ResumeAnalysis[];
-};
+export default async function ResumeAnalysesScreen() {
+  const { userId } = await auth();
 
-export default function ResumesAnalysesContentPage({
-  resumesAnalysis,
-}: ResumesAnalysesContentPageProps) {
+  const resumesAnalysis = await fetchAllResumesByUser(userId!);
+  if (!resumesAnalysis) {
+    return <div>No resumes found</div>;
+  }
+
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-500";
     if (score >= 70) return "text-blue-500";

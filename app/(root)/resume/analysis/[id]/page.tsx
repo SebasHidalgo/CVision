@@ -1,19 +1,13 @@
-import ResumeAnalysisContent from "@/components/resume/analysis/ResumeAnalysis";
-import { fetchResumeById } from "@/lib/database/resume";
-import { redirect } from "next/navigation";
-import React from "react";
+import ResumeAnalysisDetailScreen from "@/screens/ResumeAnalysisDetail/ResumeAnalysisDetailScreen";
 
-type SingleProductPageParams = Promise<{ id: string }>;
+type ResumeAnalysisPageParams = Promise<{ id: string }>;
 
 export default async function ResumeAnalysisPage({
   params,
 }: {
-  params: SingleProductPageParams;
+  params: ResumeAnalysisPageParams;
 }) {
-  const id = (await params).id;
-  const resumeAnalysis = await fetchResumeById(id);
+  const { id } = await params;
 
-  if (!resumeAnalysis) redirect("/");
-
-  return <ResumeAnalysisContent resumeAnalysis={resumeAnalysis} />;
+  return <ResumeAnalysisDetailScreen resumeAnalysisId={id} />;
 }

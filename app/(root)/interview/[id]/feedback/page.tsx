@@ -1,22 +1,13 @@
-import { fetchFeedbackByInterviewId } from "@/lib/database/interview";
-import { redirect } from "next/navigation";
-import InterviewFeedbackContainer from "@/components/interview/InterviewFeedbackContainer";
+import InterviewFeedbackScreen from "@/screens/InterviewFeedback/InterviewFeedbackScreen";
 
-type InterviewPageParams = Promise<{ id: string }>;
+type InterviewFeedbackPageParams = Promise<{ id: string }>;
 
 export default async function InterviewFeedbackPage({
   params,
 }: {
-  params: InterviewPageParams;
+  params: InterviewFeedbackPageParams;
 }) {
-  const id = (await params).id;
+  const { id } = await params;
 
-  const feedback = await fetchFeedbackByInterviewId(id);
-  if (!feedback) redirect("/interviews");
-
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <InterviewFeedbackContainer feedback={feedback} />
-    </div>
-  );
+  return <InterviewFeedbackScreen interviewId={id} />;
 }

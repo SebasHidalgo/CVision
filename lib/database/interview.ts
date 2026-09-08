@@ -1,14 +1,19 @@
 "use server";
 
 import type { CreateFeedbackParams, InterviewDetails } from "@/types/interview";
-import { handleError } from "../error/handleError";
-import prisma from "./database";
+import { handleError } from "@/lib/error/handleError";
+import prisma from "@/lib/prisma";
 import { google } from "@ai-sdk/google";
 import { generateObject, generateText } from "ai";
-import { feedbackSchema } from "@/constants";
-import { mapDbInterviewFeedback } from "./prisma";
+import { feedbackSchema } from "@/lib/ai/schemas";
+import { techstackExtractionPrompt } from "@/lib/ai/prompts/techstack-extraction.prompt";
+import {
+  interviewFeedbackPrompt,
+  interviewFeedbackSystemPrompt,
+} from "@/lib/ai/prompts/interview-feedback.prompt";
+import { mapDbInterviewFeedback } from "./mappers";
 import { DBInterviewFeedback } from "@prisma/client";
-import { getAuthUser } from "../auth";
+import { getAuthUser } from "@/lib/auth";
 
 export async function createInterview(interviewDetails: InterviewDetails) {
   const { jobRole, jobDescription, resumeId } = interviewDetails;
@@ -38,14 +43,7 @@ export async function extractTechstackFromDescription(description: string) {
   try {
     const response = await generateText({
       model: google("gemini-2.0-flash-001"),
-      prompt: `
-        Extract the relevant technologies or skills mentioned in the following job description.
-        Return them strictly as a JSON array of strings (like ["tech1", "tech2", "tech3"]).
-        Do NOT include code fences, explanations, or markdown formatting.
-        
-        Job description:
-        ${description}
-      `,
+      prompt: techstackExtractionPrompt(description),
     });
 
     const techStack: string[] = JSON.parse(response.text);
@@ -92,7 +90,7 @@ export async function fetchInterviewById(interviewId: string) {
 
 export async function createInterviewFeedback(params: CreateFeedbackParams) {
   try {
-    const { interviewId, userId, transcript, feedbackId } = params;
+    const { interviewId, userId, transcript, feedbackId, recordingUrl } = params;
 
     const formattedTranscript = transcript
       .map(
@@ -104,20 +102,8 @@ export async function createInterviewFeedback(params: CreateFeedbackParams) {
     const { object } = await generateObject({
       model: google("gemini-2.0-flash-001"),
       schema: feedbackSchema,
-      prompt: `
-        You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
-        Transcript:
-        ${formattedTranscript}
-
-        Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
-        - **Communication Skills**: Clarity, articulation, structured responses.
-        - **Technical Knowledge**: Understanding of key concepts for the role.
-        - **Problem-Solving**: Ability to analyze problems and propose solutions.
-        - **Cultural & Role Fit**: Alignment with company values and job role.
-        - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
-        `,
-      system:
-        "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
+      prompt: interviewFeedbackPrompt(formattedTranscript),
+      system: interviewFeedbackSystemPrompt,
     });
 
     const feedback = {
@@ -132,6 +118,14 @@ export async function createInterviewFeedback(params: CreateFeedbackParams) {
     const interviewFeedback = await prisma.interviewFeedback.create({
       data: feedback,
     });
+
+    // Update the original interview record to trace the recordingUrl if it exists
+    if (recordingUrl) {
+      await prisma.interview.update({
+        where: { id: interviewId },
+        data: { recordingUrl },
+      });
+    }
 
     return {
       success: true,

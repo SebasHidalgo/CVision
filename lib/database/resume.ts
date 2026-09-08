@@ -1,17 +1,17 @@
-import prisma from "./database";
+import prisma from "@/lib/prisma";
 import type {
   CreateResumeInput,
   ResumeAnalysisFeedback,
   ResumeAnalysis,
 } from "@/types/resume";
-import { mapDbResume } from "./prisma";
+import { mapDbResume } from "./mappers";
 import type { DBResumeAnalysis, Prisma } from "@prisma/client";
-import { handleError } from "../error/handleError";
+import { handleError } from "@/lib/error/handleError";
 import ollama from "ollama";
-import { extractTextFromPDFFile } from "@/utils/pdf-parse";
-import { resumeAnalysisPrompt } from "@/constants";
-import { uploadFileToSupabase } from "../supabase";
-import { getAuthUser } from "../auth";
+import { extractTextFromPDFFile } from "@/lib/pdfParse";
+import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { uploadFileToSupabase } from "@/lib/supabase";
+import { getAuthUser } from "@/lib/auth";
 
 type ResumeAnalysisInput = {
   companyName: string;
