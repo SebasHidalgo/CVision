@@ -14,7 +14,7 @@ import { toActionError } from "@/lib/error/toActionResult";
 import { submitInterviewFeedbackInputSchema } from "@/lib/schemas/interviewSchema";
 import type { ActionResult } from "@/types/action";
 
-const FEEDBACK_TIMEOUT_MS = 60_000;
+const FEEDBACK_TIMEOUT_MS = 90_000;
 
 /** Closes the interview and generates its feedback from the transcript. */
 export async function submitInterviewFeedbackAction(
@@ -33,7 +33,6 @@ export async function submitInterviewFeedbackAction(
       .join("");
 
     const feedback = await generateJson({
-      provider: "google",
       prompt: interviewFeedbackPrompt(formattedTranscript),
       system: interviewFeedbackSystemPrompt,
       schema: feedbackSchema,

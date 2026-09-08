@@ -8,7 +8,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@ai-sdk/google": "^2.0.23",
     "@clerk/nextjs": "^6.33.3",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "^6.17.0",
@@ -26,7 +25,6 @@
     "@supabase/supabase-js": "^2.75.0",
     "@tanstack/react-query": "^5.90.2",
     "@vapi-ai/web": "^2.4.0",
-    "ai": "^5.0.76",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",

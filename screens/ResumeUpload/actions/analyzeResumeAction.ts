@@ -67,7 +67,6 @@ export async function analyzeResumeAction(
     const resumeUrl = await uploadFileToSupabase(resume, uploadedKey);
 
     const feedback = await generateJson({
-      provider: "ollama",
       prompt: resumeAnalysisPrompt({ jobTitle, jobDescription, resumeText }),
       schema: resumeFeedbackSchema,
       timeoutMs: ANALYSIS_TIMEOUT_MS,
