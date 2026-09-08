@@ -7,6 +7,7 @@ export type Interview = {
   userId: string;
   finalized: boolean;
   createdAt: Date;
+  recordingUrl: string | null;
 };
 
 export type CreateFeedbackParams = {
@@ -14,6 +15,7 @@ export type CreateFeedbackParams = {
   userId: string;
   transcript: { role: string; content: string }[];
   feedbackId?: string;
+  recordingUrl?: string | null;
 };
 
 export type InterviewFeedback = {

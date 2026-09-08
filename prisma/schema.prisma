@@ -40,7 +40,8 @@ model Interview {
   techstack String[]
   userId    String
   finalized Boolean  @default(false)
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  recordingUrl String?
 
   resumeAnalysisId String?         @unique // <- conexión opcional al ResumeAnalysis
   resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id])
