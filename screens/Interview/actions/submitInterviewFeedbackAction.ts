@@ -7,7 +7,7 @@ import {
   interviewFeedbackPrompt,
   interviewFeedbackSystemPrompt,
 } from "@/lib/ai/prompts/interview-feedback.prompt";
-import { feedbackSchema } from "@/lib/ai/schemas";
+import { computeTotalScore, feedbackSchema } from "@/lib/ai/schemas";
 import { saveInterviewFeedback } from "@/lib/database/interview";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
@@ -32,7 +32,7 @@ export async function submitInterviewFeedbackAction(
       .map((sentence) => `- ${sentence.role}: ${sentence.content}\n`)
       .join("");
 
-    const feedback = await generateJson({
+    const aiFeedback = await generateJson({
       prompt: interviewFeedbackPrompt(formattedTranscript),
       system: interviewFeedbackSystemPrompt,
       schema: feedbackSchema,
@@ -41,7 +41,12 @@ export async function submitInterviewFeedbackAction(
 
     const feedbackId = await saveInterviewFeedback({
       interviewId,
-      feedback,
+      feedback: {
+        ...aiFeedback,
+        // Derived here, not asked of the model: it answered with totals that
+        // did not match its own category scores.
+        totalScore: computeTotalScore(aiFeedback.categoryScores),
+      },
       recordingUrl,
     });
 

@@ -6,7 +6,10 @@ export const interviewFeedbackPrompt = (formattedTranscript: string) => `
         Transcript:
         ${formattedTranscript}
 
-        Please score the candidate from 0 to 100 in the following areas. Use these exact category names, all five of them, and do not add any other category:
+        Score the candidate on a 0-100 scale — never 0-5 or 0-10. Use whole
+        numbers, where 0-40 is poor, 50-70 is an average candidate and 80-100
+        is strong. Rate all five areas below, using these exact category names,
+        and do not add any other category:
         - **Communication Skills**: Clarity, articulation, structured responses.
         - **Technical Knowledge**: Understanding of key concepts for the role.
         - **Problem Solving**: Ability to analyze problems and propose solutions.
