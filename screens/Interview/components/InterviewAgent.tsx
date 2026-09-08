@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MessageSquare, Phone, PhoneOff } from "lucide-react";
-import { vapi } from "@/lib/vapiSdk";
-import { interviewer } from "@/lib/ai/prompts/interviewer.prompt";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Loader2, Mic, MonitorUp, Phone, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
-import { submitInterviewFeedbackAction } from "@/screens/Interview/actions/submitInterviewFeedbackAction";
-import { uploadFileToSupabase } from "@/lib/supabase";
+import Eyebrow from "@/components/layout/Eyebrow";
+import { Button } from "@/components/ui/button";
+import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
+import { interviewer } from "@/lib/ai/prompts/interviewer.prompt";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import { MAX_TRANSCRIPT_MESSAGES } from "@/lib/schemas/interviewSchema";
+import { uploadFileToSupabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import { vapi } from "@/lib/vapiSdk";
+import { submitInterviewFeedbackAction } from "@/screens/Interview/actions/submitInterviewFeedbackAction";
+import Transcript, { type TranscriptMessage } from "./Transcript";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -24,48 +24,56 @@ enum CallStatus {
   FINISHED = "FINISHED",
 }
 
-type SavedMessage = {
-  role: "user" | "system" | "assistant";
-  content: string;
-};
-
 type InterviewAgentProps = {
   interviewId: string;
+  role: string;
   jobDescription: string;
   userName: string;
   userProfilePic: string;
 };
 
+const BRIEFING = [
+  {
+    icon: Mic,
+    text: "Your microphone, so the interviewer can hear you.",
+  },
+  {
+    icon: MonitorUp,
+    text: "Sharing this tab, so the session is recorded for you to review.",
+  },
+];
+
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 export default function InterviewAgent({
   userName,
   interviewId,
+  role,
   jobDescription,
   userProfilePic,
 }: InterviewAgentProps) {
   const router = useRouter();
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
-  const [messages, setMessages] = useState<SavedMessage[]>([]);
+  const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  // Recording states
+  // Recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+  const [feedbackReady, setFeedbackReady] = useState(false);
 
-  // Audio Context Ref for mixing remote audio
+  // Audio context for mixing the interviewer's voice into the recording
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const connectedAudioTracksRef = useRef<Set<string>>(new Set());
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   useEffect(() => {
     const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
@@ -79,6 +87,7 @@ export default function InterviewAgent({
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onMessage = (message: any) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { role: message.role, content: message.transcript };
@@ -90,20 +99,23 @@ export default function InterviewAgent({
     const onSpeechEnd = () => setIsSpeaking(false);
     const onError = (error: Error) => console.error("Error:", error);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onParticipantUpdated = (participant: any) => {
-      if (!participant.local) {
-        const audioTrack = participant.tracks?.audio?.persistentTrack || participant.tracks?.audio?.track;
-        if (audioTrack && audioContextRef.current && audioDestinationRef.current) {
-          if (!connectedAudioTracksRef.current.has(audioTrack.id)) {
-            connectedAudioTracksRef.current.add(audioTrack.id);
-            try {
-              const source = audioContextRef.current.createMediaStreamSource(new MediaStream([audioTrack]));
-              source.connect(audioDestinationRef.current);
-            } catch (e) {
-              console.error("Error connecting remote audio track:", e);
-            }
-          }
-        }
+      if (participant.local) return;
+      const audioTrack =
+        participant.tracks?.audio?.persistentTrack ||
+        participant.tracks?.audio?.track;
+      if (!audioTrack || !audioContextRef.current || !audioDestinationRef.current) return;
+      if (connectedAudioTracksRef.current.has(audioTrack.id)) return;
+
+      connectedAudioTracksRef.current.add(audioTrack.id);
+      try {
+        const source = audioContextRef.current.createMediaStreamSource(
+          new MediaStream([audioTrack]),
+        );
+        source.connect(audioDestinationRef.current);
+      } catch (e) {
+        console.error("Error connecting remote audio track:", e);
       }
     };
 
@@ -113,8 +125,6 @@ export default function InterviewAgent({
     vapi.on("speech-start", onSpeechStart);
     vapi.on("speech-end", onSpeechEnd);
     vapi.on("error", onError);
-    
-    // @ts-ignore
     vapi.on("daily-participant-updated", onParticipantUpdated);
 
     return () => {
@@ -124,11 +134,16 @@ export default function InterviewAgent({
       vapi.off("speech-start", onSpeechStart);
       vapi.off("speech-end", onSpeechEnd);
       vapi.off("error", onError);
-      
-      // @ts-ignore
       vapi.off("daily-participant-updated", onParticipantUpdated);
     };
   }, []);
+
+  // Call clock
+  useEffect(() => {
+    if (callStatus !== CallStatus.ACTIVE) return;
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [callStatus]);
 
   const startRecording = async () => {
     try {
@@ -138,7 +153,7 @@ export default function InterviewAgent({
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: "browser" },
         audio: false,
-        // @ts-ignore
+        // @ts-expect-error Chromium-only hint, harmless elsewhere.
         preferCurrentTab: true,
       });
 
@@ -177,8 +192,7 @@ export default function InterviewAgent({
         const blob = new Blob(recordedChunksRef.current, {
           type: "video/webm",
         });
-        const url = URL.createObjectURL(blob);
-        setRecordedVideoUrl(url);
+        setRecordedVideoUrl(URL.createObjectURL(blob));
 
         displayStream.getTracks().forEach((track) => track.stop());
         micStream.getTracks().forEach((track) => track.stop());
@@ -205,7 +219,7 @@ export default function InterviewAgent({
     }
   };
 
-  const handleGenerateFeedback = async (messagesToSave: SavedMessage[]) => {
+  const handleGenerateFeedback = async (messagesToSave: TranscriptMessage[]) => {
     setIsGeneratingFeedback(true);
     let uploadedVideoUrl: string | undefined = undefined;
 
@@ -214,7 +228,7 @@ export default function InterviewAgent({
         const file = new File(
           recordedChunksRef.current,
           `interview-${interviewId}-${Date.now()}.webm`,
-          { type: "video/webm" }
+          { type: "video/webm" },
         );
         uploadedVideoUrl = await uploadFileToSupabase(file, file.name);
       } catch (error) {
@@ -231,7 +245,11 @@ export default function InterviewAgent({
         recordingUrl: uploadedVideoUrl,
       });
 
-      if (!result.ok) toast.error(actionErrorCopy(result.code));
+      if (!result.ok) {
+        toast.error(actionErrorCopy(result.code));
+        return;
+      }
+      setFeedbackReady(true);
     } catch {
       toast.error(actionErrorCopy("UNKNOWN"));
     } finally {
@@ -248,11 +266,13 @@ export default function InterviewAgent({
   }, [callStatus]);
 
   const handleCall = async () => {
+    setPermissionError(null);
     setCallStatus(CallStatus.CONNECTING);
+
     const recordingStarted = await startRecording();
     if (!recordingStarted) {
-      alert(
-        "Please allow screen and microphone recording to start the interview.",
+      setPermissionError(
+        "The interview can't start without your microphone and this tab being shared. Allow both and try again.",
       );
       setCallStatus(CallStatus.INACTIVE);
       return;
@@ -268,6 +288,7 @@ export default function InterviewAgent({
       console.error("Failed to start VAPI:", error);
       stopRecording();
       setCallStatus(CallStatus.INACTIVE);
+      toast.error("The interviewer couldn't connect. Try again in a moment.");
     }
   };
 
@@ -277,228 +298,191 @@ export default function InterviewAgent({
     stopRecording();
   };
 
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-        {/* Left Column: Interview Controls */}
-        <section className="lg:col-span-1 flex flex-col gap-6">
-          {/* AI Interviewer Card */}
-          <Card className="bg-card/60 backdrop-blur-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                AI Interviewer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4">
-              <div className="relative w-32 h-32">
-                <Image
-                  src="/images/ai-icon.png"
-                  alt="AI Interviewer"
-                  fill
-                  className="rounded-full object-cover border-2 border-border/30"
-                />
-                {isSpeaking && (
-                  <motion.span
-                    className="absolute inset-0 rounded-full border-4 border-primary/50"
-                    initial={{ scale: 1 }}
-                    animate={{
-                      scale: [1, 1.15, 1],
-                      opacity: [0.8, 0.4, 0.8],
-                    }}
-                    transition={{
-                      duration: 1.2,
-                      repeat: Number.POSITIVE_INFINITY,
-                    }}
-                  />
-                )}
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  {callStatus === CallStatus.ACTIVE
-                    ? isSpeaking
-                      ? "Speaking..."
-                      : "Listening..."
-                    : callStatus === CallStatus.CONNECTING
-                      ? "Connecting..."
-                      : callStatus === CallStatus.FINISHED
-                        ? "Interview Ended"
-                        : "Ready to start"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+  const active = callStatus === CallStatus.ACTIVE;
+  const finished = callStatus === CallStatus.FINISHED;
+  const connecting = callStatus === CallStatus.CONNECTING;
 
-          {/* User Card or Recording */}
-          {recordedVideoUrl ? (
-            <Card className="bg-card/60 backdrop-blur-sm border-border/40">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">
-                  Your Recording
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
+  const orbState: VoiceOrbState = finished
+    ? "ended"
+    : connecting
+      ? "connecting"
+      : active
+        ? isSpeaking
+          ? "speaking"
+          : "listening"
+        : "idle";
+
+  const statusLine = finished
+    ? "Interview ended"
+    : connecting
+      ? "Connecting"
+      : active
+        ? isSpeaking
+          ? "Interviewer is speaking"
+          : "Listening to you"
+        : "Ready when you are";
+
+  return (
+    <div className="studio flex flex-1 flex-col bg-paper text-ink">
+      <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
+        {/* Room header */}
+        <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
+          <div>
+            <Eyebrow tick>Interview room</Eyebrow>
+            <h1 className="display-md mt-3">{role}</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <span
+              aria-hidden
+              className={cn(
+                "size-2 rounded-full",
+                active ? "bg-signal animate-blink" : finished ? "bg-ink-3" : "bg-line-strong",
+              )}
+            />
+            <span className="eyebrow text-ink">{statusLine}</span>
+            <span className="eyebrow tabular border-l border-line pl-4">
+              {formatDuration(elapsed)}
+            </span>
+          </div>
+        </header>
+
+        <div className="grid flex-1 gap-12 py-10 lg:grid-cols-12 lg:gap-16">
+          {/* Stage */}
+          <section
+            aria-label="Interviewer"
+            className="flex flex-col items-center lg:col-span-5"
+          >
+            <VoiceOrb state={orbState} className="w-56 sm:w-64 lg:w-72" />
+
+            <div className="mt-10 flex items-center gap-5">
+              <div className="relative size-12 overflow-hidden rounded-full border border-line-strong">
+                <Image
+                  src={userProfilePic}
+                  alt=""
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <p className="font-medium">{userName}</p>
+                <p className="eyebrow mt-1">Candidate</p>
+              </div>
+            </div>
+
+            {!active && !finished && (
+              <div className="mt-12 w-full max-w-sm">
+                <p className="eyebrow">Before we start, the browser will ask for</p>
+                <ul className="mt-4 space-y-3">
+                  {BRIEFING.map((item) => (
+                    <li key={item.text} className="flex gap-3 text-sm leading-relaxed text-ink-2">
+                      <item.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink" />
+                      {item.text}
+                    </li>
+                  ))}
+                </ul>
+                <p className="eyebrow mt-5">Expect ten to fifteen minutes.</p>
+              </div>
+            )}
+
+            {finished && recordedVideoUrl && (
+              <figure className="mt-12 w-full max-w-sm">
+                <figcaption className="eyebrow mb-3">Your recording</figcaption>
                 <video
                   src={recordedVideoUrl}
                   controls
-                  className="w-full rounded-md border border-border/40"
+                  className="w-full border border-line bg-studio"
                 />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-card/60 backdrop-blur-sm border-border/40">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">
-                  {userName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="relative w-32 h-32">
-                  <Image
-                    src={userProfilePic}
-                    alt="User Avatar"
-                    fill
-                    className="rounded-full object-cover border-2 border-border/30"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              </figure>
+            )}
+          </section>
 
-          {/* Call Controls */}
-          <Card className="bg-card/60 backdrop-blur-sm border-border/40">
-            <CardContent className="pt-6">
-              {callStatus === CallStatus.ACTIVE ? (
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  onClick={handleDisconnect}
-                  className="w-full rounded-full"
-                >
-                  <PhoneOff className="mr-2 h-5 w-5" /> End Interview
-                </Button>
-              ) : callStatus === CallStatus.FINISHED ? (
-                <div className="flex flex-col gap-4">
-                  <Button
-                    size="lg"
-                    disabled={isGeneratingFeedback}
-                    onClick={() =>
-                      router.push(`/interview/${interviewId}/feedback`)
-                    }
-                    className="w-full rounded-full"
-                  >
-                    {isGeneratingFeedback ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Generating Feedback...
-                      </>
-                    ) : (
-                      "View Feedback"
-                    )}
-                  </Button>
-                </div>
+          {/* Transcript */}
+          <Transcript
+            messages={messages}
+            userName={userName}
+            live={active}
+            className="max-h-[60dvh] lg:col-span-7 lg:max-h-none"
+          />
+        </div>
+
+        {/* Controls */}
+        <footer className="sticky bottom-0 -mx-[clamp(1.25rem,4vw,3rem)] mt-auto border-t border-line bg-paper/90 px-[clamp(1.25rem,4vw,3rem)] py-4 backdrop-blur-[6px]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div role="status" aria-live="polite" className="min-h-5 text-sm">
+              {permissionError ? (
+                <p className="flex items-center gap-2 text-signal">
+                  <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
+                  {permissionError}
+                </p>
+              ) : finished ? (
+                <p className="text-ink-2">
+                  {isGeneratingFeedback
+                    ? "Scoring the interview. This takes a minute."
+                    : feedbackReady
+                      ? "Your feedback is ready."
+                      : "The interview ended."}
+                </p>
               ) : (
-                <Button
-                  size="lg"
-                  onClick={handleCall}
-                  disabled={callStatus === CallStatus.CONNECTING}
-                  className={cn(
-                    "w-full rounded-full transition-all duration-300",
-                    callStatus === CallStatus.CONNECTING &&
-                      "opacity-75 cursor-wait",
-                  )}
-                >
-                  {callStatus === CallStatus.CONNECTING ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />{" "}
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Phone className="mr-2 h-5 w-5" /> Start Interview
-                    </>
-                  )}
-                </Button>
+                <p className="text-ink-2">
+                  {active
+                    ? "Speak naturally. Hang up whenever you're done."
+                    : "Questions are built from the job post you analyzed."}
+                </p>
               )}
-            </CardContent>
-          </Card>
-        </section>
+            </div>
 
-        {/* Right Column: Messages History */}
-        <section className="lg:col-span-2">
-          <Card className="bg-card/60 backdrop-blur-sm border-border/40 flex flex-col">
-            <CardHeader className="border-b border-border/40">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Interview Transcript
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {messages.length > 0
-                  ? `${messages.length} message${
-                      messages.length !== 1 ? "s" : ""
-                    }`
-                  : "Messages will appear here during the interview"}
-              </p>
-            </CardHeader>
-            <CardContent className="flex-1 p-0">
-              <ScrollArea className="h-[550px] p-6">
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                    <MessageSquare className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                    <p className="text-muted-foreground text-sm">
-                      Start the interview to see the conversation
-                    </p>
-                  </div>
+            {active ? (
+              <Button
+                variant="destructive"
+                size="lg"
+                onClick={handleDisconnect}
+                className="h-12 gap-2 px-6 text-base"
+              >
+                <PhoneOff className="size-5" />
+                End interview
+              </Button>
+            ) : finished ? (
+              <Button
+                size="lg"
+                disabled={isGeneratingFeedback || !feedbackReady}
+                onClick={() => router.push(`/interview/${interviewId}/feedback`)}
+                className="group h-12 gap-2 px-6 text-base"
+              >
+                {isGeneratingFeedback ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    Generating feedback
+                  </>
                 ) : (
-                  <div className="space-y-4">
-                    {messages.map((message, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={cn(
-                          "flex gap-3",
-                          message.role === "user"
-                            ? "justify-end"
-                            : "justify-start",
-                        )}
-                      >
-                        {message.role === "assistant" && (
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-semibold text-primary">
-                              AI
-                            </span>
-                          </div>
-                        )}
-                        <div
-                          className={cn(
-                            "max-w-[80%] rounded-2xl px-4 py-3",
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted",
-                          )}
-                        >
-                          <p className="text-sm leading-relaxed">
-                            {message.content}
-                          </p>
-                        </div>
-                        {message.role === "user" && (
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-semibold text-primary-foreground">
-                              {userName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
+                  <>
+                    Read your feedback
+                    <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
+                  </>
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </section>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={handleCall}
+                disabled={connecting}
+                className="h-12 gap-2 px-6 text-base"
+              >
+                {connecting ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    Connecting
+                  </>
+                ) : (
+                  <>
+                    <Phone className="size-5" />
+                    Start the interview
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </footer>
       </div>
     </div>
   );

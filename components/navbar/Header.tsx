@@ -1,41 +1,90 @@
 "use client";
 
-import { SignInButton } from "@clerk/nextjs";
-import CVisionLogo from "./Logo";
-import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut } from "@clerk/clerk-react";
-import UserDropdown from "./UserDropdown";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { Plus } from "lucide-react";
+import Wordmark from "@/components/brand/Wordmark";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { PRIMARY_NAV } from "./nav";
+import UserDropdown from "./UserDropdown";
+
+/** The live interview room inverts the whole page, header included. */
+function isStudioRoute(pathname: string) {
+  return /^\/interview\/[^/]+$/.test(pathname);
+}
 
 export function Header() {
+  const pathname = usePathname();
+  const studio = isStudioRoute(pathname);
+
   return (
-    <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <CVisionLogo />
-            </div>
-          </div>
+    <header
+      className={cn(
+        "sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-[6px]",
+        studio && "studio",
+      )}
+    >
+      <div className="wrap flex h-14 items-center justify-between gap-6 md:h-16">
+        <Wordmark />
 
-          <SignedIn>
-            <div className="flex gap-3">
+        <SignedIn>
+          <nav
+            aria-label="Primary"
+            className="hidden items-center gap-8 md:flex"
+          >
+            {PRIMARY_NAV.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative py-1 text-sm font-medium text-ink-2 transition-colors duration-200 hover:text-ink",
+                    active && "text-ink",
+                  )}
+                >
+                  {item.label}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute inset-x-0 -bottom-0.5 h-[2px] origin-left bg-signal transition-transform duration-300 ease-out-expo",
+                      active ? "scale-x-100" : "scale-x-0",
+                    )}
+                  />
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <Button asChild size="sm" className="h-9 gap-1.5 px-3.5">
               <Link href="/resume/upload">
-                <Button size={"sm"}>Analyse Resume</Button>
+                <Plus className="size-4" />
+                <span className="hidden sm:inline">New analysis</span>
+                <span className="sm:hidden">New</span>
               </Link>
+            </Button>
+            <UserDropdown />
+          </div>
+        </SignedIn>
 
-              <UserDropdown />
-            </div>
-          </SignedIn>
-
-          <SignedOut>
+        <SignedOut>
+          <div className="flex items-center gap-2">
             <SignInButton mode="modal">
-              <Button size="sm" className="bg-primary hover:bg-primary/90">
+              <Button variant="ghost" size="sm" className="h-9 px-3.5">
                 Sign in
               </Button>
             </SignInButton>
-          </SignedOut>
-        </div>
+            <SignInButton mode="modal" forceRedirectUrl="/resume/upload">
+              <Button size="sm" className="h-9 px-3.5">
+                Analyze my CV
+              </Button>
+            </SignInButton>
+          </div>
+        </SignedOut>
       </div>
     </header>
   );

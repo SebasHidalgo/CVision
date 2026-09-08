@@ -7,7 +7,7 @@ import { handleError } from "@/lib/error/handleError";
 import { NotFoundError } from "@/lib/error/errors";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import type { FeedbackObject } from "@/lib/ai/schemas";
-import { mapDbInterviewFeedback } from "./mappers";
+import { feedbackInclude, mapDbInterviewFeedback } from "./mappers";
 
 const interviewDetailInclude = {
   resumeAnalysis: { select: { jobDescription: true, jobTitle: true } },
@@ -133,6 +133,7 @@ export async function fetchFeedbackByInterviewId(
 
     const feedback = await prisma.interviewFeedback.findFirst({
       where: { interviewId, interview: { userId } },
+      include: feedbackInclude,
     });
     return feedback ? mapDbInterviewFeedback(feedback) : null;
   } catch (error) {

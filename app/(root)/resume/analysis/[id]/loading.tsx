@@ -1,9 +1,5 @@
-export default function loading() {
-  return (
-    <img
-      src="/images/resume-search.gif"
-      alt="Resume search"
-      className="w-84 mx-auto"
-    />
-  );
+import ResumeAnalysisDetailLoading from "@/screens/ResumeAnalysisDetail/ResumeAnalysisDetailLoading";
+
+export default function Loading() {
+  return <ResumeAnalysisDetailLoading />;
 }
