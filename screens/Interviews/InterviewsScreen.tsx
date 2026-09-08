@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,15 +8,10 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
-import { fetchAllInterviewsByUser } from "@/lib/database/interview";
+import { fetchAllInterviews } from "@/lib/database/interview";
 
 export default async function InterviewsScreen() {
-  const { userId } = await auth();
-  const interviews = await fetchAllInterviewsByUser(userId!);
-
-  if (!interviews) {
-    return <div>No interviews found</div>;
-  }
+  const interviews = await fetchAllInterviews();
 
   return (
     <div className="container mx-auto px-4 py-12">

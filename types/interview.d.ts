@@ -1,4 +1,7 @@
-import { z } from "zod";
+export type {
+  CreateInterviewInput,
+  SubmitInterviewFeedbackInput,
+} from "@/lib/schemas/interviewSchema";
 
 export type Interview = {
   id: string;
@@ -8,14 +11,7 @@ export type Interview = {
   finalized: boolean;
   createdAt: Date;
   recordingUrl: string | null;
-};
-
-export type CreateFeedbackParams = {
-  interviewId: string;
-  userId: string;
-  transcript: { role: string; content: string }[];
-  feedbackId?: string;
-  recordingUrl?: string | null;
+  resumeAnalysisId: string | null;
 };
 
 export type InterviewFeedback = {
@@ -30,10 +26,4 @@ export type InterviewFeedback = {
   strengths: string[];
   areasForImprovement: string[];
   finalAssessment: string;
-};
-
-export type InterviewDetails = {
-  jobRole: string;
-  jobDescription: string;
-  resumeId: string;
 };

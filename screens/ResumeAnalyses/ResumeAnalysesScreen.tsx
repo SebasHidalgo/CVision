@@ -1,17 +1,21 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar, FileSearch, FileText, TrendingUp } from "lucide-react";
-import { fetchAllResumesByUser } from "@/lib/database/resume";
+import { fetchAllResumes } from "@/lib/database/resume";
 
 export default async function ResumeAnalysesScreen() {
-  const { userId } = await auth();
+  const resumesAnalysis = await fetchAllResumes();
 
-  const resumesAnalysis = await fetchAllResumesByUser(userId!);
-  if (!resumesAnalysis) {
-    return <div>No resumes found</div>;
-  }
+  // Rows that no longer match the feedback schema come back with null feedback;
+  // keeping them out stops one bad analysis from breaking the whole average.
+  const scores = resumesAnalysis
+    .map((resume) => resume.feedback?.overall.globalScore)
+    .filter((score): score is number => typeof score === "number");
+
+  const averageScore = scores.length
+    ? Math.round(scores.reduce((acc, score) => acc + score, 0) / scores.length)
+    : 0;
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-500";
@@ -60,12 +64,7 @@ export default async function ResumeAnalysesScreen() {
                 <div>
                   <p className="text-sm text-muted-foreground">Average Score</p>
                   <p className="text-2xl font-bold">
-                    {Math.round(
-                      resumesAnalysis.reduce(
-                        (acc, r) => acc + r.feedback.overall.globalScore,
-                        0
-                      ) / resumesAnalysis.length
-                    )}
+                    {averageScore}
                     <span className="text-sm text-muted-foreground">/100</span>
                   </p>
                 </div>
@@ -75,7 +74,7 @@ export default async function ResumeAnalysesScreen() {
 
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resumesAnalysis.map((resume) => {
-              const { overall } = resume.feedback;
+              const overall = resume.feedback?.overall;
               return (
                 <Link key={resume.id} href={`/resume/analysis/${resume.id}`}>
                   <Card className="group overflow-hidden py-0 bg-card/50 backdrop-blur border-border/40 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer h-full">
@@ -117,25 +116,32 @@ export default async function ResumeAnalysesScreen() {
                       </div>
 
                       {/* Score Indicator */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${getScoreBgColor(
+                      {overall ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${getScoreBgColor(
+                                overall.globalScore
+                              )} transition-all duration-500`}
+                              style={{
+                                width: `${overall.globalScore}%`,
+                              }}
+                            />
+                          </div>
+                          <span
+                            className={`text-sm font-semibold ${getScoreColor(
                               overall.globalScore
-                            )} transition-all duration-500`}
-                            style={{
-                              width: `${overall.globalScore}%`,
-                            }}
-                          />
+                            )}`}
+                          >
+                            {overall.globalScore}%
+                          </span>
                         </div>
-                        <span
-                          className={`text-sm font-semibold ${getScoreColor(
-                            overall.globalScore
-                          )}`}
-                        >
-                          {overall.globalScore}%
-                        </span>
-                      </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          We couldn&apos;t read this analysis. Try uploading the
+                          resume again.
+                        </p>
+                      )}
                     </div>
                   </Card>
                 </Link>

@@ -12,17 +12,18 @@ import type { ResumeAnalysisFeedback } from "@/types/resume";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createInterview } from "@/lib/database/interview";
-import { InterviewDetails } from "@/types/interview";
+import { toast } from "sonner";
+import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
+import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 
 interface AtsSectionProps {
   atsCompatibility: ResumeAnalysisFeedback["atsCompatibility"];
-  interviewDetails: InterviewDetails;
+  resumeId: string;
 }
 
 export default function AtsSection({
   atsCompatibility,
-  interviewDetails,
+  resumeId,
 }: AtsSectionProps) {
   const { score, description, evidence, fixes, problems } = atsCompatibility;
   const [isCreatingInterview, setIsCreatingInterview] = useState(false);
@@ -32,15 +33,22 @@ export default function AtsSection({
     score > 69
       ? "Awesome job!"
       : score > 49
-      ? "Solid start"
-      : "Requires improvement";
+        ? "Solid start"
+        : "Requires improvement";
 
   const handleSimulateInterview = async () => {
     setIsCreatingInterview(true);
 
-    const interviewId = await createInterview(interviewDetails);
+    const result = await createInterviewAction({ resumeId });
 
-    router.push(`/interview/${interviewId}`);
+    if (!result.ok) {
+      // Reset the button instead of navigating to /interview/undefined.
+      setIsCreatingInterview(false);
+      toast.error(actionErrorCopy(result.code));
+      return;
+    }
+
+    router.push(`/interview/${result.data.interviewId}`);
   };
 
   return (

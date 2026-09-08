@@ -1,19 +1,14 @@
-import prisma from "@/lib/prisma";
-import type {
-  CreateResumeInput,
-  ResumeAnalysisFeedback,
-  ResumeAnalysis,
-} from "@/types/resume";
-import { mapDbResume } from "./mappers";
-import type { DBResumeAnalysis, Prisma } from "@prisma/client";
-import { handleError } from "@/lib/error/handleError";
-import ollama from "ollama";
-import { extractTextFromPDFFile } from "@/lib/pdfParse";
-import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
-import { uploadFileToSupabase } from "@/lib/supabase";
-import { getAuthUser } from "@/lib/auth";
+import "server-only";
 
-type ResumeAnalysisInput = {
+import { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { requireUserId } from "@/lib/auth";
+import { handleError } from "@/lib/error/handleError";
+import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
+import type { ResumeAnalysis } from "@/types/resume";
+import { mapDbResume, resumeInclude } from "./mappers";
+
+export type CreateResumeData = {
   companyName: string;
   jobTitle: string;
   jobDescription: string;
@@ -21,70 +16,32 @@ type ResumeAnalysisInput = {
   feedback: ResumeAnalysisFeedback;
 };
 
-export async function analyzeResume(input: CreateResumeInput) {
+// Prisma types Json columns as a recursive union that a concrete object is not
+// assignable to. One documented cast instead of one per field.
+const toJson = (value: unknown) => value as Prisma.InputJsonValue;
+
+export async function createResume(data: CreateResumeData): Promise<string> {
   try {
-    const { companyName, jobTitle, jobDescription, resume } = input;
+    const userId = await requireUserId();
 
-    const resumeParsed = await extractTextFromPDFFile(resume!);
-
-    const prompt = resumeAnalysisPrompt({
-      jobTitle: jobTitle,
-      jobDescription: jobDescription,
-      resumeText: resumeParsed,
-    });
-
-    const ollamaResponse = await ollama.chat({
-      model: "llama3.2:3b",
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const analysisData = JSON.parse(ollamaResponse.message.content);
-
-    const resumeUrl = await uploadFileToSupabase(resume!, resume!.name);
-
-    const analysis: ResumeAnalysisInput = {
-      companyName: companyName,
-      jobTitle: jobTitle,
-      jobDescription: jobDescription,
-      resumeUrl: resumeUrl,
-      feedback: analysisData,
-    };
-
-    const resumeAnalysis = await createResume(
-      analysis as unknown as ResumeAnalysis
-    );
-    return resumeAnalysis;
-  } catch (error) {
-    handleError(error, "Failed to analyze resume");
-  }
-}
-
-export async function createResume(analysis: ResumeAnalysis) {
-  try {
-    const user = await getAuthUser();
     const created = await prisma.resumeAnalysis.create({
       data: {
-        companyName: analysis.companyName,
-        jobTitle: analysis.jobTitle,
-        jobDescription: analysis.jobDescription,
-        resumeUrl: analysis.resumeUrl,
-        userId: user.id,
+        companyName: data.companyName,
+        jobTitle: data.jobTitle,
+        jobDescription: data.jobDescription,
+        resumeUrl: data.resumeUrl,
+        userId,
         feedback: {
           create: {
-            overall: analysis.feedback
-              .overall as unknown as Prisma.InputJsonValue,
-            atsCompatibility: analysis.feedback
-              .atsCompatibility as unknown as Prisma.InputJsonValue,
-            experienceAndImpact: analysis.feedback
-              .experienceAndImpact as unknown as Prisma.InputJsonValue,
-            educationAndCertifications: analysis.feedback
-              .educationAndCertifications as unknown as Prisma.InputJsonValue,
-            skills: analysis.feedback
-              .skills as unknown as Prisma.InputJsonValue,
-            toneAndClarity: analysis.feedback
-              .toneAndClarity as unknown as Prisma.InputJsonValue,
-            jobFit: analysis.feedback
-              .jobFit as unknown as Prisma.InputJsonValue,
+            overall: toJson(data.feedback.overall),
+            atsCompatibility: toJson(data.feedback.atsCompatibility),
+            experienceAndImpact: toJson(data.feedback.experienceAndImpact),
+            educationAndCertifications: toJson(
+              data.feedback.educationAndCertifications
+            ),
+            skills: toJson(data.feedback.skills),
+            toneAndClarity: toJson(data.feedback.toneAndClarity),
+            jobFit: toJson(data.feedback.jobFit),
           },
         },
       },
@@ -96,42 +53,41 @@ export async function createResume(analysis: ResumeAnalysis) {
   }
 }
 
-export async function fetchAllResumesByUser(userId: string) {
+
+/** Analyses belonging to the current session user. */
+export async function fetchAllResumes(): Promise<ResumeAnalysis[]> {
   try {
+    const userId = await requireUserId();
+
     const dbResumes = await prisma.resumeAnalysis.findMany({
-      include: {
-        feedback: {
-          omit: {
-            id: true,
-            resumeId: true,
-          },
-        },
-      },
       where: { userId },
+      include: resumeInclude,
       orderBy: { createdAt: "desc" },
     });
 
-    return dbResumes.map((db) => mapDbResume(db as DBResumeAnalysis));
+    return dbResumes.map(mapDbResume);
   } catch (error) {
     handleError(error, "Failed to retrieve all resume analysis records");
   }
 }
 
-export async function fetchResumeById(id: string) {
+/**
+ * Ownership lives in the `where` clause, so it can't be skipped and there is no
+ * gap between reading and checking. `null` covers both "missing" and "not
+ * yours": telling them apart would leak the existence of other users' ids.
+ */
+export async function fetchResumeById(
+  id: string
+): Promise<ResumeAnalysis | null> {
   try {
-    const resumeAnalysis = await prisma.resumeAnalysis.findUnique({
-      where: { id },
-      include: {
-        feedback: {
-          omit: {
-            id: true,
-            resumeId: true,
-          },
-        },
-      },
+    const userId = await requireUserId();
+
+    const dbResume = await prisma.resumeAnalysis.findFirst({
+      where: { id, userId },
+      include: resumeInclude,
     });
-    if (!resumeAnalysis) throw new Error("Resume analysis record not found");
-    return mapDbResume(resumeAnalysis as DBResumeAnalysis);
+
+    return dbResume ? mapDbResume(dbResume) : null;
   } catch (error) {
     handleError(error, "Failed to retrieve resume analysis record");
   }

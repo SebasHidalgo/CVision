@@ -19,6 +19,8 @@ model ResumeAnalysis {
 
   feedback  ResumeFeedback?
   Interview Interview?
+
+  @@index([userId, createdAt])
 }
 
 model ResumeFeedback {
@@ -35,18 +37,20 @@ model ResumeFeedback {
 }
 
 model Interview {
-  id        String   @id @default(uuid())
-  role      String
-  techstack String[]
-  userId    String
-  finalized Boolean  @default(false)
+  id           String   @id @default(uuid())
+  role         String
+  techstack    String[]
+  userId       String
+  finalized    Boolean  @default(false)
   createdAt    DateTime @default(now())
   recordingUrl String?
 
-  resumeAnalysisId String?         @unique // <- conexión opcional al ResumeAnalysis
+  resumeAnalysisId String?         @unique
   resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id])
 
   InterviewFeedback InterviewFeedback?
+
+  @@index([userId, createdAt])
 }
 
 model InterviewFeedback {

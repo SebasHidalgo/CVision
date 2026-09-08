@@ -11,8 +11,11 @@ import { Loader2, MessageSquare, Phone, PhoneOff } from "lucide-react";
 import { vapi } from "@/lib/vapiSdk";
 import { interviewer } from "@/lib/ai/prompts/interviewer.prompt";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { createInterviewFeedback } from "@/lib/database/interview";
+import { toast } from "sonner";
+import { submitInterviewFeedbackAction } from "@/screens/Interview/actions/submitInterviewFeedbackAction";
 import { uploadFileToSupabase } from "@/lib/supabase";
+import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { MAX_TRANSCRIPT_MESSAGES } from "@/lib/schemas/interviewSchema";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -30,8 +33,6 @@ type InterviewAgentProps = {
   interviewId: string;
   jobDescription: string;
   userName: string;
-  userId: string;
-  feedbackId?: string;
   userProfilePic: string;
 };
 
@@ -39,8 +40,6 @@ export default function InterviewAgent({
   userName,
   interviewId,
   jobDescription,
-  userId,
-  feedbackId,
   userProfilePic,
 }: InterviewAgentProps) {
   const router = useRouter();
@@ -208,7 +207,7 @@ export default function InterviewAgent({
 
   const handleGenerateFeedback = async (messagesToSave: SavedMessage[]) => {
     setIsGeneratingFeedback(true);
-    let uploadedVideoUrl = undefined;
+    let uploadedVideoUrl: string | undefined = undefined;
 
     if (recordedChunksRef.current.length > 0) {
       try {
@@ -223,18 +222,21 @@ export default function InterviewAgent({
       }
     }
 
-    const feedback = await createInterviewFeedback({
-      interviewId: interviewId!,
-      userId: userId!,
-      transcript: messagesToSave,
-      feedbackId,
-      recordingUrl: uploadedVideoUrl,
-    });
-    setIsGeneratingFeedback(false);
+    try {
+      const result = await submitInterviewFeedbackAction({
+        interviewId,
+        // The server caps the transcript; send the last turns so a long
+        // interview isn't rejected outright.
+        transcript: messagesToSave.slice(-MAX_TRANSCRIPT_MESSAGES),
+        recordingUrl: uploadedVideoUrl,
+      });
 
-    if (!feedback) {
-      console.log("Error generating feedback");
-      return;
+      if (!result.ok) toast.error(actionErrorCopy(result.code));
+    } catch {
+      toast.error(actionErrorCopy("UNKNOWN"));
+    } finally {
+      // In finally so a failure can't leave the button spinning forever.
+      setIsGeneratingFeedback(false);
     }
   };
 

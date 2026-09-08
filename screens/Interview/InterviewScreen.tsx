@@ -10,18 +10,22 @@ type InterviewScreenProps = {
 export default async function InterviewScreen({
   interviewId,
 }: InterviewScreenProps) {
+  // Already scoped to the owner: another user's interview comes back null.
   const interview = await fetchInterviewById(interviewId);
-  if (!interview) redirect("/");
+  if (!interview) redirect("/interviews");
+
+  // Without a linked analysis there is no job context for the interviewer.
+  if (!interview.resumeAnalysis) redirect("/interviews");
 
   const user = await currentUser();
+  if (!user) redirect("/");
 
   return (
     <InterviewAgent
       interviewId={interview.id}
-      jobDescription={interview.resumeAnalysis!.jobDescription}
-      userName={user!.firstName!}
-      userId={user!.id}
-      userProfilePic={user!.imageUrl}
+      jobDescription={interview.resumeAnalysis.jobDescription}
+      userName={user.firstName ?? "there"}
+      userProfilePic={user.imageUrl}
     />
   );
 }

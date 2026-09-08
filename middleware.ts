@@ -1,7 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(["/", "/api(.*)"]);
+// Only the landing page. Webhook routes go in one by one, never a whole prefix.
+// This is defense in depth: every Server Action and data-layer call checks the
+// session again.
+const isPublicRoute = createRouteMatcher(["/"]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 

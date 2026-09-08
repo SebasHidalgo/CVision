@@ -1,35 +1,40 @@
-"use server";
+import "server-only";
 
-import type { CreateFeedbackParams, InterviewDetails } from "@/types/interview";
-import { handleError } from "@/lib/error/handleError";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { google } from "@ai-sdk/google";
-import { generateObject, generateText } from "ai";
-import { feedbackSchema } from "@/lib/ai/schemas";
-import { techstackExtractionPrompt } from "@/lib/ai/prompts/techstack-extraction.prompt";
-import {
-  interviewFeedbackPrompt,
-  interviewFeedbackSystemPrompt,
-} from "@/lib/ai/prompts/interview-feedback.prompt";
+import { requireUserId } from "@/lib/auth";
+import { handleError } from "@/lib/error/handleError";
+import { NotFoundError } from "@/lib/error/errors";
+import type { Interview, InterviewFeedback } from "@/types/interview";
+import type { FeedbackObject } from "@/lib/ai/schemas";
 import { mapDbInterviewFeedback } from "./mappers";
-import { DBInterviewFeedback } from "@prisma/client";
-import { getAuthUser } from "@/lib/auth";
 
-export async function createInterview(interviewDetails: InterviewDetails) {
-  const { jobRole, jobDescription, resumeId } = interviewDetails;
+const interviewDetailInclude = {
+  resumeAnalysis: { select: { jobDescription: true, jobTitle: true } },
+} satisfies Prisma.InterviewInclude;
 
+export type InterviewWithResume = Prisma.InterviewGetPayload<{
+  include: typeof interviewDetailInclude;
+}>;
+
+export type CreateInterviewData = {
+  role: string;
+  techstack: string[];
+  resumeId: string;
+};
+
+export async function createInterview(
+  data: CreateInterviewData
+): Promise<string> {
   try {
-    const user = await getAuthUser();
-
-    const techstack = await extractTechstackFromDescription(jobDescription);
-    if (!techstack) throw new Error("Techstack extraction failed");
+    const userId = await requireUserId();
 
     const dbInterview = await prisma.interview.create({
       data: {
-        role: jobRole,
-        techstack,
-        userId: user.id,
-        resumeAnalysisId: resumeId,
+        role: data.role,
+        techstack: data.techstack,
+        userId,
+        resumeAnalysisId: data.resumeId,
       },
     });
 
@@ -39,110 +44,97 @@ export async function createInterview(interviewDetails: InterviewDetails) {
   }
 }
 
-export async function extractTechstackFromDescription(description: string) {
+export async function fetchAllInterviews(): Promise<Interview[]> {
   try {
-    const response = await generateText({
-      model: google("gemini-2.0-flash-001"),
-      prompt: techstackExtractionPrompt(description),
-    });
+    const userId = await requireUserId();
 
-    const techStack: string[] = JSON.parse(response.text);
-    console.log("Techstack extraction response:", techStack);
-    return techStack;
-  } catch (error) {
-    handleError(error, "Failed to extract tech stack");
-  }
-}
-
-export async function fetchAllInterviewsByUser(userId: string) {
-  try {
-    const dbInterviews = await prisma.interview.findMany({
+    return await prisma.interview.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     });
-
-    return dbInterviews;
   } catch (error) {
     handleError(error, "Failed to retrieve all interview records");
   }
 }
 
-export async function fetchInterviewById(interviewId: string) {
+/** `null` when it doesn't exist or belongs to another user. */
+export async function fetchInterviewById(
+  interviewId: string
+): Promise<InterviewWithResume | null> {
   try {
-    const dbInterview = await prisma.interview.findUnique({
-      where: {
-        id: interviewId,
-      },
-      include: {
-        resumeAnalysis: {
-          select: {
-            jobDescription: true,
-          },
-        },
-      },
-    });
+    const userId = await requireUserId();
 
-    return dbInterview;
+    return await prisma.interview.findFirst({
+      where: { id: interviewId, userId },
+      include: interviewDetailInclude,
+    });
   } catch (error) {
     handleError(error, "Failed to retrieve interview record");
   }
 }
 
-export async function createInterviewFeedback(params: CreateFeedbackParams) {
+/**
+ * Closes an interview: stores the feedback, marks it finalized and attaches the
+ * recording. One atomic write with `userId` in the `where`, so it is a no-op on
+ * someone else's interview.
+ */
+export async function saveInterviewFeedback(params: {
+  interviewId: string;
+  feedback: FeedbackObject;
+  recordingUrl?: string;
+}): Promise<string> {
+  const { interviewId, feedback, recordingUrl } = params;
+
   try {
-    const { interviewId, userId, transcript, feedbackId, recordingUrl } = params;
+    const userId = await requireUserId();
 
-    const formattedTranscript = transcript
-      .map(
-        (sentence: { role: string; content: string }) =>
-          `- ${sentence.role}: ${sentence.content}\n`
-      )
-      .join("");
-
-    const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001"),
-      schema: feedbackSchema,
-      prompt: interviewFeedbackPrompt(formattedTranscript),
-      system: interviewFeedbackSystemPrompt,
+    const updated = await prisma.interview.update({
+      where: { id: interviewId, userId },
+      data: {
+        finalized: true,
+        ...(recordingUrl ? { recordingUrl } : {}),
+        InterviewFeedback: {
+          create: {
+            totalScore: feedback.totalScore,
+            categoryScores: feedback.categoryScores as Prisma.InputJsonValue,
+            strengths: feedback.strengths,
+            areasForImprovement: feedback.areasForImprovement,
+            finalAssessment: feedback.finalAssessment,
+          },
+        },
+      },
+      include: { InterviewFeedback: true },
     });
 
-    const feedback = {
-      interviewId: interviewId,
-      totalScore: object.totalScore,
-      categoryScores: object.categoryScores,
-      strengths: object.strengths,
-      areasForImprovement: object.areasForImprovement,
-      finalAssessment: object.finalAssessment,
-    };
-
-    const interviewFeedback = await prisma.interviewFeedback.create({
-      data: feedback,
-    });
-
-    // Update the original interview record to trace the recordingUrl if it exists
-    if (recordingUrl) {
-      await prisma.interview.update({
-        where: { id: interviewId },
-        data: { recordingUrl },
-      });
+    if (!updated.InterviewFeedback) {
+      throw new NotFoundError("Interview feedback was not persisted");
     }
 
-    return {
-      success: true,
-      feedbackId: interviewFeedback.id,
-    };
+    return updated.InterviewFeedback.id;
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      handleError(
+        new NotFoundError("Interview not found for this user"),
+        "Failed to create interview feedback"
+      );
+    }
     handleError(error, "Failed to create interview feedback");
   }
 }
 
-export async function fetchFeedbackByInterviewId(interviewId: string) {
+export async function fetchFeedbackByInterviewId(
+  interviewId: string
+): Promise<InterviewFeedback | null> {
   try {
-    const feedback = await prisma.interviewFeedback.findUnique({
-      where: { interviewId },
-    });
+    const userId = await requireUserId();
 
-    return mapDbInterviewFeedback(feedback as DBInterviewFeedback);
+    const feedback = await prisma.interviewFeedback.findFirst({
+      where: { interviewId, interview: { userId } },
+    });
+    return feedback ? mapDbInterviewFeedback(feedback) : null;
   } catch (error) {
     handleError(error, "Failed to retrieve interview feedback");
   }

@@ -4,24 +4,32 @@ const bucket = "files-bucket";
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY as string
+  process.env.NEXT_PUBLIC_SUPABASE_KEY as string,
 );
 
-export const uploadFileToSupabase = async (file: File, fileName: string) => {
-  const timestamp = Date.now();
-  const newName = `${timestamp}-${fileName}`;
-
-  const { data } = await supabase.storage.from(bucket).upload(newName, file, {
+// TODO: the bucket is public and this URL never expires. Move to a private
+// bucket with short-lived signed URLs.
+export const uploadFileToSupabase = async (file: File, key: string) => {
+  const { error } = await supabase.storage.from(bucket).upload(key, file, {
     cacheControl: "3600",
   });
-  if (!data) throw new Error("Failed to upload file");
-  return supabase.storage.from(bucket).getPublicUrl(newName).data.publicUrl;
+
+  if (error) {
+    console.error("[CVision] Supabase upload failed:", error.message);
+    throw new Error("Failed to upload file");
+  }
+
+  return supabase.storage.from(bucket).getPublicUrl(key).data.publicUrl;
 };
 
-export const deleteImage = async (url: string) => {
-  let imageName = url.split("/").pop();
-  if (!imageName) throw new Error("Invalid file URL");
-
-  imageName = decodeURIComponent(imageName);
-  return supabase.storage.from(bucket).remove([imageName]);
+/** Deletes by key, so a failed flow doesn't leave an unreferenced file. */
+export const removeFileFromSupabase = async (key: string) => {
+  const { error } = await supabase.storage.from(bucket).remove([key]);
+  if (error) {
+    console.error("[CVision] Supabase remove failed:", error.message);
+  }
 };
+
+/** Namespaced by user so storage access can be scoped per user. */
+export const buildResumeKey = (userId: string) =>
+  `cv/${userId}/${crypto.randomUUID()}.pdf`;

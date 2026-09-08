@@ -10,8 +10,12 @@ type ResumeAnalysisDetailScreenProps = {
 export default async function ResumeAnalysisDetailScreen({
   resumeAnalysisId,
 }: ResumeAnalysisDetailScreenProps) {
+  // Already scoped to the owner: another user's analysis comes back null.
   const resumeAnalysis = await fetchResumeById(resumeAnalysisId);
-  if (!resumeAnalysis) redirect("/");
+  if (!resumeAnalysis) redirect("/resume/analyses");
+
+  // Stored feedback no longer matches the schema, so there is nothing to render.
+  if (!resumeAnalysis.feedback) redirect("/resume/analyses");
 
   return (
     <div className="relative overflow-hidden bg-background min-h-screen">
@@ -20,11 +24,7 @@ export default async function ResumeAnalysisDetailScreen({
         <div className="grid lg:grid-cols-2 gap-6 items-start">
           <ResumeFeedback
             feedback={resumeAnalysis.feedback}
-            interviewDetails={{
-              jobRole: resumeAnalysis.jobTitle,
-              jobDescription: resumeAnalysis.jobDescription,
-              resumeId: resumeAnalysis.id,
-            }}
+            resumeId={resumeAnalysis.id}
           />
           <PdfPreview resumeUrl={resumeAnalysis.resumeUrl} />
         </div>

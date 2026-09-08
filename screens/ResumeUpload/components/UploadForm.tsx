@@ -16,63 +16,72 @@ import { useState } from "react";
 import FileUploader from "./FileUploader";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import ErrorMessage from "./ErrorMessage";
-import { CreateResumeInput } from "@/types/resume";
 import { toast } from "sonner";
+import {
+  createResumeInputSchema,
+  MAX_JOB_DESCRIPTION_CHARS,
+  type CreateResumeInput,
+} from "@/lib/schemas/resumeSchema";
+import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
+import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 
 export default function UploadForm() {
   const router = useRouter();
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [file, setFile] = useState<File | null>(null);
-
-  const initialValues: CreateResumeInput = {
-    companyName: "",
-    jobTitle: "",
-    jobDescription: "",
-    resume: null,
-  };
 
   const {
     register,
     handleSubmit,
     setValue,
+    resetField,
     formState: { errors },
-  } = useForm({
-    defaultValues: initialValues,
+  } = useForm<CreateResumeInput>({
+    // Same schema the server action validates with.
+    resolver: zodResolver(createResumeInputSchema),
+    defaultValues: {
+      companyName: "",
+      jobTitle: "",
+      jobDescription: "",
+    },
   });
 
   const handleFileSelect = (file: File | null) => {
-    setFile(file);
-    setValue("resume", file);
+    if (!file) {
+      resetField("resume");
+      return;
+    }
+    setValue("resume", file, { shouldValidate: true });
   };
 
   const onSubmit = async (data: CreateResumeInput) => {
-    if (!file) {
-      toast.warning("Please upload your resume");
-      return;
-    }
-
     setIsProcessing(true);
 
-    const { companyName, jobTitle, jobDescription } = data;
+    try {
+      const body = new FormData();
+      body.append("companyName", data.companyName);
+      body.append("jobTitle", data.jobTitle);
+      body.append("jobDescription", data.jobDescription);
+      body.append("resume", data.resume);
 
-    const body = new FormData();
-    body.append("companyName", companyName);
-    body.append("jobTitle", jobTitle);
-    body.append("jobDescription", jobDescription);
-    body.append("resume", file);
+      const result = await analyzeResumeAction(body);
 
-    const response = await fetch("/api/resume/analyze", {
-      method: "POST",
-      body: body,
-    });
+      if (!result.ok) {
+        toast.error(actionErrorCopy(result.code));
+        return;
+      }
 
-    const resumeId: string = await response.json();
-
-    setIsProcessing(false);
-    router.push(`/resume/analysis/${resumeId}`);
+      router.push(`/resume/analysis/${result.data.resumeId}`);
+    } catch {
+      // Network failure or an action that never returned.
+      toast.error(actionErrorCopy("UNKNOWN"));
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
   return (
     <Card className="border-border/50 bg-card/50 backdrop-blur">
       {!isProcessing && (
@@ -82,8 +91,8 @@ export default function UploadForm() {
             Job & Resume Details
           </CardTitle>
           <CardDescription>
-            Fill in the job information and upload the candidate's resume for AI
-            analysis.
+            Fill in the job information and upload the candidate&apos;s resume
+            for AI analysis.
           </CardDescription>
         </CardHeader>
       )}
@@ -92,11 +101,12 @@ export default function UploadForm() {
         {isProcessing ? (
           <div>
             <h2 className="text-center text-2xl font-semibold">
-              Analizing your resume...
+              Analyzing your resume...
             </h2>
             <p className="text-center text-muted-foreground mt-4 text-sm">
               This may take a few moments.
             </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/resume-scan.gif"
               alt="Resume scan"
@@ -115,9 +125,8 @@ export default function UploadForm() {
                 <div>
                   <Input
                     id="company-name"
-                    {...register("companyName", {
-                      required: "Company name is required",
-                    })}
+                    maxLength={100}
+                    {...register("companyName")}
                     placeholder="Enter company name"
                     className="bg-background/50"
                   />
@@ -131,9 +140,8 @@ export default function UploadForm() {
                 <div>
                   <Input
                     id="job-title"
-                    {...register("jobTitle", {
-                      required: "Job title is required",
-                    })}
+                    maxLength={120}
+                    {...register("jobTitle")}
                     placeholder="Enter job title"
                     className="bg-background/50"
                   />
@@ -149,9 +157,9 @@ export default function UploadForm() {
               <div>
                 <Textarea
                   id="job-description"
-                  {...register("jobDescription", {
-                    required: "Job description is required",
-                  })}
+                  // This text goes straight into the prompt.
+                  maxLength={MAX_JOB_DESCRIPTION_CHARS}
+                  {...register("jobDescription")}
                   placeholder="Paste the complete job description here..."
                   className="bg-background/50 resize-none"
                 />
@@ -165,6 +173,9 @@ export default function UploadForm() {
               <Label htmlFor="resume">Resume Upload</Label>
 
               <FileUploader onFileSelect={handleFileSelect} />
+              {errors.resume?.message && (
+                <ErrorMessage text={errors.resume.message} />
+              )}
             </div>
 
             <Button
