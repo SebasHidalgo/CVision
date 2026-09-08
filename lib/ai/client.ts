@@ -1,26 +1,28 @@
 import "server-only";
 
 import { Ollama } from "ollama";
-import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
 import { z } from "zod";
 import { AiFormatError, AiUnavailableError } from "@/lib/error/errors";
 
 /**
- * Provider-agnostic AI interface. Nothing else in the app talks to Ollama or
- * the AI SDK directly, so swapping providers happens only in this file.
+ * Provider-agnostic AI interface. Nothing else in the app talks to Ollama
+ * directly, and no caller picks a provider: adding a paid one means a new
+ * `call<Provider>` function and a branch here, with zero call-site changes.
  */
-export type AiProvider = "ollama" | "google";
+export type AiProvider = "ollama";
+
+const PROVIDER: AiProvider = "ollama";
+const MODEL = "qwen3:1.7b";
+const OLLAMA_HOST = "http://127.0.0.1:11434";
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 
-const MODELS: Record<AiProvider, string> = {
-  ollama: process.env.OLLAMA_MODEL ?? "llama3.2:3b",
-  google: process.env.GOOGLE_MODEL ?? "gemini-2.0-flash-001",
-};
+// Ollama defaults to a very small context window and silently drops whatever
+// does not fit — a truncated resume or transcript still returns valid-looking
+// JSON. Set it explicitly so the input is the one we actually sent.
+const NUM_CTX = 8192;
 
 type GenerateJsonOptions<T> = {
-  provider: AiProvider;
   prompt: string;
   system?: string;
   schema: z.ZodType<T>;
@@ -33,7 +35,6 @@ type GenerateJsonOptions<T> = {
  * provider down) or `AiFormatError` (answered outside the contract).
  */
 export async function generateJson<T>({
-  provider,
   prompt,
   system,
   schema,
@@ -42,17 +43,12 @@ export async function generateJson<T>({
   const startedAt = Date.now();
 
   try {
-    const raw =
-      provider === "ollama"
-        ? await callOllama(prompt, system, schema, timeoutMs)
-        : await callGoogle(prompt, system, schema, timeoutMs);
-
-    return raw;
+    return await callOllama(prompt, system, schema, timeoutMs);
   } finally {
     // Never log the prompt or the response: both carry the resume and the job
     // description.
     console.info(
-      `[CVision][ai] provider=${provider} model=${MODELS[provider]} ms=${Date.now() - startedAt}`,
+      `[CVision][ai] provider=${PROVIDER} model=${MODEL} ms=${Date.now() - startedAt}`,
     );
   }
 }
@@ -69,7 +65,7 @@ async function callOllama<T>(
   // The ollama client only exposes a global abort, so the signal is injected
   // through fetch to keep the timeout per call.
   const client = new Ollama({
-    host: process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434",
+    host: OLLAMA_HOST,
     fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
       fetch(input, { ...init, signal: controller.signal })) as typeof fetch,
   });
@@ -77,13 +73,14 @@ async function callOllama<T>(
   let content: string;
   try {
     const response = await client.chat({
-      model: MODELS.ollama,
+      model: MODEL,
       messages: [
         ...(system ? [{ role: "system", content: system }] : []),
         { role: "user", content: prompt },
       ],
       // Constrained decoding: keeps a small model from answering with prose.
       format: toJsonSchemaOrJsonMode(schema),
+      options: { num_ctx: NUM_CTX },
     });
     content = response.message.content;
   } catch (error) {
@@ -98,37 +95,6 @@ async function callOllama<T>(
   }
 
   return parseAndValidate(content, schema);
-}
-
-async function callGoogle<T>(
-  prompt: string,
-  system: string | undefined,
-  schema: z.ZodType<T>,
-  timeoutMs: number,
-): Promise<T> {
-  try {
-    const { object } = await generateObject({
-      model: google(MODELS.google),
-      schema: schema as z.ZodType<T, unknown>,
-      prompt,
-      system,
-      abortSignal: AbortSignal.timeout(timeoutMs),
-    });
-    return object;
-  } catch (error) {
-    if (isAbort(error)) {
-      throw new AiUnavailableError(`Google timed out after ${timeoutMs}ms`, {
-        cause: error,
-      });
-    }
-
-    if (isSchemaFailure(error)) {
-      throw new AiFormatError("Google returned an object outside the schema", {
-        cause: error,
-      });
-    }
-    throw new AiUnavailableError("Google provider failed", { cause: error });
-  }
 }
 
 function parseAndValidate<T>(content: string, schema: z.ZodType<T>): T {
@@ -177,12 +143,5 @@ function isAbort(error: unknown): boolean {
   return (
     error instanceof Error &&
     (error.name === "AbortError" || error.name === "TimeoutError")
-  );
-}
-
-function isSchemaFailure(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    /NoObjectGenerated|TypeValidation|JSONParse/i.test(error.name)
   );
 }

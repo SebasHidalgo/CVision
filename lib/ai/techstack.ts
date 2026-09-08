@@ -7,14 +7,16 @@ import { techstackSchema } from "@/lib/schemas/interviewSchema";
 
 const techstackResponseSchema = z.object({ techstack: techstackSchema });
 
+// Local model on CPU: a short extraction still costs seconds, not milliseconds.
+const TECHSTACK_TIMEOUT_MS = 60_000;
+
 export async function extractTechstackFromDescription(
   description: string,
 ): Promise<string[]> {
   const { techstack } = await generateJson({
-    provider: "google",
     prompt: techstackExtractionPrompt(description),
     schema: techstackResponseSchema,
-    timeoutMs: 30_000,
+    timeoutMs: TECHSTACK_TIMEOUT_MS,
   });
 
   return techstack;
