@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Header } from "@/components/navbar/Header";
 import Providers from "@/components/providers/Providers";
+import { clerkAppearance } from "@/lib/clerkAppearance";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -35,24 +36,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f8f6f2",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#262320" },
+  ],
   width: "device-width",
   initialScale: 1,
-};
-
-// Clerk renders in-page, so its modals pick up the same paper and ink.
-const clerkAppearance = {
-  variables: {
-    colorPrimary: "#1d2030",
-    colorBackground: "#f8f6f2",
-    colorText: "#1d2030",
-    colorTextSecondary: "#5a5e6b",
-    colorInputBackground: "#f8f6f2",
-    colorInputText: "#1d2030",
-    colorDanger: "#d9532f",
-    borderRadius: "3px",
-    fontFamily: "var(--font-schibsted), ui-sans-serif, system-ui, sans-serif",
-  },
 };
 
 export default function RootLayout({
@@ -61,8 +50,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={clerkAppearance}>
-      <html lang="en">
+    // Base appearance for anything Clerk renders without an explicit one;
+    // modals opened from the client pass the themed variant themselves.
+    <ClerkProvider appearance={clerkAppearance("light")}>
+      {/* next-themes sets the class on <html> before hydration. */}
+      <html lang="en" suppressHydrationWarning>
         <body
           className={`${fraunces.variable} ${schibsted.variable} ${plexMono.variable} flex min-h-dvh flex-col`}
         >

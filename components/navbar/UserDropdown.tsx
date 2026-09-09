@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useClerkAppearance } from "@/hooks/useClerkAppearance";
 import { PRIMARY_NAV } from "./nav";
 
 /** Initials from the name when Clerk has one, else the first letter of the email. */
@@ -29,6 +30,7 @@ function initialsFor(user: {
 export default function UserDropdown() {
   const { user, isLoaded } = useUser();
   const { openUserProfile, signOut } = useClerk();
+  const appearance = useClerkAppearance();
 
   if (!isLoaded || !user) {
     return <span aria-hidden className="size-9 rounded-full bg-paper-3" />;
@@ -80,7 +82,7 @@ export default function UserDropdown() {
 
         <DropdownMenuItem
           className="px-2.5 py-2"
-          onSelect={() => openUserProfile()}
+          onSelect={() => openUserProfile({ appearance })}
         >
           Profile &amp; security
         </DropdownMenuItem>

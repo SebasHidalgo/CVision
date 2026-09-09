@@ -2,30 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { Plus } from "lucide-react";
+import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRIMARY_NAV } from "./nav";
 import UserDropdown from "./UserDropdown";
 
-/** The live interview room inverts the whole page, header included. */
-function isStudioRoute(pathname: string) {
-  return /^\/interview\/[^/]+$/.test(pathname);
-}
-
 export function Header() {
   const pathname = usePathname();
-  const studio = isStudioRoute(pathname);
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-[6px]",
-        studio && "studio",
-      )}
-    >
+    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-[6px]">
       <div className="wrap flex h-14 items-center justify-between gap-6 md:h-16">
         <Wordmark />
 
@@ -59,7 +50,8 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
             <Button asChild size="sm" className="h-9 gap-1.5 px-3.5">
               <Link href="/resume/upload">
                 <Plus className="size-4" />
@@ -73,16 +65,17 @@ export function Header() {
 
         <SignedOut>
           <div className="flex items-center gap-2">
-            <SignInButton mode="modal">
+            <ThemeToggle />
+            <SignInCta>
               <Button variant="ghost" size="sm" className="h-9 px-3.5">
                 Sign in
               </Button>
-            </SignInButton>
-            <SignInButton mode="modal" forceRedirectUrl="/resume/upload">
+            </SignInCta>
+            <SignInCta forceRedirectUrl="/resume/upload">
               <Button size="sm" className="h-9 px-3.5">
                 Analyze my CV
               </Button>
-            </SignInButton>
+            </SignInCta>
           </div>
         </SignedOut>
       </div>

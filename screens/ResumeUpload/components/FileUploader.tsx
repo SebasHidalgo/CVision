@@ -17,7 +17,7 @@ function Sheet() {
   return (
     <span
       aria-hidden
-      className="relative block h-14 w-11 shrink-0 border border-line-strong bg-paper p-2"
+      className="relative block h-14 w-11 shrink-0 border border-line-strong bg-sheet p-2"
     >
       <span className="block h-1 w-1/2 bg-ink" />
       <span className="mt-1.5 block h-px w-full bg-line-strong" />
