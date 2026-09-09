@@ -54,7 +54,7 @@ export function HeroSpecimen() {
         <span className="text-ink">Frontend Engineer · Northwind</span>
       </figcaption>
 
-      <div className="relative bg-paper p-6 shadow-sheet sm:p-8">
+      <div className="relative bg-sheet p-6 shadow-sheet sm:p-8">
         {/* Header of the CV */}
         <motion.div {...item(0.5)}>
           <span className="block h-3 w-2/5 bg-ink" />

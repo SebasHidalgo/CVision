@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
+import SignInCta from "@/components/auth/SignInCta";
 import Eyebrow from "@/components/layout/Eyebrow";
 import Reveal from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
@@ -63,12 +64,12 @@ export function HeroSection() {
 
           <Reveal delay={0.24} className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
             <SignedOut>
-              <SignInButton mode="modal" forceRedirectUrl="/resume/upload">
+              <SignInCta forceRedirectUrl="/resume/upload">
                 <Button size="lg" className="group h-12 px-6 text-base">
                   Analyze my CV
                   <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
                 </Button>
-              </SignInButton>
+              </SignInCta>
             </SignedOut>
             <SignedIn>
               <Button asChild size="lg" className="group h-12 px-6 text-base">

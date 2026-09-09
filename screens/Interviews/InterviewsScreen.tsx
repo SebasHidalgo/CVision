@@ -83,7 +83,7 @@ export default async function InterviewsScreen() {
                       aria-hidden
                       className={cn(
                         "size-2 rounded-full",
-                        interview.finalized ? "bg-strong" : "bg-signal animate-blink",
+                        interview.finalized ? "bg-strong" : "glow-signal bg-signal animate-blink",
                       )}
                     />
                     {interview.finalized ? "Completed · view feedback" : "Ready to start"}

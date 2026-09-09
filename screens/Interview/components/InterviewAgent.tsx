@@ -323,7 +323,7 @@ export default function InterviewAgent({
         : "Ready when you are";
 
   return (
-    <div className="studio flex flex-1 flex-col bg-paper text-ink">
+    <div className="flex flex-1 flex-col">
       <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
         {/* Room header */}
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
@@ -336,7 +336,7 @@ export default function InterviewAgent({
               aria-hidden
               className={cn(
                 "size-2 rounded-full",
-                active ? "bg-signal animate-blink" : finished ? "bg-ink-3" : "bg-line-strong",
+                active ? "glow-signal bg-signal animate-blink" : finished ? "bg-ink-3" : "bg-line-strong",
               )}
             />
             <span className="eyebrow text-ink">{statusLine}</span>

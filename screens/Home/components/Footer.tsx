@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
+import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
 
 export function Footer() {
@@ -26,11 +27,11 @@ export function Footer() {
             </Link>
           </SignedIn>
           <SignedOut>
-            <SignInButton mode="modal">
+            <SignInCta>
               <button type="button" className="link-rule cursor-pointer text-ink-2">
                 Sign in
               </button>
-            </SignInButton>
+            </SignInCta>
           </SignedOut>
           <span className="eyebrow self-center">© 2026 CVision</span>
         </nav>

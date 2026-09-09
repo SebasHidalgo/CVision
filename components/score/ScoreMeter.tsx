@@ -83,9 +83,9 @@ export default function ScoreMeter({
           viewport={onMount ? undefined : VIEWPORT}
           transition={transition}
           style={{ x: "-50%" }}
-          className="absolute -top-1 -bottom-1 w-[1.5px] bg-signal"
+          className="glow-signal absolute -top-1 -bottom-1 w-[1.5px] bg-signal"
         >
-          <span className="absolute -top-px left-1/2 size-[5px] -translate-x-1/2 bg-signal" />
+          <span className="glow-signal absolute -top-px left-1/2 size-[5px] -translate-x-1/2 bg-signal" />
         </motion.span>
       </div>
 

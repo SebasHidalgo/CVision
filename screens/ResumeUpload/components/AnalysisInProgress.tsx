@@ -42,7 +42,7 @@ export default function AnalysisInProgress() {
       {/* The sheet being read */}
       <div
         aria-hidden
-        className="relative mx-auto aspect-[3/4] w-full max-w-[15rem] overflow-hidden bg-paper p-6 shadow-sheet"
+        className="relative mx-auto aspect-[3/4] w-full max-w-[15rem] overflow-hidden bg-sheet p-6 shadow-sheet"
       >
         <span className="block h-2.5 w-2/5 bg-ink" />
         <span className="mt-3 block h-[5px] w-3/5 bg-paper-3" />
