@@ -9,6 +9,8 @@ const COPY: Record<ErrorCode, string> = {
     "The analyzer isn't responding right now. Give it a minute and try again.",
   AI_BAD_FORMAT:
     "We couldn't read the analysis. Try again — it usually works on a retry.",
+  TRANSCRIPT_TOO_LONG:
+    "This interview is too long to score. Try a shorter session.",
   UNKNOWN: "Something went wrong on our side. Please try again.",
 };
 

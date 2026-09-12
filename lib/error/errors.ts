@@ -5,6 +5,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "AI_UNAVAILABLE"
   | "AI_BAD_FORMAT"
+  | "TRANSCRIPT_TOO_LONG"
   | "UNKNOWN";
 
 export class AppError extends Error {
@@ -27,6 +28,12 @@ export class UnauthorizedError extends AppError {
 export class NotFoundError extends AppError {
   constructor(message = "Resource not found") {
     super("NOT_FOUND", message);
+  }
+}
+
+export class TranscriptTooLongError extends AppError {
+  constructor(message = "Transcript exceeds the length limits") {
+    super("TRANSCRIPT_TOO_LONG", message);
   }
 }
 
