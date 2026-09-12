@@ -8,10 +8,17 @@ import {
   interviewFeedbackSystemPrompt,
 } from "@/lib/ai/prompts/interview-feedback.prompt";
 import { computeTotalScore, feedbackSchema } from "@/lib/ai/schemas";
-import { saveInterviewFeedback } from "@/lib/database/interview";
+import {
+  fetchInterviewById,
+  saveInterviewFeedback,
+} from "@/lib/database/interview";
+import { NotFoundError, TranscriptTooLongError } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
-import { submitInterviewFeedbackInputSchema } from "@/lib/schemas/interviewSchema";
+import {
+  isTranscriptTooLong,
+  submitInterviewFeedbackInputSchema,
+} from "@/lib/schemas/interviewSchema";
 import type { ActionResult } from "@/types/action";
 
 const FEEDBACK_TIMEOUT_MS = 90_000;
@@ -24,9 +31,21 @@ export async function submitInterviewFeedbackAction(
     await requireUserId();
 
     const parsed = submitInterviewFeedbackInputSchema.safeParse(input);
-    if (!parsed.success) throw new ValidationError("Invalid feedback input");
+    if (!parsed.success) {
+      throw isTranscriptTooLong(parsed.error)
+        ? new TranscriptTooLongError()
+        : new ValidationError("Invalid feedback input");
+    }
 
     const { interviewId, transcript, recordingUrl } = parsed.data;
+
+    // Gate the model call: a foreign or already-scored interview must cost
+    // nothing. The owner-scoped write below stays as the final guard.
+    const interview = await fetchInterviewById(interviewId);
+    if (!interview) throw new NotFoundError("Interview not found");
+    if (interview.finalized) {
+      throw new ValidationError("Interview already has feedback");
+    }
 
     const formattedTranscript = transcript
       .map((sentence) => `- ${sentence.role}: ${sentence.content}\n`)
