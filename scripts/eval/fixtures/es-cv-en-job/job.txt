@@ -1,0 +1,20 @@
+Data Analyst - Northpoint Retail Group (Remote, EMEA)
+
+We are a fast-growing online retailer operating in six European countries. Our Data team supports merchandising, operations and marketing, and we are hiring a Data Analyst to own reporting for our commercial teams.
+
+What you will do
+- Build and maintain dashboards (Power BI or Looker) for sales, margin and returns.
+- Write SQL to answer business questions and automate recurring reports.
+- Analyze A/B tests and explain the results to non-technical stakeholders.
+- Support demand forecasting with the data science team.
+- Improve data quality and keep metric definitions consistent across teams.
+
+What we are looking for
+- 3+ years of experience as a data or business analyst, ideally in e-commerce or retail.
+- Strong SQL; experience with a cloud warehouse such as BigQuery or Snowflake.
+- Python for analysis (pandas).
+- Experience with a BI tool, preferably Power BI.
+- Solid understanding of statistics and experiment design.
+- Fluent English; our working language is English. Another European language is a plus.
+
+We offer remote work within EMEA, a yearly learning budget and flexible hours.

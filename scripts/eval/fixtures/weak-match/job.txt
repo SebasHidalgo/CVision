@@ -1,0 +1,23 @@
+Senior Backend Engineer - Vantage Payments (Remote, US)
+
+Vantage Payments processes card payments for 40,000 merchants. Our Core Platform team owns the services that authorize, settle and reconcile every transaction. We are hiring a Senior Backend Engineer.
+
+What you will do
+- Design, build and operate high-throughput services in Go.
+- Own services end to end on Kubernetes, including on-call for the systems you build.
+- Design APIs and data models for payment authorization and settlement.
+- Improve reliability: observability, load testing and incident follow-ups.
+- Mentor engineers and lead technical design reviews.
+
+Requirements
+- 6+ years of professional backend software development.
+- Strong experience with Go, Java or another statically typed language.
+- Experience with distributed systems, message queues (Kafka) and relational databases (PostgreSQL).
+- Production experience with Kubernetes and a major cloud provider (AWS or GCP).
+- Experience with observability tools such as Prometheus, Grafana or Datadog.
+
+Nice to have
+- Payments or fintech experience, including PCI DSS.
+- Experience with event sourcing or CQRS.
+
+Compensation $180,000 - $220,000 plus equity.

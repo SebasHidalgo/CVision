@@ -1,0 +1,5 @@
+{
+  "jobTitle": "Staff Backend Engineer",
+  "expectedFit": "strong",
+  "purpose": "CV text slightly over the 20,000-character truncation limit, with Education and Certifications last so the cut removes them. Also the largest prompt: stresses the model's context window."
+}

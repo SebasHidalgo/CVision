@@ -45,3 +45,9 @@ next-env.d.ts
 /.clerk/
 
 claude.md
+
+/docs
+
+# eval harness: model output, and local fixtures that may hold real CVs
+/scripts/eval/runs/
+/scripts/eval/fixtures.local/

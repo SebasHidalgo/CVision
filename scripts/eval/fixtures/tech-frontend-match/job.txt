@@ -1,0 +1,27 @@
+Frontend Engineer - Meridian Health (Remote, US)
+
+About the role
+Meridian Health builds scheduling and intake software used by 2,000 clinics. We are looking for a Frontend Engineer to join the team that owns our patient-facing web app. You will ship features used by millions of patients a year and help raise the bar on performance and accessibility.
+
+What you will do
+- Build and maintain features in our React and TypeScript web application.
+- Own the performance of key flows (booking, intake forms) and track Core Web Vitals.
+- Make every screen accessible; we target WCAG 2.1 AA.
+- Collaborate with product designers on our component library.
+- Write unit and end-to-end tests and keep the suite fast and reliable.
+- Review code and mentor less experienced engineers.
+
+What we are looking for
+- 3+ years of professional experience with React and TypeScript.
+- Experience with Next.js or another server-side rendering framework.
+- Strong CSS skills; experience with Tailwind CSS or a design system.
+- Experience with automated testing (Jest or Vitest, and Playwright or Cypress).
+- Working knowledge of web accessibility standards.
+
+Nice to have
+- GraphQL experience.
+- Experience in healthcare or another regulated industry.
+- Familiarity with CI/CD pipelines such as GitHub Actions.
+
+What we offer
+Fully remote team, four weeks of paid time off, a learning budget and a yearly team offsite.

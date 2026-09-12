@@ -1,0 +1,164 @@
+MORGAN ELLIS
+Principal Platform Engineer
+morgan.ellis@example.com | +1 555 0167 | Denver, CO | github.com/morgan-ellis-example | morganellis.example.com
+
+SUMMARY
+Backend and platform engineer with sixteen years of experience designing, building and operating distributed systems for logistics, payments, travel and media companies. I specialize in event-driven architectures, data-intensive services and the unglamorous work that keeps them correct under failure: idempotency, backpressure, schema evolution, capacity planning and incident response. I have led platform initiatives spanning six to twelve teams, written the design documents that set direction for them, and mentored more than twenty engineers into senior and staff roles. I care about systems that are boring to operate, documentation people actually read, and on-call rotations nobody dreads.
+
+CORE SKILLS
+Languages: Go (8 years), Java (9 years), Kotlin (3 years), Python (10 years), SQL, some Rust and TypeScript.
+Distributed systems: event sourcing, CQRS, sagas and process managers, outbox pattern, exactly-once and effectively-once processing, consensus basics (Raft), rate limiting, backpressure, idempotent API design.
+Data: PostgreSQL (schema design, partitioning, logical replication, query tuning, zero-downtime migrations), Kafka (topic design, compaction, consumer group tuning, Kafka Connect, Schema Registry), Redis, DynamoDB, Elasticsearch, ClickHouse, Snowflake.
+Infrastructure: Kubernetes (EKS and GKE), Helm, Terraform, AWS (EC2, RDS, MSK, S3, IAM, VPC design), GCP (GKE, Pub/Sub, BigQuery), Envoy, Istio, Linkerd.
+Reliability: SLO design and error budgets, Prometheus, Grafana, OpenTelemetry, Jaeger, Datadog, PagerDuty, chaos testing with Litmus and Toxiproxy, load testing with k6 and Gatling, capacity planning.
+Practices: design documents and architecture reviews, technical roadmaps, incident command, blameless postmortems, mentoring, hiring loops and interviewer training.
+
+EXPERIENCE
+
+Principal Platform Engineer | Cobalt Freight | Denver, CO (remote) | Jan 2021 - Present
+- Set the technical direction for the shipment lifecycle platform used by eleven product teams, writing the architecture strategy that replaced a shared-database monolith with event-driven services over three years.
+- Designed the booking saga that coordinates pricing, carrier matching, capacity holds and payment authorization across five services, using an outbox pattern and idempotency keys; duplicate bookings fell from roughly 40 a week to zero.
+- Led the migration of 38 services from self-managed Kafka on EC2 to Amazon MSK with zero lost messages, including a dual-write period, offset translation tooling and a rehearsed rollback plan.
+- Introduced service-level objectives for the twelve most critical APIs and tied them to error budgets that product managers use in quarterly planning; paging volume dropped by 55% within two quarters.
+- Designed a partitioning scheme for the 4 TB shipments table in PostgreSQL, moving to monthly partitions with automated retention; p99 latency of the tracking API improved from 1.9 s to 240 ms.
+- Built the internal "golden path" service template in Go with structured logging, OpenTelemetry tracing, health checks and Helm charts; new services now reach production in two days instead of three weeks.
+- Chaired the architecture review board, reviewing more than 60 design documents and introducing a lightweight template that halved the average review cycle.
+- Acted as incident commander for 14 major incidents and wrote the incident response handbook adopted by the whole engineering organization.
+- Partnered with the data team to publish a governed event catalog with Schema Registry compatibility rules, ending a class of consumer breakages caused by unannounced schema changes.
+- Led a cost review of our AWS footprint that removed $1.1M in annual spend through rightsizing, reserved capacity and deleting abandoned environments.
+- Mentored six senior engineers; four were promoted to staff level during my tenure.
+- Represented engineering in due diligence for the acquisition of a regional carrier network and led the technical integration plan.
+
+Staff Software Engineer | Lumen Payments | Boulder, CO | Mar 2018 - Dec 2020
+- Technical lead for the settlement and reconciliation platform that processed $14B in annual card volume for 25,000 merchants.
+- Rewrote the nightly batch settlement job as a streaming pipeline on Kafka Streams, cutting settlement delay from 26 hours to under 2 hours and enabling next-day payouts as a product feature.
+- Designed a double-entry ledger service in Java with append-only storage in PostgreSQL and invariant checks on every write; it became the source of truth for finance and passed two external audits.
+- Led the PCI DSS scope reduction project, isolating card data into a tokenization service and cutting the number of in-scope systems from 41 to 6.
+- Built a reconciliation engine that matched processor files against the ledger and flagged discrepancies automatically; manual reconciliation work for the finance team fell by 80%.
+- Introduced consumer-driven contract testing between payment services, catching breaking changes before deployment and reducing integration incidents by 60%.
+- Designed idempotent retry semantics for payout APIs used by partner banks, eliminating duplicate payouts that previously cost roughly $200,000 a year in recoveries.
+- Ran the on-call rotation redesign for twelve engineers, with runbooks, alert quality reviews and a follow-the-sun handoff with our Dublin team.
+- Led hiring for the payments platform group, growing it from 7 to 19 engineers, and trained 15 interviewers on a structured system design interview.
+- Gave internal workshops on distributed transactions, sagas and failure modes that more than 120 engineers attended.
+- Worked with legal and compliance to design data retention and deletion workflows that satisfied GDPR requests within 72 hours.
+- Reduced PostgreSQL replication lag incidents to near zero by moving heavy reporting queries to a logical replica and ClickHouse.
+
+Senior Software Engineer | Atlas Travel Group | Denver, CO | Jul 2015 - Feb 2018
+- Built the flight and hotel availability aggregation service in Go, fanning out to 30 supplier APIs with per-supplier circuit breakers, timeouts and caching.
+- Reduced search latency at p95 from 3.2 s to 900 ms by introducing request coalescing, Redis caching with probabilistic early expiry and supplier-specific timeouts.
+- Designed the booking state machine that handled partial failures across suppliers, including compensating cancellations and customer notifications.
+- Migrated the search stack from VMs to Kubernetes on GKE, with Helm charts, horizontal autoscaling and canary deployments through Istio.
+- Led the adoption of distributed tracing with Jaeger across 45 services, making cross-service latency investigations take minutes rather than days.
+- Built a pricing rules engine that let the commercial team change markups without deployments, used for more than 3,000 active rules.
+- Introduced load testing with Gatling into the release process; the team caught two capacity regressions before peak holiday season.
+- Mentored three mid-level engineers and ran the backend guild's monthly design review.
+- Wrote the company's first API style guide, covering versioning, pagination, error formats and idempotency.
+- Coordinated with the security team on a secrets management migration to HashiCorp Vault across all backend services.
+
+Software Engineer II | Riverbend Media | Chicago, IL | Aug 2012 - Jun 2015
+- Developed the content ingestion pipeline in Java that processed 500,000 articles, images and videos a day from wire services and partners.
+- Replaced a cron-based job system with a queue-based worker architecture on RabbitMQ, improving throughput by 4x and making failures retryable.
+- Built the search indexing service on Elasticsearch, including relevance tuning with editors and a zero-downtime reindexing process.
+- Designed the paywall entitlement service that checked subscriptions for 3 million monthly readers with a 99.95% availability target.
+- Reduced infrastructure cost by 30% by moving image processing to spot instances with a checkpointing worker design.
+- Worked with the analytics team to build a clickstream pipeline feeding Redshift for editorial dashboards.
+- Improved test coverage of the ingestion codebase from 35% to 80% and introduced continuous integration with Jenkins.
+- Participated in the on-call rotation and led the postmortem process for the platform team.
+- Built tooling for editors to schedule and embargo stories across time zones, used by 200 journalists.
+
+Software Engineer | Quarry Logistics | Chicago, IL | May 2010 - Jul 2012
+- Built route planning and dispatch features for a regional trucking company's internal platform in Java and Spring.
+- Integrated GPS telematics feeds from 1,200 trucks, storing positions in PostgreSQL with PostGIS for live tracking.
+- Wrote the driver hours-of-service compliance checks required by federal regulations, avoiding fines during two audits.
+- Created EDI integrations with shippers for load tenders and status updates, replacing faxed paperwork.
+- Automated invoice generation from delivery confirmations, shortening the billing cycle from 14 days to 3.
+- Improved nightly reporting jobs so they finished in 40 minutes instead of 5 hours through indexing and query rewrites.
+- Supported the operations team directly, learning the domain by riding along with dispatchers during peak season.
+
+Junior Developer | Tidewater University IT Services | Norfolk, VA | Jun 2008 - Apr 2010
+- Maintained student information system integrations in Python and Perl for 20,000 students.
+- Built a room booking web application used by all academic departments.
+- Automated account provisioning for new students and staff, reducing manual tickets by 70%.
+- Wrote documentation and trained help desk staff on the new tools.
+- Helped migrate the university's email system to a hosted provider over one summer.
+
+SELECTED OPEN SOURCE
+- Maintainer of "outboxer", an open-source Go library implementing the transactional outbox pattern for PostgreSQL and Kafka, used by around 400 public repositories.
+- Contributor to a popular Kafka client library for Go, focused on consumer group rebalancing fixes and documentation.
+- Author of "pgshard-lab", a teaching repository demonstrating PostgreSQL partitioning strategies with benchmarks.
+- Contributed performance fixes to an open-source rate limiting proxy written in Go.
+
+TALKS
+- "Sagas Without Tears: Coordinating Bookings Across Services", regional Go conference, 2023.
+- "Partitioning a 4 TB Table Without Downtime", PostgreSQL user group, 2022.
+- "Error Budgets That Product Managers Actually Use", SRE meetup, 2021.
+- "A Ledger You Can Trust", payments engineering summit, 2019.
+- "Supplier APIs Will Fail: Designing Aggregators for Chaos", travel technology meetup, 2017.
+
+WRITING
+- "Idempotency Keys in Practice", engineering blog series in three parts, 2022.
+- "What We Learned Moving 38 Services to Managed Kafka", company engineering blog, 2021.
+- "Designing Double-Entry Ledgers for Card Payments", company engineering blog, 2020.
+
+LEADERSHIP AND COMMUNITY
+- Organizer of the Denver distributed systems reading group since 2019, meeting monthly with about 40 members.
+- Volunteer mentor with a nonprofit coding bootcamp, supporting career changers through their first engineering jobs.
+- Guest lecturer on backend architecture for a university software engineering course, 2022 and 2023.
+- Member of the program committee for a regional developer conference, reviewing more than 150 talk proposals.
+
+AWARDS
+- Cobalt Freight Engineering Excellence Award, 2023, for the booking saga and duplicate booking elimination.
+- Lumen Payments Founders Award, 2019, for the streaming settlement platform.
+
+ADDITIONAL PROJECTS
+- Built an internal load forecasting prototype at Cobalt Freight that predicted carrier capacity shortfalls a week ahead, later productized by the data science team.
+- Designed a feature flag service used by 30 teams at Lumen Payments, with audit logging and gradual rollouts by merchant segment.
+- Led a hack week project at Atlas Travel Group that produced the fare alert feature, which reached 400,000 subscribers in its first year.
+- Wrote a migration toolkit at Riverbend Media that moved 12 years of archived articles into the new content store without losing editorial metadata.
+- Prototyped a carrier scorecard at Cobalt Freight that combined on-time performance, claims and tender acceptance into one number, now used in carrier negotiations.
+- Designed the multi-region failover plan for Lumen Payments' authorization path and ran the first live regional failover exercise, completing it in 11 minutes against a 30-minute target.
+- Reworked the search relevance feedback loop at Riverbend Media so editors could flag bad results, which fed a weekly tuning review that raised click-through on search results by 18%.
+- Created an internal course at Cobalt Freight on reading query plans in PostgreSQL, taken by more than 90 engineers, with exercises built from real production incidents.
+- Built a replay tool at Lumen Payments that re-ran a day of settlement events against a candidate build, which caught three reconciliation regressions before release.
+
+SELECTED TECHNICAL INITIATIVES
+- Carrier onboarding service (Cobalt Freight, 2023): replaced a spreadsheet-driven process with a workflow service in Go and Temporal, cutting carrier onboarding from nine days to two and giving compliance a full audit trail of every document check and approval.
+- Pricing engine rewrite (Cobalt Freight, 2022): led a four-team effort to move spot pricing from a nightly batch to an event-driven service that reprices lanes within seconds of market changes, raising quote acceptance by 9% while holding margin targets.
+- Tracking event normalization (Cobalt Freight, 2021): designed a canonical shipment event schema that unified tracking updates from EDI, carrier APIs, mobile apps and telematics, removing eleven custom parsers and making late-shipment alerts consistent across channels.
+- Tenant isolation review (Cobalt Freight, 2022): audited every service for cross-customer data access, added row-level security in PostgreSQL for three shared databases, and wrote the automated tests that now run on every deployment.
+- Backfill framework (Cobalt Freight, 2023): built a reusable framework for replaying historical events into new consumers with rate limits and checkpoints, used for nine data migrations without affecting live traffic.
+- API gateway consolidation (Cobalt Freight, 2021): consolidated three API gateways into one Envoy-based edge with shared authentication, rate limiting and request logging, simplifying partner onboarding and cutting edge latency by 30 ms.
+- Data contract program (Cobalt Freight, 2023): defined ownership, compatibility rules and a deprecation policy for 140 event types, with automated checks in CI that block breaking changes before they merge.
+- On-call health program (Cobalt Freight, 2023): introduced alert budgets per team and a monthly review of noisy alerts, reducing after-hours pages across the organization by 48%.
+- Developer experience survey (Cobalt Freight, 2022): ran a quarterly developer survey, turned the results into a platform roadmap, and tracked improvements such as build times falling from 14 to 5 minutes.
+- Dispute handling workflow (Lumen Payments, 2020): designed the chargeback workflow that moves disputes through evidence collection, submission and resolution, integrating with two card networks and cutting disputes lost to missed deadlines by 70%.
+- Merchant risk signals (Lumen Payments, 2019): partnered with the risk team to stream transaction features into a scoring service with a 50 ms budget, allowing real-time holds on suspicious payouts instead of next-day manual review.
+- Currency conversion service (Lumen Payments, 2019): built a service for multi-currency settlement with rate snapshots, rounding rules per currency and full reproducibility of every historical conversion for audits.
+- Database upgrade program (Lumen Payments, 2020): planned and executed major-version PostgreSQL upgrades for fourteen clusters using logical replication, with no customer-facing downtime and a rehearsed rollback for each cluster.
+- Schema migration tooling (Lumen Payments, 2020): wrote tooling and guidelines for expand-and-contract migrations, so schema changes to busy tables could ship during business hours without locks or outages.
+- Load test environment (Lumen Payments, 2020): built a production-like load test environment with synthetic merchants and card traffic, used before every peak season to validate capacity plans.
+- Access management cleanup (Lumen Payments, 2019): moved production database access to short-lived credentials issued through Vault, removing more than 200 long-lived passwords.
+- Supplier certification suite (Atlas Travel Group, 2017): built a contract test suite that every new travel supplier integration had to pass, reducing post-launch supplier incidents from an average of six to one per integration.
+- Search cache redesign (Atlas Travel Group, 2016): replaced a single shared cache with tiered caching per supplier and region, raising the cache hit rate from 38% to 71% and lowering supplier API costs by $400,000 a year.
+- Partner sandbox (Atlas Travel Group, 2016): built a sandbox that simulated supplier behaviors including slow responses, errors and price changes, letting partners test integrations without touching production.
+- Incident metrics (Atlas Travel Group, 2017): introduced tracking of time to detect and time to mitigate for every incident, which leadership adopted as a quarterly reliability goal.
+- Publishing reliability (Riverbend Media, 2014): moved the publishing path to an active-active setup across two data centers, keeping the homepage online during a full data center outage on election night.
+- Media transcoding pipeline (Riverbend Media, 2013): rebuilt video transcoding on a queue of spot workers with retries and progress tracking, publishing breaking-news video in minutes rather than an hour.
+- Archive search (Riverbend Media, 2015): built full-text search over twelve years of archived articles for the newsroom research desk, with filters by section, author and date range.
+- Dispatch board (Quarry Logistics, 2011): built a real-time dispatch board showing every truck, load and driver status, which became the main screen of the operations center.
+- Mentoring program (Cobalt Freight, 2022): started a structured mentoring program pairing staff engineers with senior engineers aiming for promotion, with written growth plans and quarterly check-ins.
+- Partner API versioning (Cobalt Freight, 2022): introduced a versioning and deprecation policy for the public shipper API, with usage dashboards per version, and retired two legacy versions without breaking a single integration.
+- Cost attribution (Cobalt Freight, 2023): tagged every workload with team and product ownership and built monthly cost reports per service, which let teams see and reduce their own cloud spend; total spend fell 12% within two quarters.
+- Settlement file validation (Lumen Payments, 2019): added schema and checksum validation for every inbound processor file, stopping malformed files at the edge instead of halfway through a settlement run.
+- Holiday readiness program (Atlas Travel Group, 2016): coordinated capacity tests, code freezes and on-call staffing for peak travel season across nine teams, with no major incidents that year.
+- Editorial alerting (Riverbend Media, 2014): built alerts that warned editors when a story was published without images, tags or a summary, cutting incomplete publishes by more than half.
+
+LANGUAGES
+English (native), Spanish (professional working proficiency), German (basic).
+
+EDUCATION AND CERTIFICATIONS
+M.S. Computer Science, specialization in Distributed Systems | University of Colorado Boulder | 2015 (completed part-time while working)
+B.S. Computer Science, minor in Mathematics | Old Dominion University | 2008
+AWS Certified Solutions Architect - Professional | 2022
+Certified Kubernetes Administrator (CKA) | 2021
+Confluent Certified Developer for Apache Kafka | 2020
