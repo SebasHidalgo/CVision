@@ -1,0 +1,30 @@
+LUCÍA FERNÁNDEZ
+Analista de Datos
+lucia.fernandez@example.com | +34 600 000 123 | Madrid, España
+
+PERFIL
+Analista de datos con cuatro años de experiencia en comercio electrónico y logística. Transformo datos de ventas y operaciones en paneles y recomendaciones que el equipo de negocio usa cada semana. Me interesa sobre todo la calidad del dato y explicar los resultados de forma clara.
+
+EXPERIENCIA
+
+Analista de Datos | Tiendas Aurora (comercio electrónico) | Madrid | 2022 - Actualidad
+- Diseñé y mantengo 15 paneles en Power BI sobre ventas, devoluciones y márgenes que usan 60 personas de negocio.
+- Automaticé el informe semanal de ventas con Python (pandas) y SQL, ahorrando 10 horas de trabajo manual por semana.
+- Construí un modelo de previsión de demanda por categoría que redujo las roturas de stock un 14%.
+- Analicé pruebas A/B del proceso de compra junto al equipo de producto; una de ellas aumentó la conversión un 4%.
+- Documenté las definiciones de métricas en un diccionario de datos compartido para evitar cifras contradictorias.
+
+Analista Junior de Operaciones | Logística Meseta | Getafe | 2020 - 2022
+- Preparé informes diarios de entregas y retrasos con SQL sobre PostgreSQL y Excel.
+- Detecté un problema recurrente en la asignación de rutas que suponía un 7% de entregas tardías.
+- Colaboré con el equipo de TI en la migración de informes de Excel a Power BI.
+
+FORMACIÓN
+Grado en Estadística | Universidad Complutense de Madrid | 2020
+Curso de Analítica de Datos con Python | Plataforma en línea | 2021
+
+HABILIDADES
+SQL (PostgreSQL, BigQuery), Python (pandas, matplotlib, scikit-learn), Power BI, Excel avanzado, estadística y pruebas A/B, modelado de datos, comunicación de resultados.
+
+IDIOMAS
+Español (nativo), inglés (C1), portugués (B1).
