@@ -49,7 +49,7 @@ export class PdfUnreadableError extends AppError {
   }
 }
 
-/** The PDF opened but has no text layer, as with a scan or an image export. */
+/** The PDF opened but has too little text to be a CV, as with a scan. */
 export class PdfNoTextError extends AppError {
   constructor(message = "PDF has no extractable text") {
     super("PDF_NO_TEXT", message);

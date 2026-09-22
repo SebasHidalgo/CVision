@@ -8,7 +8,7 @@ const COPY: Record<ErrorCode, string> = {
   PDF_UNREADABLE:
     "We couldn't open this PDF. It may be damaged or password-protected. Export a fresh copy without a password and upload that.",
   PDF_NO_TEXT:
-    "We couldn't find any text in this PDF, so it's probably a scan or an image. Export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
+    "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
   STORAGE_UNAVAILABLE:
     "We couldn't save your PDF, so the analysis didn't run. Try again in a few minutes.",
   AI_UNAVAILABLE:

@@ -5,7 +5,7 @@ import { requireUserId } from "@/lib/auth";
 import { extractTechstackFromDescription } from "@/lib/ai/techstack";
 import { createInterview } from "@/lib/database/interview";
 import { fetchResumeById } from "@/lib/database/resume";
-import { AppError, NotFoundError } from "@/lib/error/errors";
+import { AppError, NotFoundError, type ErrorCode } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
 import { createInterviewInputSchema } from "@/lib/schemas/interviewSchema";
@@ -49,14 +49,25 @@ export async function createInterviewAction(
   }
 }
 
-/** The techstack only feeds display chips, so an AI failure must not block. */
+/**
+ * AI failures that cost only the chips. AI_MISCONFIGURED is deliberately
+ * absent: it proves the feedback call at the end of the interview will fail
+ * too, so it must stop the user before a voice session that can't be refunded.
+ * A new AI code propagates until someone decides it belongs here.
+ */
+const SKIPPABLE_AI_CODES: ReadonlySet<ErrorCode> = new Set([
+  "AI_UNAVAILABLE",
+  "AI_RATE_LIMITED",
+  "AI_CONTENT_BLOCKED",
+  "AI_BAD_FORMAT",
+]);
+
+/** The techstack only feeds display chips, so a transient AI failure must not block. */
 async function extractTechstackOrEmpty(description: string): Promise<string[]> {
   try {
     return await extractTechstackFromDescription(description);
   } catch (error) {
-    // Every AI_* code, including rate limits and safety blocks; anything else
-    // (the database, the session) is a real failure.
-    if (!(error instanceof AppError && error.code.startsWith("AI_"))) {
+    if (!(error instanceof AppError && SKIPPABLE_AI_CODES.has(error.code))) {
       throw error;
     }
     console.warn(`[CVision] Techstack extraction skipped: ${error.code}`);
