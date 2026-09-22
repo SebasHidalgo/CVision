@@ -6,8 +6,9 @@ import { vi } from "vitest";
  * and error handling all run for real.
  *
  * This is the only test file that knows the provider's wire format (today:
- * Ollama's /api/chat). When the provider changes, rewrite this file to speak
- * the new format; the contract tests in `client.test.ts` must not change.
+ * Google's Generative Language API, `models/{model}:generateContent`). When the
+ * provider changes, rewrite this file to speak the new format; the contract
+ * tests in `client.test.ts` must not change.
  */
 
 /** What the client asked the model, normalized across providers. */
@@ -16,13 +17,22 @@ export type ProviderRequest = {
   prompt: string;
   /** JSON Schema sent for constrained decoding; `null` means plain JSON mode. */
   schema: Record<string, unknown> | null;
+  /** Model id the request was addressed to. */
+  model: string;
+  /** Thinking / reasoning configuration as sent; `undefined` means provider default. */
+  thinking: unknown;
+  /** Credential presented to the provider. */
+  apiKey: string | undefined;
 };
 
 export type ProviderReply =
   | { kind: "answer"; content: string; delayMs?: number }
   | { kind: "hang" }
   | { kind: "refuse" }
-  | { kind: "error"; status: number };
+  | { kind: "error"; status: number }
+  | { kind: "blocked-prompt" }
+  | { kind: "blocked-answer"; partial?: string }
+  | { kind: "truncated"; content: string };
 
 export const reply = {
   /** The model answers with this raw text, optionally after a delay. */
@@ -42,21 +52,37 @@ export const reply = {
   refuse: (): ProviderReply => ({ kind: "refuse" }),
   /** The provider answers with an HTTP error status. */
   error: (status: number): ProviderReply => ({ kind: "error", status }),
+  /** The provider's safety filter rejects the prompt before generating. */
+  blockedPrompt: (): ProviderReply => ({ kind: "blocked-prompt" }),
+  /** The safety filter stops the answer mid-way, with or without partial text. */
+  blockedAnswer: (partial?: string): ProviderReply => ({
+    kind: "blocked-answer",
+    partial,
+  }),
+  /** The answer hits the output token limit with this (cut) text. */
+  truncated: (content: string): ProviderReply => ({
+    kind: "truncated",
+    content,
+  }),
 };
+
+const TEST_API_KEY = "test-api-key";
 
 /**
  * Routes every provider call to `handler`. Returns the normalized requests the
- * client sent, in order.
+ * client sent, in order. Also provides a credential, so a test that wants a
+ * missing one must clear it after calling this.
  */
 export function installFakeProvider(
   handler: (request: ProviderRequest) => ProviderReply,
 ): { requests: ProviderRequest[] } {
   const requests: ProviderRequest[] = [];
 
+  vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", TEST_API_KEY);
   vi.stubGlobal(
     "fetch",
-    async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const request = toProviderRequest(init);
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = toProviderRequest(input, init);
       requests.push(request);
       return respond(handler(request), init?.signal ?? undefined);
     },
@@ -65,24 +91,41 @@ export function installFakeProvider(
   return { requests };
 }
 
-type OllamaChatBody = {
-  messages: { role: string; content: string }[];
-  format?: unknown;
+type GooglePart = { text?: string };
+
+type GoogleGenerateContentBody = {
+  systemInstruction?: { parts: GooglePart[] };
+  contents: { role: string; parts: GooglePart[] }[];
+  generationConfig?: {
+    responseMimeType?: string;
+    responseSchema?: unknown;
+    thinkingConfig?: unknown;
+  };
 };
 
-function toProviderRequest(init?: RequestInit): ProviderRequest {
-  const body = JSON.parse(String(init?.body)) as OllamaChatBody;
-  const format = body.format;
+function toProviderRequest(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): ProviderRequest {
+  const body = JSON.parse(String(init?.body)) as GoogleGenerateContentBody;
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const responseSchema = body.generationConfig?.responseSchema;
 
   return {
-    system: body.messages.find((message) => message.role === "system")?.content,
+    system: body.systemInstruction?.parts.map((part) => part.text ?? "").join("\n"),
     prompt:
-      body.messages.filter((message) => message.role === "user").at(-1)
-        ?.content ?? "",
+      body.contents
+        .filter((content) => content.role === "user")
+        .at(-1)
+        ?.parts.map((part) => part.text ?? "")
+        .join("\n") ?? "",
     schema:
-      typeof format === "object" && format !== null
-        ? (format as Record<string, unknown>)
+      typeof responseSchema === "object" && responseSchema !== null
+        ? (responseSchema as Record<string, unknown>)
         : null,
+    model: /\/models\/([^:/]+):generateContent/.exec(url)?.[1] ?? "",
+    thinking: body.generationConfig?.thinkingConfig,
+    apiKey: new Headers(init?.headers).get("x-goog-api-key") ?? undefined,
   };
 }
 
@@ -97,27 +140,76 @@ async function respond(
     case "refuse":
       // What Node's fetch throws when nothing listens on the port.
       throw new TypeError("fetch failed", {
-        cause: Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:11434"), {
-          code: "ECONNREFUSED",
-        }),
+        cause: Object.assign(
+          new Error("connect ECONNREFUSED 142.250.0.1:443"),
+          { code: "ECONNREFUSED" },
+        ),
       });
 
     case "error":
       return jsonResponse(
-        { error: `provider failed with status ${providerReply.status}` },
+        {
+          error: {
+            code: providerReply.status,
+            message: `provider failed with status ${providerReply.status}`,
+            status: googleStatusFor(providerReply.status),
+          },
+        },
         providerReply.status,
       );
 
     case "answer":
       if (providerReply.delayMs) await delay(providerReply.delayMs, signal);
+      return jsonResponse(generateContentResponse(providerReply.content, "STOP"));
+
+    case "truncated":
+      return jsonResponse(
+        generateContentResponse(providerReply.content, "MAX_TOKENS"),
+      );
+
+    case "blocked-answer":
+      return jsonResponse(
+        generateContentResponse(providerReply.partial, "SAFETY"),
+      );
+
+    case "blocked-prompt":
       return jsonResponse({
-        model: "fake-model",
-        created_at: new Date().toISOString(),
-        message: { role: "assistant", content: providerReply.content },
-        done: true,
-        done_reason: "stop",
+        promptFeedback: { blockReason: "PROHIBITED_CONTENT" },
+        usageMetadata: { promptTokenCount: 10, totalTokenCount: 10 },
       });
   }
+}
+
+function generateContentResponse(text: string | undefined, finishReason: string) {
+  return {
+    candidates: [
+      {
+        content:
+          text === undefined ? undefined : { role: "model", parts: [{ text }] },
+        finishReason,
+        index: 0,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 10,
+      candidatesTokenCount: 5,
+      totalTokenCount: 15,
+    },
+    modelVersion: "fake-model",
+  };
+}
+
+function googleStatusFor(status: number): string {
+  const known: Record<number, string> = {
+    400: "INVALID_ARGUMENT",
+    401: "UNAUTHENTICATED",
+    403: "PERMISSION_DENIED",
+    404: "NOT_FOUND",
+    429: "RESOURCE_EXHAUSTED",
+    500: "INTERNAL",
+    503: "UNAVAILABLE",
+  };
+  return known[status] ?? "UNKNOWN";
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

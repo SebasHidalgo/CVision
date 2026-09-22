@@ -105,12 +105,17 @@ describe.each(SCORE_PATHS)("resumeFeedbackSchema: %s", (path) => {
 });
 
 describe("resumeFeedbackSchema: missing scores", () => {
-  // KNOWN DEFECT, fails today: z.coerce.number() runs Number() first, so a
-  // missing or empty score becomes 0 and is shown as a real, very low score
-  // instead of failing validation. Drop `.fails` once fixed.
-  for (const value of [null, "", false]) {
-    it.fails(`rejects ${JSON.stringify(value)} instead of reading it as 0`, () => {
+  // Number() would read every one of these as 0 or 1. A score the model did
+  // not give must fail validation, never render as a real, very low score.
+  // Nested so it.each does not spread `[]` into zero arguments.
+  it.each([[null], [""], ["   "], [false], [true], [[]], [{}]])(
+    "rejects %j instead of reading it as a number",
+    (value) => {
       expect(parsedScore("overall.globalScore", value)).toBe("rejected");
-    });
-  }
+    },
+  );
+
+  it("rejects an absent score", () => {
+    expect(parsedScore("overall.globalScore", undefined)).toBe("rejected");
+  });
 });

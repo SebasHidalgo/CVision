@@ -66,9 +66,25 @@ describe("feedbackSchema: whole-number scores from 0 to 100", () => {
     expect(accepts(withScore(score))).toBe(false);
   });
 
-  it("does not coerce: a numeric string is rejected", () => {
-    expect(accepts(withScore("80"))).toBe(false);
+  // Same tolerance as the resume analysis scores: a quoted number is a number.
+  it("accepts a numeric string and reads it as the number", () => {
+    const result = feedbackSchema.safeParse(withScore("80"));
+    expect(result.success).toBe(true);
+    expect(result.data?.categoryScores[0].score).toBe(80);
   });
+
+  it("rejects a numeric string outside 0-100 or not whole", () => {
+    expect(accepts(withScore("101"))).toBe(false);
+    expect(accepts(withScore("72.5"))).toBe(false);
+  });
+
+  // Nested so it.each does not spread `[]` into zero arguments.
+  it.each([[null], [""], ["  "], [false], [true], [[]], [{}], ["abc"]])(
+    "rejects %j instead of reading it as a number",
+    (score) => {
+      expect(accepts(withScore(score))).toBe(false);
+    },
+  );
 });
 
 describe("computeTotalScore", () => {

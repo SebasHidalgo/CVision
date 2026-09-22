@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiScoreSchema } from "@/lib/ai/schemas";
 
 export const MAX_RESUME_BYTES = 20 * 1024 * 1024; // 20 MB
 export const MAX_JOB_DESCRIPTION_CHARS = 8000;
@@ -33,8 +34,8 @@ export const createResumeInputSchema = z.object({
 
 export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;
 
-// Coerced: small models return "85" or 85.5 as often as 85.
-const scoreSchema = z.coerce.number().min(0).max(100);
+// Numbers or numeric strings only; an absent score is a violation, not a 0.
+const scoreSchema = aiScoreSchema();
 
 const sectionBase = {
   score: scoreSchema,
