@@ -142,7 +142,7 @@ export default function UploadForm() {
       </Field>
 
       <div className="flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="eyebrow">Runs while you wait · about a minute</p>
+        <p className="eyebrow">Runs while you wait · takes seconds</p>
         <Button type="submit" size="lg" className="group h-12 px-7 text-base">
           Run the analysis
           <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />

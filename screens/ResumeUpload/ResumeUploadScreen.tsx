@@ -25,7 +25,7 @@ export default function ResumeUploadScreen() {
       <PageIntro
         eyebrow="New analysis"
         title="Measure your CV against one job."
-        lede="One posting, one PDF. The verdict takes about a minute."
+        lede="One posting, one PDF. The verdict is back in seconds."
       />
 
       <div className="grid gap-12 pt-10 lg:grid-cols-12 lg:gap-16 lg:pt-14">

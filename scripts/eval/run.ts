@@ -71,26 +71,31 @@ type RunRecord = {
 };
 
 const USAGE = `CVision analysis eval: run the resume analysis over fixed fixtures and
-compare model output across provider changes.
+compare model output across provider, model or prompt changes.
 
 Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
   npm run eval -- compare <labelA> <labelB>
   npm run eval -- list
 
-Workflow for a provider migration:
-  1. Before the swap (Ollama running, model pulled), capture a baseline, twice:
+Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
+today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
+billed model call.
+
+Workflow for a provider, model or prompt change:
+  1. Before the change, capture a baseline, twice:
        npm run eval -- run baseline
        npm run eval -- run baseline-2
      Compare those two first: the model is not deterministic, and their
      difference is the noise floor any later change must be read against.
        npm run eval -- compare baseline baseline-2
-  2. Swap the provider in lib/ai/client.ts, then run the same fixtures:
-       npm run eval -- run after-swap
+  2. Make the change (provider and model live in lib/ai/client.ts and .env,
+     prompts in lib/ai/prompts/), then run the same fixtures:
+       npm run eval -- run after-change
   3. Compare scores side by side:
-       npm run eval -- compare baseline after-swap
+       npm run eval -- compare baseline after-change
      Full output diff:
-       git diff --no-index scripts/eval/runs/baseline scripts/eval/runs/after-swap
+       git diff --no-index scripts/eval/runs/baseline scripts/eval/runs/after-change
 
 Fixtures:  scripts/eval/fixtures/<id>/        synthetic, committed
            scripts/eval/fixtures.local/<id>/  gitignored: put real CVs here

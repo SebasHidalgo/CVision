@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 // Wall-clock stages, not real progress: the analysis is one synchronous call
-// and the model reports nothing back until it is done.
+// and the model reports nothing back until it is done. Timed for the usual
+// 7-9 s request; the last stage only shows when a call runs slow.
 const STAGES = [
   { at: 0, text: "Reading the text layer of your PDF" },
-  { at: 5, text: "Comparing it with the posting, requirement by requirement" },
-  { at: 20, text: "Scoring six dimensions" },
-  { at: 45, text: "Writing the verdict and the priority fixes" },
-  { at: 85, text: "Still working. Thoroughness takes a moment" },
+  { at: 2, text: "Comparing it with the posting, requirement by requirement" },
+  { at: 4, text: "Scoring six dimensions" },
+  { at: 6, text: "Writing the verdict and the priority fixes" },
+  { at: 15, text: "Still working. Thoroughness takes a moment" },
 ];
 
 function formatElapsed(seconds: number) {
@@ -97,7 +98,7 @@ export default function AnalysisInProgress() {
         </ol>
 
         <p className="eyebrow mt-8">
-          Usually one to two minutes. Keep this tab open.
+          Usually ready in seconds. Keep this tab open.
         </p>
       </div>
     </section>

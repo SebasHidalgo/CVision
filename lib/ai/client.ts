@@ -29,7 +29,7 @@ export type AiProvider = "google";
 
 const DEFAULT_PROVIDER: AiProvider = "google";
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
-const DEFAULT_TIMEOUT_MS = 90_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 type GenerateJsonOptions<T> = {
   prompt: string;
