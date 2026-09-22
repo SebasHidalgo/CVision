@@ -3,12 +3,20 @@ export type ErrorCode =
   | "UNAUTHORIZED"
   | "INVALID_INPUT"
   | "NOT_FOUND"
+  | "PDF_UNREADABLE"
+  | "PDF_NO_TEXT"
+  | "STORAGE_UNAVAILABLE"
   | "AI_UNAVAILABLE"
   | "AI_RATE_LIMITED"
   | "AI_MISCONFIGURED"
   | "AI_CONTENT_BLOCKED"
   | "AI_BAD_FORMAT"
   | "TRANSCRIPT_TOO_LONG"
+  | "TRANSCRIPT_EMPTY"
+  | "INTERVIEW_ALREADY_SCORED"
+  // Client-side only: the Action call itself rejected (network, platform 413
+  // or 504, stale deployment), so no server code exists to report.
+  | "REQUEST_FAILED"
   | "UNKNOWN";
 
 export class AppError extends Error {
@@ -34,9 +42,43 @@ export class NotFoundError extends AppError {
   }
 }
 
+/** pdf.js could not open the file: corrupt, truncated or password-protected. */
+export class PdfUnreadableError extends AppError {
+  constructor(message = "PDF could not be parsed") {
+    super("PDF_UNREADABLE", message);
+  }
+}
+
+/** The PDF opened but has no text layer, as with a scan or an image export. */
+export class PdfNoTextError extends AppError {
+  constructor(message = "PDF has no extractable text") {
+    super("PDF_NO_TEXT", message);
+  }
+}
+
+export class StorageUnavailableError extends AppError {
+  constructor(message = "File storage failed") {
+    super("STORAGE_UNAVAILABLE", message);
+  }
+}
+
 export class TranscriptTooLongError extends AppError {
   constructor(message = "Transcript exceeds the length limits") {
     super("TRANSCRIPT_TOO_LONG", message);
+  }
+}
+
+/** The call ended before anything was transcribed. */
+export class TranscriptEmptyError extends AppError {
+  constructor(message = "Transcript is empty") {
+    super("TRANSCRIPT_EMPTY", message);
+  }
+}
+
+/** Feedback already exists. The room redirects first, so this is a double submit. */
+export class InterviewAlreadyScoredError extends AppError {
+  constructor(message = "Interview already has feedback") {
+    super("INTERVIEW_ALREADY_SCORED", message);
   }
 }
 

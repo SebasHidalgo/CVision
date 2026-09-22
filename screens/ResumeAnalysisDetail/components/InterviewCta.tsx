@@ -35,16 +35,24 @@ export default function InterviewCta({
   const handleCreate = async () => {
     setIsCreating(true);
 
-    const result = await createInterviewAction({ resumeId });
+    try {
+      const result = await createInterviewAction({ resumeId });
 
-    if (!result.ok) {
-      // Reset the button instead of navigating to /interview/undefined.
-      setIsCreating(false);
+      if (result.ok) {
+        // Keep the spinner: resetting now would re-enable the button until the
+        // room loads and unmounts this.
+        router.push(`/interview/${result.data.interviewId}`);
+        return;
+      }
+
       toast.error(actionErrorCopy(result.code));
-      return;
+    } catch {
+      // Rejected rather than returned: network drop, platform 413/504, or a
+      // stale deployment.
+      toast.error(actionErrorCopy("REQUEST_FAILED"));
     }
 
-    router.push(`/interview/${result.data.interviewId}`);
+    setIsCreating(false);
   };
 
   const target = interview

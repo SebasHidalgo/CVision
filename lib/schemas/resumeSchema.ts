@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
+import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 
-export const MAX_RESUME_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_COMPANY_NAME_CHARS = 100;
+export const MAX_JOB_TITLE_CHARS = 120;
 export const MAX_JOB_DESCRIPTION_CHARS = 8000;
 
 // z.instanceof(File) evaluates File at import time and breaks where it is not
@@ -16,8 +18,16 @@ const fileSchema = z.custom<File>(
  * check is UX; the server one is the actual guard.
  */
 export const createResumeInputSchema = z.object({
-  companyName: z.string().trim().min(1, "Company name is required").max(100),
-  jobTitle: z.string().trim().min(1, "Job title is required").max(120),
+  companyName: z
+    .string()
+    .trim()
+    .min(1, "Company name is required")
+    .max(MAX_COMPANY_NAME_CHARS),
+  jobTitle: z
+    .string()
+    .trim()
+    .min(1, "Job title is required")
+    .max(MAX_JOB_TITLE_CHARS),
   jobDescription: z
     .string()
     .trim()
@@ -29,7 +39,10 @@ export const createResumeInputSchema = z.object({
       "Only PDF files are allowed",
     )
     .refine((file) => file.size > 0, "The file is empty")
-    .refine((file) => file.size <= MAX_RESUME_BYTES, "The file exceeds 20 MB"),
+    .refine(
+      (file) => file.size <= MAX_RESUME_BYTES,
+      `The file is larger than ${MAX_RESUME_SIZE_LABEL}`,
+    ),
 });
 
 export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;

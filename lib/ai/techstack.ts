@@ -7,8 +7,10 @@ import { techstackSchema } from "@/lib/schemas/interviewSchema";
 
 const techstackResponseSchema = z.object({ techstack: techstackSchema });
 
-// Local model on CPU: a short extraction still costs seconds, not milliseconds.
-const TECHSTACK_TIMEOUT_MS = 60_000;
+// A short list from a short input, well under the analysis' 6-7 s (not
+// measured separately). Its caller falls back to no chips on failure, so this
+// is the most a slow provider can delay creating the interview.
+const TECHSTACK_TIMEOUT_MS = 10_000;
 
 export async function extractTechstackFromDescription(
   description: string,
