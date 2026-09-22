@@ -20,7 +20,9 @@ import {
 import type { ActionResult } from "@/types/action";
 
 const MAX_RESUME_TEXT_CHARS = 20_000;
-const ANALYSIS_TIMEOUT_MS = 90_000;
+// Measured at 5.6-7.0 s across the scripts/eval runs; 30 s is over 4x the
+// slowest. The route's maxDuration (60 s) is sized on top of this.
+const ANALYSIS_TIMEOUT_MS = 30_000;
 
 /**
  * Public boundary for resume analysis: session, validation and orchestration
@@ -52,15 +54,11 @@ export async function analyzeResumeAction(
 
     const { companyName, jobTitle, jobDescription, resume } = parsed.data;
 
+    // Rejects unreadable and text-less PDFs with their own codes.
     const resumeText = (await extractTextFromPDFFile(resume)).slice(
       0,
       MAX_RESUME_TEXT_CHARS,
     );
-
-    if (!resumeText.trim()) {
-      // Scanned PDF with no text layer: the model would invent feedback.
-      throw new ValidationError("The PDF has no extractable text");
-    }
 
     // Upload before inference so a storage failure doesn't waste the model run.
     uploadedKey = buildResumeKey(userId);

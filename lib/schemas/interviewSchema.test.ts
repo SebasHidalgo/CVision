@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTranscriptEmpty,
   isTranscriptTooLong,
   MAX_TRANSCRIPT_MESSAGES,
   submitInterviewFeedbackInputSchema,
@@ -73,6 +74,26 @@ describe("transcript: other failures are not reported as too long", () => {
 
   it("rejects a recording URL that is not a URL as invalid", () => {
     expect(outcome({ transcript: [message(10)], recordingUrl: "not a url" })).toBe("invalid");
+  });
+});
+
+describe("isTranscriptEmpty", () => {
+  const isEmpty = (input: Record<string, unknown>) => {
+    const result = submitInterviewFeedbackInputSchema.safeParse({
+      interviewId: INTERVIEW_ID,
+      ...input,
+    });
+    return !result.success && isTranscriptEmpty(result.error);
+  };
+
+  it("flags a transcript with no messages", () => {
+    expect(isEmpty({ transcript: [] })).toBe(true);
+  });
+
+  it("does not flag other transcript failures", () => {
+    expect(isEmpty({ transcript: [message(2_001)] })).toBe(false);
+    expect(isEmpty({ transcript: [{ role: "candidate", content: "hi" }] })).toBe(false);
+    expect(isEmpty({})).toBe(false);
   });
 });
 

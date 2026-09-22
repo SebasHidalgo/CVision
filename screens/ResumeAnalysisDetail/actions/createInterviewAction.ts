@@ -5,11 +5,7 @@ import { requireUserId } from "@/lib/auth";
 import { extractTechstackFromDescription } from "@/lib/ai/techstack";
 import { createInterview } from "@/lib/database/interview";
 import { fetchResumeById } from "@/lib/database/resume";
-import {
-  AiFormatError,
-  AiUnavailableError,
-  NotFoundError,
-} from "@/lib/error/errors";
+import { AppError, NotFoundError } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
 import { createInterviewInputSchema } from "@/lib/schemas/interviewSchema";
@@ -58,9 +54,9 @@ async function extractTechstackOrEmpty(description: string): Promise<string[]> {
   try {
     return await extractTechstackFromDescription(description);
   } catch (error) {
-    if (
-      !(error instanceof AiUnavailableError || error instanceof AiFormatError)
-    ) {
+    // Every AI_* code, including rate limits and safety blocks; anything else
+    // (the database, the session) is a real failure.
+    if (!(error instanceof AppError && error.code.startsWith("AI_"))) {
       throw error;
     }
     console.warn(`[CVision] Techstack extraction skipped: ${error.code}`);

@@ -22,7 +22,7 @@ import { scoreTone, type ScoreTone } from "@/lib/score";
 // Mirrors screens/ResumeUpload/actions/analyzeResumeAction.ts, where these are
 // not exported. Keep them in sync.
 const MAX_RESUME_TEXT_CHARS = 20_000;
-const ANALYSIS_TIMEOUT_MS = 90_000;
+const ANALYSIS_TIMEOUT_MS = 30_000;
 
 const EVAL_DIR = __dirname;
 const RUNS_DIR = path.join(EVAL_DIR, "runs");

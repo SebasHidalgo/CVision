@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import {
   createResumeInputSchema,
+  MAX_COMPANY_NAME_CHARS,
   MAX_JOB_DESCRIPTION_CHARS,
+  MAX_JOB_TITLE_CHARS,
   type CreateResumeInput,
 } from "@/lib/schemas/resumeSchema";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
@@ -40,6 +42,7 @@ export default function UploadForm() {
   });
 
   const descriptionLength = watch("jobDescription").length;
+  const resumeFile = watch("resume");
 
   const handleFileSelect = (file: File | null) => {
     if (!file) {
@@ -61,18 +64,21 @@ export default function UploadForm() {
 
       const result = await analyzeResumeAction(body);
 
-      if (!result.ok) {
-        toast.error(actionErrorCopy(result.code));
+      if (result.ok) {
+        // Stay on the progress screen: resetting now would bring back a
+        // submittable form until the report loads, inviting a double submit.
+        router.push(`/resume/analysis/${result.data.resumeId}`);
         return;
       }
 
-      router.push(`/resume/analysis/${result.data.resumeId}`);
+      toast.error(actionErrorCopy(result.code));
     } catch {
-      // Network failure or an action that never returned.
-      toast.error(actionErrorCopy("UNKNOWN"));
-    } finally {
-      setIsProcessing(false);
+      // Rejected rather than returned: network drop, platform 413/504, or a
+      // stale deployment.
+      toast.error(actionErrorCopy("REQUEST_FAILED"));
     }
+
+    setIsProcessing(false);
   };
 
   if (isProcessing) return <AnalysisInProgress />;
@@ -85,7 +91,7 @@ export default function UploadForm() {
             id="company-name"
             type="text"
             autoComplete="organization"
-            maxLength={100}
+            maxLength={MAX_COMPANY_NAME_CHARS}
             placeholder="Northwind"
             aria-invalid={Boolean(errors.companyName)}
             className="field"
@@ -98,7 +104,7 @@ export default function UploadForm() {
             id="job-title"
             type="text"
             autoComplete="organization-title"
-            maxLength={120}
+            maxLength={MAX_JOB_TITLE_CHARS}
             placeholder="Frontend Engineer"
             aria-invalid={Boolean(errors.jobTitle)}
             className="field"
@@ -128,6 +134,7 @@ export default function UploadForm() {
       <Field id="resume" label="Your CV" error={errors.resume?.message}>
         <div className="mt-3">
           <FileUploader
+            file={resumeFile ?? null}
             onFileSelect={handleFileSelect}
             invalid={Boolean(errors.resume)}
           />

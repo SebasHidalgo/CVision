@@ -1,15 +1,30 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { MAX_RESUME_BYTES } from "@/lib/schemas/resumeSchema";
+import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
 
 interface FileUploaderProps {
+  /**
+   * The form's value, not local state: the form unmounts this while an
+   * analysis runs, so after a failure local state would come back empty while
+   * the form still held the file and would resubmit it.
+   */
+  file: File | null;
   onFileSelect: (file: File | null) => void;
   invalid?: boolean;
+}
+
+/** Dropzone rejections are otherwise a silent no-op. */
+function rejectionCopy(code: string | undefined): string {
+  if (code === "file-too-large") {
+    return `That file is over ${MAX_RESUME_SIZE_LABEL}. Export it again with compressed images and upload that.`;
+  }
+  if (code === "too-many-files") return "Drop one file at a time.";
+  return "Only PDF files are accepted.";
 }
 
 /** A small sheet with a folded corner: the CV as an object. */
@@ -29,19 +44,12 @@ function Sheet() {
 }
 
 export default function FileUploader({
+  file,
   onFileSelect,
   invalid = false,
 }: FileUploaderProps) {
-  // Held in state rather than read from dropzone's `acceptedFiles`, so the
-  // preview always matches what the form actually received.
-  const [file, setFile] = useState<File | null>(null);
-
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      const selected = acceptedFiles[0] || null;
-      setFile(selected);
-      onFileSelect(selected);
-    },
+    (acceptedFiles: File[]) => onFileSelect(acceptedFiles[0] ?? null),
     [onFileSelect],
   );
 
@@ -56,7 +64,6 @@ export default function FileUploader({
   const clear = (event: React.MouseEvent) => {
     // The whole slot opens the file dialog; removing must not.
     event.stopPropagation();
-    setFile(null);
     onFileSelect(null);
   };
 
@@ -109,19 +116,16 @@ export default function FileUploader({
                 : "Drop your CV here, or click to choose it"}
             </p>
             <p className="eyebrow">
-              PDF · up to {formatFileSize(MAX_RESUME_BYTES)}
+              PDF · up to {MAX_RESUME_SIZE_LABEL}
             </p>
           </div>
         )}
       </div>
 
-      {/* Rejected files are otherwise a silent no-op. */}
       {rejection && !file && (
         <p className="mt-2 flex items-center gap-2 text-sm text-signal">
           <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
-          {rejection.errors[0]?.code === "file-too-large"
-            ? `That file is larger than ${formatFileSize(MAX_RESUME_BYTES)}.`
-            : "Only PDF files are accepted."}
+          {rejectionCopy(rejection.errors[0]?.code)}
         </p>
       )}
     </div>

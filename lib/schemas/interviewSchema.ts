@@ -46,6 +46,16 @@ export function isTranscriptTooLong(error: z.ZodError): boolean {
   );
 }
 
+/** True when the transcript has no messages at all, not just a failing one. */
+export function isTranscriptEmpty(error: z.ZodError): boolean {
+  return error.issues.some(
+    (issue) =>
+      issue.path.length === 1 &&
+      issue.path[0] === "transcript" &&
+      issue.code === "too_small",
+  );
+}
+
 export type SubmitInterviewFeedbackInput = z.infer<
   typeof submitInterviewFeedbackInputSchema
 >;
