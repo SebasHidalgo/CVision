@@ -23,6 +23,7 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, ".next/**"],
     setupFiles: ["./vitest.setup.ts"],
     unstubGlobals: true,
+    unstubEnvs: true,
     restoreMocks: true,
   },
 });

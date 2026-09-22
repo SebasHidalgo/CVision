@@ -1,7 +1,16 @@
 import { inspect } from "node:util";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { z } from "zod";
-import { AiFormatError, AiUnavailableError } from "@/lib/error/errors";
+import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import {
+  AiContentBlockedError,
+  AiFormatError,
+  AiMisconfiguredError,
+  AiRateLimitedError,
+  AiUnavailableError,
+  type AppError,
+  type ErrorCode,
+} from "@/lib/error/errors";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 import { generateJson } from "./client";
 import { installFakeProvider, reply, type ProviderReply } from "./client.stub";
@@ -229,12 +238,10 @@ describe("generateJson: no prompt or response content in errors or logs", () => 
     expect(everythingIn(error)).not.toContain(RESPONSE_MARKER);
   });
 
-  // KNOWN DEFECT, fails today: for unparseable output the AiFormatError keeps
-  // JSON.parse's SyntaxError as its `cause`, and V8 quotes about ten characters
-  // of the input around the parse error in that message (all of it when it is
-  // that short). Anything that logs the error (toActionError does) writes that
-  // slice of the model's answer to the logs. Drop `.fails` once fixed.
-  it.fails("keeps the model's answer out of the error when it is not JSON", async () => {
+  // A parse error's message quotes a slice of the input, and anything that logs
+  // the error (toActionError does) would write that slice of the model's
+  // answer to the logs. The error must not keep the parser's error as `cause`.
+  it("keeps the model's answer out of the error when it is not JSON", async () => {
     // Short on purpose: a longer marker would only be partly quoted.
     const shortAnswer = "LEAK-7f3a";
     installFakeProvider(() => reply.answer(shortAnswer));
@@ -264,6 +271,58 @@ describe("generateJson: no prompt or response content in errors or logs", () => 
 
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatch(AI_LOG_LINE);
+  });
+});
+
+describe("generateJson: provider failures are told apart", () => {
+  // Added with the paid-provider migration. Each case is something the user
+  // is told to handle differently, so each must reach the client as its own
+  // code; none may carry the prompt or the answer.
+  const cases: {
+    when: string;
+    answer: ProviderReply;
+    errorClass: new () => AppError;
+    code: ErrorCode;
+  }[] = [
+    { when: "the credentials are rejected (401)", answer: reply.error(401), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
+    { when: "access is forbidden (403)", answer: reply.error(403), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
+    { when: "the request is malformed (400)", answer: reply.error(400), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
+    { when: "the model id is unknown (404)", answer: reply.error(404), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
+    { when: "the rate limit or quota is hit (429)", answer: reply.error(429), errorClass: AiRateLimitedError, code: "AI_RATE_LIMITED" },
+    { when: "the provider is overloaded (503)", answer: reply.error(503), errorClass: AiUnavailableError, code: "AI_UNAVAILABLE" },
+    { when: "the safety filter blocks the prompt", answer: reply.blockedPrompt(), errorClass: AiContentBlockedError, code: "AI_CONTENT_BLOCKED" },
+    { when: "the safety filter stops the answer", answer: reply.blockedAnswer(), errorClass: AiContentBlockedError, code: "AI_CONTENT_BLOCKED" },
+    { when: "the safety filter stops a partial answer", answer: reply.blockedAnswer(`{"score": 1, "label": "${RESPONSE_MARKER}`), errorClass: AiContentBlockedError, code: "AI_CONTENT_BLOCKED" },
+    { when: "the answer hits the output token limit", answer: reply.truncated('{"score": 1, "label": "unfinish'), errorClass: AiFormatError, code: "AI_BAD_FORMAT" },
+  ];
+
+  it.each(cases)("throws $code when $when", async ({ answer, errorClass, code }) => {
+    installFakeProvider(() => answer);
+
+    const error = await failureOf(
+      generateJson({ prompt: PROMPT_MARKER, system: PROMPT_MARKER, schema: simpleSchema }),
+    );
+
+    expect(error).toBeInstanceOf(errorClass);
+    expect(error).toMatchObject({ code });
+    expect(everythingIn(error)).not.toContain(PROMPT_MARKER);
+    expect(everythingIn(error)).not.toContain(RESPONSE_MARKER);
+  });
+
+  it.each(cases)("logs only the metadata line when $when", async ({ answer }) => {
+    const lines = captureConsole();
+    installFakeProvider(() => answer);
+
+    await failureOf(generateJson({ prompt: PROMPT_MARKER, schema: simpleSchema }));
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(AI_LOG_LINE);
+  });
+
+  it("has user-facing copy for every code it can throw", () => {
+    for (const { code } of cases) {
+      expect(actionErrorCopy(code)).not.toBe(actionErrorCopy("UNKNOWN"));
+    }
   });
 });
 
