@@ -1,7 +1,8 @@
 /**
- * Evaluation harness for the resume analysis. Runs the same model call as
- * analyzeResumeAction over fixed fixtures and writes the validated output, one
- * file per fixture, so runs before and after a provider change can be compared.
+ * Evaluation harness for the resume analysis. Calls `analyzeResume`, the same
+ * function analyzeResumeAction calls, over fixed fixtures and writes the
+ * validated output plus its content checks, one file per fixture, so runs
+ * before and after a change can be compared.
  *
  * Skips everything that isn't the model: PDF extraction, storage, DB and auth.
  * Run it through `npm run eval`, which resolves `server-only` the way Next does.
@@ -9,20 +10,17 @@
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { generateJson } from "@/lib/ai/client";
-import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import {
+  analyzeResume,
+  ANALYSIS_TIMEOUT_MS,
+  MAX_RESUME_TEXT_CHARS,
+} from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
   MAX_JOB_DESCRIPTION_CHARS,
-  resumeFeedbackSchema,
   type ResumeAnalysisFeedback,
 } from "@/lib/schemas/resumeSchema";
 import { scoreTone, type ScoreTone } from "@/lib/score";
-
-// Mirrors screens/ResumeUpload/actions/analyzeResumeAction.ts, where these are
-// not exported. Keep them in sync.
-const MAX_RESUME_TEXT_CHARS = 20_000;
-const ANALYSIS_TIMEOUT_MS = 30_000;
 
 const EVAL_DIR = __dirname;
 const RUNS_DIR = path.join(EVAL_DIR, "runs");
@@ -102,8 +100,9 @@ Fixtures:  scripts/eval/fixtures/<id>/        synthetic, committed
            each holds cv.txt, job.txt and fixture.json ({ "jobTitle", "expectedFit"? })
 Output:    scripts/eval/runs/<label>/<id>.json (gitignored)
 
-Each fixture is one model call, run sequentially, with the same prompt, schema,
-${MAX_RESUME_TEXT_CHARS.toLocaleString("en-US")}-char CV truncation and ${ANALYSIS_TIMEOUT_MS / 1000} s timeout as analyzeResumeAction.`;
+Each fixture is one model call, run sequentially, through analyzeResume — the
+same function analyzeResumeAction calls, with its ${MAX_RESUME_TEXT_CHARS.toLocaleString("en-US")}-char CV
+truncation and ${ANALYSIS_TIMEOUT_MS / 1000} s timeout.`;
 
 async function main(argv: string[]) {
   const [command, ...rest] = argv;
@@ -208,19 +207,18 @@ async function runFixture(
   label: string,
   timeoutMs: number,
 ): Promise<RunRecord> {
+  // What analyzeResume will send, so the record can report it. The truncation
+  // itself happens inside analyzeResume.
   const resumeText = fixture.cvText.slice(0, MAX_RESUME_TEXT_CHARS);
   const aiLog = captureAiLog();
   const startedAt = Date.now();
   let result: RunRecord["result"];
 
   try {
-    const feedback = await generateJson({
-      prompt: resumeAnalysisPrompt({
-        jobTitle: fixture.jobTitle,
-        jobDescription: fixture.jobDescription,
-        resumeText,
-      }),
-      schema: resumeFeedbackSchema,
+    const feedback = await analyzeResume({
+      jobTitle: fixture.jobTitle,
+      jobDescription: fixture.jobDescription,
+      resumeText: fixture.cvText,
       timeoutMs,
     });
     result = { ok: true, feedback };
