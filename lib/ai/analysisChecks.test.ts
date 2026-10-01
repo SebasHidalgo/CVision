@@ -6,6 +6,7 @@ import {
   checkFabricatedNumbers,
   checkFalseMissing,
   countByCheck,
+  countGrounding,
 } from "./analysisChecks";
 
 const CV = [
@@ -109,7 +110,8 @@ describe("checkEvidenceGrounding", () => {
         check: "evidence-grounding",
         path: "skills.matchedSkills[0].evidence",
         value: "Built backend services using Node.js and Express.js",
-        note: undefined,
+        // Both halves are real, so it is a stitch, not an invention.
+        kind: "altered",
       }),
     ]);
   });
@@ -132,6 +134,37 @@ describe("checkEvidenceGrounding", () => {
     expect(violations).toEqual([
       expect.objectContaining({ note: "in the CV except for case or punctuation" }),
     ]);
+  });
+
+  it.each([
+    // Nothing of it is in the CV: commentary or invention.
+    ["not-found", "Listed under Infrastructure and used across both roles"],
+    // Every word is there, only the typography differs.
+    ["case-or-punctuation", "designed rest apis with express js"],
+    // Real fragments, welded into a sentence the CV never says.
+    ["altered", "Built backend services using Node.js with Express.js."],
+  ] as const)("classifies a %s quote", (kind, quote) => {
+    expect(checkEvidenceGrounding(CV, withEvidence(quote))).toEqual([
+      expect.objectContaining({ kind }),
+    ]);
+  });
+
+  it("counts the three kinds separately", () => {
+    const violations = checkEvidenceGrounding(
+      CV,
+      withEvidence(
+        "Listed under Infrastructure and used across both roles",
+        "designed rest apis with express js",
+        "Built backend services using Node.js with Express.js.",
+        "Designed REST APIs with Express.js.",
+      ),
+    );
+
+    expect(countGrounding(violations)).toEqual({
+      "not-found": 1,
+      "case-or-punctuation": 1,
+      altered: 1,
+    });
   });
 
   it("covers the ATS evidence list too", () => {

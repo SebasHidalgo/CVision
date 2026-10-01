@@ -13,14 +13,17 @@ import path from "node:path";
 import {
   checkAnalysis,
   countByCheck,
+  countGrounding,
   mentionsTerm,
   type CheckName,
   type CheckViolation,
+  type GroundingKind,
 } from "@/lib/ai/analysisChecks";
 import {
   analyzeResume,
   ANALYSIS_TIMEOUT_MS,
   MAX_RESUME_TEXT_CHARS,
+  truncateResumeText,
 } from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
@@ -100,7 +103,11 @@ type RunRecord = {
     jobChars: number;
   };
   /** Content checks and fixture assertions, both only when the call succeeded. */
-  checks?: { counts: Record<CheckName, number>; violations: CheckViolation[] };
+  checks?: {
+    counts: Record<CheckName, number>;
+    grounding: Record<GroundingKind, number>;
+    violations: CheckViolation[];
+  };
   assertions?: AssertionResult[];
   result:
     | { ok: true; feedback: ResumeAnalysisFeedback }
@@ -265,15 +272,15 @@ async function runFixture(
   label: string,
   timeoutMs: number,
 ): Promise<RunRecord> {
-  // What analyzeResume will send, so the record can report it. The truncation
-  // itself happens inside analyzeResume.
-  const resumeText = fixture.cvText.slice(0, MAX_RESUME_TEXT_CHARS);
+  // The same truncation analyzeResume applies, so the checks see exactly the
+  // text the model read.
+  const sent = truncateResumeText(fixture.cvText);
   const aiLog = captureAiLog();
   const startedAt = Date.now();
   let result: RunRecord["result"];
 
   try {
-    const feedback = await analyzeResume({
+    const { feedback } = await analyzeResume({
       jobTitle: fixture.jobTitle,
       jobDescription: fixture.jobDescription,
       resumeText: fixture.cvText,
@@ -287,7 +294,7 @@ async function runFixture(
   }
 
   // Against the text the model actually received, not the whole file.
-  const violations = result.ok ? checkAnalysis(resumeText, result.feedback) : undefined;
+  const violations = result.ok ? checkAnalysis(sent.text, result.feedback) : undefined;
 
   return {
     fixture: fixture.id,
@@ -297,7 +304,11 @@ async function runFixture(
     model: aiLog.meta.model,
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
-    checks: violations && { counts: countByCheck(violations), violations },
+    checks: violations && {
+      counts: countByCheck(violations),
+      grounding: countGrounding(violations),
+      violations,
+    },
     assertions: result.ok
       ? evaluateAssertions(result.feedback, fixture.expect)
       : undefined,
@@ -305,8 +316,8 @@ async function runFixture(
       jobTitle: fixture.jobTitle,
       expectedFit: fixture.expectedFit ?? null,
       cvChars: fixture.cvText.length,
-      cvCharsSent: resumeText.length,
-      cvTruncated: resumeText.length < fixture.cvText.length,
+      cvCharsSent: sent.charsSent,
+      cvTruncated: sent.truncated,
       jobChars: fixture.jobDescription.length,
     },
     result,
@@ -391,7 +402,15 @@ function checkNote(checks: RunRecord["checks"]): string {
   const { counts } = checks;
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   if (total === 0) return "checks clean";
-  return `quotes ${counts["evidence-grounding"]}, false-missing ${counts["false-missing"]}, numbers ${counts["fabricated-number"]}`;
+
+  // Runs recorded before the split still have their violations to count from.
+  const grounding = checks.grounding ?? countGrounding(checks.violations);
+  const quotes = counts["evidence-grounding"];
+  const detail = quotes
+    ? ` (${grounding["not-found"]} not found, ${grounding["case-or-punctuation"]} case, ${grounding.altered} altered)`
+    : "";
+
+  return `quotes ${quotes}${detail}, false-missing ${counts["false-missing"]}, numbers ${counts["fabricated-number"]}`;
 }
 
 function captureAiLog() {
@@ -440,7 +459,13 @@ function formatProgress(record: RunRecord): string {
 
   const score = record.result.feedback.overall.globalScore;
   const head = `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
-  const notes = [checkNote(record.checks), assertionNote(record.assertions)]
+  const notes = [
+    record.input.cvTruncated
+      ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
+      : "",
+    checkNote(record.checks),
+    assertionNote(record.assertions),
+  ]
     .filter(Boolean)
     .join("   ");
 
@@ -476,10 +501,14 @@ async function recheckCommand(args: string[]) {
     }
 
     const violations = checkAnalysis(
-      fixture.cvText.slice(0, MAX_RESUME_TEXT_CHARS),
+      truncateResumeText(fixture.cvText).text,
       record.result.feedback,
     );
-    record.checks = { counts: countByCheck(violations), violations };
+    record.checks = {
+      counts: countByCheck(violations),
+      grounding: countGrounding(violations),
+      violations,
+    };
     record.assertions = evaluateAssertions(record.result.feedback, fixture.expect);
 
     await writeJson(target, record);
@@ -559,6 +588,16 @@ async function compareCommand(args: string[]) {
     // score it carries.
     console.log(`  Checks      A: ${checkNote(a.checks) || "n/a"}`);
     console.log(`              B: ${checkNote(b.checks) || "n/a"}`);
+    for (const [side, record] of [
+      ["A", a],
+      ["B", b],
+    ] as const) {
+      if (record.input.cvTruncated) {
+        console.log(
+          `    ${side} ! CV truncated: ${record.input.cvCharsSent}/${record.input.cvChars} chars sent`,
+        );
+      }
+    }
     for (const [side, record] of [
       ["A", a],
       ["B", b],

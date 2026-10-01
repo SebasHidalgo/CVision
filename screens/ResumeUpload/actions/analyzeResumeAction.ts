@@ -52,7 +52,7 @@ export async function analyzeResumeAction(
     uploadedKey = buildResumeKey(userId);
     const resumeUrl = await uploadFileToSupabase(resume, uploadedKey);
 
-    const feedback = await analyzeResume({
+    const { feedback } = await analyzeResume({
       jobTitle,
       jobDescription,
       resumeText,
