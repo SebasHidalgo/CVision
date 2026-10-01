@@ -1,0 +1,53 @@
+{
+  "jobTitle": "Backend Developer",
+  "expectedFit": "fair",
+  "purpose": "The core case: a candidate who meets every required qualification and misses most preferred ones. Carries the five content traps seen on a real run — a finished degree read as ongoing, listed skills reported missing, an absolute 'no metrics' claim, an either/or language requirement read as a gap, and LaTeX accent artifacts the ATS section must flag.",
+  "expect": {
+    "mustMatch": [
+      {
+        "in": "atsCompatibility",
+        "pattern": "accent|diacritic|encod|special charact|character artifact|garbl|mangl",
+        "why": "The CV text carries LaTeX extraction artifacts (Jos´e, Ingenier´ıa). The real run caught these; it must not regress. The artifact character itself is deliberately not in the pattern: quoting it as evidence is not the same as naming the problem."
+      }
+    ],
+    "mustNotMatch": [
+      {
+        "in": "educationAndCertifications",
+        "pattern": "ongoing|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
+        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error."
+      },
+      {
+        "in": "experienceAndImpact",
+        "pattern": "(completely|entirely|totally|not a single|zero|devoid of)[^.]{0,40}(quantif|measurable|metric)",
+        "why": "The CV has a quantified achievement (35% nightly window, 40 stores), so a claim of total absence is false."
+      },
+      {
+        "in": "experienceAndImpact",
+        "pattern": "\\b(no|lacks any|without any) (quantified|quantifiable|measurable)\\b",
+        "why": "Same absolute claim in its other common phrasing."
+      }
+    ],
+    "mustNotList": [
+      {
+        "in": "skills.missingSkills",
+        "items": ["CI/CD", "Docker", "Java", "JavaScript", "SQL", "REST"],
+        "why": "All are in the CV's skills section or its bullets."
+      },
+      {
+        "in": "jobFit.missingKeywords",
+        "items": ["CI/CD", "Docker", "Java", "JavaScript", "SQL", "REST"],
+        "why": "Same list, as keywords."
+      },
+      {
+        "in": "skills.missingSkills",
+        "items": ["C", "C++", "C#", "Python"],
+        "why": "The posting asks for any one of several languages; the candidate has Java and JavaScript, so the others are not gaps."
+      },
+      {
+        "in": "jobFit.missingKeywords",
+        "items": ["C", "C++", "C#", "Python"],
+        "why": "Same either/or requirement, as keywords."
+      }
+    ]
+  }
+}

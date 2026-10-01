@@ -1,0 +1,40 @@
+DANA OKONKWO
+Senior Backend Engineer | Manchester, UK | dana.okonkwo@example.com
+
+SUMMARY
+Senior backend engineer with eight years on JVM services. Most of that time on payment
+and ledger systems where correctness mattered more than throughput, though the last two
+years have been heavy on scale as well.
+
+EXPERIENCE
+
+Pennine Payments - Senior Backend Engineer | June 2021 - present
+- Lead the ledger service (Java 21, Kotlin, Spring Boot) that records every settlement
+  the company makes.
+- Cut end-of-day reconciliation from 90 minutes to 12 by replacing row-by-row posting
+  with batched writes.
+- Designed the idempotency scheme that removed duplicate settlements after a retry
+  storm in 2022.
+- Run the service on AWS (ECS, RDS, SQS) with Terraform-managed infrastructure.
+- Mentor three engineers and chair the backend design review.
+
+Halewood Systems - Backend Engineer | September 2018 - May 2021
+- Built the pricing API in Java and Kotlin, serving the sales tooling for 300 branches.
+- Introduced property-based tests for the rounding rules after a rounding bug reached
+  production.
+- Moved the team's builds from Jenkins to GitHub Actions.
+
+Beckside Software - Junior Developer | July 2017 - August 2018
+- Maintained a Java reporting system and its scheduled jobs.
+
+SKILLS
+Languages: Java, Kotlin, SQL, Bash
+Frameworks: Spring Boot, Micronaut, JUnit, Testcontainers
+Infrastructure: AWS (ECS, RDS, SQS), Terraform, Docker, PostgreSQL, Kafka
+Practices: domain-driven design, property-based testing, incident review, mentoring
+
+EDUCATION
+BSc Computer Science, University of Leeds | 2013 - 2017
+
+CERTIFICATIONS
+AWS Certified Solutions Architect - Associate | 2022

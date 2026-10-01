@@ -11,6 +11,13 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
+  checkAnalysis,
+  countByCheck,
+  mentionsTerm,
+  type CheckName,
+  type CheckViolation,
+} from "@/lib/ai/analysisChecks";
+import {
   analyzeResume,
   ANALYSIS_TIMEOUT_MS,
   MAX_RESUME_TEXT_CHARS,
@@ -34,10 +41,39 @@ const FIXTURE_SOURCES = [
 // The line's shape is pinned by lib/ai/client.test.ts.
 const AI_LOG_LINE = /\[CVision\]\[ai\] provider=(\S+) model=(\S+)/;
 
+/**
+ * What a fixture claims about the analysis of its own CV. `in` is a dot path
+ * into the feedback object: a section ("skills") or one list
+ * ("skills.missingSkills"). Patterns are case-insensitive regular expressions
+ * tested against the JSON of that subtree, so they see every string in it.
+ */
+type FixtureExpectations = {
+  /** The section must say something matching this. */
+  mustMatch?: PatternAssertion[];
+  /** The section must not. */
+  mustNotMatch?: PatternAssertion[];
+  /** None of these items may appear in that list. */
+  mustNotList?: ListAssertion[];
+};
+
+type PatternAssertion = { in: string; pattern: string; why?: string };
+type ListAssertion = { in: string; items: string[]; why?: string };
+
+type AssertionResult = {
+  kind: keyof FixtureExpectations;
+  in: string;
+  expression: string;
+  passed: boolean;
+  /** What matched: the offending text, or the items that were listed. */
+  found: string[];
+  why?: string;
+};
+
 type FixtureMeta = {
   jobTitle: string;
   expectedFit?: ScoreTone;
   purpose?: string;
+  expect?: FixtureExpectations;
 };
 
 type Fixture = FixtureMeta & {
@@ -63,6 +99,9 @@ type RunRecord = {
     cvTruncated: boolean;
     jobChars: number;
   };
+  /** Content checks and fixture assertions, both only when the call succeeded. */
+  checks?: { counts: Record<CheckName, number>; violations: CheckViolation[] };
+  assertions?: AssertionResult[];
   result:
     | { ok: true; feedback: ResumeAnalysisFeedback }
     | { ok: false; error: { name: string; code: string; message: string } };
@@ -74,7 +113,12 @@ compare model output across provider, model or prompt changes.
 Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
   npm run eval -- compare <labelA> <labelB>
+  npm run eval -- recheck <label>
   npm run eval -- list
+
+recheck re-runs the content checks and the fixture assertions over a stored
+run and rewrites it. No model calls, nothing billed: use it after changing a
+check or an assertion, so old runs stay comparable with new ones.
 
 Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
@@ -97,8 +141,20 @@ Workflow for a provider, model or prompt change:
 
 Fixtures:  scripts/eval/fixtures/<id>/        synthetic, committed
            scripts/eval/fixtures.local/<id>/  gitignored: put real CVs here
-           each holds cv.txt, job.txt and fixture.json ({ "jobTitle", "expectedFit"? })
+           each holds cv.txt, job.txt and fixture.json:
+             { "jobTitle", "expectedFit"?, "purpose"?, "expect"? }
 Output:    scripts/eval/runs/<label>/<id>.json (gitignored)
+
+Every run also records, per fixture:
+  content checks  quotes that are not in the CV, items called missing that are
+                  in it, and numbers in suggested bullets that are not
+                  (lib/ai/analysisChecks.ts)
+  assertions      the fixture's own "expect" block, if it has one:
+                    "mustMatch":    [{ "in": "atsCompatibility", "pattern": "accent|encod" }]
+                    "mustNotMatch": [{ "in": "educationAndCertifications", "pattern": "ongoing" }]
+                    "mustNotList":  [{ "in": "skills.missingSkills", "items": ["CI/CD"] }]
+                  "in" is a dot path into the feedback; patterns are
+                  case-insensitive and are tested against that subtree's JSON.
 
 Each fixture is one model call, run sequentially, through analyzeResume — the
 same function analyzeResumeAction calls, with its ${MAX_RESUME_TEXT_CHARS.toLocaleString("en-US")}-char CV
@@ -112,6 +168,8 @@ async function main(argv: string[]) {
       return runCommand(rest);
     case "compare":
       return compareCommand(rest);
+    case "recheck":
+      return recheckCommand(rest);
     case "list":
       return listCommand();
     case undefined:
@@ -228,6 +286,9 @@ async function runFixture(
     aiLog.restore();
   }
 
+  // Against the text the model actually received, not the whole file.
+  const violations = result.ok ? checkAnalysis(resumeText, result.feedback) : undefined;
+
   return {
     fixture: fixture.id,
     source: fixture.source,
@@ -236,6 +297,10 @@ async function runFixture(
     model: aiLog.meta.model,
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
+    checks: violations && { counts: countByCheck(violations), violations },
+    assertions: result.ok
+      ? evaluateAssertions(result.feedback, fixture.expect)
+      : undefined,
     input: {
       jobTitle: fixture.jobTitle,
       expectedFit: fixture.expectedFit ?? null,
@@ -246,6 +311,87 @@ async function runFixture(
     },
     result,
   };
+}
+
+// ------------------------------------------------- fixture assertions
+
+/** The subtree at a dot path, or undefined when the path does not resolve. */
+function pick(feedback: ResumeAnalysisFeedback, dotPath: string): unknown {
+  return dotPath
+    .split(".")
+    .reduce<unknown>(
+      (value, key) => (value as Record<string, unknown> | undefined)?.[key],
+      feedback,
+    );
+}
+
+/** Every string under a subtree, as one searchable blob. */
+function textOf(section: unknown): string {
+  return JSON.stringify(section ?? null);
+}
+
+function evaluateAssertions(
+  feedback: ResumeAnalysisFeedback,
+  expectations: FixtureExpectations | undefined,
+): AssertionResult[] {
+  if (!expectations) return [];
+  const results: AssertionResult[] = [];
+
+  for (const kind of ["mustMatch", "mustNotMatch"] as const) {
+    for (const assertion of expectations[kind] ?? []) {
+      const section = pick(feedback, assertion.in);
+      const matched = new RegExp(assertion.pattern, "i").exec(textOf(section));
+      const hit = matched !== null;
+
+      results.push({
+        kind,
+        in: assertion.in,
+        expression: assertion.pattern,
+        // A path that resolves to nothing fails either way: the fixture is
+        // asserting about something that is not there.
+        passed: section === undefined ? false : kind === "mustMatch" ? hit : !hit,
+        found: section === undefined ? ["path not found"] : hit ? [matched[0]] : [],
+        why: assertion.why,
+      });
+    }
+  }
+
+  for (const assertion of expectations.mustNotList ?? []) {
+    const list = pick(feedback, assertion.in);
+    const entries = Array.isArray(list) ? list.map(String) : null;
+    const found = entries
+      ? assertion.items.filter((item) =>
+          entries.some((entry) => mentionsTerm(entry, item)),
+        )
+      : ["list not found"];
+
+    results.push({
+      kind: "mustNotList",
+      in: assertion.in,
+      expression: assertion.items.join(", "),
+      passed: entries !== null && found.length === 0,
+      found,
+      why: assertion.why,
+    });
+  }
+
+  return results;
+}
+
+function assertionNote(assertions: AssertionResult[] | undefined): string {
+  if (!assertions?.length) return "";
+  const failed = assertions.filter((assertion) => !assertion.passed).length;
+  return failed === 0
+    ? `${assertions.length}/${assertions.length} assertions`
+    : `${assertions.length - failed}/${assertions.length} assertions, ${failed} FAILED`;
+}
+
+function checkNote(checks: RunRecord["checks"]): string {
+  if (!checks) return "";
+  const { counts } = checks;
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  if (total === 0) return "checks clean";
+  return `quotes ${counts["evidence-grounding"]}, false-missing ${counts["false-missing"]}, numbers ${counts["fabricated-number"]}`;
 }
 
 function captureAiLog() {
@@ -293,7 +439,54 @@ function formatProgress(record: RunRecord): string {
   }
 
   const score = record.result.feedback.overall.globalScore;
-  return `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
+  const head = `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
+  const notes = [checkNote(record.checks), assertionNote(record.assertions)]
+    .filter(Boolean)
+    .join("   ");
+
+  return notes ? `${head}\n${" ".repeat(10)}${notes}` : head;
+}
+
+// ---------------------------------------------------------------- recheck
+
+/**
+ * Re-scores a stored run against today's checks and assertions. The model
+ * output is kept as it was; only the verdicts about it are recomputed.
+ */
+async function recheckCommand(args: string[]) {
+  const [label] = parseFlags(args).positional;
+  if (!label) fail(`recheck needs a label.\n\n${USAGE}`);
+
+  const dir = path.join(RUNS_DIR, label);
+  if (!existsSync(dir)) fail(`No run named "${label}" in ${display(RUNS_DIR)}.`);
+
+  const fixtures = new Map((await loadFixtures()).map((f) => [f.id, f]));
+
+  for (const file of (await readdir(dir)).sort()) {
+    if (!file.endsWith(".json") || file === "_run.json") continue;
+
+    const target = path.join(dir, file);
+    const record = JSON.parse(await readFile(target, "utf8")) as RunRecord;
+    if (!record.result.ok) continue;
+
+    const fixture = fixtures.get(record.fixture);
+    if (!fixture) {
+      console.log(`  ${record.fixture.padEnd(26)} skipped: no such fixture any more`);
+      continue;
+    }
+
+    const violations = checkAnalysis(
+      fixture.cvText.slice(0, MAX_RESUME_TEXT_CHARS),
+      record.result.feedback,
+    );
+    record.checks = { counts: countByCheck(violations), violations };
+    record.assertions = evaluateAssertions(record.result.feedback, fixture.expect);
+
+    await writeJson(target, record);
+    console.log(
+      `  ${record.fixture.padEnd(26)} ${[checkNote(record.checks), assertionNote(record.assertions)].filter(Boolean).join("   ")}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------- compare
@@ -321,6 +514,11 @@ async function compareCommand(args: string[]) {
 
   const ids = [...new Set([...runA.keys(), ...runB.keys()])].sort();
   const globalDeltas: number[] = [];
+  const checkTotals = { A: 0, B: 0 };
+  const assertionTotals = {
+    A: { passed: 0, total: 0 },
+    B: { passed: 0, total: 0 },
+  };
   let expectedHitsA = 0;
   let expectedHitsB = 0;
   let withExpectation = 0;
@@ -357,6 +555,42 @@ async function compareCommand(args: string[]) {
       `  Time        A: ${(a.durationMs / 1000).toFixed(1)} s   B: ${(b.durationMs / 1000).toFixed(1)} s`,
     );
 
+    // What the next steps are judged on: the content of the analysis, not the
+    // score it carries.
+    console.log(`  Checks      A: ${checkNote(a.checks) || "n/a"}`);
+    console.log(`              B: ${checkNote(b.checks) || "n/a"}`);
+    for (const [side, record] of [
+      ["A", a],
+      ["B", b],
+    ] as const) {
+      for (const violation of record.checks?.violations ?? []) {
+        console.log(
+          `    ${side} ! ${violation.check} ${violation.path}: ${truncate(violation.value)}${violation.note ? ` (${violation.note})` : ""}`,
+        );
+      }
+      checkTotals[side] += (record.checks?.violations ?? []).length;
+    }
+
+    if (a.assertions?.length || b.assertions?.length) {
+      console.log(`  Assertions  A: ${assertionNote(a.assertions) || "none"}`);
+      console.log(`              B: ${assertionNote(b.assertions) || "none"}`);
+      for (const [side, record] of [
+        ["A", a],
+        ["B", b],
+      ] as const) {
+        for (const assertion of record.assertions ?? []) {
+          assertionTotals[side].total += 1;
+          if (assertion.passed) {
+            assertionTotals[side].passed += 1;
+            continue;
+          }
+          console.log(
+            `    ${side} ! ${assertion.kind} ${assertion.in}: ${truncate(assertion.expression)}${assertion.found.length ? ` -> ${truncate(assertion.found.join(", "))}` : ""}`,
+          );
+        }
+      }
+    }
+
     globalDeltas.push(Math.abs(fb.overall.globalScore - fa.overall.globalScore));
     if (expected) {
       withExpectation += 1;
@@ -379,6 +613,14 @@ async function compareCommand(args: string[]) {
   if (withExpectation > 0) {
     console.log(
       `  Expected fit band   A: ${expectedHitsA}/${withExpectation}   B: ${expectedHitsB}/${withExpectation}`,
+    );
+  }
+  console.log(
+    `  Check violations    A: ${checkTotals.A}   B: ${checkTotals.B}   (lower is better)`,
+  );
+  if (assertionTotals.A.total || assertionTotals.B.total) {
+    console.log(
+      `  Assertions passed   A: ${assertionTotals.A.passed}/${assertionTotals.A.total}   B: ${assertionTotals.B.passed}/${assertionTotals.B.total}`,
     );
   }
   console.log(
@@ -417,8 +659,12 @@ async function listCommand() {
   console.log("Fixtures");
   for (const fixture of fixtures) {
     const truncated = fixture.cvText.length > MAX_RESUME_TEXT_CHARS ? ", truncated" : "";
+    const assertions =
+      (fixture.expect?.mustMatch?.length ?? 0) +
+      (fixture.expect?.mustNotMatch?.length ?? 0) +
+      (fixture.expect?.mustNotList?.length ?? 0);
     console.log(
-      `  ${fixture.id.padEnd(26)} ${fixture.source.padEnd(10)} expected ${String(fixture.expectedFit ?? "-").padEnd(7)} CV ${fixture.cvText.length} chars${truncated}, job ${fixture.jobDescription.length} chars`,
+      `  ${fixture.id.padEnd(26)} ${fixture.source.padEnd(10)} expected ${String(fixture.expectedFit ?? "-").padEnd(7)} CV ${fixture.cvText.length} chars${truncated}, job ${fixture.jobDescription.length} chars, ${assertions} assertion(s)`,
     );
   }
 
@@ -450,6 +696,20 @@ async function loadFixtures(): Promise<Fixture[]> {
       const jobDescription = (await readFile(path.join(base, "job.txt"), "utf8")).trim();
 
       if (!meta.jobTitle?.trim()) fail(`${display(base)}/fixture.json needs a jobTitle.`);
+
+      // A typo in a pattern would otherwise surface as a passing assertion.
+      for (const assertion of [
+        ...(meta.expect?.mustMatch ?? []),
+        ...(meta.expect?.mustNotMatch ?? []),
+      ]) {
+        try {
+          new RegExp(assertion.pattern, "i");
+        } catch (error) {
+          fail(
+            `${display(base)}/fixture.json: bad pattern ${JSON.stringify(assertion.pattern)} (${(error as Error).message})`,
+          );
+        }
+      }
       // The app rejects longer descriptions, so a fixture must not exceed them.
       if (jobDescription.length > MAX_JOB_DESCRIPTION_CHARS) {
         fail(`${display(base)}/job.txt exceeds ${MAX_JOB_DESCRIPTION_CHARS} characters.`);
@@ -494,6 +754,11 @@ function bandNote(score: number, expected: ScoreTone | null): string {
   const band = scoreTone(score);
   if (!expected) return band;
   return band === expected ? `${band} (as expected)` : `${band} (expected ${expected}) !`;
+}
+
+function truncate(text: string, max = 90): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
 function formatScore(score: number): string {

@@ -1,0 +1,37 @@
+{
+  "jobTitle": "Product Engineer (Full-stack)",
+  "expectedFit": "fair",
+  "purpose": "Roughly half the posting's stack overlaps: React, TypeScript, Node.js, PostgreSQL and a testing habit are there; GraphQL, Terraform, AWS, Jest and Cypress are not. Checks that a half-match reads as a half-match instead of collapsing to strong or weak.",
+  "expect": {
+    "mustMatch": [
+      {
+        "in": "skills",
+        "pattern": "graphql",
+        "why": "GraphQL is the biggest real gap in the stack and has to be named."
+      },
+      {
+        "in": "skills",
+        "pattern": "terraform|infrastructure as code",
+        "why": "The other real gap: the posting expects the candidate to read Terraform."
+      }
+    ],
+    "mustNotMatch": [],
+    "mustNotList": [
+      {
+        "in": "skills.missingSkills",
+        "items": ["React", "TypeScript", "Node.js", "PostgreSQL", "SQL", "Docker"],
+        "why": "All are in the CV's skills section."
+      },
+      {
+        "in": "jobFit.missingKeywords",
+        "items": ["React", "TypeScript", "Node.js", "PostgreSQL", "SQL", "Docker"],
+        "why": "Same list, as keywords."
+      },
+      {
+        "in": "skills.missingSkills",
+        "items": ["testing", "unit testing", "integration testing"],
+        "why": "The posting asks for a testing habit 'whatever the framework'; the CV has Mocha, Supertest and Playwright. Jest and Cypress specifically may be listed as missing, testing as a practice may not."
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+Senior Backend Engineer, Data Platform
+Fenwick Analytics | Hybrid, Manchester
+
+About the role
+The data platform team owns the pipelines that every analytics product in the company
+reads from. You would work on the ingestion side: the services that pull customer data
+in, validate it, and land it in the warehouse.
+
+Required qualifications
+- 5+ years of professional backend engineering experience.
+- 3+ years writing production Python. This is the language the whole platform is
+  written in, and the team does not have the capacity to support a different runtime.
+- Experience with a cloud provider (AWS, GCP or Azure) in production.
+- Experience with relational databases and schema design.
+- Experience being on call for a production service.
+
+Preferred qualifications
+- Experience with Airflow or a comparable orchestrator.
+- Experience with dbt and warehouse modelling.
+- Experience with Kafka or another streaming platform.
+- Experience in a regulated industry.
+
+How we work
+Small team, long-lived services, and a strong preference for boring technology. Code
+review is mandatory and design documents precede anything that will outlive a quarter.
+
+We are unable to consider candidates without commercial Python experience for this
+particular role, as the team is small and everything in production is Python.
