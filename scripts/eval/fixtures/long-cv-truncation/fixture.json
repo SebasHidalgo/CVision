@@ -1,5 +1,5 @@
 {
   "jobTitle": "Staff Backend Engineer",
   "expectedFit": "strong",
-  "purpose": "CV text slightly over the 20,000-character truncation limit, with Education and Certifications last so the cut removes them. Also the largest prompt: stresses the model's context window."
+  "purpose": "The largest prompt in the set (20,402 characters), kept to stress a long CV end to end. It was built to sit just over the old 20,000-character truncation limit, with Education and Certifications last so the cut removed them; since M2c-B raised the limit to 150,000 it no longer truncates, and the truncation boundary is pinned by unit tests in lib/ai/resumeAnalysis.test.ts instead. The id is kept so earlier runs stay comparable."
 }

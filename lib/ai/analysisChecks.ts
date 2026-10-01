@@ -14,12 +14,23 @@ export type CheckName =
   | "false-missing"
   | "fabricated-number";
 
+/**
+ * How a quote fails, because the three need different fixes: a quote that is
+ * nowhere in the CV is commentary or invention and belongs to the prompt; one
+ * that differs only in case or punctuation is a normalization problem; one
+ * stitched out of real fragments is the dangerous middle, since it reads as a
+ * citation.
+ */
+export type GroundingKind = "not-found" | "case-or-punctuation" | "altered";
+
 export type CheckViolation = {
   check: CheckName;
   /** Where in the analysis, e.g. `skills.matchedSkills[0].evidence`. */
   path: string;
   /** The offending text: the quote, the item, or the number. */
   value: string;
+  /** Subcategory, for evidence-grounding only. */
+  kind?: GroundingKind;
   /** Why it is reported, when the bare value doesn't say it. */
   note?: string;
 };
@@ -102,10 +113,57 @@ function suggestedBullets(feedback: ResumeAnalysisFeedback): Located[] {
   );
 }
 
+/** A quote is "altered" when this much of it is made of real CV fragments. */
+const ALTERED_COVERAGE = 0.6;
+/** Fragments shorter than this are ordinary words, not evidence of a quote. */
+const ALTERED_MIN_RUN = 3;
+
 /**
- * Quotes that are not in the CV. Whitespace is normalized on both sides;
- * everything else must match exactly, so a quote the model tidied up is
- * reported with a note rather than passed.
+ * How much of `quote` is covered by contiguous runs of at least
+ * ALTERED_MIN_RUN words taken from the CV, as a fraction of its length.
+ */
+function fragmentCoverage(looseCv: string, quote: string): number {
+  const words = loosen(quote).split(" ").filter(Boolean);
+  if (words.length === 0) return 0;
+
+  const haystack = ` ${looseCv} `;
+  let covered = 0;
+  let at = 0;
+
+  while (at < words.length) {
+    let run = 0;
+    for (let end = at + 1; end <= words.length; end += 1) {
+      if (!haystack.includes(` ${words.slice(at, end).join(" ")} `)) break;
+      run = end - at;
+    }
+    if (run >= ALTERED_MIN_RUN) {
+      covered += run;
+      at += run;
+    } else {
+      at += 1;
+    }
+  }
+
+  return covered / words.length;
+}
+
+function classifyQuote(looseCv: string, quote: string): GroundingKind {
+  if (looseCv.includes(loosen(quote))) return "case-or-punctuation";
+  return fragmentCoverage(looseCv, quote) >= ALTERED_COVERAGE
+    ? "altered"
+    : "not-found";
+}
+
+const GROUNDING_NOTE: Record<GroundingKind, string | undefined> = {
+  "not-found": undefined,
+  "case-or-punctuation": "in the CV except for case or punctuation",
+  altered: "stitched or abridged from real CV fragments",
+};
+
+/**
+ * Quotes that are not in the CV, split by how they fail. Whitespace is
+ * normalized on both sides; everything else must match exactly, so a quote the
+ * model tidied up is reported as `case-or-punctuation` rather than passed.
  *
  * Misses: quotes embedded in the prose `description` fields, and a fabricated
  * quote that happens to be a verbatim span of the CV.
@@ -121,10 +179,16 @@ export function checkEvidenceGrounding(
     const quote = normalizeWhitespace(value);
     if (!quote || cv.includes(quote)) return [];
 
-    const note = looseCv.includes(loosen(quote))
-      ? "in the CV except for case or punctuation"
-      : undefined;
-    return [{ check: "evidence-grounding" as const, path, value: quote, note }];
+    const kind = classifyQuote(looseCv, quote);
+    return [
+      {
+        check: "evidence-grounding" as const,
+        path,
+        value: quote,
+        kind,
+        note: GROUNDING_NOTE[kind],
+      },
+    ];
   });
 }
 
@@ -243,5 +307,20 @@ export function countByCheck(
     "fabricated-number": 0,
   };
   for (const violation of violations) counts[violation.check] += 1;
+  return counts;
+}
+
+/** The grounding violations split by kind. One total hides three problems. */
+export function countGrounding(
+  violations: CheckViolation[],
+): Record<GroundingKind, number> {
+  const counts: Record<GroundingKind, number> = {
+    "not-found": 0,
+    "case-or-punctuation": 0,
+    altered: 0,
+  };
+  for (const violation of violations) {
+    if (violation.kind) counts[violation.kind] += 1;
+  }
   return counts;
 }
