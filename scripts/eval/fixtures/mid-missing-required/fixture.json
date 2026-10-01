@@ -1,0 +1,32 @@
+{
+  "jobTitle": "Senior Backend Engineer, Data Platform",
+  "expectedFit": "fair",
+  "purpose": "A strong engineer who plainly lacks one qualification the posting marks as required (commercial Python). Isolates whether a missing hard requirement is penalized, or drowned out by eight strong years of adjacent experience.",
+  "expect": {
+    "mustMatch": [
+      {
+        "in": "skills.missingSkills",
+        "pattern": "python",
+        "why": "The one required qualification the candidate does not meet belongs in the missing list."
+      },
+      {
+        "in": "jobFit",
+        "pattern": "python",
+        "why": "Whatever the score, the job-fit section has to name the gap that decides this application."
+      }
+    ],
+    "mustNotMatch": [],
+    "mustNotList": [
+      {
+        "in": "skills.missingSkills",
+        "items": ["Java", "Kotlin", "AWS", "Terraform", "PostgreSQL", "Kafka", "Docker"],
+        "why": "All are in the CV's skills section."
+      },
+      {
+        "in": "jobFit.missingKeywords",
+        "items": ["Java", "Kotlin", "AWS", "Terraform", "PostgreSQL", "Kafka", "Docker"],
+        "why": "Same list, as keywords."
+      }
+    ]
+  }
+}

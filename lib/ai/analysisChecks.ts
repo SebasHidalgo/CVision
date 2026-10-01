@@ -1,0 +1,247 @@
+import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
+
+/**
+ * Content checks that compare an analysis against the CV text the model was
+ * given. Pure functions: no I/O, no model, no session. The evaluation harness
+ * runs them today; production can run the same functions later.
+ *
+ * They catch claims that contradict the CV, not bad judgement. Each check
+ * documents what it cannot see.
+ */
+
+export type CheckName =
+  | "evidence-grounding"
+  | "false-missing"
+  | "fabricated-number";
+
+export type CheckViolation = {
+  check: CheckName;
+  /** Where in the analysis, e.g. `skills.matchedSkills[0].evidence`. */
+  path: string;
+  /** The offending text: the quote, the item, or the number. */
+  value: string;
+  /** Why it is reported, when the bare value doesn't say it. */
+  note?: string;
+};
+
+type Located = { path: string; value: string };
+
+const normalizeWhitespace = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/** Lowercase, letters and digits only: ignores case and typography. */
+const loosen = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const escapeForRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Whole-token match, case-insensitive. `\b` is wrong here: it would never
+ * match an item ending in punctuation, such as `C++` or `C#`.
+ */
+export function mentionsTerm(haystack: string, term: string): boolean {
+  return mentions(haystack, term);
+}
+
+function mentions(haystack: string, term: string): boolean {
+  const pattern = new RegExp(
+    `(?<![A-Za-z0-9])${escapeForRegex(term)}(?![A-Za-z0-9])`,
+    "i",
+  );
+  return pattern.test(haystack);
+}
+
+/**
+ * Every field whose contract is "text taken from the CV". Audited against the
+ * response format in lib/ai/prompts/cv-analysis.prompt.ts: `evidence` on the
+ * ATS section ("short text snippets or phrases from the resume") and on each
+ * matched skill ("evidence showing where or how they appear in the resume").
+ * The free-text `description` fields also invite examples, but a quote cannot
+ * be told from commentary inside prose, so they are out.
+ */
+function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
+  return [
+    ...feedback.atsCompatibility.evidence.map((value, i) => ({
+      path: `atsCompatibility.evidence[${i}]`,
+      value,
+    })),
+    ...feedback.skills.matchedSkills.map((skill, i) => ({
+      path: `skills.matchedSkills[${i}].evidence`,
+      value: skill.evidence,
+    })),
+  ];
+}
+
+/**
+ * Lists whose items are claimed to be absent from the CV. `recommendedCerts`
+ * counts: recommending a certification the CV already lists is the same error.
+ */
+function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
+  const lists: Array<[string, string[]]> = [
+    ["skills.missingSkills", feedback.skills.missingSkills],
+    ["jobFit.missingKeywords", feedback.jobFit.missingKeywords],
+    [
+      "educationAndCertifications.recommendedCerts",
+      feedback.educationAndCertifications.recommendedCerts,
+    ],
+  ];
+
+  return lists.flatMap(([path, items]) =>
+    items.map((value, i) => ({ path: `${path}[${i}]`, value })),
+  );
+}
+
+function suggestedBullets(feedback: ResumeAnalysisFeedback): Located[] {
+  return feedback.experienceAndImpact.suggestedBullets.flatMap((bullet, b) =>
+    bullet.examples.map((value, e) => ({
+      path: `experienceAndImpact.suggestedBullets[${b}].examples[${e}]`,
+      value,
+    })),
+  );
+}
+
+/**
+ * Quotes that are not in the CV. Whitespace is normalized on both sides;
+ * everything else must match exactly, so a quote the model tidied up is
+ * reported with a note rather than passed.
+ *
+ * Misses: quotes embedded in the prose `description` fields, and a fabricated
+ * quote that happens to be a verbatim span of the CV.
+ */
+export function checkEvidenceGrounding(
+  cvText: string,
+  feedback: ResumeAnalysisFeedback,
+): CheckViolation[] {
+  const cv = normalizeWhitespace(cvText);
+  const looseCv = loosen(cvText);
+
+  return quoteFields(feedback).flatMap(({ path, value }) => {
+    const quote = normalizeWhitespace(value);
+    if (!quote || cv.includes(quote)) return [];
+
+    const note = looseCv.includes(loosen(quote))
+      ? "in the CV except for case or punctuation"
+      : undefined;
+    return [{ check: "evidence-grounding" as const, path, value: quote, note }];
+  });
+}
+
+/**
+ * Items called missing that the CV does mention. Case-insensitive, matched on
+ * whole tokens.
+ *
+ * Misses: morphological variants, by design — "Scalability" will not match
+ * "scalable", and no stemming is attempted. Also misses items the model phrases
+ * as a sentence ("Kotlin is only briefly mentioned"), which match nothing.
+ * Over-reports a term the CV uses in an unrelated sense.
+ */
+export function checkFalseMissing(
+  cvText: string,
+  feedback: ResumeAnalysisFeedback,
+): CheckViolation[] {
+  const cv = normalizeWhitespace(cvText);
+
+  return absenceClaims(feedback).flatMap(({ path, value }) => {
+    const item = normalizeWhitespace(value);
+    if (!item || !mentions(cv, item)) return [];
+
+    return [
+      {
+        check: "false-missing" as const,
+        path,
+        value: item,
+        note: "the CV mentions it",
+      },
+    ];
+  });
+}
+
+/**
+ * Quantities that carry a claim, written as words rather than digits. Small
+ * counts ("one", "three") are left out: they are ordinary prose, not metrics.
+ */
+const MAGNITUDE_WORDS = [
+  "zero",
+  "half",
+  "double",
+  "doubled",
+  "triple",
+  "tripled",
+  "dozens",
+  "hundreds",
+  "thousands",
+  "millions",
+  "billions",
+];
+
+/** Digit runs, normalized: "1,200" and "1200." both become "1200". */
+function numbersIn(text: string): string[] {
+  return (text.match(/\d[\d.,]*/g) ?? []).map((token) =>
+    token.replace(/[.,]+$/, "").replace(/,/g, ""),
+  );
+}
+
+/**
+ * Numbers in the suggested bullets that appear nowhere in the CV. These are
+ * the most dangerous output in the product: a user pastes a rewritten bullet
+ * into a real application.
+ *
+ * Misses: a fabricated number that coincides with an unrelated number in the
+ * CV (a year, a street number), and any quantity in words outside
+ * MAGNITUDE_WORDS. Over-reports when the model rewrites a CV metric into
+ * another unit ("40%" as "0.4x").
+ */
+export function checkFabricatedNumbers(
+  cvText: string,
+  feedback: ResumeAnalysisFeedback,
+): CheckViolation[] {
+  const cv = normalizeWhitespace(cvText);
+  const cvNumbers = new Set(numbersIn(cv));
+
+  return suggestedBullets(feedback).flatMap(({ path, value }) => {
+    const digits = [...new Set(numbersIn(value))]
+      .filter((number) => !cvNumbers.has(number))
+      .map((number) => ({ value: number, note: "not in the CV" }));
+
+    const words = MAGNITUDE_WORDS.filter(
+      (word) =>
+        mentions(value, word) &&
+        !mentions(cv, word) &&
+        // "thousands" is covered by a CV that says "thousand".
+        !mentions(cv, word.replace(/s$/, "")),
+    ).map((word) => ({ value: word, note: "quantity not in the CV" }));
+
+    return [...digits, ...words].map(({ value: found, note }) => ({
+      check: "fabricated-number" as const,
+      path,
+      value: found,
+      note,
+    }));
+  });
+}
+
+/** Every check, in one pass. */
+export function checkAnalysis(
+  cvText: string,
+  feedback: ResumeAnalysisFeedback,
+): CheckViolation[] {
+  return [
+    ...checkEvidenceGrounding(cvText, feedback),
+    ...checkFalseMissing(cvText, feedback),
+    ...checkFabricatedNumbers(cvText, feedback),
+  ];
+}
+
+export function countByCheck(
+  violations: CheckViolation[],
+): Record<CheckName, number> {
+  const counts: Record<CheckName, number> = {
+    "evidence-grounding": 0,
+    "false-missing": 0,
+    "fabricated-number": 0,
+  };
+  for (const violation of violations) counts[violation.check] += 1;
+  return counts;
+}
