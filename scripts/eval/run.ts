@@ -39,10 +39,11 @@ const FIXTURE_SOURCES = [
   { dir: path.join(EVAL_DIR, "fixtures.local"), source: "local" },
 ] as const;
 
-// Provider and model are private constants of lib/ai/client.ts. Its per-call
-// metadata log line is the only place they surface, so they are read from it.
-// The line's shape is pinned by lib/ai/client.test.ts.
-const AI_LOG_LINE = /\[CVision\]\[ai\] provider=(\S+) model=(\S+)/;
+// Provider, model and token usage are private to lib/ai/client.ts. Its
+// per-call metadata log line is the only place they surface, so they are read
+// from it. The line's shape is pinned by lib/ai/client.test.ts.
+const AI_LOG_LINE =
+  /\[CVision\]\[ai\] provider=(\S+) model=(\S+) ms=\d+ in=(\d+|\?) out=(\d+|\?)/;
 
 /**
  * What a fixture claims about the analysis of its own CV. `in` is a dot path
@@ -87,6 +88,8 @@ type Fixture = FixtureMeta & {
   source: "synthetic" | "local";
   cvText: string;
   jobDescription: string;
+  /** Present when the fixture folder holds a cv.pdf, for the --pdf spike. */
+  pdf?: Uint8Array;
 };
 
 type RunRecord = {
@@ -104,7 +107,10 @@ type RunRecord = {
     cvCharsSent: number;
     cvTruncated: boolean;
     jobChars: number;
+    /** "pdf" means the model was given the PDF instead of the extracted text. */
+    mode: "text" | "pdf";
   };
+  tokens: { input: number | null; output: number | null };
   /** Content checks and fixture assertions, both only when the call succeeded. */
   checks?: {
     counts: Record<CheckName, number>;
@@ -121,7 +127,7 @@ const USAGE = `CVision analysis eval: run the resume analysis over fixed fixture
 compare model output across provider, model or prompt changes.
 
 Usage:
-  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
+  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force] [--pdf]
   npm run eval -- compare <labelA> <labelB>
   npm run eval -- recheck <label>
   npm run eval -- list
@@ -129,6 +135,10 @@ Usage:
 recheck re-runs the content checks and the fixture assertions over a stored
 run and rewrites it. No model calls, nothing billed: use it after changing a
 check or an assertion, so old runs stay comparable with new ones.
+
+--pdf is an experiment, wired into nothing in production: it hands the model
+the fixture's cv.pdf instead of the text extracted from it, to compare what
+each input is worth. Only fixtures holding a cv.pdf can run it.
 
 Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
@@ -224,22 +234,30 @@ async function runCommand(args: string[]) {
   }
 
   const only = flags.get("only");
+  const mode = flags.has("pdf") ? ("pdf" as const) : ("text" as const);
   const fixtures = (await loadFixtures()).filter(
     (fixture) =>
       typeof only !== "string" || only.split(",").includes(fixture.id),
   );
   if (fixtures.length === 0) fail("No fixtures matched.");
 
+  if (mode === "pdf") {
+    const without = fixtures.filter((fixture) => !fixture.pdf).map((f) => f.id);
+    if (without.length) {
+      fail(`--pdf needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
+    }
+  }
+
   await mkdir(outDir, { recursive: true });
   console.log(
-    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call)\n`,
+    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${mode === "pdf" ? "the PDF itself" : "extracted text"})\n`,
   );
 
   const startedAt = new Date().toISOString();
   const records: RunRecord[] = [];
 
   for (const fixture of fixtures) {
-    const record = await runFixture(fixture, label, timeoutMs);
+    const record = await runFixture(fixture, label, timeoutMs, mode);
     await writeJson(path.join(outDir, `${fixture.id}.json`), record);
     console.log(formatProgress(record));
     records.push(record);
@@ -276,6 +294,7 @@ async function runFixture(
   fixture: Fixture,
   label: string,
   timeoutMs: number,
+  mode: "text" | "pdf",
 ): Promise<RunRecord> {
   // The same truncation analyzeResume applies, so the checks see exactly the
   // text the model read.
@@ -290,6 +309,8 @@ async function runFixture(
       jobDescription: fixture.jobDescription,
       resumeText: fixture.cvText,
       timeoutMs,
+      // The spike: hand the model the PDF and let it read the document.
+      ...(mode === "pdf" ? { pdf: fixture.pdf } : {}),
     });
     result = { ok: true, feedback };
   } catch (error) {
@@ -307,6 +328,7 @@ async function runFixture(
     label,
     provider: aiLog.meta.provider,
     model: aiLog.meta.model,
+    tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     checks: violations && {
@@ -324,6 +346,7 @@ async function runFixture(
       cvCharsSent: sent.charsSent,
       cvTruncated: sent.truncated,
       jobChars: fixture.jobDescription.length,
+      mode,
     },
     result,
   };
@@ -433,16 +456,22 @@ function checkNote(checks: RunRecord["checks"]): string {
 
 function captureAiLog() {
   const original = console.info;
-  const meta: { provider: string | null; model: string | null } = {
-    provider: null,
-    model: null,
-  };
+  const meta: {
+    provider: string | null;
+    model: string | null;
+    inputTokens: number | null;
+    outputTokens: number | null;
+  } = { provider: null, model: null, inputTokens: null, outputTokens: null };
+
+  const count = (value: string) => (value === "?" ? null : Number(value));
 
   console.info = (...args: unknown[]) => {
     const match = AI_LOG_LINE.exec(args.map(String).join(" "));
     if (!match) return original(...args);
     meta.provider = match[1];
     meta.model = match[2];
+    meta.inputTokens = count(match[3]);
+    meta.outputTokens = count(match[4]);
   };
 
   return {
@@ -478,6 +507,8 @@ function formatProgress(record: RunRecord): string {
   const score = record.result.feedback.overall.globalScore;
   const head = `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
   const notes = [
+    record.input.mode === "pdf" ? "input: PDF" : "",
+    record.tokens.input === null ? "" : `${record.tokens.input} in / ${record.tokens.output} out tokens`,
     record.input.cvTruncated
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
       : "",
@@ -785,6 +816,10 @@ async function loadFixtures(): Promise<Fixture[]> {
         id: source === "local" ? `local-${name}` : name,
         source,
         cvText: await readFile(path.join(base, "cv.txt"), "utf8"),
+        // Optional: only fixtures built from a real PDF can run the spike.
+        pdf: existsSync(path.join(base, "cv.pdf"))
+          ? new Uint8Array(await readFile(path.join(base, "cv.pdf")))
+          : undefined,
         jobDescription,
       });
     }

@@ -26,9 +26,11 @@ import { extractTechstackFromDescription } from "./techstack";
 const PROMPT_MARKER = "PROMPT-MARKER-7f3a";
 const RESPONSE_MARKER = "RESPONSE-MARKER-9c1e";
 
-// The metadata line generateJson logs per call. scripts/eval reads provider
-// and model from it, so its shape is part of the contract.
-const AI_LOG_LINE = /^\[CVision\]\[ai\] provider=\S+ model=\S+ ms=\d+$/;
+// The metadata line generateJson logs per call. scripts/eval reads provider,
+// model and token counts from it, so its shape is part of the contract. The
+// counts are "?" when the call failed before the provider reported usage.
+const AI_LOG_LINE =
+  /^\[CVision\]\[ai\] provider=\S+ model=\S+ ms=\d+ in=(\d+|\?) out=(\d+|\?)$/;
 
 const simpleSchema = z.object({ score: z.number(), label: z.string() });
 
