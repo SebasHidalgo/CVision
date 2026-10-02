@@ -90,7 +90,7 @@ const AIResponseFormat = `
     // evidence showing where or how they appear in the resume.
     matchedSkills: { name: string; evidence: string }[];
 
-    // List of missing or weakly represented skills from the job description.
+    // List of missing skills from the job description.
     missingSkills: string[];
 
     // 2-4 clear and actionable steps explaining how to improve the skills section.
@@ -156,6 +156,21 @@ const AIResponseFormat = `
 `;
 
 /**
+ * Two things here are deliberate and were paid for in M2c-E, 15 measured runs
+ * over 5 wordings. Do not "improve" either without re-running the eval.
+ *
+ * Rule 2's metric paragraph describes what good feedback looks like instead of
+ * ordering a search. Two attempts at the direct form ("scan every bullet, then
+ * report what you found") never once got the model to name the figure the
+ * resume does contain - it cannot reliably find it - and the second was worse
+ * than the first.
+ *
+ * Rule 3 lists forbidden word-quantities in one short clause. Expanding that
+ * into its own emphatic paragraph did stop the digits, but it cost the hedge
+ * in rule 2: with the long version the model called metrics absent outright in
+ * 8 of 9 runs, against 0 of 6 without it. Weight spent on one rule is taken
+ * from another.
+ *
  * The rules sit between the inputs and the response format, not at the top:
  * the resume and the job description can be long, and a constraint stated
  * before 150,000 characters of input is a constraint the model reads first and
