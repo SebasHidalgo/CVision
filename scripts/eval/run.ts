@@ -57,10 +57,13 @@ type FixtureExpectations = {
   mustNotMatch?: PatternAssertion[];
   /** None of these items may appear in that list. */
   mustNotList?: ListAssertion[];
+  /** At most this many violations of a content check. */
+  maxViolations?: ViolationAssertion[];
 };
 
 type PatternAssertion = { in: string; pattern: string; why?: string };
 type ListAssertion = { in: string; items: string[]; why?: string };
+type ViolationAssertion = { check: CheckName; max: number; why?: string };
 
 type AssertionResult = {
   kind: keyof FixtureExpectations;
@@ -160,8 +163,10 @@ Every run also records, per fixture:
                     "mustMatch":    [{ "in": "atsCompatibility", "pattern": "accent|encod" }]
                     "mustNotMatch": [{ "in": "educationAndCertifications", "pattern": "ongoing" }]
                     "mustNotList":  [{ "in": "skills.missingSkills", "items": ["CI/CD"] }]
+                    "maxViolations":[{ "check": "fabricated-number", "max": 0 }]
                   "in" is a dot path into the feedback; patterns are
                   case-insensitive and are tested against that subtree's JSON.
+                  maxViolations caps a content check for that fixture.
 
 Each fixture is one model call, run sequentially, through analyzeResume — the
 same function analyzeResumeAction calls, with its ${MAX_RESUME_TEXT_CHARS.toLocaleString("en-US")}-char CV
@@ -310,7 +315,7 @@ async function runFixture(
       violations,
     },
     assertions: result.ok
-      ? evaluateAssertions(result.feedback, fixture.expect)
+      ? evaluateAssertions(result.feedback, fixture.expect, violations ?? [])
       : undefined,
     input: {
       jobTitle: fixture.jobTitle,
@@ -344,9 +349,22 @@ function textOf(section: unknown): string {
 function evaluateAssertions(
   feedback: ResumeAnalysisFeedback,
   expectations: FixtureExpectations | undefined,
+  violations: CheckViolation[],
 ): AssertionResult[] {
   if (!expectations) return [];
   const results: AssertionResult[] = [];
+
+  for (const assertion of expectations.maxViolations ?? []) {
+    const hits = violations.filter((v) => v.check === assertion.check);
+    results.push({
+      kind: "maxViolations",
+      in: assertion.check,
+      expression: `at most ${assertion.max}`,
+      passed: hits.length <= assertion.max,
+      found: hits.map((hit) => `${hit.path}: ${hit.value}`),
+      why: assertion.why,
+    });
+  }
 
   for (const kind of ["mustMatch", "mustNotMatch"] as const) {
     for (const assertion of expectations[kind] ?? []) {
@@ -500,8 +518,11 @@ async function recheckCommand(args: string[]) {
       continue;
     }
 
+    // What that run sent, not what today's limit would send: a record made
+    // under the old 20,000-char limit must still be judged against the text
+    // its model actually read.
     const violations = checkAnalysis(
-      truncateResumeText(fixture.cvText).text,
+      fixture.cvText.slice(0, record.input.cvCharsSent),
       record.result.feedback,
     );
     record.checks = {
@@ -509,7 +530,11 @@ async function recheckCommand(args: string[]) {
       grounding: countGrounding(violations),
       violations,
     };
-    record.assertions = evaluateAssertions(record.result.feedback, fixture.expect);
+    record.assertions = evaluateAssertions(
+      record.result.feedback,
+      fixture.expect,
+      violations,
+    );
 
     await writeJson(target, record);
     console.log(
@@ -698,10 +723,10 @@ async function listCommand() {
   console.log("Fixtures");
   for (const fixture of fixtures) {
     const truncated = fixture.cvText.length > MAX_RESUME_TEXT_CHARS ? ", truncated" : "";
-    const assertions =
-      (fixture.expect?.mustMatch?.length ?? 0) +
-      (fixture.expect?.mustNotMatch?.length ?? 0) +
-      (fixture.expect?.mustNotList?.length ?? 0);
+    const assertions = Object.values(fixture.expect ?? {}).reduce(
+      (sum, group) => sum + group.length,
+      0,
+    );
     console.log(
       `  ${fixture.id.padEnd(26)} ${fixture.source.padEnd(10)} expected ${String(fixture.expectedFit ?? "-").padEnd(7)} CV ${fixture.cvText.length} chars${truncated}, job ${fixture.jobDescription.length} chars, ${assertions} assertion(s)`,
     );
