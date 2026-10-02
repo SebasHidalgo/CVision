@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractTextFromPDFFile } from "@/lib/pdfParse";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import golden from "./analysisRequest.golden.json";
@@ -25,6 +25,9 @@ vi.mock("@/lib/database/resume", () => ({
 const JOB_TITLE = "Frontend Engineer";
 const JOB_DESCRIPTION = "Build the checkout in React and TypeScript. Testing matters.";
 const SHORT_CV = "Jane Doe. Frontend engineer. React, TypeScript. BSc 2018.";
+// The prompt carries the current date, so the golden is recorded on a fixed
+// one. Only Date is faked: the client's own timers have to keep working.
+const RECORDED_ON = new Date("2026-10-02T12:00:00Z");
 
 // Exactly at the limit, with a marker on its last characters, and one char over.
 const AT_LIMIT = `${"a".repeat(MAX_RESUME_TEXT_CHARS - 7)}<<END>>`;
@@ -93,28 +96,59 @@ let warn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(RECORDED_ON);
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 /*
  * analysisRequest.golden.json was recorded from analyzeResumeAction at commit
- * e7b98d6, before the model step moved into analyzeResume. Both call sites must
- * still put exactly those bytes on the wire.
+ * e7b98d6, before the model step moved into analyzeResume, and proved that
+ * refactor put the same bytes on the wire. M2c-D rewrote the prompt on
+ * purpose, so it was re-recorded there, on the frozen date above.
  *
- * It held a second case, a CV over the old 20,000-char limit. M2c-B raised
- * that limit deliberately, so those bytes are no longer the right answer and
- * the entry is gone; the boundary is pinned by the tests below instead. The
- * original proof stays in the history at commit 7543dd1.
+ * What it still pins is worth keeping: the two call sites send one identical
+ * request, and nothing reaches the prompt by accident. The equality test below
+ * is the invariant; the golden is the anchor that makes an unintended edit
+ * visible. The original byte-identity proof stays in the history at 7543dd1.
  */
-describe("the request for a typical CV is unchanged by the refactor", () => {
+describe("both call sites send exactly one, identical request", () => {
   it("from the Server Action", async () => {
     expect(await viaActionPath(SHORT_CV)).toEqual(golden.typical);
   });
 
   it("from analyzeResume, which the harness calls", async () => {
     expect(await viaHarnessPath(SHORT_CV)).toEqual(golden.typical);
+  });
+});
+
+/*
+ * The model cannot tell a finished degree from an ongoing one without knowing
+ * what day it is: an eval run described a degree that ended in the past as
+ * still in progress. The date has to come from the request, not from the
+ * build, or every deploy freezes "today" until the next one.
+ */
+describe("the date anchor", () => {
+  const dateIn = (prompt: string) => /Today is (\S+) \(([^)]+)\)/.exec(prompt);
+
+  it("states today's date, machine-readable and written out", async () => {
+    const { prompt } = await viaHarnessPath(SHORT_CV);
+
+    expect(dateIn(prompt)?.slice(1)).toEqual(["2026-10-02", "October 2, 2026"]);
+  });
+
+  it("is resolved per request, not at import time", async () => {
+    vi.setSystemTime(new Date("2027-03-15T12:00:00Z"));
+
+    const { prompt } = await viaHarnessPath(SHORT_CV);
+
+    expect(dateIn(prompt)?.slice(1)).toEqual(["2027-03-15", "March 15, 2027"]);
   });
 });
 

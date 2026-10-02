@@ -87,6 +87,9 @@ export async function analyzeResume({
       jobTitle,
       jobDescription,
       resumeText: pdf ? PDF_INSTEAD_OF_TEXT : text,
+      // Resolved here, per call: the model has to judge end dates against the
+      // day of the request, not the day of the last deploy.
+      now: new Date(),
     }),
     schema: resumeFeedbackSchema,
     timeoutMs,

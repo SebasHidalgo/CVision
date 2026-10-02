@@ -50,6 +50,12 @@ const AI_LOG_LINE =
  * into the feedback object: a section ("skills") or one list
  * ("skills.missingSkills"). Patterns are case-insensitive regular expressions
  * tested against the JSON of that subtree, so they see every string in it.
+ *
+ * A pattern assertion may name several paths joined by "+", and is then tested
+ * against all of them together. That exists to exclude a sibling field: a
+ * claim the analysis must make can otherwise be "satisfied" by the model
+ * writing the same words somewhere it does not count, such as inside a
+ * rewritten bullet it invented.
  */
 type FixtureExpectations = {
   /** The section must say something matching this. */
@@ -176,6 +182,8 @@ Every run also records, per fixture:
                     "maxViolations":[{ "check": "fabricated-number", "max": 0 }]
                   "in" is a dot path into the feedback; patterns are
                   case-insensitive and are tested against that subtree's JSON.
+                  A pattern's "in" may join several paths with "+", to assert
+                  about a section while leaving one of its fields out.
                   maxViolations caps a content check for that fixture.
 
 Each fixture is one model call, run sequentially, through analyzeResume — the
@@ -391,8 +399,13 @@ function evaluateAssertions(
 
   for (const kind of ["mustMatch", "mustNotMatch"] as const) {
     for (const assertion of expectations[kind] ?? []) {
-      const section = pick(feedback, assertion.in);
-      const matched = new RegExp(assertion.pattern, "i").exec(textOf(section));
+      const sections = assertion.in
+        .split("+")
+        .map((path) => pick(feedback, path.trim()));
+      const resolved = sections.every((section) => section !== undefined);
+      const matched = new RegExp(assertion.pattern, "i").exec(
+        sections.map(textOf).join("\n"),
+      );
       const hit = matched !== null;
 
       results.push({
@@ -401,8 +414,8 @@ function evaluateAssertions(
         expression: assertion.pattern,
         // A path that resolves to nothing fails either way: the fixture is
         // asserting about something that is not there.
-        passed: section === undefined ? false : kind === "mustMatch" ? hit : !hit,
-        found: section === undefined ? ["path not found"] : hit ? [matched[0]] : [],
+        passed: !resolved ? false : kind === "mustMatch" ? hit : !hit,
+        found: !resolved ? ["path not found"] : hit ? [matched[0]] : [],
         why: assertion.why,
       });
     }
