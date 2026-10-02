@@ -13,8 +13,8 @@
     "mustNotMatch": [
       {
         "in": "educationAndCertifications",
-        "pattern": "ongoing|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
-        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error."
+        "pattern": "(?<!completed\\s+or\\s+)ongoing(?!\\s+or\\s+completed)|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
+        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error. The \"ongoing\" branch ignores the paired form \"ongoing or completed\", which names both states and so claims nothing: it cost a true run a failure."
       },
       {
         "in": "experienceAndImpact",
@@ -30,22 +30,46 @@
     "mustNotList": [
       {
         "in": "skills.missingSkills",
-        "items": ["CI/CD", "Docker", "Java", "JavaScript", "SQL", "REST"],
+        "items": [
+          "CI/CD",
+          "Docker",
+          "Java",
+          "JavaScript",
+          "SQL",
+          "REST"
+        ],
         "why": "All are in the CV's skills section or its bullets."
       },
       {
         "in": "jobFit.missingKeywords",
-        "items": ["CI/CD", "Docker", "Java", "JavaScript", "SQL", "REST"],
+        "items": [
+          "CI/CD",
+          "Docker",
+          "Java",
+          "JavaScript",
+          "SQL",
+          "REST"
+        ],
         "why": "Same list, as keywords."
       },
       {
         "in": "skills.missingSkills",
-        "items": ["C", "C++", "C#", "Python"],
+        "items": [
+          "C",
+          "C++",
+          "C#",
+          "Python"
+        ],
         "why": "The posting asks for any one of several languages; the candidate has Java and JavaScript, so the others are not gaps."
       },
       {
         "in": "jobFit.missingKeywords",
-        "items": ["C", "C++", "C#", "Python"],
+        "items": [
+          "C",
+          "C++",
+          "C#",
+          "Python"
+        ],
         "why": "Same either/or requirement, as keywords."
       }
     ]
