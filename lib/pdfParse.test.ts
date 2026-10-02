@@ -32,10 +32,15 @@ function pdfBytes(content: string): Uint8Array<ArrayBuffer> {
  */
 function textPage(text: string): string {
   const lines: string[] = [];
-  for (const word of text.split(" ")) {
-    const last = lines.length - 1;
-    if (last >= 0 && lines[last].length + word.length < 70) lines[last] += ` ${word}`;
-    else lines.push(word);
+  // Explicit line breaks are kept; anything longer than the page is wrapped.
+  for (const source of text.split("\n")) {
+    lines.push("");
+    for (const word of source.split(" ")) {
+      const last = lines.length - 1;
+      if (lines[last] === "") lines[last] = word;
+      else if (lines[last].length + word.length < 70) lines[last] += ` ${word}`;
+      else lines.push(word);
+    }
   }
   const shown = lines.map((line) => `(${line}) Tj`).join(" T* ");
   return `BT /F1 10 Tf 12 TL 72 740 Td ${shown} ET`;
@@ -68,11 +73,25 @@ const CV_TEXT =
 /** `count` non-whitespace characters, each followed by a space. */
 const spaced = (count: number) => Array(count).fill("x").join(" ");
 
+/** The words, ignoring where the lines fall. */
+const flat = (text: string) => text.replace(/\s+/g, " ").trim();
+
 describe("extractTextFromPDFFile", () => {
   it("returns the text layer of a readable PDF", async () => {
     const text = await extractTextFromPDFFile(asFile(pdfBytes(textPage(CV_TEXT))));
 
-    expect(text).toBe(CV_TEXT);
+    // `textPage` wraps the source into page lines, and extraction now gives
+    // those lines back, so the comparison is on the words.
+    expect(flat(text)).toBe(CV_TEXT);
+  });
+
+  it("gives back the lines of the page, not one run of text", async () => {
+    const page = ["EXPERIENCE", "- Shipped the checkout rewrite.", "- Mentored two engineers."];
+    const text = await extractTextFromPDFFile(
+      asFile(pdfBytes(textPage([CV_TEXT, ...page].join("\n")))),
+    );
+
+    expect(text.split("\n")).toEqual(expect.arrayContaining(page));
   });
 
   it.each([
@@ -104,7 +123,10 @@ describe("extractTextFromPDFFile: text threshold", () => {
   it(`accepts exactly ${MIN_PDF_TEXT_CHARS} non-whitespace characters`, async () => {
     const text = spaced(MIN_PDF_TEXT_CHARS);
 
-    await expect(extractTextFromPDFFile(asFile(pdfBytes(textPage(text))))).resolves.toBe(text);
+    // Compared flat: the page wraps this into lines, which extraction keeps.
+    const extracted = await extractTextFromPDFFile(asFile(pdfBytes(textPage(text))));
+
+    expect(flat(extracted)).toBe(text);
   });
 
   it(`rejects ${MIN_PDF_TEXT_CHARS - 1}, however much whitespace pads them`, async () => {

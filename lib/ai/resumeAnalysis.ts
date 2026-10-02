@@ -27,7 +27,15 @@ export type AnalyzeResumeInput = {
   /** Raw text of the CV; truncation happens here, not at the call site. */
   resumeText: string;
   timeoutMs?: number;
+  /**
+   * Experimental, scripts/eval only and wired into nothing in production:
+   * send the CV as a PDF for the model to read itself, instead of its text.
+   */
+  pdf?: Uint8Array;
 };
+
+/** What stands in for the CV text when the PDF itself is attached. */
+const PDF_INSTEAD_OF_TEXT = "(provided as the attached PDF file)";
 
 export type TruncatedText = {
   /** What the model is given. */
@@ -63,6 +71,7 @@ export async function analyzeResume({
   jobDescription,
   resumeText,
   timeoutMs = ANALYSIS_TIMEOUT_MS,
+  pdf,
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
   const { text, ...sent } = truncateResumeText(resumeText);
 
@@ -74,9 +83,14 @@ export async function analyzeResume({
   }
 
   const feedback = await generateJson({
-    prompt: resumeAnalysisPrompt({ jobTitle, jobDescription, resumeText: text }),
+    prompt: resumeAnalysisPrompt({
+      jobTitle,
+      jobDescription,
+      resumeText: pdf ? PDF_INSTEAD_OF_TEXT : text,
+    }),
     schema: resumeFeedbackSchema,
     timeoutMs,
+    ...(pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
   });
 
   return { feedback, resumeText: sent };

@@ -31,12 +31,22 @@ const DEFAULT_PROVIDER: AiProvider = "google";
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** A document sent to the model alongside the prompt. */
+export type AiFile = { data: Uint8Array; mediaType: string };
+
 type GenerateJsonOptions<T> = {
   prompt: string;
   system?: string;
   schema: z.ZodType<T>;
   timeoutMs?: number;
+  /**
+   * Experimental, and no production caller sets it: scripts/eval uses it to
+   * compare sending a CV as a PDF against sending its extracted text.
+   */
+  files?: AiFile[];
 };
+
+type Usage = { input: number | undefined; output: number | undefined };
 
 type AiConfig = {
   provider: string;
@@ -57,9 +67,11 @@ export async function generateJson<T>({
   system,
   schema,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  files,
 }: GenerateJsonOptions<T>): Promise<T> {
   const config = readConfig();
   const startedAt = Date.now();
+  const usage: Usage = { input: undefined, output: undefined };
 
   try {
     if (config.provider !== DEFAULT_PROVIDER) {
@@ -67,12 +79,13 @@ export async function generateJson<T>({
         `Unsupported AI_PROVIDER "${config.provider}"`,
       );
     }
-    return await callGoogle(config, prompt, system, schema, timeoutMs);
+    return await callGoogle(config, prompt, system, schema, timeoutMs, files, usage);
   } finally {
     // Never log the prompt or the response: both carry the resume and the job
-    // description. scripts/eval reads provider and model from this line.
+    // description. Token counts are safe, and they are what an analysis costs.
+    // scripts/eval reads provider, model and tokens from this line.
     console.info(
-      `[CVision][ai] provider=${config.provider} model=${config.model} ms=${Date.now() - startedAt}`,
+      `[CVision][ai] provider=${config.provider} model=${config.model} ms=${Date.now() - startedAt} in=${usage.input ?? "?"} out=${usage.output ?? "?"}`,
     );
   }
 }
@@ -93,6 +106,8 @@ async function callGoogle<T>(
   system: string | undefined,
   schema: z.ZodType<T>,
   timeoutMs: number,
+  files: AiFile[] | undefined,
+  usage: Usage,
 ): Promise<T> {
   if (!config.apiKey) {
     // Fail before any request: the SDK would fail the same way, but later and
@@ -110,7 +125,21 @@ async function callGoogle<T>(
     const request = {
       model: google(config.model),
       system,
-      prompt,
+      // Attachments travel as message parts; without them the plain prompt
+      // form keeps the request byte-identical to what it has always been.
+      ...(files?.length
+        ? {
+            messages: [
+              {
+                role: "user" as const,
+                content: [
+                  ...files.map((file) => ({ type: "file" as const, ...file })),
+                  { type: "text" as const, text: prompt },
+                ],
+              },
+            ],
+          }
+        : { prompt }),
       abortSignal: controller.signal,
       // One attempt per call, like the previous provider: the caller's timeout
       // is the whole budget, and a retry policy is a separate decision.
@@ -129,6 +158,8 @@ async function callGoogle<T>(
       ? await generateObject({ ...request, schema: jsonSchema(responseSchema) })
       : await generateObject({ ...request, output: "no-schema" });
     candidate = result.object;
+    usage.input = result.usage.inputTokens;
+    usage.output = result.usage.outputTokens;
   } catch (error) {
     throw toAppError(error, timeoutMs);
   } finally {
