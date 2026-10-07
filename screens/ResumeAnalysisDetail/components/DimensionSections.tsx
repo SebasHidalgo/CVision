@@ -1,21 +1,24 @@
-import ScoreMeter from "@/components/score/ScoreMeter";
+import { requirementTally } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysisFeedback } from "@/types/resume";
 import { DIMENSIONS } from "../utils/dimensions";
 import {
+  Achievements,
   Chips,
   Evidence,
   MarkedList,
   NumberedList,
+  Requirements,
   Rewrites,
   Section,
   SkillEvidence,
+  TextLayer,
 } from "./SectionParts";
 
 type DimensionSectionsProps = {
   feedback: ResumeAnalysisFeedback;
 };
 
-const [ATS, EXPERIENCE, SKILLS, EDUCATION, TONE, FIT] = DIMENSIONS;
+const [FIT, EXPERIENCE, SKILLS, EDUCATION, TONE, ATS] = DIMENSIONS;
 
 export default function DimensionSections({ feedback }: DimensionSectionsProps) {
   const {
@@ -29,18 +32,19 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
 
   return (
     <div>
+      {/* The requirements breakdown leads: it is the question the user came with. */}
       <Section
-        id={ATS.id}
+        id={FIT.id}
         index="01"
-        label={ATS.label}
-        score={atsCompatibility.score}
-        description={atsCompatibility.description}
+        label={FIT.label}
+        score={null}
+        description={jobFit.description}
       >
-        <div className="grid gap-10 md:grid-cols-2">
-          <MarkedList title="What gets in the way" items={atsCompatibility.problems} mark="signal" />
-          <MarkedList title="How to fix it" items={atsCompatibility.fixes} mark="strong" />
-        </div>
-        <Evidence items={atsCompatibility.evidence} />
+        <Requirements
+          requirements={jobFit.requirements}
+          tally={requirementTally(feedback)}
+        />
+        <NumberedList title="Strategic moves" items={jobFit.strategicRecommendations} />
       </Section>
 
       <Section
@@ -50,6 +54,7 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
         score={experienceAndImpact.score}
         description={experienceAndImpact.description}
       >
+        <Achievements achievements={experienceAndImpact.quantifiedAchievements} />
         <div className="grid gap-10 md:grid-cols-2">
           <MarkedList title="Strengths" items={experienceAndImpact.strengths} mark="strong" />
           <MarkedList title="Weak spots" items={experienceAndImpact.weaknesses} mark="signal" />
@@ -65,12 +70,6 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
         description={skills.description}
       >
         <SkillEvidence skills={skills.matchedSkills} />
-        <Chips
-          title="Missing from the CV"
-          items={skills.missingSkills}
-          kind="missing"
-          emptyText="Nothing the posting asks for is missing."
-        />
         <NumberedList title="Action plan" items={skills.actionPlan} />
       </Section>
 
@@ -101,45 +100,25 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
         score={toneAndClarity.score}
         description={toneAndClarity.description}
       >
-        <div className="max-w-sm">
-          <div className="flex items-baseline justify-between">
-            <h3 className="eyebrow">Readability</h3>
-            <span className="figure text-3xl text-ink tabular">
-              {toneAndClarity.readability}
-            </span>
-          </div>
-          <ScoreMeter
-            score={toneAndClarity.readability}
-            size="sm"
-            label="Readability"
-            className="mt-2"
-          />
-        </div>
         <MarkedList title="Suggestions" items={toneAndClarity.suggestions} mark="neutral" />
       </Section>
 
       <Section
-        id={FIT.id}
+        id={ATS.id}
         index="06"
-        label={FIT.label}
-        score={jobFit.score}
-        description={jobFit.description}
+        label={ATS.label}
+        score={null}
+        description={atsCompatibility.description}
       >
+        <TextLayer
+          artifacts={atsCompatibility.encodingArtifacts}
+          sections={atsCompatibility.sectionsDetected}
+        />
         <div className="grid gap-10 md:grid-cols-2">
-          <Chips
-            title="Keywords you match"
-            items={jobFit.matchedKeywords}
-            kind="matched"
-            emptyText="No keyword from the posting appears in the CV."
-          />
-          <Chips
-            title="Keywords you're missing"
-            items={jobFit.missingKeywords}
-            kind="missing"
-            emptyText="Every keyword from the posting appears in the CV."
-          />
+          <MarkedList title="What gets in the way" items={atsCompatibility.problems} mark="signal" />
+          <MarkedList title="How to fix it" items={atsCompatibility.fixes} mark="strong" />
         </div>
-        <NumberedList title="Strategic moves" items={jobFit.strategicRecommendations} />
+        <Evidence items={atsCompatibility.evidence} />
       </Section>
     </div>
   );

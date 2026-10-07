@@ -1,66 +1,79 @@
 import { describe, expect, it } from "vitest";
-import { resumeFeedbackSchema } from "./resumeSchema";
+import {
+  requirementTally,
+  resumeFeedbackSchema,
+  type RequirementKind,
+  type RequirementStatus,
+} from "./resumeSchema";
 
 function validFeedback() {
   return {
     overall: {
-      globalScore: 72,
-      verdict: "Good",
-      summaryText: "A solid match with a few gaps.",
+      fitScore: 72,
+      qualityScore: 58,
+      summaryText: 'A solid match with a few gaps.',
       prioritizedFixes: [
-        { title: "Add measurable results", impact: "High", action: "Quantify outcomes." },
+        { title: 'Add measurable results', impact: 'High', action: 'Quantify outcomes.' },
       ],
     },
     atsCompatibility: {
-      score: 80,
-      description: "Standard sections, clean structure.",
-      problems: ["Inconsistent date formats"],
-      fixes: ["Use one date format"],
-      evidence: ["Jan 2020 - 03/2022"],
+      description: 'Standard sections, clean structure.',
+      encodingArtifacts: ['Jos´e'],
+      sectionsDetected: ['EXPERIENCE', 'EDUCATION'],
+      problems: ['Inconsistent date formats'],
+      fixes: ['Use one date format'],
+      evidence: ['Jan 2020 - 03/2022'],
     },
     experienceAndImpact: {
       score: 70,
-      description: "Relevant roles, few metrics.",
-      strengths: ["Strong action verbs"],
-      weaknesses: ["Few quantified results"],
-      suggestedBullets: [{ role: "Engineer", examples: ["Cut latency by 40%"] }],
+      description: 'Relevant roles, few metrics.',
+      quantifiedAchievements: [
+        { figure: '40%', quote: 'reducing downtime by approximately 40%' },
+      ],
+      strengths: ['Strong action verbs'],
+      weaknesses: ['Most bullets lack quantified results'],
+      suggestedBullets: [{ role: 'Engineer', examples: ['Cut latency by [X]%'] }],
     },
     skills: {
       score: 75,
-      description: "Core skills match.",
-      matchedSkills: [{ name: "React", evidence: "Three roles" }],
-      missingSkills: ["GraphQL"],
-      actionPlan: ["Group skills by category"],
+      description: 'Core skills match.',
+      matchedSkills: [{ name: 'React', evidence: 'Three roles' }],
+      actionPlan: ['Group skills by category'],
     },
     educationAndCertifications: {
       score: 60,
-      description: "Relevant degree.",
-      highlights: ["Computer Science degree"],
-      improvements: ["Add graduation year"],
+      description: 'Relevant degree.',
+      highlights: ['Computer Science degree'],
+      improvements: ['Add relevant coursework'],
       recommendedCerts: [],
     },
     toneAndClarity: {
       score: 78,
-      description: "Clear and concise.",
-      readability: 65,
-      suggestions: ["Shorter sentences"],
+      description: 'Clear and concise.',
+      suggestions: ['Shorter sentences'],
     },
     jobFit: {
-      score: 74,
-      description: "Good alignment with the posting.",
-      matchedKeywords: ["React"],
-      missingKeywords: ["GraphQL"],
-      strategicRecommendations: ["Lead with the checkout work"],
+      description: 'Good alignment with the posting.',
+      requirements: [
+        {
+          requirement: '3+ years building web applications',
+          kind: 'required',
+          status: 'met',
+          evidence: 'Full-Stack Developer, 2021 - 2024',
+          note: 'Three years in the most recent role.',
+        },
+      ],
+      strategicRecommendations: ['Lead with the checkout work'],
     },
   };
 }
 
 // Every score in the analysis goes through the same field schema.
 const SCORE_PATHS = [
-  "overall.globalScore",
-  "atsCompatibility.score",
-  "jobFit.score",
-  "toneAndClarity.readability",
+  'overall.fitScore',
+  'overall.qualityScore',
+  'experienceAndImpact.score',
+  'toneAndClarity.score',
 ] as const;
 type ScorePath = (typeof SCORE_PATHS)[number];
 type Sections = Record<string, Record<string, unknown>>;
@@ -111,11 +124,185 @@ describe("resumeFeedbackSchema: missing scores", () => {
   it.each([[null], [""], ["   "], [false], [true], [[]], [{}]])(
     "rejects %j instead of reading it as a number",
     (value) => {
-      expect(parsedScore("overall.globalScore", value)).toBe("rejected");
+      expect(parsedScore("overall.fitScore", value)).toBe("rejected");
     },
   );
 
   it("rejects an absent score", () => {
-    expect(parsedScore("overall.globalScore", undefined)).toBe("rejected");
+    expect(parsedScore("overall.fitScore", undefined)).toBe("rejected");
+  });
+});
+
+describe("resumeFeedbackSchema: requirements", () => {
+  const withRequirements = (requirements: unknown[]) => {
+    const input = validFeedback();
+    input.jobFit.requirements = requirements as typeof input.jobFit.requirements;
+    return resumeFeedbackSchema.safeParse(input);
+  };
+
+  const requirement = (over: Record<string, unknown> = {}) => ({
+    requirement: "Experience with PostgreSQL",
+    kind: "required",
+    status: "met",
+    evidence: "PostgreSQL",
+    note: "Listed in the skills section.",
+    ...over,
+  });
+
+  // The model answers "Required" and "Met" often enough that rejecting them
+  // would throw away a paid analysis over capitalization.
+  it.each([
+    ["Required", "required"],
+    ["  PREFERRED ", "preferred"],
+  ])("accepts %j as kind and normalizes it to %j", (sent, expected) => {
+    const parsed = withRequirements([requirement({ kind: sent })]);
+
+    expect(parsed.success && parsed.data.jobFit.requirements[0].kind).toBe(expected);
+  });
+
+  it.each([
+    ["Met", "met"],
+    ["PARTIAL", "partial"],
+    [" missing ", "missing"],
+  ])("accepts %j as status and normalizes it to %j", (sent, expected) => {
+    const parsed = withRequirements([requirement({ status: sent })]);
+
+    expect(parsed.success && parsed.data.jobFit.requirements[0].status).toBe(expected);
+  });
+
+  // A status outside the set would render as an unmarked row, which reads as
+  // "met" to anyone skimming. It has to fail instead.
+  it.each(["partially met", "unknown", "", null, 3])("rejects status %j", (status) => {
+    expect(withRequirements([requirement({ status })]).success).toBe(false);
+  });
+
+  it("rejects a kind outside the two the posting can express", () => {
+    expect(withRequirements([requirement({ kind: "optional" })]).success).toBe(false);
+  });
+
+  it("accepts an empty evidence string, since quoting nothing beats describing", () => {
+    const parsed = withRequirements([
+      requirement({ status: "missing", evidence: "" }),
+    ]);
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("requirementTally", () => {
+  const feedbackWith = (requirements: Array<[RequirementKind, RequirementStatus]>) => {
+    const input = validFeedback();
+    input.jobFit.requirements = requirements.map(([kind, status]) => ({
+      requirement: "something",
+      kind,
+      status,
+      evidence: "",
+      note: "",
+    }));
+    return resumeFeedbackSchema.parse(input);
+  };
+
+  it("counts met and partial separately, per kind", () => {
+    const tally = requirementTally(
+      feedbackWith([
+        ["required", "met"],
+        ["required", "met"],
+        ["required", "partial"],
+        ["preferred", "met"],
+        ["preferred", "missing"],
+      ]),
+    );
+
+    expect(tally).toEqual({
+      required: { total: 3, met: 2, partial: 1 },
+      preferred: { total: 2, met: 1, partial: 0 },
+    });
+  });
+
+  it("reports zeroes rather than throwing when nothing was extracted", () => {
+    expect(requirementTally(feedbackWith([]))).toEqual({
+      required: { total: 0, met: 0, partial: 0 },
+      preferred: { total: 0, met: 0, partial: 0 },
+    });
+  });
+});
+
+/*
+ * M2c-F changed the shape, so every analysis stored before it fails this
+ * schema. That is deliberate and there are no real users, but it has to be a
+ * known consequence rather than a discovered one: mapDbResume validates
+ * instead of casting, so such a row comes back with `feedback: null`, the list
+ * screen renders it without a score and without a link, and the detail route
+ * redirects away. Nothing throws mid-render.
+ */
+describe("feedback stored before M2c-F", () => {
+  const storedBefore = () => ({
+    overall: {
+      globalScore: 72,
+      verdict: "Good",
+      summaryText: "A solid match.",
+      prioritizedFixes: [],
+    },
+    atsCompatibility: {
+      score: 80,
+      description: "Standard sections.",
+      problems: [],
+      fixes: [],
+      evidence: [],
+    },
+    experienceAndImpact: {
+      score: 70,
+      description: "Relevant roles.",
+      strengths: [],
+      weaknesses: [],
+      suggestedBullets: [],
+    },
+    skills: {
+      score: 75,
+      description: "Core skills match.",
+      matchedSkills: [],
+      missingSkills: ["GraphQL"],
+      actionPlan: [],
+    },
+    educationAndCertifications: {
+      score: 60,
+      description: "Relevant degree.",
+      highlights: [],
+      improvements: [],
+      recommendedCerts: [],
+    },
+    toneAndClarity: {
+      score: 78,
+      description: "Clear.",
+      readability: 65,
+      suggestions: [],
+    },
+    jobFit: {
+      score: 74,
+      description: "Good alignment.",
+      matchedKeywords: [],
+      missingKeywords: [],
+      strategicRecommendations: [],
+    },
+  });
+
+  it("no longer validates, so it surfaces as unreadable instead of half-rendered", () => {
+    const parsed = resumeFeedbackSchema.safeParse(storedBefore());
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("fails on the fields that carried the meaning, not on a detail", () => {
+    const parsed = resumeFeedbackSchema.safeParse(storedBefore());
+    const paths = parsed.success
+      ? []
+      : parsed.error.issues.map((issue) => issue.path.join("."));
+
+    // The two scores that replaced globalScore, and the breakdown that
+    // replaced the keyword lists.
+    expect(paths).toContain("overall.fitScore");
+    expect(paths).toContain("overall.qualityScore");
+    expect(paths).toContain("jobFit.requirements");
+    expect(paths).toContain("experienceAndImpact.quantifiedAchievements");
   });
 });

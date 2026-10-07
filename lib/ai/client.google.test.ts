@@ -106,6 +106,7 @@ describe("Google provider: request shape", () => {
     await failureOf(generateJson({ prompt: "p", schema: resumeFeedbackSchema }));
 
     const overall = (requests[0].schema?.properties as Record<string, { properties: Record<string, unknown> }>).overall;
-    expect(overall.properties.globalScore).toMatchObject({ type: "number" });
+    expect(overall.properties.fitScore).toMatchObject({ type: "number" });
+    expect(overall.properties.qualityScore).toMatchObject({ type: "number" });
   });
 });

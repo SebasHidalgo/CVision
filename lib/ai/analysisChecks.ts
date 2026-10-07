@@ -65,43 +65,77 @@ function mentions(haystack: string, term: string): boolean {
 }
 
 /**
- * Every field whose contract is "text taken from the CV". Audited against the
- * response format in lib/ai/prompts/cv-analysis.prompt.ts: `evidence` on the
- * ATS section ("short text snippets or phrases from the resume") and on each
- * matched skill ("evidence showing where or how they appear in the resume").
+ * Every field whose contract is "text taken from the CV", audited against the
+ * response format in lib/ai/prompts/cv-analysis.prompt.ts and against rule 5,
+ * which names the same set.
+ *
+ * M2c-F widened this from two fields to six: the new shape asks for a quote in
+ * four more places, and each one is a place a quote can be invented. The count
+ * this produces is therefore stricter than the one from earlier phases, not
+ * comparable to it.
+ *
  * The free-text `description` fields also invite examples, but a quote cannot
- * be told from commentary inside prose, so they are out.
+ * be told from commentary inside prose, so they stay out.
  */
 function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
+  const ats = feedback.atsCompatibility;
+
   return [
-    ...feedback.atsCompatibility.evidence.map((value, i) => ({
+    ...ats.evidence.map((value, i) => ({
       path: `atsCompatibility.evidence[${i}]`,
+      value,
+    })),
+    ...ats.encodingArtifacts.map((value, i) => ({
+      path: `atsCompatibility.encodingArtifacts[${i}]`,
+      value,
+    })),
+    ...ats.sectionsDetected.map((value, i) => ({
+      path: `atsCompatibility.sectionsDetected[${i}]`,
       value,
     })),
     ...feedback.skills.matchedSkills.map((skill, i) => ({
       path: `skills.matchedSkills[${i}].evidence`,
       value: skill.evidence,
     })),
+    ...feedback.jobFit.requirements.map((requirement, i) => ({
+      path: `jobFit.requirements[${i}].evidence`,
+      value: requirement.evidence,
+    })),
+    ...feedback.experienceAndImpact.quantifiedAchievements.map(
+      (achievement, i) => ({
+        path: `experienceAndImpact.quantifiedAchievements[${i}].quote`,
+        value: achievement.quote,
+      }),
+    ),
   ];
 }
 
 /**
  * Lists whose items are claimed to be absent from the CV. `recommendedCerts`
  * counts: recommending a certification the CV already lists is the same error.
+ *
+ * `missingSkills` and `missingKeywords` are gone from the output, so the two
+ * lists that produced most of this check's findings no longer exist. What
+ * replaced them is a requirement marked "missing", which is checkable the same
+ * way: the requirement text is the thing claimed to be absent.
  */
 function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
-  const lists: Array<[string, string[]]> = [
-    ["skills.missingSkills", feedback.skills.missingSkills],
-    ["jobFit.missingKeywords", feedback.jobFit.missingKeywords],
-    [
-      "educationAndCertifications.recommendedCerts",
-      feedback.educationAndCertifications.recommendedCerts,
-    ],
-  ];
-
-  return lists.flatMap(([path, items]) =>
-    items.map((value, i) => ({ path: `${path}[${i}]`, value })),
+  const certs = feedback.educationAndCertifications.recommendedCerts.map(
+    (value, i) => ({
+      path: `educationAndCertifications.recommendedCerts[${i}]`,
+      value,
+    }),
   );
+
+  const missing = feedback.jobFit.requirements
+    .map((requirement, i) => ({ requirement, i }))
+    .filter(({ requirement }) => requirement.status === "missing")
+    .map(({ requirement, i }) => ({
+      path: `jobFit.requirements[${i}].requirement`,
+      value: requirement.requirement,
+    }));
+
+  return [...certs, ...missing];
 }
 
 function suggestedBullets(feedback: ResumeAnalysisFeedback): Located[] {

@@ -1,7 +1,7 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import ScoreReadout from "@/components/score/ScoreReadout";
-import { FIT_LABEL } from "@/lib/score";
+import { FIT_LABEL, scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
 import ResumeDrawer from "./ResumeDrawer";
@@ -11,19 +11,26 @@ type AnalysisHeaderProps = {
   jobTitle: string;
   /** Already formatted on the server. */
   date: string;
-  score: number;
+  fitScore: number;
+  qualityScore: number;
   summary: string;
   resumeUrl: string;
   resumeId: string;
   interview: ResumeAnalysis["interview"];
 };
 
-/** The dossier's cover: who, for what, and the one number that answers it. */
+/**
+ * The dossier cover. Two numbers, not one: fit answers "this posting" and
+ * quality answers "this document". The single conflated score they replaced
+ * tracked neither - it did not move when the input became a real document, and
+ * it went up when fabricated gaps were removed.
+ */
 export default function AnalysisHeader({
   companyName,
   jobTitle,
   date,
-  score,
+  fitScore,
+  qualityScore,
   summary,
   resumeUrl,
   resumeId,
@@ -38,18 +45,38 @@ export default function AnalysisHeader({
           <h1 className="display-lg mt-1 text-ink">{jobTitle}</h1>
         </div>
         <div className="lg:col-span-5 lg:justify-self-end">
-          <ScoreReadout score={score} size="xl" labels={FIT_LABEL} />
+          <ScoreReadout score={fitScore} size="xl" labels={FIT_LABEL} />
         </div>
       </div>
 
       <ScoreMeter
-        score={score}
+        score={fitScore}
         size="lg"
-        label="Overall fit"
+        label="Fit with this posting"
         reveal="mount"
         delay={0.2}
         className="mt-8"
       />
+
+      <div className="mt-6 flex items-center gap-4 sm:max-w-md">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="eyebrow">Resume quality, on its own</h2>
+            <span className="figure text-2xl text-ink tabular">{qualityScore}</span>
+          </div>
+          <ScoreMeter
+            score={qualityScore}
+            size="sm"
+            label="Resume quality"
+            reveal="mount"
+            delay={0.3}
+            className="mt-2"
+          />
+          <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[scoreTone(qualityScore)].text}`}>
+            {TONE_LABEL[scoreTone(qualityScore)]} · the part you can change by editing
+          </p>
+        </div>
+      </div>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:items-start">
         <p className="lede lg:col-span-8">{summary}</p>

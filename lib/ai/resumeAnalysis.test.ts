@@ -68,28 +68,31 @@ function viaActionPath(resumeText: string) {
 /** The smallest answer that satisfies resumeFeedbackSchema. */
 const SECTION = { score: 70, description: "" };
 const VALID_FEEDBACK = {
-  overall: { globalScore: 70, verdict: "Good", summaryText: "", prioritizedFixes: [] },
-  atsCompatibility: { ...SECTION, problems: [], fixes: [], evidence: [] },
+  overall: { fitScore: 70, qualityScore: 55, summaryText: "", prioritizedFixes: [] },
+  atsCompatibility: {
+    description: "",
+    encodingArtifacts: [],
+    sectionsDetected: [],
+    problems: [],
+    fixes: [],
+    evidence: [],
+  },
   experienceAndImpact: {
     ...SECTION,
+    quantifiedAchievements: [],
     strengths: [],
     weaknesses: [],
     suggestedBullets: [],
   },
-  skills: { ...SECTION, matchedSkills: [], missingSkills: [], actionPlan: [] },
+  skills: { ...SECTION, matchedSkills: [], actionPlan: [] },
   educationAndCertifications: {
     ...SECTION,
     highlights: [],
     improvements: [],
     recommendedCerts: [],
   },
-  toneAndClarity: { ...SECTION, readability: 60, suggestions: [] },
-  jobFit: {
-    ...SECTION,
-    matchedKeywords: [],
-    missingKeywords: [],
-    strategicRecommendations: [],
-  },
+  toneAndClarity: { ...SECTION, suggestions: [] },
+  jobFit: { description: "", requirements: [], strategicRecommendations: [] },
 };
 
 let warn: ReturnType<typeof vi.spyOn>;

@@ -35,7 +35,8 @@ export default async function ResumeAnalysisDetailScreen({
         companyName={analysis.companyName}
         jobTitle={analysis.jobTitle}
         date={formatLongDate(analysis.createdAt)}
-        score={feedback.overall.globalScore}
+        fitScore={feedback.overall.fitScore}
+        qualityScore={feedback.overall.qualityScore}
         summary={feedback.overall.summaryText}
         resumeUrl={analysis.resumeUrl}
         resumeId={analysis.id}
