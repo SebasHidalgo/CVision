@@ -27,50 +27,19 @@
         "why": "Same absolute claim in its other common phrasing."
       }
     ],
-    "mustNotList": [
+    "requirements": [
       {
-        "in": "skills.missingSkills",
-        "items": [
-          "CI/CD",
-          "Docker",
-          "Java",
-          "JavaScript",
-          "SQL",
-          "REST"
+        "matching": "^\\s*(?:CI/CD|Docker|Java|JavaScript|SQL|REST)\\s*$",
+        "status": [
+          "met",
+          "partial"
         ],
-        "why": "All are in the CV's skills section or its bullets."
+        "why": "FAILURE 2: every one of these is in the CV's own skills section. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
       },
       {
-        "in": "jobFit.missingKeywords",
-        "items": [
-          "CI/CD",
-          "Docker",
-          "Java",
-          "JavaScript",
-          "SQL",
-          "REST"
-        ],
-        "why": "Same list, as keywords."
-      },
-      {
-        "in": "skills.missingSkills",
-        "items": [
-          "C",
-          "C++",
-          "C#",
-          "Python"
-        ],
-        "why": "The posting asks for any one of several languages; the candidate has Java and JavaScript, so the others are not gaps."
-      },
-      {
-        "in": "jobFit.missingKeywords",
-        "items": [
-          "C",
-          "C++",
-          "C#",
-          "Python"
-        ],
-        "why": "Same either/or requirement, as keywords."
+        "matching": "^\\s*(?:C|C\\+\\+|C#|Python)\\s*$",
+        "count": 0,
+        "why": "FAILURE 7: the posting lists these languages as alternatives, and the CV has some of them, so none of the rest is a requirement of its own."
       }
     ]
   }

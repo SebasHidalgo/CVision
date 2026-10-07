@@ -12,7 +12,7 @@ export default async function ResumeAnalysesScreen() {
   // Rows that no longer match the feedback schema come back with null
   // feedback; keeping them out stops one bad analysis from skewing the average.
   const scores = analyses
-    .map((analysis) => analysis.feedback?.overall.globalScore)
+    .map((analysis) => analysis.feedback?.overall.fitScore)
     .filter((score): score is number => typeof score === "number");
 
   const averageScore = scores.length
@@ -55,7 +55,7 @@ export default async function ResumeAnalysesScreen() {
         <ol className="divide-y divide-line border-b border-line">
           {analyses.map((analysis, i) => {
             const overall = analysis.feedback?.overall;
-            const score = overall?.globalScore;
+            const score = overall?.fitScore;
             const tone = typeof score === "number" ? scoreTone(score) : null;
 
             return (

@@ -5,27 +5,29 @@
   "expect": {
     "mustMatch": [
       {
-        "in": "skills.missingSkills",
-        "pattern": "python",
-        "why": "The one required qualification the candidate does not meet belongs in the missing list."
-      },
-      {
         "in": "jobFit",
         "pattern": "python",
         "why": "Whatever the score, the job-fit section has to name the gap that decides this application."
       }
     ],
     "mustNotMatch": [],
-    "mustNotList": [
+    "requirements": [
       {
-        "in": "skills.missingSkills",
-        "items": ["Java", "Kotlin", "AWS", "Terraform", "PostgreSQL", "Kafka", "Docker"],
-        "why": "All are in the CV's skills section."
+        "matching": "python",
+        "minCount": 1,
+        "status": [
+          "missing",
+          "partial"
+        ],
+        "why": "The one real gap in this fixture: the posting requires Python and the CV does not have it. A shape that cannot report a true gap would be worse than the one it replaced, so this is the counterweight to every assertion above."
       },
       {
-        "in": "jobFit.missingKeywords",
-        "items": ["Java", "Kotlin", "AWS", "Terraform", "PostgreSQL", "Kafka", "Docker"],
-        "why": "Same list, as keywords."
+        "matching": "^\\s*(?:Java|Kotlin|AWS|Terraform|PostgreSQL|Kafka|Docker)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "The CV has all of these, so none of them is a gap. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
       }
     ]
   }

@@ -3,34 +3,40 @@
   "expectedFit": "fair",
   "purpose": "Roughly half the posting's stack overlaps: React, TypeScript, Node.js, PostgreSQL and a testing habit are there; GraphQL, Terraform, AWS, Jest and Cypress are not. Checks that a half-match reads as a half-match instead of collapsing to strong or weak.",
   "expect": {
-    "mustMatch": [
+    "requirements": [
       {
-        "in": "skills",
-        "pattern": "graphql",
-        "why": "GraphQL is the biggest real gap in the stack and has to be named."
+        "matching": "graphql",
+        "minCount": 1,
+        "status": [
+          "missing",
+          "partial"
+        ],
+        "why": "A real gap: the posting asks for GraphQL and the CV does not have it. Reporting true gaps is what stops the new shape from being graded only on what it refuses to say."
       },
       {
-        "in": "skills",
-        "pattern": "terraform|infrastructure as code",
-        "why": "The other real gap: the posting expects the candidate to read Terraform."
-      }
-    ],
-    "mustNotMatch": [],
-    "mustNotList": [
-      {
-        "in": "skills.missingSkills",
-        "items": ["React", "TypeScript", "Node.js", "PostgreSQL", "SQL", "Docker"],
-        "why": "All are in the CV's skills section."
+        "matching": "terraform|infrastructure as code",
+        "minCount": 1,
+        "status": [
+          "missing",
+          "partial"
+        ],
+        "why": "The second real gap in this fixture, for the same reason."
       },
       {
-        "in": "jobFit.missingKeywords",
-        "items": ["React", "TypeScript", "Node.js", "PostgreSQL", "SQL", "Docker"],
-        "why": "Same list, as keywords."
+        "matching": "^\\s*(?:React|TypeScript|Node\\.js|PostgreSQL|SQL|Docker)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "FAILURE 2: the CV lists all of these. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
       },
       {
-        "in": "skills.missingSkills",
-        "items": ["testing", "unit testing", "integration testing"],
-        "why": "The posting asks for a testing habit 'whatever the framework'; the CV has Mocha, Supertest and Playwright. Jest and Cypress specifically may be listed as missing, testing as a practice may not."
+        "matching": "^\\s*(?:testing|unit testing|integration testing)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "FAILURE 3: each of these words appears literally in the CV. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
       }
     ]
   }

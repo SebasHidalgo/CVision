@@ -28,6 +28,9 @@ import {
 import { AppError } from "@/lib/error/errors";
 import {
   MAX_JOB_DESCRIPTION_CHARS,
+  requirementTally,
+  type RequirementKind,
+  type RequirementStatus,
   type ResumeAnalysisFeedback,
 } from "@/lib/schemas/resumeSchema";
 import { scoreTone, type ScoreTone } from "@/lib/score";
@@ -66,11 +69,37 @@ type FixtureExpectations = {
   mustNotList?: ListAssertion[];
   /** At most this many violations of a content check. */
   maxViolations?: ViolationAssertion[];
+  /** Facts about the requirements breakdown, checkable against the posting. */
+  requirements?: RequirementAssertion[];
 };
 
 type PatternAssertion = { in: string; pattern: string; why?: string };
 type ListAssertion = { in: string; items: string[]; why?: string };
 type ViolationAssertion = { check: CheckName; max: number; why?: string };
+
+/**
+ * A claim about jobFit.requirements. Unlike a band, these are facts about the
+ * posting: whether its two required qualifications are met, and whether a list
+ * of alternatives was kept as one requirement, are both decidable by reading
+ * the posting, which is what makes the new shape measurable.
+ *
+ * `matching` and `kind` select the entries; `count`/`minCount` constrain how
+ * many were selected; `status` constrains every one that was.
+ */
+type RequirementAssertion = {
+  /** Case-insensitive regex over the requirement text. */
+  matching?: string;
+  kind?: RequirementKind;
+  /** Exactly this many requirements may match the filter. */
+  count?: number;
+  /** At least this many must. */
+  minCount?: number;
+  /** At most this many may. */
+  maxCount?: number;
+  /** Every matched requirement must carry one of these statuses. */
+  status?: RequirementStatus[];
+  why?: string;
+};
 
 type AssertionResult = {
   kind: keyof FixtureExpectations;
@@ -421,6 +450,53 @@ function evaluateAssertions(
     }
   }
 
+  for (const assertion of expectations.requirements ?? []) {
+    const matching = assertion.matching
+      ? new RegExp(assertion.matching, "i")
+      : null;
+    const selected = feedback.jobFit.requirements.filter(
+      (requirement) =>
+        (!matching || matching.test(requirement.requirement)) &&
+        (!assertion.kind || requirement.kind === assertion.kind),
+    );
+
+    const wrongStatus = assertion.status
+      ? selected.filter(
+          (requirement) => !assertion.status?.includes(requirement.status),
+        )
+      : [];
+
+    const countOk =
+      (assertion.count === undefined || selected.length === assertion.count) &&
+      (assertion.minCount === undefined || selected.length >= assertion.minCount) &&
+      (assertion.maxCount === undefined || selected.length <= assertion.maxCount);
+
+    const wants = [
+      assertion.kind ? `kind ${assertion.kind}` : "",
+      assertion.matching ? `matching /${assertion.matching}/` : "",
+      assertion.count !== undefined ? `exactly ${assertion.count}` : "",
+      assertion.minCount !== undefined ? `at least ${assertion.minCount}` : "",
+      assertion.maxCount !== undefined ? `at most ${assertion.maxCount}` : "",
+      assertion.status ? `status ${assertion.status.join("|")}` : "",
+    ].filter(Boolean);
+
+    results.push({
+      kind: "requirements",
+      in: "jobFit.requirements",
+      expression: wants.join(", "),
+      passed: countOk && wrongStatus.length === 0,
+      // Says which way it failed: the wrong number, or the wrong status.
+      found: [
+        `${selected.length} matched`,
+        ...wrongStatus.map(
+          (requirement) =>
+            `${requirement.status}: ${requirement.requirement.slice(0, 80)}`,
+        ),
+      ],
+      why: assertion.why,
+    });
+  }
+
   for (const assertion of expectations.mustNotList ?? []) {
     const list = pick(feedback, assertion.in);
     const entries = Array.isArray(list) ? list.map(String) : null;
@@ -441,6 +517,14 @@ function evaluateAssertions(
   }
 
   return results;
+}
+
+/** "required 2/2 met, preferred 1/4 met" - the answer the user came for. */
+function tallyNote(feedback: ResumeAnalysisFeedback): string {
+  const { required, preferred } = requirementTally(feedback);
+  const part = (label: string, t: { total: number; met: number; partial: number }) =>
+    `${label} ${t.met}/${t.total} met${t.partial ? ` (+${t.partial} partial)` : ""}`;
+  return `${part("required", required)}, ${part("preferred", preferred)}`;
 }
 
 function assertionNote(assertions: AssertionResult[] | undefined): string {
@@ -517,7 +601,7 @@ function formatProgress(record: RunRecord): string {
     return `  ${id} FAIL  ${record.result.error.code.padEnd(28)} ${seconds}`;
   }
 
-  const score = record.result.feedback.overall.globalScore;
+  const score = record.result.feedback.overall.fitScore;
   const head = `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
   const notes = [
     record.input.mode === "pdf" ? "input: PDF" : "",
@@ -590,14 +674,12 @@ async function recheckCommand(args: string[]) {
 // ---------------------------------------------------------------- compare
 
 const SCORE_ROWS: Array<[string, (feedback: ResumeAnalysisFeedback) => number]> = [
-  ["Global", (f) => f.overall.globalScore],
-  ["ATS", (f) => f.atsCompatibility.score],
+  ["Fit", (f) => f.overall.fitScore],
+  ["Quality", (f) => f.overall.qualityScore],
   ["Experience", (f) => f.experienceAndImpact.score],
   ["Skills", (f) => f.skills.score],
   ["Education", (f) => f.educationAndCertifications.score],
   ["Tone", (f) => f.toneAndClarity.score],
-  ["Job fit", (f) => f.jobFit.score],
-  ["Readability", (f) => f.toneAndClarity.readability],
 ];
 
 async function compareCommand(args: string[]) {
@@ -646,9 +728,9 @@ async function compareCommand(args: string[]) {
       );
     }
     console.log(
-      `  Fit band    A: ${bandNote(fa.overall.globalScore, expected)}   B: ${bandNote(fb.overall.globalScore, expected)}`,
+      `  Fit band    A: ${bandNote(fa.overall.fitScore, expected)}   B: ${bandNote(fb.overall.fitScore, expected)}`,
     );
-    console.log(`  Verdict     A: ${fa.overall.verdict}   B: ${fb.overall.verdict}`);
+    console.log(`  Requirements A: ${tallyNote(fa)}   B: ${tallyNote(fb)}`);
     console.log(
       `  Time        A: ${(a.durationMs / 1000).toFixed(1)} s   B: ${(b.durationMs / 1000).toFixed(1)} s`,
     );
@@ -699,11 +781,11 @@ async function compareCommand(args: string[]) {
       }
     }
 
-    globalDeltas.push(Math.abs(fb.overall.globalScore - fa.overall.globalScore));
+    globalDeltas.push(Math.abs(fb.overall.fitScore - fa.overall.fitScore));
     if (expected) {
       withExpectation += 1;
-      if (scoreTone(fa.overall.globalScore) === expected) expectedHitsA += 1;
-      if (scoreTone(fb.overall.globalScore) === expected) expectedHitsB += 1;
+      if (scoreTone(fa.overall.fitScore) === expected) expectedHitsA += 1;
+      if (scoreTone(fb.overall.fitScore) === expected) expectedHitsB += 1;
     }
   }
 
@@ -756,7 +838,7 @@ function identity(run: Map<string, RunRecord>): string {
 
 function statusOf(record: RunRecord): string {
   return record.result.ok
-    ? `ok, global ${formatScore(record.result.feedback.overall.globalScore)}`
+    ? `ok, fit ${formatScore(record.result.feedback.overall.fitScore)}`
     : `FAIL ${record.result.error.code}`;
 }
 

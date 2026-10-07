@@ -29,40 +29,38 @@ const CV = [
 function feedback(
   overrides: Partial<ResumeAnalysisFeedback> = {},
 ): ResumeAnalysisFeedback {
-  const section = { score: 70, description: "" };
+  const section = { score: 70, description: '' };
   return {
     overall: {
-      globalScore: 70,
-      verdict: "Good",
-      summaryText: "",
+      fitScore: 70,
+      qualityScore: 55,
+      summaryText: '',
       prioritizedFixes: [],
     },
-    atsCompatibility: { ...section, problems: [], fixes: [], evidence: [] },
+    atsCompatibility: {
+      description: '',
+      encodingArtifacts: [],
+      sectionsDetected: [],
+      problems: [],
+      fixes: [],
+      evidence: [],
+    },
     experienceAndImpact: {
       ...section,
+      quantifiedAchievements: [],
       strengths: [],
       weaknesses: [],
       suggestedBullets: [],
     },
-    skills: {
-      ...section,
-      matchedSkills: [],
-      missingSkills: [],
-      actionPlan: [],
-    },
+    skills: { ...section, matchedSkills: [], actionPlan: [] },
     educationAndCertifications: {
       ...section,
       highlights: [],
       improvements: [],
       recommendedCerts: [],
     },
-    toneAndClarity: { ...section, readability: 60, suggestions: [] },
-    jobFit: {
-      ...section,
-      matchedKeywords: [],
-      missingKeywords: [],
-      strategicRecommendations: [],
-    },
+    toneAndClarity: { ...section, suggestions: [] },
+    jobFit: { description: '', requirements: [], strategicRecommendations: [] },
     ...overrides,
   };
 }
@@ -71,29 +69,89 @@ const withEvidence = (...evidence: string[]) =>
   feedback({
     skills: {
       score: 70,
-      description: "",
+      description: '',
       matchedSkills: evidence.map((text, i) => ({
         name: `Skill ${i}`,
         evidence: text,
       })),
-      missingSkills: [],
       actionPlan: [],
     },
   });
 
-const withMissingSkills = (...missingSkills: string[]) =>
+/** Quotes in the four fields M2c-F added to the check. */
+const withAtsArtifacts = (...encodingArtifacts: string[]) =>
   feedback({
-    skills: { score: 70, description: "", matchedSkills: [], missingSkills, actionPlan: [] },
+    atsCompatibility: {
+      description: '',
+      encodingArtifacts,
+      sectionsDetected: [],
+      problems: [],
+      fixes: [],
+      evidence: [],
+    },
+  });
+
+const withSectionsDetected = (...sectionsDetected: string[]) =>
+  feedback({
+    atsCompatibility: {
+      description: '',
+      encodingArtifacts: [],
+      sectionsDetected,
+      problems: [],
+      fixes: [],
+      evidence: [],
+    },
+  });
+
+const withRequirement = (
+  status: 'met' | 'partial' | 'missing',
+  requirement: string,
+  evidence = '',
+) =>
+  feedback({
+    jobFit: {
+      description: '',
+      requirements: [{ requirement, kind: 'required', status, evidence, note: '' }],
+      strategicRecommendations: [],
+    },
+  });
+
+const withAchievement = (figure: string, quote: string) =>
+  feedback({
+    experienceAndImpact: {
+      score: 70,
+      description: '',
+      quantifiedAchievements: [{ figure, quote }],
+      strengths: [],
+      weaknesses: [],
+      suggestedBullets: [],
+    },
+  });
+
+const withMissingRequirements = (...requirements: string[]) =>
+  feedback({
+    jobFit: {
+      description: '',
+      requirements: requirements.map((requirement) => ({
+        requirement,
+        kind: 'required' as const,
+        status: 'missing' as const,
+        evidence: '',
+        note: '',
+      })),
+      strategicRecommendations: [],
+    },
   });
 
 const withBullet = (...examples: string[]) =>
   feedback({
     experienceAndImpact: {
       score: 70,
-      description: "",
+      description: '',
+      quantifiedAchievements: [],
       strengths: [],
       weaknesses: [],
-      suggestedBullets: [{ role: "Backend Engineer", examples }],
+      suggestedBullets: [{ role: 'Backend Engineer', examples }],
     },
   });
 
@@ -170,8 +228,9 @@ describe("checkEvidenceGrounding", () => {
   it("covers the ATS evidence list too", () => {
     const analysis = feedback({
       atsCompatibility: {
-        score: 70,
         description: "",
+        encodingArtifacts: [],
+        sectionsDetected: [],
         problems: [],
         fixes: [],
         evidence: ["Senior Director of Everything"],
@@ -182,34 +241,99 @@ describe("checkEvidenceGrounding", () => {
       expect.objectContaining({ path: "atsCompatibility.evidence[0]" }),
     ]);
   });
+  /*
+   * M2c-F moved work out of the prompt and into the output shape, which put a
+   * quote in four more places. Each one is a place a quote can be invented, so
+   * each one is checked.
+   */
+  it.each([
+    [
+      'an encoding artifact',
+      withAtsArtifacts('Jos´e'),
+      'atsCompatibility.encodingArtifacts[0]',
+    ],
+    [
+      'a detected section heading',
+      withSectionsDetected('CORE COMPETENCIES'),
+      'atsCompatibility.sectionsDetected[0]',
+    ],
+    [
+      'the evidence behind a requirement status',
+      withRequirement('met', 'Kubernetes in production', 'Ran Kubernetes clusters'),
+      'jobFit.requirements[0].evidence',
+    ],
+    [
+      'the quote behind a quantified achievement',
+      withAchievement('80%', 'cut error rates by 80%'),
+      'experienceAndImpact.quantifiedAchievements[0].quote',
+    ],
+  ])('flags %s that is not in the CV', (_label, analysis, path) => {
+    expect(checkEvidenceGrounding(CV, analysis)).toEqual([
+      expect.objectContaining({ path }),
+    ]);
+  });
+
+  it.each([
+    ['an artifact that is in the CV', withAtsArtifacts('Express.js')],
+    ['a heading that is in the CV', withSectionsDetected('EXPERIENCE')],
+    [
+      'a requirement quote that is in the CV',
+      withRequirement('met', 'Node.js', 'Built backend services using Node.js.'),
+    ],
+    [
+      'an achievement quote that is in the CV',
+      withAchievement('40%', 'reducing downtime by approximately 40%'),
+    ],
+  ])('passes %s', (_label, analysis) => {
+    expect(checkEvidenceGrounding(CV, analysis)).toEqual([]);
+  });
+
+  it('ignores an empty quote, since rule 5 prefers it to a description', () => {
+    expect(
+      checkEvidenceGrounding(CV, withRequirement('missing', 'Rust', '')),
+    ).toEqual([]);
+  });
 });
 
 describe("checkFalseMissing", () => {
-  it("flags a skill the CV lists in its skills section", () => {
-    const violations = checkFalseMissing(CV, withMissingSkills("CI/CD"));
+  it("flags a requirement called missing that the CV lists", () => {
+    const violations = checkFalseMissing(CV, withMissingRequirements("CI/CD"));
 
     expect(violations).toEqual([
       expect.objectContaining({
         check: "false-missing",
-        path: "skills.missingSkills[0]",
+        path: "jobFit.requirements[0].requirement",
         value: "CI/CD",
       }),
     ]);
   });
 
+  it("ignores a requirement that is met, however it is worded", () => {
+    const met = withRequirement("met", "CI/CD", "CI/CD");
+
+    expect(checkFalseMissing(CV, met)).toEqual([]);
+  });
+
   it("flags a missing keyword that appears literally in the CV", () => {
     const analysis = feedback({
       jobFit: {
-        score: 70,
         description: "",
-        matchedKeywords: [],
-        missingKeywords: ["Scalability", "Kubernetes"],
+        requirements: ["Scalability", "Kubernetes"].map((requirement) => ({
+          requirement,
+          kind: "required" as const,
+          status: "missing" as const,
+          evidence: "",
+          note: "",
+        })),
         strategicRecommendations: [],
       },
     });
 
     expect(checkFalseMissing(CV, analysis)).toEqual([
-      expect.objectContaining({ path: "jobFit.missingKeywords[0]", value: "Scalability" }),
+      expect.objectContaining({
+        path: "jobFit.requirements[0].requirement",
+        value: "Scalability",
+      }),
     ]);
   });
 
@@ -230,7 +354,7 @@ describe("checkFalseMissing", () => {
   });
 
   it("matches items that end in punctuation, such as C# and C++", () => {
-    const violations = checkFalseMissing(CV, withMissingSkills("C#", "C++"));
+    const violations = checkFalseMissing(CV, withMissingRequirements("C#", "C++"));
 
     // C# is in the CV's skills line; C++ is not.
     expect(violations.map((violation) => violation.value)).toEqual(["C#"]);
@@ -238,19 +362,19 @@ describe("checkFalseMissing", () => {
 
   it("does not match inside a longer word", () => {
     // "Go" must not match "Google Cloud".
-    expect(checkFalseMissing(CV, withMissingSkills("Go"))).toEqual([]);
+    expect(checkFalseMissing(CV, withMissingRequirements("Go"))).toEqual([]);
   });
 
   it("known limitation: a morphological variant is not matched", () => {
     const cv = CV.replace("Scalability", "scalable services");
 
-    expect(checkFalseMissing(cv, withMissingSkills("Scalability"))).toEqual([]);
+    expect(checkFalseMissing(cv, withMissingRequirements("Scalability"))).toEqual([]);
   });
 
   it("known limitation: a sentence-shaped item matches nothing", () => {
     const item = "Kotlin production use is brief compared to Go and Java";
 
-    expect(checkFalseMissing(CV, withMissingSkills(item))).toEqual([]);
+    expect(checkFalseMissing(CV, withMissingRequirements(item))).toEqual([]);
   });
 });
 
@@ -305,12 +429,25 @@ describe("checkAnalysis", () => {
         score: 70,
         description: "",
         matchedSkills: [{ name: "Node.js", evidence: "Shipped a Node.js platform" }],
-        missingSkills: ["CI/CD"],
         actionPlan: [],
+      },
+      jobFit: {
+        description: "",
+        requirements: [
+          {
+            requirement: "CI/CD",
+            kind: "required" as const,
+            status: "missing" as const,
+            evidence: "",
+            note: "",
+          },
+        ],
+        strategicRecommendations: [],
       },
       experienceAndImpact: {
         score: 70,
         description: "",
+        quantifiedAchievements: [],
         strengths: [],
         weaknesses: [],
         suggestedBullets: [{ role: "Backend Engineer", examples: ["Cut latency 35%."] }],
