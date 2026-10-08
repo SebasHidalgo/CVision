@@ -1,5 +1,11 @@
 import "server-only";
 
+import {
+  describeCounts,
+  emptyGuardReport,
+  guardAnalysis,
+  type GuardReport,
+} from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
 import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
 import {
@@ -46,9 +52,16 @@ export type TruncatedText = {
 };
 
 export type AnalyzeResumeResult = {
+  /** Guarded: no quote that is not in the CV, no invented figure. */
   feedback: ResumeAnalysisFeedback;
   /** What the model actually read, so callers never have to infer it. */
   resumeText: Omit<TruncatedText, "text">;
+  /**
+   * What the checks found before the guardrail edited anything, and what it
+   * did. Cleaning the output must not hide what was cleaned, or `npm run eval`
+   * would read zero violations forever.
+   */
+  guard: GuardReport;
 };
 
 export function truncateResumeText(resumeText: string): TruncatedText {
@@ -82,7 +95,7 @@ export async function analyzeResume({
     );
   }
 
-  const feedback = await generateJson({
+  const answer = await generateJson({
     prompt: resumeAnalysisPrompt({
       jobTitle,
       jobDescription,
@@ -96,5 +109,22 @@ export async function analyzeResume({
     ...(pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
   });
 
-  return { feedback, resumeText: sent };
+  // After the schema, before anything persists it. The checks run against the
+  // same text the model was given, so a quote is judged on what it could have
+  // copied from. With the PDF attached there is no such text - the model read
+  // the document itself - and guarding against an empty string would delete
+  // every quote as unfounded, so that path is left alone. It is the eval spike
+  // and nothing in production sets it.
+  const { feedback, guard } = pdf
+    ? { feedback: answer, guard: emptyGuardReport() }
+    : guardAnalysis(text, answer);
+
+  const note = describeCounts(guard.counts);
+  if (note) {
+    // Counts only. The intervention values carry CV text, so they stay out of
+    // the logs and go to the eval harness instead.
+    console.warn(`[CVision][ai] analysis guardrail fired: ${note}`);
+  }
+
+  return { feedback, resumeText: sent, guard };
 }

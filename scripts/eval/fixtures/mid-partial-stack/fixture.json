@@ -1,6 +1,6 @@
 {
   "jobTitle": "Product Engineer (Full-stack)",
-  "expectedFit": "fair",
+  "expectedFit": "weak",
   "purpose": "Roughly half the posting's stack overlaps: React, TypeScript, Node.js, PostgreSQL and a testing habit are there; GraphQL, Terraform, AWS, Jest and Cypress are not. Checks that a half-match reads as a half-match instead of collapsing to strong or weak.",
   "expect": {
     "requirements": [
