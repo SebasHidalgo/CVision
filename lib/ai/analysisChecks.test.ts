@@ -5,6 +5,7 @@ import {
   checkEvidenceGrounding,
   checkFabricatedNumbers,
   checkFalseMissing,
+  checkMissedFigures,
   countByCheck,
   countGrounding,
 } from "./analysisChecks";
@@ -32,7 +33,6 @@ function feedback(
   const section = { score: 70, description: '' };
   return {
     overall: {
-      fitScore: 70,
       qualityScore: 55,
       summaryText: '',
       prioritizedFixes: [],
@@ -47,7 +47,9 @@ function feedback(
     },
     experienceAndImpact: {
       ...section,
-      quantifiedAchievements: [],
+      quantifiedAchievements: [
+      { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+    ],
       strengths: [],
       weaknesses: [],
       suggestedBullets: [],
@@ -148,7 +150,9 @@ const withBullet = (...examples: string[]) =>
     experienceAndImpact: {
       score: 70,
       description: '',
-      quantifiedAchievements: [],
+      quantifiedAchievements: [
+      { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+    ],
       strengths: [],
       weaknesses: [],
       suggestedBullets: [{ role: 'Backend Engineer', examples }],
@@ -447,7 +451,9 @@ describe("checkAnalysis", () => {
       experienceAndImpact: {
         score: 70,
         description: "",
-        quantifiedAchievements: [],
+        quantifiedAchievements: [
+        { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+    ],
         strengths: [],
         weaknesses: [],
         suggestedBullets: [{ role: "Backend Engineer", examples: ["Cut latency 35%."] }],
@@ -458,10 +464,66 @@ describe("checkAnalysis", () => {
       "evidence-grounding": 1,
       "false-missing": 1,
       "fabricated-number": 1,
+      "missed-figure": 0,
     });
   });
 
   it("reports nothing on an analysis that stays inside the CV", () => {
     expect(checkAnalysis(CV, feedback())).toEqual([]);
+  });
+});
+
+describe("checkMissedFigures", () => {
+  const withNoAchievements = () =>
+    feedback({
+      experienceAndImpact: {
+        score: 70,
+        description: "",
+        quantifiedAchievements: [],
+        strengths: [],
+        weaknesses: [],
+        suggestedBullets: [],
+      },
+    });
+
+  it("fires when the CV states a percentage and the field came back empty", () => {
+    // The observed failure: the model missed the CV's only figure, left the
+    // field empty, and then said figures were absent - a claim consistent with
+    // its own wrong finding, so nothing else caught it.
+    expect(checkMissedFigures(CV, withNoAchievements())).toEqual([
+      expect.objectContaining({
+        check: "missed-figure",
+        path: "experienceAndImpact.quantifiedAchievements",
+        value: "40%",
+      }),
+    ]);
+  });
+
+  it("says nothing when the model did report an achievement", () => {
+    expect(checkMissedFigures(CV, feedback())).toEqual([]);
+  });
+
+  it("says nothing when the CV has no outcome figure to miss", () => {
+    const plain = CV.replace("by approximately 40%", "noticeably");
+
+    expect(checkMissedFigures(plain, withNoAchievements())).toEqual([]);
+  });
+
+  it.each([
+    ["a multiplier", "- Cut build times 3x after reworking the pipeline."],
+    ["a money amount", "- Saved $40,000 a year in hosting."],
+    ["a spaced percentage", "- Raised conversion 12 % in one quarter."],
+  ])("recognizes %s as an outcome figure", (_label, line) => {
+    expect(checkMissedFigures(`EXPERIENCE\n${line}`, withNoAchievements())).toHaveLength(1);
+  });
+
+  it.each([
+    ["a year", "- Joined the platform team in 2021 and stayed three years."],
+    ["a team size", "- Led 4 engineers across 2 squads."],
+    ["a version", "- Migrated the service to Node 20."],
+  ])("ignores %s, which is not an outcome", (_label, line) => {
+    // Precision over recall: this check only earns its place if it is believed
+    // when it fires, and a bare count is usually a date or a headcount.
+    expect(checkMissedFigures(`EXPERIENCE\n${line}`, withNoAchievements())).toEqual([]);
   });
 });

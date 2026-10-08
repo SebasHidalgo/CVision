@@ -68,7 +68,7 @@ function viaActionPath(resumeText: string) {
 /** The smallest answer that satisfies resumeFeedbackSchema. */
 const SECTION = { score: 70, description: "" };
 const VALID_FEEDBACK = {
-  overall: { fitScore: 70, qualityScore: 55, summaryText: "", prioritizedFixes: [] },
+  overall: { qualityScore: 55, summaryText: "", prioritizedFixes: [] },
   atsCompatibility: {
     description: "",
     encodingArtifacts: [],

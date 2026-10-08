@@ -34,12 +34,12 @@ import {
 import { AppError } from "@/lib/error/errors";
 import {
   MAX_JOB_DESCRIPTION_CHARS,
-  requirementTally,
+  deriveFitVerdict,
+  describeTally,
   type RequirementKind,
   type RequirementStatus,
   type ResumeAnalysisFeedback,
 } from "@/lib/schemas/resumeSchema";
-import { scoreTone, type ScoreTone } from "@/lib/score";
 
 const EVAL_DIR = __dirname;
 const RUNS_DIR = path.join(EVAL_DIR, "runs");
@@ -119,7 +119,6 @@ type AssertionResult = {
 
 type FixtureMeta = {
   jobTitle: string;
-  expectedFit?: ScoreTone;
   purpose?: string;
   expect?: FixtureExpectations;
 };
@@ -143,7 +142,6 @@ type RunRecord = {
   durationMs: number;
   input: {
     jobTitle: string;
-    expectedFit: ScoreTone | null;
     cvChars: number;
     cvCharsSent: number;
     cvTruncated: boolean;
@@ -180,11 +178,17 @@ Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force] [--pdf]
   npm run eval -- compare <labelA> <labelB>
   npm run eval -- recheck <label>
+  npm run eval -- stability <label> <label> [...]
   npm run eval -- list
 
 recheck re-runs the content checks and the fixture assertions over a stored
 run and rewrites it. No model calls, nothing billed: use it after changing a
 check or an assertion, so old runs stay comparable with new ones.
+
+stability compares two or more stored runs and reports whether each posting was
+split into the same required/preferred partition each time, and whether the
+derived fit verdict survived. Nothing billed. The verdict is a function of that
+partition, so a partition that moves between runs moves the headline with it.
 
 --pdf is an experiment, wired into nothing in production: it hands the model
 the fixture's cv.pdf instead of the text extracted from it, to compare what
@@ -212,7 +216,7 @@ Workflow for a provider, model or prompt change:
 Fixtures:  scripts/eval/fixtures/<id>/        synthetic, committed
            scripts/eval/fixtures.local/<id>/  gitignored: put real CVs here
            each holds cv.txt, job.txt and fixture.json:
-             { "jobTitle", "expectedFit"?, "purpose"?, "expect"? }
+             { "jobTitle", "purpose"?, "expect"? }
 Output:    scripts/eval/runs/<label>/<id>.json (gitignored)
 
 Every run also records, per fixture:
@@ -250,6 +254,8 @@ async function main(argv: string[]) {
       return compareCommand(rest);
     case "recheck":
       return recheckCommand(rest);
+    case "stability":
+      return stabilityCommand(rest);
     case "list":
       return listCommand();
     case undefined:
@@ -413,7 +419,6 @@ async function runFixture(
       : undefined,
     input: {
       jobTitle: fixture.jobTitle,
-      expectedFit: fixture.expectedFit ?? null,
       cvChars: fixture.cvText.length,
       cvCharsSent: sent.charsSent,
       cvTruncated: sent.truncated,
@@ -554,12 +559,10 @@ function evaluateAssertions(
   return results;
 }
 
-/** "required 2/2 met, preferred 1/4 met" - the answer the user came for. */
+/** The derived verdict and the counts it came from. */
 function tallyNote(feedback: ResumeAnalysisFeedback): string {
-  const { required, preferred } = requirementTally(feedback);
-  const part = (label: string, t: { total: number; met: number; partial: number }) =>
-    `${label} ${t.met}/${t.total} met${t.partial ? ` (+${t.partial} partial)` : ""}`;
-  return `${part("required", required)}, ${part("preferred", preferred)}`;
+  const fit = deriveFitVerdict(feedback);
+  return `${fit.tone} - ${describeTally(fit.tally)}`;
 }
 
 function assertionNote(assertions: AssertionResult[] | undefined): string {
@@ -647,14 +650,18 @@ function formatProgress(record: RunRecord): string {
     return `  ${id} FAIL  ${record.result.error.code.padEnd(28)} ${seconds}`;
   }
 
-  const score = record.result.feedback.overall.fitScore;
-  const head = `  ${id} ok    ${formatScore(score).padStart(5)}  ${bandNote(score, record.input.expectedFit).padEnd(20)} ${seconds}`;
+  const feedback = record.result.feedback;
+  const fit = deriveFitVerdict(feedback);
+  // The verdict is derived, so it is printed with the counts behind it; the
+  // only model-chosen number left is quality.
+  const head = `  ${id} ok    fit ${fit.tone.padEnd(6)} quality ${formatScore(feedback.overall.qualityScore).padStart(3)}  ${seconds}`;
   const notes = [
     record.input.mode === "pdf" ? "input: PDF" : "",
     record.tokens.input === null ? "" : `${record.tokens.input} in / ${record.tokens.output} out tokens`,
     record.input.cvTruncated
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
       : "",
+    describeTally(fit.tally),
     checkNote(record.checks),
     guardrailNote(record.guardrail),
     assertionNote(record.assertions),
@@ -721,7 +728,6 @@ async function recheckCommand(args: string[]) {
 // ---------------------------------------------------------------- compare
 
 const SCORE_ROWS: Array<[string, (feedback: ResumeAnalysisFeedback) => number]> = [
-  ["Fit", (f) => f.overall.fitScore],
   ["Quality", (f) => f.overall.qualityScore],
   ["Experience", (f) => f.experienceAndImpact.score],
   ["Skills", (f) => f.skills.score],
@@ -740,21 +746,17 @@ async function compareCommand(args: string[]) {
   console.log(`B = ${labelB}  (${identity(runB)})`);
 
   const ids = [...new Set([...runA.keys(), ...runB.keys()])].sort();
-  const globalDeltas: number[] = [];
+  const qualityDeltas: number[] = [];
   const checkTotals = { A: 0, B: 0 };
   const assertionTotals = {
     A: { passed: 0, total: 0 },
     B: { passed: 0, total: 0 },
   };
-  let expectedHitsA = 0;
-  let expectedHitsB = 0;
-  let withExpectation = 0;
 
   for (const id of ids) {
     const a = runA.get(id);
     const b = runB.get(id);
-    const expected = (a ?? b)?.input.expectedFit ?? null;
-    console.log(`\n${id}${expected ? `  (expected fit: ${expected})` : ""}`);
+    console.log(`\n${id}`);
 
     if (!a || !b) {
       console.log(`  only in ${a ? "A" : "B"}`);
@@ -774,10 +776,8 @@ async function compareCommand(args: string[]) {
         `  ${name.padEnd(12)}${formatScore(pick(fa)).padStart(7)}${formatScore(pick(fb)).padStart(7)}${formatDelta(delta).padStart(8)}`,
       );
     }
-    console.log(
-      `  Fit band    A: ${bandNote(fa.overall.fitScore, expected)}   B: ${bandNote(fb.overall.fitScore, expected)}`,
-    );
-    console.log(`  Requirements A: ${tallyNote(fa)}   B: ${tallyNote(fb)}`);
+    console.log(`  Fit         A: ${tallyNote(fa)}`);
+    console.log(`              B: ${tallyNote(fb)}`);
     console.log(
       `  Time        A: ${(a.durationMs / 1000).toFixed(1)} s   B: ${(b.durationMs / 1000).toFixed(1)} s`,
     );
@@ -830,30 +830,22 @@ async function compareCommand(args: string[]) {
       }
     }
 
-    globalDeltas.push(Math.abs(fb.overall.fitScore - fa.overall.fitScore));
-    if (expected) {
-      withExpectation += 1;
-      if (scoreTone(fa.overall.fitScore) === expected) expectedHitsA += 1;
-      if (scoreTone(fb.overall.fitScore) === expected) expectedHitsB += 1;
-    }
+    qualityDeltas.push(
+      Math.abs(fb.overall.qualityScore - fa.overall.qualityScore),
+    );
   }
 
   const okA = [...runA.values()].filter((record) => record.result.ok).length;
   const okB = [...runB.values()].filter((record) => record.result.ok).length;
-  const meanDelta = globalDeltas.length
-    ? globalDeltas.reduce((sum, delta) => sum + delta, 0) / globalDeltas.length
+  const meanDelta = qualityDeltas.length
+    ? qualityDeltas.reduce((sum, delta) => sum + delta, 0) / qualityDeltas.length
     : null;
 
   console.log("\nSummary");
   console.log(`  Succeeded           A: ${okA}/${runA.size}   B: ${okB}/${runB.size}`);
   console.log(
-    `  Mean |Δ global|     ${meanDelta === null ? "n/a" : meanDelta.toFixed(1)} over ${globalDeltas.length} fixture(s) that succeeded in both`,
+    `  Mean |Δ quality|    ${meanDelta === null ? "n/a" : meanDelta.toFixed(1)} over ${qualityDeltas.length} fixture(s) that succeeded in both`,
   );
-  if (withExpectation > 0) {
-    console.log(
-      `  Expected fit band   A: ${expectedHitsA}/${withExpectation}   B: ${expectedHitsB}/${withExpectation}`,
-    );
-  }
   console.log(
     `  Check violations    A: ${checkTotals.A}   B: ${checkTotals.B}   (lower is better)`,
   );
@@ -887,8 +879,84 @@ function identity(run: Map<string, RunRecord>): string {
 
 function statusOf(record: RunRecord): string {
   return record.result.ok
-    ? `ok, fit ${formatScore(record.result.feedback.overall.fitScore)}`
+    ? `ok, quality ${formatScore(record.result.feedback.overall.qualityScore)}`
     : `FAIL ${record.result.error.code}`;
+}
+
+// ---------------------------------------------------------------- list
+
+// ------------------------------------------------------------- stability
+
+/**
+ * Whether the required/preferred partition holds still across runs.
+ *
+ * This matters more than it used to. The fit verdict is now derived from the
+ * partition, so a posting read as 6 required + 1 preferred in one run and
+ * 11 required + 0 preferred in the next does not just look untidy - it hands
+ * the user a different headline for the same resume. Observed once on
+ * es-cv-en-job; this makes the rate visible instead of anecdotal.
+ *
+ * Reports two things, because they fail independently: whether the shape of
+ * the partition is identical, and whether the derived verdict survives it. A
+ * partition can wobble without changing the verdict, and that is a much
+ * cheaper problem.
+ */
+async function stabilityCommand(args: string[]) {
+  const labels = parseFlags(args).positional;
+  if (labels.length < 2) {
+    fail(`stability needs at least two run labels.\n\n${USAGE}`);
+  }
+
+  const runs = await Promise.all(labels.map((label) => readRun(label)));
+  const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
+
+  console.log(`Partition stability across ${labels.length} runs: ${labels.join(", ")}\n`);
+
+  let comparable = 0;
+  let shapeStable = 0;
+  let verdictStable = 0;
+
+  for (const id of ids) {
+    const records = runs.map((run) => run.get(id)).filter((r) => r?.result.ok);
+    if (records.length < 2) {
+      console.log(`  ${id.padEnd(26)} skipped (succeeded in fewer than two runs)`);
+      continue;
+    }
+
+    comparable += 1;
+    const seen = records.map((record) => {
+      // `record.result.ok` is already filtered above.
+      const feedback = (record!.result as { feedback: ResumeAnalysisFeedback })
+        .feedback;
+      const fit = deriveFitVerdict(feedback);
+      return {
+        shape: `${fit.tally.required.total}R/${fit.tally.preferred.total}P`,
+        verdict: fit.tone,
+        detail: describeTally(fit.tally),
+      };
+    });
+
+    const shapes = new Set(seen.map((s) => s.shape));
+    const verdicts = new Set(seen.map((s) => s.verdict));
+    if (shapes.size === 1) shapeStable += 1;
+    if (verdicts.size === 1) verdictStable += 1;
+
+    const flag =
+      verdicts.size > 1 ? "VERDICT MOVED" : shapes.size > 1 ? "shape moved" : "stable";
+    console.log(
+      `  ${id.padEnd(26)} ${flag.padEnd(14)} ${seen.map((s) => `${s.shape} ${s.verdict}`).join("  |  ")}`,
+    );
+    if (shapes.size > 1) {
+      for (const [i, s] of seen.entries()) {
+        console.log(`      ${labels[i].padEnd(12)} ${s.detail}`);
+      }
+    }
+  }
+
+  console.log(
+    `\n  partition shape stable: ${shapeStable}/${comparable} fixtures` +
+      `\n  derived verdict stable: ${verdictStable}/${comparable} fixtures`,
+  );
 }
 
 // ---------------------------------------------------------------- list
@@ -903,7 +971,7 @@ async function listCommand() {
       0,
     );
     console.log(
-      `  ${fixture.id.padEnd(26)} ${fixture.source.padEnd(10)} expected ${String(fixture.expectedFit ?? "-").padEnd(7)} CV ${fixture.cvText.length} chars${truncated}, job ${fixture.jobDescription.length} chars, ${assertions} assertion(s)`,
+      `  ${fixture.id.padEnd(26)} ${fixture.source.padEnd(10)} CV ${fixture.cvText.length} chars${truncated}, job ${fixture.jobDescription.length} chars, ${assertions} assertion(s)`,
     );
   }
 
@@ -991,12 +1059,6 @@ function parseFlags(args: string[]) {
     }
   }
   return { positional, flags };
-}
-
-function bandNote(score: number, expected: ScoreTone | null): string {
-  const band = scoreTone(score);
-  if (!expected) return band;
-  return band === expected ? `${band} (as expected)` : `${band} (expected ${expected}) !`;
 }
 
 function truncate(text: string, max = 90): string {

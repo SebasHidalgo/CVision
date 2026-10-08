@@ -215,12 +215,22 @@ export function guardAnalysis(
     located.write(text);
   }
 
-  // A requirement marked missing that the CV mentions: flipping a status is a
-  // larger intervention than editing a string, and this check lost reach when
-  // requirements replaced the keyword lists, so its false positives cost more
-  // than they used to. Recorded, not corrected.
+  /*
+   * Recorded, not corrected, for two different reasons that happen to agree.
+   *
+   * A requirement marked missing that the CV mentions: flipping a status is a
+   * larger intervention than editing a string, and this check lost reach when
+   * requirements replaced the keyword lists, so its false positives cost more
+   * than they used to.
+   *
+   * An outcome figure in the CV with an empty achievements field: choosing
+   * which figure belongs there is the model's judgement, and supplying one it
+   * did not pick would put words in the candidate's resume. Retrying is not an
+   * option either - that is a second paid analysis.
+   */
   for (const violation of violations) {
-    if (violation.check !== "false-missing") continue;
+    if (violation.check !== "false-missing" && violation.check !== "missed-figure")
+      continue;
     record({
       check: violation.check,
       action: "recorded",

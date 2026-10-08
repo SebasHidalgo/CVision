@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
+import type { ScoreTone } from "@/lib/score";
 import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 
 export const MAX_COMPANY_NAME_CHARS = 100;
@@ -111,7 +112,12 @@ export const resumeFeedbackSchema = z.object({
     // the input went from flattened text to a real document, it moved up when
     // fabricated gaps were removed, and it swung 13 points on a fixture whose
     // analysis content never changed.
-    fitScore: scoreSchema,
+    // There is no fitScore. The model was asked for one three ways - a plain
+    // judgement, a weighted average of the statuses, and explicit
+    // competitiveness anchors - and it would not tabulate its own breakdown
+    // any of them: it scored 88 on 6 of 6 required and 1 of 6 preferred, which
+    // its own anchor put at 50-69. `deriveFitVerdict` computes it instead, the
+    // same move that fixed the date anchor: compute the fact, do not ask.
     qualityScore: scoreSchema,
     summaryText: z.string(),
     prioritizedFixes: z.array(
@@ -166,8 +172,8 @@ export const resumeFeedbackSchema = z.object({
     suggestions: z.array(z.string()),
   }),
 
-  // No score of its own either: overall.fitScore is that number, and a second
-  // copy could only disagree with it. What belongs here is the breakdown.
+  // No score of its own: the verdict is derived from the breakdown below, so a
+  // number here could only disagree with it.
   jobFit: z.object({
     ...evidenceSectionBase,
     requirements: z.array(requirementSchema),
@@ -202,4 +208,64 @@ export function requirementTally(feedback: ResumeAnalysisFeedback) {
   };
 
   return { required: count("required"), preferred: count("preferred") };
+}
+
+export type RequirementTally = ReturnType<typeof requirementTally>;
+
+/** A third of the preferred qualifications is where differentiating starts. */
+const DIFFERENTIATED = 1 / 3;
+
+export type FitVerdict = {
+  tone: ScoreTone;
+  /** The counts the verdict was computed from, so a user can check it. */
+  tally: RequirementTally;
+};
+
+/**
+ * The fit verdict, as a function of the breakdown rather than a number the
+ * model picked. Fit is competitiveness: clearing every required qualification
+ * is the entry condition, and the preferred ones are what differentiate.
+ *
+ *   weak   - the bar is not cleared: a required qualification missing, or two
+ *            or more only partial.
+ *   fair   - the bar is cleared and nothing differentiates: under a third of
+ *            the preferred qualifications met.
+ *   strong - the bar is cleared and a third or more of the preferred ones are
+ *            met, or the posting states no preferred ones at all, leaving
+ *            nothing to differentiate on.
+ *
+ * Partial counts as half a preferred item and as not-met for a required one,
+ * which is why one partial required is tolerated and two are not.
+ *
+ * Derived on read, never stored: a stored copy could drift from the breakdown
+ * it describes, and this cannot. Given a correct breakdown it is correct by
+ * construction, which moves the measurement to the eleven assertions that
+ * check the breakdown itself.
+ */
+export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
+  const tally = requirementTally(feedback);
+  const { required, preferred } = tally;
+
+  // An empty breakdown supports no verdict, and the arithmetic below would
+  // read it as "nothing unmet, nothing to differentiate on" and return the
+  // best one. A posting that yielded no requirements is an extraction failure,
+  // and it must not surface as a confident pass.
+  if (required.total === 0) return { tone: "weak", tally };
+
+  const barCleared =
+    required.total - required.met - required.partial === 0 && required.partial <= 1;
+
+  if (!barCleared) return { tone: "weak", tally };
+  if (preferred.total === 0) return { tone: "strong", tally };
+
+  const share = (preferred.met + 0.5 * preferred.partial) / preferred.total;
+  return { tone: share >= DIFFERENTIATED ? "strong" : "fair", tally };
+}
+
+/** "2 of 2 required, 2 of 4 preferred" - the arithmetic, in the open. */
+export function describeTally(tally: RequirementTally): string {
+  const part = (label: string, count: RequirementTally["required"]) =>
+    `${count.met} of ${count.total} ${label}${count.partial ? ` (+${count.partial} partial)` : ""}`;
+
+  return `${part("required", tally.required)}, ${part("preferred", tally.preferred)}`;
 }

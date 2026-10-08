@@ -12,7 +12,8 @@ import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 export type CheckName =
   | "evidence-grounding"
   | "false-missing"
-  | "fabricated-number";
+  | "fabricated-number"
+  | "missed-figure";
 
 /**
  * How a quote fails, because the three need different fixes: a quote that is
@@ -322,6 +323,47 @@ export function checkFabricatedNumbers(
   });
 }
 
+/**
+ * Figures that measure an outcome, which is what belongs in
+ * `quantifiedAchievements`. Deliberately narrow: a percentage, a multiplier or
+ * a money amount is almost always a result, while a bare count is usually a
+ * year, a team size or a version. Precision matters more than recall here,
+ * because this check's whole job is to be believed when it fires.
+ */
+const OUTCOME_FIGURE = /\d+(?:\.\d+)?\s?%|(?<![A-Za-z])\d+(?:\.\d+)?x(?![A-Za-z])|[$€£]\s?\d/g;
+
+/**
+ * The CV states an outcome figure and the model reported none.
+ *
+ * One analysis missed this resume's only quantified achievement, left the
+ * field empty, and then said figures were absent - consistent with its own
+ * wrong finding rather than contradicting it, so no other check saw anything.
+ * Recorded, never auto-filled: choosing which figure belongs in that field is
+ * the model's judgement, and inserting one it did not select is a larger
+ * intervention than editing a string.
+ *
+ * Misses a quantity written in words ("doubled throughput"), and a CV whose
+ * only figures sit somewhere that is not an achievement.
+ */
+export function checkMissedFigures(
+  cvText: string,
+  feedback: ResumeAnalysisFeedback,
+): CheckViolation[] {
+  if (feedback.experienceAndImpact.quantifiedAchievements.length > 0) return [];
+
+  const figures = [...new Set(normalizeWhitespace(cvText).match(OUTCOME_FIGURE) ?? [])];
+  if (figures.length === 0) return [];
+
+  return [
+    {
+      check: "missed-figure",
+      path: "experienceAndImpact.quantifiedAchievements",
+      value: figures.slice(0, 5).join(", "),
+      note: `the CV states ${figures.length} outcome figure(s) and the field came back empty`,
+    },
+  ];
+}
+
 /** Every check, in one pass. */
 export function checkAnalysis(
   cvText: string,
@@ -331,6 +373,7 @@ export function checkAnalysis(
     ...checkEvidenceGrounding(cvText, feedback),
     ...checkFalseMissing(cvText, feedback),
     ...checkFabricatedNumbers(cvText, feedback),
+    ...checkMissedFigures(cvText, feedback),
   ];
 }
 
@@ -341,6 +384,7 @@ export function countByCheck(
     "evidence-grounding": 0,
     "false-missing": 0,
     "fabricated-number": 0,
+    "missed-figure": 0,
   };
   for (const violation of violations) counts[violation.check] += 1;
   return counts;

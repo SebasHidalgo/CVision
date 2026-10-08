@@ -1,6 +1,5 @@
 {
   "jobTitle": "Backend Developer",
-  "expectedFit": "fair",
   "purpose": "The core case: a candidate who meets every required qualification and misses most preferred ones. Carries the five content traps seen on a real run — a finished degree read as ongoing, listed skills reported missing, an absolute 'no metrics' claim, an either/or language requirement read as a gap, and LaTeX accent artifacts the ATS section must flag.",
   "expect": {
     "mustMatch": [
