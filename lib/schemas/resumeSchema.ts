@@ -212,8 +212,19 @@ export function requirementTally(feedback: ResumeAnalysisFeedback) {
 
 export type RequirementTally = ReturnType<typeof requirementTally>;
 
-/** A third of the preferred qualifications is where differentiating starts. */
-const DIFFERENTIATED = 1 / 3;
+/**
+ * Two preferred qualifications met is where differentiating starts. An
+ * absolute count, not a fraction: a fraction over a denominator of one or zero
+ * cannot carry a claim about standing out, and it produced a cliff. One
+ * posting read as 0 preferred gave the top verdict (nothing left to
+ * differentiate on) while the same posting read as 1 preferred and unmet gave
+ * the middle one, so an extraction wobble swung the headline. A count has no
+ * such edge: nothing met is nothing met, however many were asked for.
+ *
+ * A partial still counts as half, as it does for required qualifications. That
+ * part of the rule was not the problem and is left alone.
+ */
+const DIFFERENTIATING_PREFERRED = 2;
 
 export type FitVerdict = {
   tone: ScoreTone;
@@ -228,11 +239,11 @@ export type FitVerdict = {
  *
  *   weak   - the bar is not cleared: a required qualification missing, or two
  *            or more only partial.
- *   fair   - the bar is cleared and nothing differentiates: under a third of
- *            the preferred qualifications met.
- *   strong - the bar is cleared and a third or more of the preferred ones are
- *            met, or the posting states no preferred ones at all, leaving
- *            nothing to differentiate on.
+ *   fair   - the bar is cleared and nothing differentiates: fewer than two
+ *            preferred qualifications met, including the case where the
+ *            posting states none at all - there is nothing there to stand out
+ *            on, so clearing the bar is all this says.
+ *   strong - the bar is cleared and two or more preferred ones are met.
  *
  * Partial counts as half a preferred item and as not-met for a required one,
  * which is why one partial required is tolerated and two are not.
@@ -256,10 +267,12 @@ export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
     required.total - required.met - required.partial === 0 && required.partial <= 1;
 
   if (!barCleared) return { tone: "weak", tally };
-  if (preferred.total === 0) return { tone: "strong", tally };
 
-  const share = (preferred.met + 0.5 * preferred.partial) / preferred.total;
-  return { tone: share >= DIFFERENTIATED ? "strong" : "fair", tally };
+  const differentiators = preferred.met + 0.5 * preferred.partial;
+  return {
+    tone: differentiators >= DIFFERENTIATING_PREFERRED ? "strong" : "fair",
+    tally,
+  };
 }
 
 /** "2 of 2 required, 2 of 4 preferred" - the arithmetic, in the open. */
