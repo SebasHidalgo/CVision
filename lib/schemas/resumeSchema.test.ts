@@ -350,34 +350,48 @@ describe("deriveFitVerdict", () => {
   });
 
   describe("the bar is cleared", () => {
-    it("is fair when under a third of the preferred ones are met", () => {
+    it("is fair on one preferred one met, however many were asked for", () => {
       // The case the model would not produce: 6 of 6 required, 1 of 6 preferred.
       expect(verdict([...required(6), ...preferred(1), ...preferred(5, "missing")])).toBe(
         "fair",
       );
+      // The denominator is now irrelevant, which is the point of the change.
+      expect(verdict([...required(6), ...preferred(1)])).toBe("fair");
     });
 
-    it("is strong at exactly a third", () => {
-      expect(verdict([...required(2), ...preferred(1), ...preferred(2, "missing")])).toBe(
+    it("is strong at exactly two preferred ones met", () => {
+      expect(verdict([...required(2), ...preferred(2), ...preferred(9, "missing")])).toBe(
         "strong",
       );
     });
 
     it("counts a partial preferred one as half", () => {
-      // 3 partial out of 4 = 1.5/4 = 0.375, over the third.
-      expect(verdict([...required(2), ...preferred(3, "partial"), ...preferred(1, "missing")])).toBe(
-        "strong",
-      );
-      // 2 partial out of 4 = 1.0/4 = 0.25, under it - two halves are not two.
-      expect(verdict([...required(2), ...preferred(2, "partial"), ...preferred(2, "missing")])).toBe(
-        "fair",
-      );
+      // Four halves make the two.
+      expect(verdict([...required(2), ...preferred(4, "partial")])).toBe("strong");
+      // Three do not.
+      expect(verdict([...required(2), ...preferred(3, "partial")])).toBe("fair");
     });
 
-    it("is strong when the posting states no preferred qualifications", () => {
-      // Nothing left to differentiate on, so meeting everything asked is as
-      // strong as the posting allows.
-      expect(verdict(required(3))).toBe("strong");
+    it("is fair when the posting states no preferred qualifications", () => {
+      // There is nothing there to stand out on, so clearing the bar is all
+      // this says. It used to return the top verdict, which is what made the
+      // next test possible.
+      expect(verdict(required(3))).toBe("fair");
+    });
+
+    /*
+     * The cliff this rule replaced. es-cv-en-job was read as 6 required + 0
+     * preferred in two runs and 6 required + 1 preferred in a third. Under the
+     * old fraction those were strong and (had the item been unmet) fair - one
+     * extraction wobble, two different headlines for the same resume. The
+     * verdict held by coincidence, not by construction.
+     */
+    it("gives the same verdict whether the posting yielded zero or one unmet preferred", () => {
+      const zero = verdict(required(6));
+      const oneUnmet = verdict([...required(6), ...preferred(1, "missing")]);
+
+      expect(zero).toBe(oneUnmet);
+      expect(zero).toBe("fair");
     });
   });
 
