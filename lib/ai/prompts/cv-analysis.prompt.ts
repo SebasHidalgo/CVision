@@ -7,6 +7,17 @@
  * to invent the figure rule 3 bans; and `improvements` offered "Add graduation
  * year" for a resume that may already have one. Adding an example here is
  * adding an instruction - check it against the rules first.
+ *
+ * M2c-I measured what they are worth by removing this whole block for one
+ * run set: 3 of 27 analyses then failed the schema outright, the encoding
+ * artifact guard stopped firing, quantifiedAchievements lost its verbatim
+ * contract, and the prose halved in length. They are not redundant with the
+ * rules above them - they carry cardinality, minimum lengths and the
+ * restatement of a general rule at the point of use. The block is the only
+ * place field semantics live, because the Zod schema has no .describe()
+ * calls and the generated JSON Schema therefore carries names and types
+ * only. Moving them into Zod descriptions, so one source feeds both the
+ * prompt and the response schema, is open debt rather than a plan.
  */
 const AIResponseFormat = `
 {
@@ -152,10 +163,9 @@ const AIResponseFormat = `
     recommendedCerts: string[];
   };
 
+  // How the resume reads. No score: describe what you see. A number here
+  // called every resume good, which told the candidate nothing.
   toneAndClarity: {
-    // 0-100 assessing tone, grammar, and overall readability.
-    score: number;
-
     // At least 120 characters analyzing writing clarity and tone, including
     // sentence length, bullet length and consistency of voice.
     description: string;

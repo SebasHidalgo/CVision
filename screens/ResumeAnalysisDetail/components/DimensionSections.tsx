@@ -97,7 +97,7 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
         id={TONE.id}
         index="05"
         label={TONE.label}
-        score={toneAndClarity.score}
+        score={null}
         description={toneAndClarity.description}
       >
         <MarkedList title="Suggestions" items={toneAndClarity.suggestions} mark="neutral" />

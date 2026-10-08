@@ -27,6 +27,12 @@
           "partial"
         ],
         "why": "The CV has all of these, so none of them is a gap. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
+      },
+      {
+        "kind": "required",
+        "minCount": 5,
+        "maxCount": 7,
+        "why": "POSTING COUNT: the posting's required list states 5 items - 5+ years backend; 3+ years production Python; a cloud provider in production; relational databases and schema design; on-call experience. The closing paragraph restates Python as mandatory; it reinforces the second item rather than adding a sixth. minCount is 5 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 7 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
       }
     ]
   }

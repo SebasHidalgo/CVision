@@ -49,7 +49,6 @@ function validFeedback() {
       recommendedCerts: [],
     },
     toneAndClarity: {
-      score: 78,
       description: 'Clear and concise.',
       suggestions: ['Shorter sentences'],
     },
@@ -73,7 +72,7 @@ function validFeedback() {
 const SCORE_PATHS = [
   'overall.qualityScore',
   'experienceAndImpact.score',
-  'toneAndClarity.score',
+  'skills.score',
 ] as const;
 type ScorePath = (typeof SCORE_PATHS)[number];
 type Sections = Record<string, Record<string, unknown>>;
@@ -97,6 +96,27 @@ describe("resumeFeedbackSchema: shape", () => {
   it("rejects an analysis missing a section", () => {
     const { jobFit: _omitted, ...incomplete } = validFeedback();
     expect(resumeFeedbackSchema.safeParse(incomplete).success).toBe(false);
+  });
+
+  /*
+   * Three sections report without a number. Requirements and ATS never had
+   * one: it could only duplicate the derived verdict, or invite "improve my
+   * ATS score". Tone lost its number to measurement - it said 75-92 about
+   * every fixture in the eval suite, including a resume for the wrong
+   * profession. A score submitted anyway is dropped rather than stored, so a
+   * row written by an older shape cannot resurrect one.
+   */
+  it("drops a score submitted for a section that deliberately has none", () => {
+    const input = validFeedback() as unknown as Sections;
+    input.toneAndClarity.score = 78;
+    input.atsCompatibility.score = 80;
+    input.jobFit.score = 74;
+
+    const parsed = resumeFeedbackSchema.parse(input) as unknown as Sections;
+
+    expect(parsed.toneAndClarity).not.toHaveProperty("score");
+    expect(parsed.atsCompatibility).not.toHaveProperty("score");
+    expect(parsed.jobFit).not.toHaveProperty("score");
   });
 });
 

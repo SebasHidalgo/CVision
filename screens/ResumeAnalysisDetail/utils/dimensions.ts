@@ -12,9 +12,11 @@ export const DIMENSIONS = [
 export type DimensionId = (typeof DIMENSIONS)[number]["id"];
 
 /**
- * `null` where the section deliberately has no number: the ATS and
- * requirements sections report evidence, and a score there was either
- * unmeasurable ("improve my ATS score") or a second copy of overall fit.
+ * `null` where the section deliberately has no number. Requirements and ATS
+ * report evidence, where a score was either a second copy of overall fit or
+ * unmeasurable ("improve my ATS score"). Tone lost its score to measurement:
+ * it said 75-92 about every resume in the eval suite, including one for the
+ * wrong profession.
  */
 export function dimensionScores(
   feedback: ResumeAnalysisFeedback,
@@ -24,7 +26,7 @@ export function dimensionScores(
     experience: feedback.experienceAndImpact.score,
     skills: feedback.skills.score,
     education: feedback.educationAndCertifications.score,
-    tone: feedback.toneAndClarity.score,
+    tone: null,
     ats: null,
   };
 }

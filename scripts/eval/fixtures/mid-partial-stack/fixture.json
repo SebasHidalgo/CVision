@@ -36,6 +36,12 @@
           "partial"
         ],
         "why": "FAILURE 3: each of these words appears literally in the CV. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
+      },
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: the posting's required list states 6 items - 4+ years building web apps; React and TypeScript; SQL against a relational database; GraphQL schema design or the appetite to learn it; familiarity with infrastructure as code; a testing habit. The GraphQL item is counted as required: it sits in the posting's own list, and \"or a clear appetite to learn it fast\" is a second way to satisfy one requirement, not a preference. minCount is 6 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 8 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
       }
     ]
   }
