@@ -11,6 +11,12 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
+  describeCounts,
+  type GuardReport,
+  type Intervention,
+  type InterventionCounts,
+} from "@/lib/ai/analysisGuardrails";
+import {
   checkAnalysis,
   countByCheck,
   countGrounding,
@@ -146,11 +152,20 @@ type RunRecord = {
     mode: "text" | "pdf";
   };
   tokens: { input: number | null; output: number | null };
-  /** Content checks and fixture assertions, both only when the call succeeded. */
+  /**
+   * Content checks and fixture assertions, both only when the call succeeded.
+   * These are the violations as found BEFORE the production guardrail edited
+   * anything, so the numbers stay comparable with every phase before it.
+   */
   checks?: {
     counts: Record<CheckName, number>;
     grounding: Record<GroundingKind, number>;
     violations: CheckViolation[];
+  };
+  /** What the guardrail did about them, on the way to the user. */
+  guardrail?: {
+    counts: InterventionCounts;
+    interventions: Intervention[];
   };
   assertions?: AssertionResult[];
   result:
@@ -203,7 +218,13 @@ Output:    scripts/eval/runs/<label>/<id>.json (gitignored)
 Every run also records, per fixture:
   content checks  quotes that are not in the CV, items called missing that are
                   in it, and numbers in suggested bullets that are not
-                  (lib/ai/analysisChecks.ts)
+                  (lib/ai/analysisChecks.ts). These are counted BEFORE the
+                  production guardrail edits anything, so they keep measuring
+                  the model rather than what reached the user.
+  guardrail       what lib/ai/analysisGuardrails.ts then did about them on the
+                  way to the user: quotes dropped or normalized, invented
+                  figures replaced with placeholders, bullets dropped, and
+                  false-missing items recorded without correction
   assertions      the fixture's own "expect" block, if it has one:
                     "mustMatch":    [{ "in": "atsCompatibility", "pattern": "accent|encod" }]
                     "mustNotMatch": [{ "in": "educationAndCertifications", "pattern": "ongoing" }]
@@ -339,9 +360,10 @@ async function runFixture(
   const aiLog = captureAiLog();
   const startedAt = Date.now();
   let result: RunRecord["result"];
+  let guard: GuardReport | undefined;
 
   try {
-    const { feedback } = await analyzeResume({
+    const analysis = await analyzeResume({
       jobTitle: fixture.jobTitle,
       jobDescription: fixture.jobDescription,
       resumeText: fixture.cvText,
@@ -349,15 +371,24 @@ async function runFixture(
       // The spike: hand the model the PDF and let it read the document.
       ...(mode === "pdf" ? { pdf: fixture.pdf } : {}),
     });
-    result = { ok: true, feedback };
+    guard = analysis.guard;
+    result = { ok: true, feedback: analysis.feedback };
   } catch (error) {
     result = { ok: false, error: describeError(error) };
   } finally {
     aiLog.restore();
   }
 
-  // Against the text the model actually received, not the whole file.
-  const violations = result.ok ? checkAnalysis(sent.text, result.feedback) : undefined;
+  /*
+   * The guardrail already ran the checks against the text the model received,
+   * before it edited anything, so its list is what the model actually produced
+   * - re-running them on the cleaned output here would read near zero and hide
+   * exactly what this harness exists to see. The fallback keeps the --pdf
+   * spike measurable, where the guardrail has no CV text to work from.
+   */
+  const violations = result.ok
+    ? (guard?.violations ?? checkAnalysis(sent.text, result.feedback))
+    : undefined;
 
   return {
     fixture: fixture.id,
@@ -372,6 +403,10 @@ async function runFixture(
       counts: countByCheck(violations),
       grounding: countGrounding(violations),
       violations,
+    },
+    guardrail: guard && {
+      counts: guard.counts,
+      interventions: guard.interventions,
     },
     assertions: result.ok
       ? evaluateAssertions(result.feedback, fixture.expect, violations ?? [])
@@ -535,6 +570,17 @@ function assertionNote(assertions: AssertionResult[] | undefined): string {
     : `${assertions.length - failed}/${assertions.length} assertions, ${failed} FAILED`;
 }
 
+/**
+ * What the production guardrail did on the way to the user. Printed next to
+ * the raw check counts on purpose: seeing "quotes 2 ... guardrail dropped 2"
+ * is the whole point of keeping both numbers.
+ */
+function guardrailNote(guardrail: RunRecord["guardrail"]): string {
+  if (!guardrail) return "";
+  const note = describeCounts(guardrail.counts);
+  return note ? `guardrail: ${note}` : "";
+}
+
 function checkNote(checks: RunRecord["checks"]): string {
   if (!checks) return "";
   const { counts } = checks;
@@ -610,6 +656,7 @@ function formatProgress(record: RunRecord): string {
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
       : "",
     checkNote(record.checks),
+    guardrailNote(record.guardrail),
     assertionNote(record.assertions),
   ]
     .filter(Boolean)
@@ -739,6 +786,8 @@ async function compareCommand(args: string[]) {
     // score it carries.
     console.log(`  Checks      A: ${checkNote(a.checks) || "n/a"}`);
     console.log(`              B: ${checkNote(b.checks) || "n/a"}`);
+    console.log(`  Guardrail   A: ${guardrailNote(a.guardrail) || "nothing fired"}`);
+    console.log(`              B: ${guardrailNote(b.guardrail) || "nothing fired"}`);
     for (const [side, record] of [
       ["A", a],
       ["B", b],

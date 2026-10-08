@@ -37,10 +37,12 @@ export type CheckViolation = {
 
 type Located = { path: string; value: string };
 
-const normalizeWhitespace = (text: string) => text.replace(/\s+/g, " ").trim();
+/** Exported for the guardrails, which have to agree with the checks exactly. */
+export const normalizeWhitespace = (text: string) =>
+  text.replace(/\s+/g, " ").trim();
 
 /** Lowercase, letters and digits only: ignores case and typography. */
-const loosen = (text: string) =>
+export const loosen = (text: string) =>
   text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")

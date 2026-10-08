@@ -13,18 +13,13 @@
     "mustNotMatch": [
       {
         "in": "educationAndCertifications",
-        "pattern": "(?<!completed\\s+or\\s+)ongoing(?!\\s+or\\s+completed)|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
-        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error. The \"ongoing\" branch ignores the paired form \"ongoing or completed\", which names both states and so claims nothing: it cost a true run a failure."
+        "pattern": "(?<!\\b(?:completed|complete|finished|past|prior)\\s+or\\s+)ongoing(?!\\s+or\\s+(?:recently\\s+)?(?:completed|complete|finished|past|prior))|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
+        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error. The \"ongoing\" branch ignores any pairing that names both states - \"ongoing or completed\", \"completed or ongoing\", \"ongoing or recently finished\" - because naming both asserts neither. Each spelling cost a correct run a failure before it was allowed for."
       },
       {
         "in": "experienceAndImpact",
-        "pattern": "(completely|entirely|totally|not a single|zero|devoid of)[^.]{0,40}(quantif|measurable|metric)",
-        "why": "The CV has a quantified achievement (35% nightly window, 40 stores), so a claim of total absence is false."
-      },
-      {
-        "in": "experienceAndImpact",
-        "pattern": "\\b(no|lacks any|without any) (quantified|quantifiable|measurable)\\b",
-        "why": "Same absolute claim in its other common phrasing."
+        "pattern": "(?<!\\b(?:most|many|some|several|few|others?|remaining|majority|almost all|nearly all|rest)\\b[^.]{0,40})(?<!\\b(?:sections?|roles?|positions?|entries|entry|listings?|bullets?|bullet points?|descriptions?|projects?|summary|job)\\b[^.]{0,45})(?:absence of|devoid of|not a single|zero|completely lacks?|entirely lacks?|totally lacks?|lacks?|lacking|no|without)\\s+(any\\s+|explicit\\s+|clear\\s+)?(?:quantif|quantitat|measurable|metric|concrete number|figures?|percentages?)(?![^.]{0,60}\\b(?:in|across|for|from|beyond|outside)\\s+(?:the\\s+)?(?:most|many|some|several|few|others?|remaining|majority|almost all|nearly all|rest)\\b)",
+        "why": "FAILURE 5: the resume contains a quantified achievement, so an unqualified claim that metrics are absent is false. Three guards keep it fair, each added after a correct run was scored as a failure: a hedge before the claim (\"most bullets lack metrics\"), a hedge after it (\"lacks metrics in almost all bullets\"), and a named part of the resume as the subject (\"Project descriptions lack quantitative validation\"), which is a claim about that part and can be true while the resume as a whole has a figure. A genuine absolute names the resume, the text or the work history, or has no subject at all. Read it together with the positive assertion on quantifiedAchievements, which is the authoritative one."
       }
     ],
     "requirements": [
