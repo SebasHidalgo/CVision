@@ -1,23 +1,22 @@
 import EmptyState from "@/components/layout/EmptyState";
 import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
-import ScoreMeter from "@/components/score/ScoreMeter";
 import { fetchAllResumes } from "@/lib/database/resume";
 import { formatDate, ordinal } from "@/lib/format";
-import { FIT_LABEL, scoreTone, TONE_CLASS } from "@/lib/score";
+import { describeTally, deriveFitVerdict } from "@/lib/schemas/resumeSchema";
+import { FIT_LABEL, TONE_CLASS } from "@/lib/score";
 
 export default async function ResumeAnalysesScreen() {
   const analyses = await fetchAllResumes();
 
-  // Rows that no longer match the feedback schema come back with null
-  // feedback; keeping them out stops one bad analysis from skewing the average.
-  const scores = analyses
-    .map((analysis) => analysis.feedback?.overall.fitScore)
-    .filter((score): score is number => typeof score === "number");
-
-  const averageScore = scores.length
-    ? Math.round(scores.reduce((acc, score) => acc + score, 0) / scores.length)
-    : null;
+  // Rows whose stored feedback no longer matches the schema come back with
+  // null feedback and have no verdict to derive.
+  const verdicts = analyses.map((analysis) =>
+    analysis.feedback ? deriveFitVerdict(analysis.feedback) : null,
+  );
+  // There is no average to take any more: fit is a verdict, not a number. The
+  // count of strong fits is the honest summary of the same thing.
+  const strongCount = verdicts.filter((verdict) => verdict?.tone === "strong").length;
 
   return (
     <div className="wrap py-12 lg:py-16">
@@ -34,10 +33,10 @@ export default async function ResumeAnalysesScreen() {
                 </dd>
               </div>
               <div>
-                <dt className="eyebrow">Average fit</dt>
+                <dt className="eyebrow">Strong fits</dt>
                 <dd className="figure mt-3 flex items-baseline gap-1.5 text-5xl text-ink">
-                  {averageScore ?? "–"}
-                  <span className="eyebrow">/100</span>
+                  {strongCount}
+                  <span className="eyebrow">/{analyses.length}</span>
                 </dd>
               </div>
             </dl>
@@ -54,36 +53,27 @@ export default async function ResumeAnalysesScreen() {
       ) : (
         <ol className="divide-y divide-line border-b border-line">
           {analyses.map((analysis, i) => {
-            const overall = analysis.feedback?.overall;
-            const score = overall?.fitScore;
-            const tone = typeof score === "number" ? scoreTone(score) : null;
+            const verdict = verdicts[i];
 
             return (
               <IndexRow
                 key={analysis.id}
                 index={ordinal(i)}
-                href={overall ? `/resume/analysis/${analysis.id}` : undefined}
+                href={verdict ? `/resume/analysis/${analysis.id}` : undefined}
                 title={analysis.companyName}
                 subtitle={analysis.jobTitle}
                 meta={formatDate(analysis.createdAt)}
                 reading={
-                  typeof score === "number" && tone ? (
-                    <div className="flex items-center gap-4">
-                      <span className="figure w-10 shrink-0 text-3xl text-ink tabular">
-                        {score}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <ScoreMeter
-                          score={score}
-                          size="sm"
-                          reveal="mount"
-                          delay={0.1 + i * 0.05}
-                          label={`Fit score for ${analysis.jobTitle} at ${analysis.companyName}`}
-                        />
-                        <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[tone].text}`}>
-                          {FIT_LABEL[tone]}
-                        </p>
-                      </div>
+                  verdict ? (
+                    <div className="sm:text-right">
+                      <p
+                        className={`text-lg font-medium ${TONE_CLASS[verdict.tone].text}`}
+                      >
+                        {FIT_LABEL[verdict.tone]}
+                      </p>
+                      <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
+                        {describeTally(verdict.tally)}
+                      </p>
                     </div>
                   ) : (
                     <p className="text-sm text-signal">

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveFitVerdict,
+  describeTally,
   requirementTally,
   resumeFeedbackSchema,
   type RequirementKind,
@@ -9,7 +11,6 @@ import {
 function validFeedback() {
   return {
     overall: {
-      fitScore: 72,
       qualityScore: 58,
       summaryText: 'A solid match with a few gaps.',
       prioritizedFixes: [
@@ -70,7 +71,6 @@ function validFeedback() {
 
 // Every score in the analysis goes through the same field schema.
 const SCORE_PATHS = [
-  'overall.fitScore',
   'overall.qualityScore',
   'experienceAndImpact.score',
   'toneAndClarity.score',
@@ -124,12 +124,12 @@ describe("resumeFeedbackSchema: missing scores", () => {
   it.each([[null], [""], ["   "], [false], [true], [[]], [{}]])(
     "rejects %j instead of reading it as a number",
     (value) => {
-      expect(parsedScore("overall.fitScore", value)).toBe("rejected");
+      expect(parsedScore("overall.qualityScore", value)).toBe("rejected");
     },
   );
 
   it("rejects an absent score", () => {
-    expect(parsedScore("overall.fitScore", undefined)).toBe("rejected");
+    expect(parsedScore("overall.qualityScore", undefined)).toBe("rejected");
   });
 });
 
@@ -300,9 +300,112 @@ describe("feedback stored before M2c-F", () => {
 
     // The two scores that replaced globalScore, and the breakdown that
     // replaced the keyword lists.
-    expect(paths).toContain("overall.fitScore");
-    expect(paths).toContain("overall.qualityScore");
+    expect(paths).toContain("jobFit.requirements");
     expect(paths).toContain("jobFit.requirements");
     expect(paths).toContain("experienceAndImpact.quantifiedAchievements");
+  });
+});
+
+describe("deriveFitVerdict", () => {
+  const withRequirements = (
+    rows: ReadonlyArray<readonly [RequirementKind, RequirementStatus]>,
+  ) => {
+    const input = validFeedback();
+    input.jobFit.requirements = rows.map(([kind, status]) => ({
+      requirement: "something",
+      kind,
+      status,
+      evidence: "",
+      note: "",
+    }));
+    return resumeFeedbackSchema.parse(input);
+  };
+
+  const verdict = (rows: ReadonlyArray<readonly [RequirementKind, RequirementStatus]>) =>
+    deriveFitVerdict(withRequirements(rows)).tone;
+
+  const required = (n: number, status: RequirementStatus = "met") =>
+    Array.from({ length: n }, () => ["required", status] as const);
+  const preferred = (n: number, status: RequirementStatus = "met") =>
+    Array.from({ length: n }, () => ["preferred", status] as const);
+
+  describe("the bar is not cleared", () => {
+    it("is weak when a required qualification is missing, however many are met", () => {
+      expect(verdict([...required(5), ["required", "missing"], ...preferred(3)])).toBe(
+        "weak",
+      );
+    });
+
+    it("is weak when two required ones are only partial", () => {
+      expect(verdict([...required(4), ...required(2, "partial"), ...preferred(3)])).toBe(
+        "weak",
+      );
+    });
+
+    it("tolerates exactly one partial required one", () => {
+      expect(verdict([...required(4), ...required(1, "partial"), ...preferred(3)])).toBe(
+        "strong",
+      );
+    });
+  });
+
+  describe("the bar is cleared", () => {
+    it("is fair when under a third of the preferred ones are met", () => {
+      // The case the model would not produce: 6 of 6 required, 1 of 6 preferred.
+      expect(verdict([...required(6), ...preferred(1), ...preferred(5, "missing")])).toBe(
+        "fair",
+      );
+    });
+
+    it("is strong at exactly a third", () => {
+      expect(verdict([...required(2), ...preferred(1), ...preferred(2, "missing")])).toBe(
+        "strong",
+      );
+    });
+
+    it("counts a partial preferred one as half", () => {
+      // 3 partial out of 4 = 1.5/4 = 0.375, over the third.
+      expect(verdict([...required(2), ...preferred(3, "partial"), ...preferred(1, "missing")])).toBe(
+        "strong",
+      );
+      // 2 partial out of 4 = 1.0/4 = 0.25, under it - two halves are not two.
+      expect(verdict([...required(2), ...preferred(2, "partial"), ...preferred(2, "missing")])).toBe(
+        "fair",
+      );
+    });
+
+    it("is strong when the posting states no preferred qualifications", () => {
+      // Nothing left to differentiate on, so meeting everything asked is as
+      // strong as the posting allows.
+      expect(verdict(required(3))).toBe("strong");
+    });
+  });
+
+  it("is weak when the posting yielded no requirements at all", () => {
+    // Not "strong by default": an empty breakdown supports no verdict, and the
+    // headline must not read as a pass.
+    expect(verdict([])).toBe("weak");
+  });
+
+  it("carries the counts it was computed from, so the verdict is checkable", () => {
+    const fit = deriveFitVerdict(
+      withRequirements([...required(2), ...preferred(2), ...preferred(2, "missing")]),
+    );
+
+    expect(fit.tally).toEqual({
+      required: { total: 2, met: 2, partial: 0 },
+      preferred: { total: 4, met: 2, partial: 0 },
+    });
+    expect(describeTally(fit.tally)).toBe("2 of 2 required, 2 of 4 preferred");
+  });
+
+  it("names partials in the description, since they are half-counted", () => {
+    const fit = deriveFitVerdict(
+      withRequirements([...required(1), ...required(1, "partial"), ...preferred(1, "partial")]),
+    );
+
+    expect(describeTally(fit.tally)).toBe(
+      "1 of 2 required (+1 partial), 0 of 1 preferred (+1 partial)",
+    );
   });
 });

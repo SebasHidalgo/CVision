@@ -20,7 +20,7 @@ function feedback(
 ): ResumeAnalysisFeedback {
   const section = { score: 70, description: "" };
   return {
-    overall: { fitScore: 60, qualityScore: 55, summaryText: "", prioritizedFixes: [] },
+    overall: { qualityScore: 55, summaryText: "", prioritizedFixes: [] },
     atsCompatibility: {
       description: "",
       encodingArtifacts: [],
@@ -31,7 +31,13 @@ function feedback(
     },
     experienceAndImpact: {
       ...section,
-      quantifiedAchievements: [],
+      quantifiedAchievements: [
+      {
+        figure: "40%",
+        quote:
+          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+      },
+    ],
       strengths: [],
       weaknesses: [],
       suggestedBullets: [],
@@ -64,7 +70,13 @@ const withBullets = (...examples: string[]) =>
     experienceAndImpact: {
       score: 70,
       description: "",
-      quantifiedAchievements: [],
+      quantifiedAchievements: [
+      {
+        figure: "40%",
+        quote:
+          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+      },
+    ],
       strengths: [],
       weaknesses: [],
       suggestedBullets: [{ role: "Backend Engineer", examples }],
@@ -234,7 +246,13 @@ describe("the measurement the guardrail must not destroy", () => {
       experienceAndImpact: {
         score: 70,
         description: "",
-        quantifiedAchievements: [],
+        quantifiedAchievements: [
+        {
+          figure: "40%",
+          quote:
+            "- Improved deployment reliability, reducing downtime by approximately 40%.",
+        },
+    ],
         strengths: [],
         weaknesses: [],
         suggestedBullets: [{ role: "Engineer", examples: ["Cut latency 35%."] }],

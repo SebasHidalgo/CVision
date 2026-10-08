@@ -11,19 +11,6 @@
 const AIResponseFormat = `
 {
   overall: {
-    // How COMPETITIVE this application is, 0-100. Not whether the candidate
-    // clears the bar: jobFit.requirements answers that item by item, and a
-    // number repeating it is worth nothing. Clearing every required
-    // qualification is the entry condition, not a high score; the preferred
-    // ones separate one candidate from the pile. Count your own list:
-    //   85-100  bar cleared, and most of the preferred ones met
-    //   70-84   bar cleared, and a third to two thirds of the preferred ones
-    //   50-69   bar cleared, under a third of the preferred ones - qualified
-    //           and nothing more, which is where most applicants belong
-    //   25-49   a required qualification missing, or several only partial
-    //   0-24    a different profession
-    fitScore: number;
-
     // How good this resume is as a document, 0-100, ignoring this posting
     // entirely. This is the score the candidate can change by editing, and it
     // carries to every application they make.

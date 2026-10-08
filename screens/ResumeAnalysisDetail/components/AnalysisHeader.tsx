@@ -1,7 +1,8 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
-import ScoreReadout from "@/components/score/ScoreReadout";
-import { FIT_LABEL, scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
+import VerdictReadout from "@/components/score/VerdictReadout";
+import type { FitVerdict } from "@/lib/schemas/resumeSchema";
+import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
 import ResumeDrawer from "./ResumeDrawer";
@@ -11,7 +12,7 @@ type AnalysisHeaderProps = {
   jobTitle: string;
   /** Already formatted on the server. */
   date: string;
-  fitScore: number;
+  fit: FitVerdict;
   qualityScore: number;
   summary: string;
   resumeUrl: string;
@@ -20,16 +21,17 @@ type AnalysisHeaderProps = {
 };
 
 /**
- * The dossier cover. Two numbers, not one: fit answers "this posting" and
- * quality answers "this document". The single conflated score they replaced
- * tracked neither - it did not move when the input became a real document, and
- * it went up when fabricated gaps were removed.
+ * The dossier cover. Fit answers "this posting" and quality answers "this
+ * document". Fit is a verdict rather than a number because it is derived from
+ * the requirements breakdown, and the breakdown only supports three outcomes -
+ * a 0-100 there would claim a precision we do not have. Its counts are printed
+ * beside it so the arithmetic is open to inspection.
  */
 export default function AnalysisHeader({
   companyName,
   jobTitle,
   date,
-  fitScore,
+  fit,
   qualityScore,
   summary,
   resumeUrl,
@@ -45,20 +47,13 @@ export default function AnalysisHeader({
           <h1 className="display-lg mt-1 text-ink">{jobTitle}</h1>
         </div>
         <div className="lg:col-span-5 lg:justify-self-end">
-          <ScoreReadout score={fitScore} size="xl" labels={FIT_LABEL} />
+          <VerdictReadout verdict={fit} />
         </div>
       </div>
 
-      <ScoreMeter
-        score={fitScore}
-        size="lg"
-        label="Fit with this posting"
-        reveal="mount"
-        delay={0.2}
-        className="mt-8"
-      />
 
-      <div className="mt-6 flex items-center gap-4 sm:max-w-md">
+
+      <div className="mt-10 flex items-center gap-4 sm:max-w-md">
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="eyebrow">Resume quality, on its own</h2>
