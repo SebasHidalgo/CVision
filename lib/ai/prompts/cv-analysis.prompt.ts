@@ -337,6 +337,8 @@ export const resumeAnalysisPrompt = ({
   The job description is: ${jobDescription}
   The resume text is: ${resumeText}
   ${ANALYSIS_RULES(today)}
+  Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields.
+  ${AIResponseFormat}
   Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.
   Do not include any other text or comments.
   `;
