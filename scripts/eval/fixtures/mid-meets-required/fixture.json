@@ -34,6 +34,12 @@
         "matching": "^\\s*(?:C|C\\+\\+|C#|Python)\\s*$",
         "count": 0,
         "why": "FAILURE 7: the posting lists these languages as alternatives, and the CV has some of them, so none of the rest is a requirement of its own."
+      },
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: the posting's required list states 6 items - 3+ years backend; production code in one of the listed languages; relational databases and SQL; containers and CI/CD; REST APIs; written and spoken English. The six items under Preferred qualifications are preferred. The language list is one requirement, which the count assertion above this one already pins. minCount is 6 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 8 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
       }
     ]
   }

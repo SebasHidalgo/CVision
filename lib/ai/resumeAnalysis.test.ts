@@ -91,7 +91,7 @@ const VALID_FEEDBACK = {
     improvements: [],
     recommendedCerts: [],
   },
-  toneAndClarity: { ...SECTION, suggestions: [] },
+  toneAndClarity: { description: "", suggestions: [] },
   jobFit: { description: "", requirements: [], strategicRecommendations: [] },
 };
 

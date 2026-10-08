@@ -166,9 +166,16 @@ export const resumeFeedbackSchema = z.object({
     recommendedCerts: z.array(z.string()),
   }),
 
-  // readability is gone: it moved up to 20 points between identical runs.
+  // No score, and before it no readability number. Readability went first
+  // because it moved up to 20 points between identical runs; the section
+  // score went because it measured nothing either. Over three phases it
+  // separated fixtures only 1.3x as far as it separated identical runs of
+  // one fixture, spanned 75-92 across every fixture in the suite including a
+  // resume for the wrong profession, and correlated 0.85-0.96 with
+  // qualityScore. A number that says "good" about everything can only
+  // mislead. The prose stays, as it does for atsCompatibility.
   toneAndClarity: z.object({
-    ...sectionBase,
+    ...evidenceSectionBase,
     suggestions: z.array(z.string()),
   }),
 

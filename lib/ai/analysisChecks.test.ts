@@ -61,7 +61,7 @@ function feedback(
       improvements: [],
       recommendedCerts: [],
     },
-    toneAndClarity: { ...section, suggestions: [] },
+    toneAndClarity: { description: '', suggestions: [] },
     jobFit: { description: '', requirements: [], strategicRecommendations: [] },
     ...overrides,
   };

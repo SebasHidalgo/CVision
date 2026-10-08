@@ -732,7 +732,6 @@ const SCORE_ROWS: Array<[string, (feedback: ResumeAnalysisFeedback) => number]> 
   ["Experience", (f) => f.experienceAndImpact.score],
   ["Skills", (f) => f.skills.score],
   ["Education", (f) => f.educationAndCertifications.score],
-  ["Tone", (f) => f.toneAndClarity.score],
 ];
 
 async function compareCommand(args: string[]) {
