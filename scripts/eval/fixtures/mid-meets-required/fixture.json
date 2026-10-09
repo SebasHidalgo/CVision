@@ -1,0 +1,46 @@
+{
+  "jobTitle": "Backend Developer",
+  "purpose": "The core case: a candidate who meets every required qualification and misses most preferred ones. Carries the five content traps seen on a real run — a finished degree read as ongoing, listed skills reported missing, an absolute 'no metrics' claim, an either/or language requirement read as a gap, and LaTeX accent artifacts the ATS section must flag.",
+  "expect": {
+    "mustMatch": [
+      {
+        "in": "atsCompatibility",
+        "pattern": "accent|diacritic|encod|special charact|character artifact|garbl|mangl",
+        "why": "The CV text carries LaTeX extraction artifacts (Jos´e, Ingenier´ıa). The real run caught these; it must not regress. The artifact character itself is deliberately not in the pattern: quoting it as evidence is not the same as naming the problem."
+      }
+    ],
+    "mustNotMatch": [
+      {
+        "in": "educationAndCertifications",
+        "pattern": "(?<!\\b(?:completed|complete|finished|past|prior)\\s+or\\s+)ongoing(?!\\s+or\\s+(?:recently\\s+)?(?:completed|complete|finished|past|prior))|in progress|currently (pursuing|studying|enrolled)|yet to (be )?complet|unfinished|not yet (finished|completed|graduated)",
+        "why": "Both degrees ended before today (March 2025 and 2021). Calling one ongoing is a temporal error. The \"ongoing\" branch ignores any pairing that names both states - \"ongoing or completed\", \"completed or ongoing\", \"ongoing or recently finished\" - because naming both asserts neither. Each spelling cost a correct run a failure before it was allowed for."
+      },
+      {
+        "in": "experienceAndImpact",
+        "pattern": "(?<!\\b(?:most|many|some|several|few|others?|remaining|majority|almost all|nearly all|rest)\\b[^.]{0,40})(?<!\\b(?:sections?|roles?|positions?|entries|entry|listings?|bullets?|bullet points?|descriptions?|projects?|summary|job)\\b[^.]{0,45})(?:absence of|devoid of|not a single|zero|completely lacks?|entirely lacks?|totally lacks?|lacks?|lacking|no|without)\\s+(any\\s+|explicit\\s+|clear\\s+)?(?:quantif|quantitat|measurable|metric|concrete number|figures?|percentages?)(?![^.]{0,60}\\b(?:in|across|for|from|beyond|outside)\\s+(?:the\\s+)?(?:most|many|some|several|few|others?|remaining|majority|almost all|nearly all|rest)\\b)",
+        "why": "FAILURE 5: the resume contains a quantified achievement, so an unqualified claim that metrics are absent is false. Three guards keep it fair, each added after a correct run was scored as a failure: a hedge before the claim (\"most bullets lack metrics\"), a hedge after it (\"lacks metrics in almost all bullets\"), and a named part of the resume as the subject (\"Project descriptions lack quantitative validation\"), which is a claim about that part and can be true while the resume as a whole has a figure. A genuine absolute names the resume, the text or the work history, or has no subject at all. Read it together with the positive assertion on quantifiedAchievements, which is the authoritative one."
+      }
+    ],
+    "requirements": [
+      {
+        "matching": "^\\s*(?:CI/CD|Docker|Java|JavaScript|SQL|REST)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "FAILURE 2: every one of these is in the CV's own skills section. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
+      },
+      {
+        "matching": "^\\s*(?:C|C\\+\\+|C#|Python)\\s*$",
+        "count": 0,
+        "why": "FAILURE 7: the posting lists these languages as alternatives, and the CV has some of them, so none of the rest is a requirement of its own."
+      },
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: the posting's required list states 6 items - 3+ years backend; production code in one of the listed languages; relational databases and SQL; containers and CI/CD; REST APIs; written and spoken English. The six items under Preferred qualifications are preferred. The language list is one requirement, which the count assertion above this one already pins. minCount is 6 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 8 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
+      }
+    ]
+  }
+}

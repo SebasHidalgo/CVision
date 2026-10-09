@@ -2,6 +2,12 @@ import { Check, Plus, X } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import { ordinal } from "@/lib/format";
+import type {
+  QuantifiedAchievement,
+  Requirement,
+  RequirementStatus,
+  requirementTally,
+} from "@/lib/schemas/resumeSchema";
 import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +17,8 @@ type SectionProps = {
   id: string;
   index: string;
   label: string;
-  score: number;
+  /** `null` for the sections that report evidence instead of a number. */
+  score: number | null;
   description: string;
   children: React.ReactNode;
 };
@@ -24,7 +31,7 @@ export function Section({
   description,
   children,
 }: SectionProps) {
-  const tone = scoreTone(score);
+  const tone = score === null ? null : scoreTone(score);
 
   return (
     <section
@@ -41,15 +48,17 @@ export function Section({
             {label}
           </h2>
         </div>
-        <div className="flex w-full items-center gap-4 sm:w-72 sm:shrink-0">
-          <span className="figure w-14 text-5xl text-ink tabular">{score}</span>
-          <div className="min-w-0 flex-1">
-            <ScoreMeter score={score} size="sm" label={`${label} score`} />
-            <p className={cn("mt-1.5 text-xs font-medium", TONE_CLASS[tone].text)}>
-              {TONE_LABEL[tone]}
-            </p>
+        {score !== null && tone && (
+          <div className="flex w-full items-center gap-4 sm:w-72 sm:shrink-0">
+            <span className="figure w-14 text-5xl text-ink tabular">{score}</span>
+            <div className="min-w-0 flex-1">
+              <ScoreMeter score={score} size="sm" label={`${label} score`} />
+              <p className={cn("mt-1.5 text-xs font-medium", TONE_CLASS[tone].text)}>
+                {TONE_LABEL[tone]}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       <p className="mt-7 max-w-2xl text-[17px] leading-relaxed text-ink-2">
@@ -249,6 +258,167 @@ export function SkillEvidence({ skills }: SkillEvidenceProps) {
           ))}
         </dl>
       )}
+    </div>
+  );
+}
+
+type RequirementsProps = {
+  requirements: Requirement[];
+  tally: ReturnType<typeof requirementTally>;
+};
+
+const STATUS_MARK: Record<RequirementStatus, { icon: Mark; label: string }> = {
+  met: { icon: "strong", label: "Met" },
+  partial: { icon: "neutral", label: "Partly met" },
+  missing: { icon: "signal", label: "Not met" },
+};
+
+/**
+ * The headline of the analysis: one row per requirement in the posting. A
+ * plain list on purpose - the shape is what this phase is testing, and a
+ * visual pass on it comes later.
+ */
+export function Requirements({ requirements, tally }: RequirementsProps) {
+  const groups = [
+    { kind: "required" as const, title: "Required qualifications", count: tally.required },
+    { kind: "preferred" as const, title: "Preferred qualifications", count: tally.preferred },
+  ];
+
+  if (requirements.length === 0) {
+    return (
+      <p className="text-sm text-ink-3">
+        No requirements were extracted from this posting.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-10">
+      {groups.map(({ kind, title, count }) => {
+        const rows = requirements.filter(
+          (requirement) => requirement.kind === kind,
+        );
+        if (rows.length === 0) return null;
+
+        return (
+          <div key={kind}>
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="eyebrow">{title}</h3>
+              <p className="text-sm text-ink-2 tabular">
+                {count.met} of {count.total} met
+                {count.partial > 0 && `, ${count.partial} partly`}
+              </p>
+            </div>
+
+            <ul className="mt-4 divide-y divide-line border-y border-line">
+              {rows.map((requirement, i) => {
+                const mark = STATUS_MARK[requirement.status];
+
+                return (
+                  <li key={i} className="py-4">
+                    <div className="flex gap-3">
+                      <Marker mark={mark.icon} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] leading-relaxed text-ink">
+                          {requirement.requirement}
+                        </p>
+                        <p className="eyebrow mt-1.5 text-ink-3">{mark.label}</p>
+                        {requirement.note && (
+                          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+                            {requirement.note}
+                          </p>
+                        )}
+                        {requirement.evidence && (
+                          <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
+                            {requirement.evidence}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type AchievementsProps = {
+  achievements: QuantifiedAchievement[];
+};
+
+/** The figures the CV already has. Empty is itself the finding. */
+export function Achievements({ achievements }: AchievementsProps) {
+  return (
+    <div>
+      <h3 className="eyebrow">Results you already quantify</h3>
+      {achievements.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-3">
+          No bullet in the CV attaches a number to a result.
+        </p>
+      ) : (
+        <dl className="mt-4 divide-y divide-line border-y border-line">
+          {achievements.map((achievement, i) => (
+            <div
+              key={i}
+              className="grid gap-1.5 py-3.5 sm:grid-cols-[6rem_1fr] sm:gap-6"
+            >
+              <dt className="figure text-2xl text-ink tabular">
+                {achievement.figure}
+              </dt>
+              <dd className="font-mono text-[12px] leading-relaxed text-ink-2">
+                {achievement.quote}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+type TextLayerProps = {
+  artifacts: string[];
+  sections: string[];
+};
+
+/**
+ * What the extracted text actually contains. This replaced the ATS score: the
+ * model is reliably right about the artifacts and was filling the rest with
+ * advice the document did not need.
+ */
+export function TextLayer({ artifacts, sections }: TextLayerProps) {
+  return (
+    <div className="grid gap-10 md:grid-cols-2">
+      <div>
+        <h3 className="eyebrow">Characters that came out wrong</h3>
+        {artifacts.length === 0 ? (
+          <p className="mt-4 text-sm text-ink-3">
+            The text layer is clean.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {artifacts.map((artifact, i) => (
+              <li
+                key={i}
+                className="border-l-2 border-signal pl-3 font-mono text-[13px] leading-relaxed text-ink"
+              >
+                {artifact}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Chips
+        title="Sections an ATS can see"
+        items={sections}
+        kind="matched"
+        emptyText="No recognizable section headings."
+      />
     </div>
   );
 }

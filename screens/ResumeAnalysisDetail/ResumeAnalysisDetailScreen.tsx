@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { fetchResumeById } from "@/lib/database/resume";
+import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
 import AnalysisHeader from "./components/AnalysisHeader";
 import DimensionNav from "./components/DimensionNav";
@@ -35,7 +36,8 @@ export default async function ResumeAnalysisDetailScreen({
         companyName={analysis.companyName}
         jobTitle={analysis.jobTitle}
         date={formatLongDate(analysis.createdAt)}
-        score={feedback.overall.globalScore}
+        fit={deriveFitVerdict(feedback)}
+        qualityScore={feedback.overall.qualityScore}
         summary={feedback.overall.summaryText}
         resumeUrl={analysis.resumeUrl}
         resumeId={analysis.id}

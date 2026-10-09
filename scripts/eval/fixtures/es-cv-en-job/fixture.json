@@ -1,0 +1,14 @@
+{
+  "jobTitle": "Data Analyst",
+  "purpose": "Spanish CV against an English posting: does the model match across languages, and which language does the feedback come back in?",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: the posting's required list states 6 items - 3+ years as an analyst; SQL and a cloud warehouse; Python/pandas; a BI tool; statistics and experiment design; fluent English. The \"another European language is a plus\" clause in the English bullet is preferred, not a seventh required item. minCount is 6 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 8 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
+      }
+    ]
+  }
+}

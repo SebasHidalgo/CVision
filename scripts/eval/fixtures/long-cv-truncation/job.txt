@@ -1,0 +1,27 @@
+Staff Backend Engineer - Cobalt Freight Network (Remote, US or Canada)
+
+Cobalt Freight Network connects shippers with 90,000 carriers across North America. Our platform prices, books and tracks more than two million shipments a month. We are hiring a Staff Backend Engineer to shape the architecture of our shipment lifecycle services.
+
+What you will do
+- Set technical direction for the services that price, book and track shipments.
+- Design distributed systems that stay correct under partial failure: idempotent APIs, event-driven workflows, exactly-once processing where it matters.
+- Lead the evolution of our Kafka-based event platform and our PostgreSQL data layer.
+- Drive reliability: SLOs, observability, capacity planning and incident reviews.
+- Mentor senior engineers and raise the bar on design documents and code review.
+- Work with product and data teams to turn ambiguous problems into roadmaps.
+
+What we are looking for
+- 10+ years of backend engineering, with at least 3 at a senior or staff level.
+- Deep experience with Go, Java or Kotlin in production.
+- Proven experience designing event-driven systems with Kafka or a similar log.
+- Strong PostgreSQL skills, including schema design, query tuning and migrations at scale.
+- Production experience with Kubernetes on AWS or GCP, and infrastructure as code (Terraform).
+- A track record of leading cross-team technical initiatives.
+- A degree in Computer Science or equivalent practical experience.
+
+Nice to have
+- Logistics, marketplace or payments domain experience.
+- Experience with stream processing (Flink, Kafka Streams).
+- Public speaking or open-source contributions.
+
+Compensation $210,000 - $250,000 plus equity. Remote in the US or Canada.

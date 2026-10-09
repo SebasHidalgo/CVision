@@ -1,0 +1,43 @@
+JOS´E MART´INEZ
+Backend Developer | Bogot´a, Colombia | jose.martinez@example.com | github.com/example-jm
+
+SUMMARY
+Backend developer with five years building REST APIs and internal tools for logistics
+and retail companies. Comfortable owning a service end to end, from schema design to
+being on call for it.
+
+EXPERIENCE
+
+Andean Logistics - Backend Developer | February 2023 - present
+- Own the shipment tracking API (Java, Spring Boot) used by three internal teams and
+  two carrier partners.
+- Moved the nightly rating job off a single cron box onto a work queue, cutting the
+  nightly processing window by 35%.
+- Added contract tests to the carrier integration, which previously had none, and wired
+  them into the pipeline so a broken carrier contract fails the build.
+- Review pull requests for two junior developers and share the service on-call rota.
+
+Tiendas del Valle - Software Developer | March 2021 - January 2023
+- Built internal inventory tools in Java and JavaScript used daily by store managers
+  across 40 stores.
+- Wrote the SQL reporting queries the finance team still runs every month.
+- Helped migrate the deployment pipeline from manual steps to GitLab CI, which removed
+  the Friday release freeze.
+- Took over the returns service after its original author left and kept it running
+  through two peak seasons.
+
+SKILLS
+Languages: Java, JavaScript, TypeScript, SQL
+Frameworks and libraries: Spring Boot, Express, JUnit
+Infrastructure: Docker, CI/CD, Git, PostgreSQL, Redis
+Practices: REST API design, code review, unit and contract testing, on-call support
+
+EDUCATION
+Especializaci´on en Ingenier´ıa de Software (postgraduate specialization)
+Universidad de los Andes | March 2024 - March 2025
+
+Ingenier´ıa de Sistemas (five-year engineering degree)
+Universidad del Valle | 2016 - 2021
+
+LANGUAGES
+Spanish (native), English (professional working proficiency)

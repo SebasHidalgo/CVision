@@ -6,7 +6,8 @@ import { ordinal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DimensionId } from "../utils/dimensions";
 
-type NavItem = { id: DimensionId; label: string; score: number };
+/** score is null for the sections that report evidence, not a number. */
+type NavItem = { id: DimensionId; label: string; score: number | null };
 
 type DimensionNavProps = {
   items: NavItem[];
@@ -73,17 +74,19 @@ export default function DimensionNav({ items }: DimensionNavProps) {
                 </span>
                 <span className="font-medium lg:whitespace-normal">{item.label}</span>
                 <span className="tabular lg:figure lg:text-right lg:text-2xl lg:text-ink">
-                  {item.score}
+                  {item.score ?? ""}
                 </span>
-                <span className="hidden lg:col-span-3 lg:block">
-                  <ScoreMeter
-                    score={item.score}
-                    size="sm"
-                    reveal="mount"
-                    delay={0.3 + i * 0.06}
-                    label={`${item.label} score`}
-                  />
-                </span>
+                {item.score !== null && (
+                  <span className="hidden lg:col-span-3 lg:block">
+                    <ScoreMeter
+                      score={item.score}
+                      size="sm"
+                      reveal="mount"
+                      delay={0.3 + i * 0.06}
+                      label={`${item.label} score`}
+                    />
+                  </span>
+                )}
               </a>
             </li>
           );

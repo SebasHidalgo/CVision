@@ -1,0 +1,14 @@
+{
+  "jobTitle": "Marketing Manager",
+  "purpose": "Non-technical CV against a matching non-technical posting: checks the analysis does not assume a software role.",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 5,
+        "maxCount": 7,
+        "why": "POSTING COUNT: the posting's required list states 5 items - 5+ years in CPG or retail marketing; integrated campaigns on a $1M+ budget; paid social, email and GA4; managing agencies; written communication and presenting. The three items under Nice to have are preferred. minCount is 5 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 7 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
+      }
+    ]
+  }
+}
