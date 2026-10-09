@@ -327,6 +327,8 @@
     "thinking": {
       "thinkingLevel": "minimal"
     },
+    "temperature": 0,
+    "seed": 7,
     "apiKey": "test-api-key"
   }
 }

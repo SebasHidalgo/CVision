@@ -27,10 +27,12 @@ const PROMPT_MARKER = "PROMPT-MARKER-7f3a";
 const RESPONSE_MARKER = "RESPONSE-MARKER-9c1e";
 
 // The metadata line generateJson logs per call. scripts/eval reads provider,
-// model and token counts from it, so its shape is part of the contract. The
-// counts are "?" when the call failed before the provider reported usage.
+// model, model version, sampling and token counts from it, so its shape is
+// part of the contract. Counts are "?" when the call failed before the
+// provider reported usage, and ver is "?" when the provider did not say which
+// model answered.
 const AI_LOG_LINE =
-  /^\[CVision\]\[ai\] provider=\S+ model=\S+ ms=\d+ in=(\d+|\?) out=(\d+|\?)$/;
+  /^\[CVision\]\[ai\] provider=\S+ model=\S+ ver=\S+ temp=\S+ seed=\S+ ms=\d+ in=(\d+|\?) out=(\d+|\?)$/;
 
 const simpleSchema = z.object({ score: z.number(), label: z.string() });
 
@@ -273,6 +275,119 @@ describe("generateJson: no prompt or response content in errors or logs", () => 
 
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatch(AI_LOG_LINE);
+  });
+});
+
+
+/*
+ * Sampling. Until M2d every call went out at whatever the provider defaulted
+ * to, which made identical input return different analyses and set a noise
+ * floor that swamped the differences the eval was trying to measure.
+ */
+describe("generateJson: sampling", () => {
+  it("pins temperature to 0 rather than leaving it to the provider", async () => {
+    const { requests } = installFakeProvider(() =>
+      reply.json({ score: 1, label: "x" }),
+    );
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    expect(requests[0].temperature).toBe(0);
+  });
+
+  // The seed is what makes the output reproducible at all: temperature 0
+  // alone left six runs of one fixture returning six different analyses.
+  it("pins a seed, so the same input returns the same analysis", async () => {
+    const { requests } = installFakeProvider(() =>
+      reply.json({ score: 1, label: "x" }),
+    );
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    expect(requests[0].seed).toBe(7);
+  });
+
+  // The escape hatch: a change whose effect is distributional has to be
+  // measured over a spread of draws, not one.
+  it('sends no seed when AI_SEED is "none"', async () => {
+    const { requests } = installFakeProvider(() =>
+      reply.json({ score: 1, label: "x" }),
+    );
+    vi.stubEnv("AI_SEED", "none");
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    expect(requests[0].seed).toBeUndefined();
+  });
+
+  it.each(["abc", "-3", "1.5"])(
+    "ignores AI_SEED=%j and keeps the pinned one",
+    async (value) => {
+      const { requests } = installFakeProvider(() =>
+        reply.json({ score: 1, label: "x" }),
+      );
+      vi.stubEnv("AI_SEED", value);
+
+      await generateJson({ prompt: "p", schema: simpleSchema });
+
+      expect(requests[0].seed).toBe(7);
+    },
+  );
+
+  it('omits temperature entirely when AI_TEMPERATURE is "provider", for a control arm', async () => {
+    const { requests } = installFakeProvider(() =>
+      reply.json({ score: 1, label: "x" }),
+    );
+    vi.stubEnv("AI_TEMPERATURE", "provider");
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    expect(requests[0].temperature).toBeUndefined();
+  });
+
+  it("sends an explicit setting from AI_TEMPERATURE", async () => {
+    const { requests } = installFakeProvider(() =>
+      reply.json({ score: 1, label: "x" }),
+    );
+    vi.stubEnv("AI_TEMPERATURE", "0.4");
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    expect(requests[0].temperature).toBe(0.4);
+  });
+
+  // A typo in an env var must not cost a paid analysis, so the call goes out
+  // at the default and says so.
+  it.each(["abc", "-1", "2.5", ""])(
+    "ignores AI_TEMPERATURE=%j and uses the default",
+    async (value) => {
+      const lines = captureConsole();
+      const { requests } = installFakeProvider(() =>
+        reply.json({ score: 1, label: "x" }),
+      );
+      vi.stubEnv("AI_TEMPERATURE", value);
+
+      await generateJson({ prompt: "p", schema: simpleSchema });
+
+      expect(requests[0].temperature).toBe(0);
+      if (value !== "") {
+        expect(lines.some((line) => line.includes("ignoring AI_TEMPERATURE"))).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it("logs the model version the provider reported, so a changed model is visible", async () => {
+    const lines = captureConsole();
+    installFakeProvider(() => reply.json({ score: 1, label: "x" }));
+
+    await generateJson({ prompt: "p", schema: simpleSchema });
+
+    // The stub answers as "fake-model"; a real alias echoes its own name.
+    expect(lines[0]).toContain("ver=fake-model");
+    expect(lines[0]).toContain("temp=0");
+    expect(lines[0]).toContain("seed=7");
   });
 });
 
