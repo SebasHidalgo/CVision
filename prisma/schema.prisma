@@ -26,7 +26,7 @@ model ResumeAnalysis {
 model ResumeFeedback {
   id                         String         @id @default(uuid())
   resumeId                   String         @unique
-  resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id])
+  resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   overall                    Json
   atsCompatibility           Json
   experienceAndImpact        Json
@@ -36,17 +36,65 @@ model ResumeFeedback {
   jobFit                     Json
 }
 
+/// Lifecycle of a voice interview. `finalized` below is legacy: it is derived
+/// from this in the data layer and goes away in M3-D.
+///
+///   SCHEDULED        created, never started
+///   IN_PROGRESS      a session was issued; no scoreable transcript yet. Still
+///                    startable (a dropped call, or an attempt where the
+///                    candidate never spoke), bounded by `startCount`
+///   FEEDBACK_PENDING the transcript arrived with candidate turns; feedback
+///                    generation (M3-B) has not run or finished
+///   COMPLETED        feedback stored
+///   FAILED           attempts exhausted without a scoreable transcript, or
+///                    feedback generation gave up (M3-B)
+///   EXPIRED          reserved for a never-started interview past its window
+enum InterviewStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FEEDBACK_PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
 model Interview {
-  id           String   @id @default(uuid())
+  id           String          @id @default(uuid())
   role         String
   techstack    String[]
   userId       String
-  finalized    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  status       InterviewStatus @default(SCHEDULED)
+  /// Legacy, write-only: reads derive it from `status`. Dropped in M3-D.
+  finalized    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
   recordingUrl String?
 
+  /// ElevenLabs conversation id of the latest issued session. Set when the
+  /// session is issued, so the post-call webhook matches by it; unique so one
+  /// conversation can only ever land on one interview.
+  conversationId String? @unique
+  /// Post-call transcript turns, verbatim from the webhook.
+  transcript     Json?
+  /// The dynamic variables the server issued for the latest session. What the
+  /// browser passes to the agent is compared against this.
+  issuedContext  Json?
+  /// True when the post-call payload's initiation data differed from
+  /// `issuedContext`: the browser tampered with its own session.
+  contextMismatch Boolean @default(false)
+  /// Why the latest attempt produced no scoreable transcript (NO_CANDIDATE_TURNS).
+  failureReason   String?
+
+  startedAt       DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  /// Sessions issued for this interview. Capped by the session endpoint:
+  /// every start is a paid call.
+  startCount      Int       @default(0)
+
   resumeAnalysisId String?         @unique
-  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id])
+  /// Deleting an analysis keeps the interview and its feedback: the room
+  /// already redirects when there is no analysis to build questions from.
+  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id], onDelete: SetNull)
 
   InterviewFeedback InterviewFeedback?
 
@@ -56,7 +104,7 @@ model Interview {
 model InterviewFeedback {
   id                  String    @id @default(uuid())
   interviewId         String    @unique
-  interview           Interview @relation(fields: [interviewId], references: [id])
+  interview           Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   totalScore          Int
   categoryScores      Json
   strengths           String[]

@@ -14,6 +14,13 @@ export type ErrorCode =
   | "TRANSCRIPT_TOO_LONG"
   | "TRANSCRIPT_EMPTY"
   | "INTERVIEW_ALREADY_SCORED"
+  // Voice session (ElevenLabs): the interview room's equivalent of AI_*.
+  | "VOICE_UNAVAILABLE"
+  | "VOICE_MISCONFIGURED"
+  // Interview state at session start.
+  | "INTERVIEW_NOT_STARTABLE"
+  | "INTERVIEW_START_LIMIT"
+  | "INTERVIEW_CONTEXT_MISSING"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -119,5 +126,40 @@ export class AiFormatError extends AppError {
     options?: ErrorOptions,
   ) {
     super("AI_BAD_FORMAT", message, options);
+  }
+}
+
+/** The voice platform did not answer, timed out or failed: try again shortly. */
+export class VoiceUnavailableError extends AppError {
+  constructor(message = "Voice platform unavailable", options?: ErrorOptions) {
+    super("VOICE_UNAVAILABLE", message, options);
+  }
+}
+
+/** Missing key or agent id, or the platform rejected our request: operator problem. */
+export class VoiceMisconfiguredError extends AppError {
+  constructor(message = "Voice platform misconfigured", options?: ErrorOptions) {
+    super("VOICE_MISCONFIGURED", message, options);
+  }
+}
+
+/** The interview is past the point where a session can be issued. */
+export class InterviewNotStartableError extends AppError {
+  constructor(message = "Interview cannot be started in its current state") {
+    super("INTERVIEW_NOT_STARTABLE", message);
+  }
+}
+
+/** Every start is a paid call; this interview has used its allowance. */
+export class InterviewStartLimitError extends AppError {
+  constructor(message = "Interview start limit reached") {
+    super("INTERVIEW_START_LIMIT", message);
+  }
+}
+
+/** The interview has no analysis to build the interviewer's context from. */
+export class InterviewContextMissingError extends AppError {
+  constructor(message = "Interview has no analysis context") {
+    super("INTERVIEW_CONTEXT_MISSING", message);
   }
 }

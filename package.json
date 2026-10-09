@@ -7,11 +7,13 @@
     "build": "next build --turbopack",
     "start": "next start",
     "test": "vitest run",
-    "eval": "tsx --conditions=react-server --env-file-if-exists=.env scripts/eval/run.ts"
+    "eval": "tsx --conditions=react-server --env-file-if-exists=.env scripts/eval/run.ts",
+    "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.69",
     "@clerk/nextjs": "^6.39.3",
+    "@elevenlabs/elevenlabs-js": "^2.71.0",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "^6.17.0",
     "@radix-ui/react-avatar": "^1.1.10",

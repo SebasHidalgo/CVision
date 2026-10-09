@@ -27,6 +27,16 @@ const COPY: Record<ErrorCode, string> = {
     "The interview ended before anything was transcribed, so there's nothing to score. Reload the page to start again.",
   INTERVIEW_ALREADY_SCORED:
     "This interview already has its feedback. You'll find it under Interviews.",
+  VOICE_UNAVAILABLE:
+    "The interviewer couldn't connect right now. Give it a minute and try again.",
+  VOICE_MISCONFIGURED:
+    "The interview room is misconfigured on our side. Retrying won't help — please check back later.",
+  INTERVIEW_NOT_STARTABLE:
+    "This interview has already ended. Your feedback will appear under Interviews once it's ready.",
+  INTERVIEW_START_LIMIT:
+    "This interview has been started the maximum number of times. Run a new analysis to rehearse again.",
+  INTERVIEW_CONTEXT_MISSING:
+    "This interview has no analysis to build questions from. Run a new analysis and rehearse from there.",
   REQUEST_FAILED:
     "The request didn't go through. Check your connection and try again. If it keeps failing, reload the page.",
   UNKNOWN: "Something went wrong on our side. Please try again.",

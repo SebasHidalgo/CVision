@@ -1,3 +1,7 @@
+import type { InterviewStatus } from "@prisma/client";
+import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
+import type { InterviewerVariables } from "@/lib/ai/prompts/interviewer.agent";
+
 export type {
   CreateInterviewInput,
   SubmitInterviewFeedbackInput,
@@ -8,10 +12,32 @@ export type Interview = {
   role: string;
   techstack: string[];
   userId: string;
+  status: InterviewStatus;
+  /** Derived from `status`; the column it mirrors goes away in M3-D. */
   finalized: boolean;
   createdAt: Date;
   recordingUrl: string | null;
   resumeAnalysisId: string | null;
+  /** Latest issued voice session, and how many have been issued. */
+  conversationId: string | null;
+  startCount: number;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  durationSeconds: number | null;
+};
+
+/** What `POST /api/interview/[id]/session` returns on success. */
+export type InterviewSessionResponse = {
+  connectionType: "webrtc";
+  /** Pass to the browser SDK as `conversationToken`. Single use, short-lived. */
+  conversationToken: string;
+  conversationId: string;
+  /** Pass through as `dynamicVariables`; the server keeps its own copy. */
+  dynamicVariables: InterviewerVariables;
+  /** The one config override the agent accepts: `overrides.agent.language`. */
+  language: InterviewLanguage;
+  expiresAt: string;
+  maxDurationSeconds: number;
 };
 
 export type InterviewFeedback = {

@@ -1,3 +1,5 @@
+import type { InterviewStatus } from "@prisma/client";
+
 export type {
   CreateResumeInput,
   ResumeAnalysisFeedback,
@@ -14,6 +16,6 @@ export type ResumeAnalysis = {
   userId: string;
   feedback: ResumeAnalysisFeedback | null;
   /** The mock interview started from this analysis, if any. */
-  interview: { id: string; finalized: boolean } | null;
+  interview: { id: string; status: InterviewStatus; finalized: boolean } | null;
   createdAt: string;
 };

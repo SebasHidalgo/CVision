@@ -1,47 +1,83 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { extractTechstackFromDescription } from "@/lib/ai/techstack";
 import { createInterview } from "@/lib/database/interview";
 import { fetchResumeById } from "@/lib/database/resume";
-import {
-  AiContentBlockedError,
-  AiFormatError,
-  AiMisconfiguredError,
-  AiRateLimitedError,
-  AiUnavailableError,
-} from "@/lib/error/errors";
+import { MAX_TECHSTACK_ITEM_CHARS, MAX_TECHSTACK_ITEMS } from "@/lib/schemas/interviewSchema";
+import type { ResumeAnalysis } from "@/types/resume";
 import { createInterviewAction } from "./createInterviewAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
-vi.mock("@/lib/ai/techstack", () => ({ extractTechstackFromDescription: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ fetchResumeById: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ createInterview: vi.fn() }));
 
 const RESUME_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 
+function resumeWith(
+  matchedSkills: { name: string; evidence: string }[],
+  overrides: Partial<ResumeAnalysis> = {},
+): ResumeAnalysis {
+  return {
+    id: RESUME_ID,
+    companyName: "Northwind",
+    jobTitle: "Frontend Engineer",
+    jobDescription: "React, TypeScript, testing.",
+    resumeUrl: "cv/user_1/x.pdf",
+    userId: "user_1",
+    createdAt: "2026-10-01T00:00:00.000Z",
+    interview: null,
+    feedback: {
+      skills: { matchedSkills },
+    } as unknown as ResumeAnalysis["feedback"],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   // restoreMocks only restores spies; call history on vi.fn() survives it.
   vi.clearAllMocks();
-  vi.mocked(fetchResumeById).mockResolvedValue({
-    id: RESUME_ID,
-    jobTitle: "Frontend Engineer",
-    jobDescription: "React, TypeScript, testing.",
-    interview: null,
-  } as unknown as Awaited<ReturnType<typeof fetchResumeById>>);
   vi.mocked(createInterview).mockResolvedValue("interview_1");
   // The action logs failures server-side; keep the test output readable.
   vi.spyOn(console, "error").mockImplementation(() => {});
-  vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
-describe("createInterviewAction: techstack extraction failures", () => {
-  it.each([
-    ["AI_UNAVAILABLE", new AiUnavailableError()],
-    ["AI_RATE_LIMITED", new AiRateLimitedError()],
-    ["AI_CONTENT_BLOCKED", new AiContentBlockedError()],
-    ["AI_BAD_FORMAT", new AiFormatError()],
-  ])("creates the interview without chips on %s", async (_, error) => {
-    vi.mocked(extractTechstackFromDescription).mockRejectedValue(error);
+describe("createInterviewAction: chips come from the stored analysis", () => {
+  it("uses the matched skill names, deduplicated, without any model call", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([
+        { name: "React", evidence: "React" },
+        { name: " TypeScript ", evidence: "TS" },
+        { name: "react", evidence: "again" },
+      ]),
+    );
+
+    const result = await createInterviewAction({ resumeId: RESUME_ID });
+
+    expect(result).toEqual({ ok: true, data: { interviewId: "interview_1" } });
+    expect(createInterview).toHaveBeenCalledWith({
+      role: "Frontend Engineer",
+      techstack: ["React", "TypeScript"],
+      resumeId: RESUME_ID,
+    });
+  });
+
+  it("drops names too long for a chip and stops at the item cap", async () => {
+    const many = Array.from({ length: MAX_TECHSTACK_ITEMS + 5 }, (_, i) => ({
+      name: `Skill ${i}`,
+      evidence: "",
+    }));
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([{ name: "x".repeat(MAX_TECHSTACK_ITEM_CHARS + 1), evidence: "" }, ...many]),
+    );
+
+    await createInterviewAction({ resumeId: RESUME_ID });
+
+    const { techstack } = vi.mocked(createInterview).mock.calls[0][0];
+    expect(techstack).toHaveLength(MAX_TECHSTACK_ITEMS);
+    expect(techstack[0]).toBe("Skill 0");
+  });
+
+  it("creates the interview with no chips when the analysis has no feedback", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(resumeWith([], { feedback: null }));
 
     const result = await createInterviewAction({ resumeId: RESUME_ID });
 
@@ -50,36 +86,35 @@ describe("createInterviewAction: techstack extraction failures", () => {
       expect.objectContaining({ techstack: [] }),
     );
   });
+});
 
-  it("stops on AI_MISCONFIGURED, before creating anything", async () => {
-    vi.mocked(extractTechstackFromDescription).mockRejectedValue(
-      new AiMisconfiguredError(),
+describe("createInterviewAction: guards", () => {
+  it("returns the existing interview instead of creating a second one", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([], {
+        interview: { id: "interview_0", status: "SCHEDULED", finalized: false },
+      }),
     );
 
     const result = await createInterviewAction({ resumeId: RESUME_ID });
 
-    expect(result).toEqual({ ok: false, code: "AI_MISCONFIGURED" });
+    expect(result).toEqual({ ok: true, data: { interviewId: "interview_0" } });
     expect(createInterview).not.toHaveBeenCalled();
   });
 
-  it("stops on a failure that is not the AI's", async () => {
-    vi.mocked(extractTechstackFromDescription).mockRejectedValue(
-      new Error("socket hang up"),
-    );
+  it("answers NOT_FOUND for a missing or foreign analysis", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(null);
 
     const result = await createInterviewAction({ resumeId: RESUME_ID });
 
-    expect(result).toEqual({ ok: false, code: "UNKNOWN" });
+    expect(result).toEqual({ ok: false, code: "NOT_FOUND" });
     expect(createInterview).not.toHaveBeenCalled();
   });
 
-  it("keeps the extracted chips when extraction works", async () => {
-    vi.mocked(extractTechstackFromDescription).mockResolvedValue(["React"]);
+  it("rejects an id that is not a uuid before touching the database", async () => {
+    const result = await createInterviewAction({ resumeId: "not-a-uuid" });
 
-    await createInterviewAction({ resumeId: RESUME_ID });
-
-    expect(createInterview).toHaveBeenCalledWith(
-      expect.objectContaining({ techstack: ["React"] }),
-    );
+    expect(result).toEqual({ ok: false, code: "INVALID_INPUT" });
+    expect(fetchResumeById).not.toHaveBeenCalled();
   });
 });
