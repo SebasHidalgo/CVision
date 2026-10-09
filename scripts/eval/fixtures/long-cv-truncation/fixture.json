@@ -1,0 +1,14 @@
+{
+  "jobTitle": "Staff Backend Engineer",
+  "purpose": "The largest prompt in the set (20,402 characters), kept to stress a long CV end to end. It was built to sit just over the old 20,000-character truncation limit, with Education and Certifications last so the cut removed them; since M2c-B raised the limit to 150,000 it no longer truncates, and the truncation boundary is pinned by unit tests in lib/ai/resumeAnalysis.test.ts instead. The id is kept so earlier runs stay comparable.",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 7,
+        "maxCount": 9,
+        "why": "POSTING COUNT: the posting's required list states 7 items - 10+ years backend; Go/Java/Kotlin; event-driven systems with Kafka; PostgreSQL at scale; Kubernetes on AWS or GCP with Terraform; leading cross-team initiatives; a CS degree or equivalent practice. The three items under Nice to have are preferred. minCount is 7 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 9 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
+      }
+    ]
+  }
+}

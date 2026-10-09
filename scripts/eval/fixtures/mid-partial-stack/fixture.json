@@ -1,0 +1,48 @@
+{
+  "jobTitle": "Product Engineer (Full-stack)",
+  "purpose": "Roughly half the posting's stack overlaps: React, TypeScript, Node.js, PostgreSQL and a testing habit are there; GraphQL, Terraform, AWS, Jest and Cypress are not. Checks that a half-match reads as a half-match instead of collapsing to strong or weak.",
+  "expect": {
+    "requirements": [
+      {
+        "matching": "graphql",
+        "minCount": 1,
+        "status": [
+          "missing",
+          "partial"
+        ],
+        "why": "A real gap: the posting asks for GraphQL and the CV does not have it. Reporting true gaps is what stops the new shape from being graded only on what it refuses to say."
+      },
+      {
+        "matching": "terraform|infrastructure as code",
+        "minCount": 1,
+        "status": [
+          "missing",
+          "partial"
+        ],
+        "why": "The second real gap in this fixture, for the same reason."
+      },
+      {
+        "matching": "^\\s*(?:React|TypeScript|Node\\.js|PostgreSQL|SQL|Docker)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "FAILURE 2: the CV lists all of these. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
+      },
+      {
+        "matching": "^\\s*(?:testing|unit testing|integration testing)\\s*$",
+        "status": [
+          "met",
+          "partial"
+        ],
+        "why": "FAILURE 3: each of these words appears literally in the CV. Under the M2c-F shape this is a requirements assertion: an entry naming only this term may not be \"missing\", since the CV has it."
+      },
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: the posting's required list states 6 items - 4+ years building web apps; React and TypeScript; SQL against a relational database; GraphQL schema design or the appetite to learn it; familiarity with infrastructure as code; a testing habit. The GraphQL item is counted as required: it sits in the posting's own list, and \"or a clear appetite to learn it fast\" is a second way to satisfy one requirement, not a preference. minCount is 6 with no tolerance below it, because a silently dropped requirement is the failure this assertion exists to catch: it leaves the verdict a correct function of a wrong fact with every other assertion green. maxCount is 8 to tolerate up to two defensible splits of a bullet that joins two things or offers alternatives. Both bounds were derived by reading the posting before looking at any model output, which is what makes this an independent check on the extraction rather than a description of it. What it does not catch: a requirement invented in place of a real one, since the count is unchanged. Only a full enumeration would."
+      }
+    ]
+  }
+}

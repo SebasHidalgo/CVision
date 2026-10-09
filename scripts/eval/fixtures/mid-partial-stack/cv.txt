@@ -1,0 +1,32 @@
+PRIYA RAGHAVAN
+Full-stack Developer | Lisbon, Portugal | priya.raghavan@example.com
+
+SUMMARY
+Full-stack developer, six years, mostly on React front ends backed by Node services.
+Comfortable across the stack but strongest on the front end and the API layer between
+it and the database.
+
+EXPERIENCE
+
+Marcanta Health - Full-stack Developer | April 2022 - present
+- Build and maintain the patient portal front end in React and TypeScript, used by
+  about 9,000 patients a month.
+- Own the Node.js API behind it, including the appointment booking endpoints.
+- Replaced a hand-rolled form layer with react-hook-form, which cut the form code
+  roughly in half and ended a recurring class of validation bugs.
+- Write integration tests with Mocha and Supertest; keep the suite under four minutes.
+- Model and migrate the PostgreSQL schema, including the move to row-level security.
+
+Oporto Digital - Frontend Developer | January 2020 - March 2022
+- Built client marketing sites and dashboards in React.
+- Converted the component library to TypeScript over two quarters.
+- Set up the preview deployments the design team reviews against.
+
+SKILLS
+Languages: TypeScript, JavaScript, SQL, HTML, CSS
+Front end: React, Next.js, Tailwind CSS, react-hook-form
+Back end: Node.js, Express, PostgreSQL, Prisma
+Testing and tooling: Mocha, Supertest, Playwright, Git, Docker
+
+EDUCATION
+Licenciatura in Computer Engineering, Universidade de Lisboa | 2016 - 2019

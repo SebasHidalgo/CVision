@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { StorageUnavailableError } from "@/lib/error/errors";
 
 const bucket = "files-bucket";
 
@@ -16,7 +17,7 @@ export const uploadFileToSupabase = async (file: File, key: string) => {
 
   if (error) {
     console.error("[CVision] Supabase upload failed:", error.message);
-    throw new Error("Failed to upload file");
+    throw new StorageUnavailableError("Failed to upload file");
   }
 
   return supabase.storage.from(bucket).getPublicUrl(key).data.publicUrl;

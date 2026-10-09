@@ -1,0 +1,32 @@
+Product Engineer (Full-stack)
+Aurelia Labs | Remote (Europe)
+
+About the role
+We are a twelve-person product team building scheduling software for clinics. Product
+engineers here own features from the interface down to the database, and we expect you
+to be opinionated about both.
+
+Our stack
+- React and TypeScript on the front end.
+- Node.js services behind a GraphQL gateway.
+- PostgreSQL, with schema changes reviewed by the whole team.
+- AWS, provisioned with Terraform.
+- Jest for unit tests, Cypress for end-to-end.
+
+What we are looking for
+- 4+ years building web applications professionally.
+- Strong React and TypeScript.
+- Comfort writing and reviewing SQL against a relational database.
+- Experience with GraphQL schema design, or a clear appetite to learn it fast.
+- Familiarity with infrastructure as code; you will be reading Terraform in your first
+  month even if you do not write much of it.
+- A testing habit, whatever the framework.
+
+Nice to have
+- Experience in healthcare or another regulated domain.
+- Experience with Cypress specifically.
+- An eye for accessibility, especially for older users.
+
+How we hire
+A take-home exercise you will be paid for, then two conversations: one technical, one
+about how you work. No whiteboard algorithms.
