@@ -21,6 +21,10 @@ export type ProviderRequest = {
   model: string;
   /** Thinking / reasoning configuration as sent; `undefined` means provider default. */
   thinking: unknown;
+  /** Sampling temperature as sent; `undefined` means the provider's default. */
+  temperature: number | undefined;
+  /** Sampling seed as sent; `undefined` means none was sent. */
+  seed: number | undefined;
   /** Credential presented to the provider. */
   apiKey: string | undefined;
 };
@@ -100,6 +104,8 @@ type GoogleGenerateContentBody = {
     responseMimeType?: string;
     responseSchema?: unknown;
     thinkingConfig?: unknown;
+    temperature?: number;
+    seed?: number;
   };
 };
 
@@ -125,6 +131,8 @@ function toProviderRequest(
         : null,
     model: /\/models\/([^:/]+):generateContent/.exec(url)?.[1] ?? "",
     thinking: body.generationConfig?.thinkingConfig,
+    temperature: body.generationConfig?.temperature,
+    seed: body.generationConfig?.seed,
     apiKey: new Headers(init?.headers).get("x-goog-api-key") ?? undefined,
   };
 }

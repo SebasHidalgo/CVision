@@ -31,6 +31,45 @@ const DEFAULT_PROVIDER: AiProvider = "google";
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * Sampling is pinned, not left to the provider. This is a structured
+ * extraction task: the same resume against the same posting should produce
+ * the same analysis, and a user who re-runs one CV and gets a different
+ * answer reads the tool as a coin flip. It also sets the noise floor every
+ * prompt change has to clear, which M2d measured at the provider default: one
+ * eval fixture's quality score spanned 25-75 across nine runs whose prompts
+ * differed by at most two comment lines.
+ *
+ * The API accepts [0.0, 2.0] for this model and rejects anything outside it
+ * with 400 INVALID_ARGUMENT, so 0 is the floor. `seed`, `topP` and `topK` are
+ * accepted too and are not set: at temperature 0 they constrain a choice that
+ * is already the argmax, and an unused knob is one more thing to explain.
+ */
+const DEFAULT_TEMPERATURE = 0;
+const TEMPERATURE_RANGE = { min: 0, max: 2 } as const;
+
+/**
+ * A fixed seed, and the lever that actually works. Measured in M2d over six
+ * runs per arm on two fixtures, interleaved in one session:
+ *
+ *   provider default   6 distinct outputs of 6, quality spanning 12 points
+ *   temperature 0      6 distinct outputs of 6, quality spanning 15 points
+ *   temperature 0 + this seed   1 distinct output of 6, byte for byte
+ *
+ * Temperature alone narrowed the dimension scores by about a quarter and
+ * removed nothing: greedy decoding is not reproducible on a model served at
+ * this scale. With the seed, the same resume and posting return the same
+ * analysis, which is what a user re-uploading one CV expects, and it turns a
+ * three-run eval set from a statistical exercise into a check.
+ *
+ * The number is arbitrary and was chosen before any of this was measured.
+ * It must stay that way: picking a seed because its draw scores better is
+ * fitting the instrument to the observation. What it buys is reproducibility,
+ * not correctness - one fixed draw also freezes whatever that draw gets
+ * wrong, which is a bug made legible rather than a bug introduced.
+ */
+const DEFAULT_SEED: number | null = 7;
+
 /** A document sent to the model alongside the prompt. */
 export type AiFile = { data: Uint8Array; mediaType: string };
 
@@ -46,11 +85,20 @@ type GenerateJsonOptions<T> = {
   files?: AiFile[];
 };
 
-type Usage = { input: number | undefined; output: number | undefined };
+type CallMeta = {
+  input: number | undefined;
+  output: number | undefined;
+  /** What the provider says answered; null when it does not say. */
+  modelVersion: string | null;
+};
 
 type AiConfig = {
   provider: string;
   model: string;
+  /** `null` means: send no temperature and let the provider choose. */
+  temperature: number | null;
+  /** `null` means: send no seed. */
+  seed: number | null;
   apiKey: string | undefined;
 };
 
@@ -71,7 +119,11 @@ export async function generateJson<T>({
 }: GenerateJsonOptions<T>): Promise<T> {
   const config = readConfig();
   const startedAt = Date.now();
-  const usage: Usage = { input: undefined, output: undefined };
+  const meta: CallMeta = {
+    input: undefined,
+    output: undefined,
+    modelVersion: null,
+  };
 
   try {
     if (config.provider !== DEFAULT_PROVIDER) {
@@ -79,13 +131,14 @@ export async function generateJson<T>({
         `Unsupported AI_PROVIDER "${config.provider}"`,
       );
     }
-    return await callGoogle(config, prompt, system, schema, timeoutMs, files, usage);
+    return await callGoogle(config, prompt, system, schema, timeoutMs, files, meta);
   } finally {
     // Never log the prompt or the response: both carry the resume and the job
     // description. Token counts are safe, and they are what an analysis costs.
-    // scripts/eval reads provider, model and tokens from this line.
+    // scripts/eval reads provider, model, version, sampling and tokens
+    // from this line, so a run file can say what produced it.
     console.info(
-      `[CVision][ai] provider=${config.provider} model=${config.model} ms=${Date.now() - startedAt} in=${usage.input ?? "?"} out=${usage.output ?? "?"}`,
+      `[CVision][ai] provider=${config.provider} model=${config.model} ver=${meta.modelVersion ?? "?"} temp=${config.temperature ?? "provider"} seed=${config.seed ?? "none"} ms=${Date.now() - startedAt} in=${meta.input ?? "?"} out=${meta.output ?? "?"}`,
     );
   }
 }
@@ -96,8 +149,61 @@ function readConfig(): AiConfig {
   return {
     provider: process.env.AI_PROVIDER?.trim() || DEFAULT_PROVIDER,
     model: process.env.AI_MODEL?.trim() || DEFAULT_MODEL,
+    temperature: readTemperature(),
+    seed: readSeed(),
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || undefined,
   };
+}
+
+/**
+ * `AI_TEMPERATURE` exists so an eval can capture a control arm beside a
+ * change without editing code; production leaves it unset. "provider" omits
+ * the field entirely, which is the only way to reproduce how every run before
+ * M2d was sampled. An unusable value falls back to the default rather than
+ * failing: a typo in an env var must not cost a paid analysis.
+ */
+function readTemperature(): number | null {
+  const raw = process.env.AI_TEMPERATURE?.trim();
+  if (!raw) return DEFAULT_TEMPERATURE;
+  if (raw.toLowerCase() === "provider") return null;
+
+  const value = Number(raw);
+  if (
+    Number.isFinite(value) &&
+    value >= TEMPERATURE_RANGE.min &&
+    value <= TEMPERATURE_RANGE.max
+  ) {
+    return value;
+  }
+  console.warn(
+    `[CVision][ai] ignoring AI_TEMPERATURE=${raw}: not "provider" nor a number in [${TEMPERATURE_RANGE.min}, ${TEMPERATURE_RANGE.max}]`,
+  );
+  return DEFAULT_TEMPERATURE;
+}
+
+/** `AI_SEED` overrides the pinned seed for one run, the same way as above. */
+function readSeed(): number | null {
+  const raw = process.env.AI_SEED?.trim();
+  if (!raw) return DEFAULT_SEED;
+  if (raw.toLowerCase() === "none") return null;
+
+  const value = Number(raw);
+  if (Number.isInteger(value) && value >= 0) return value;
+  console.warn(`[CVision][ai] ignoring AI_SEED=${raw}: not a non-negative integer`);
+  return DEFAULT_SEED;
+}
+
+/**
+ * Which model actually answered. Google echoes the requested alias here
+ * rather than a dated build, so this catches the model being renamed or
+ * redirected to a different name - not an alias quietly re-pointed at a new
+ * build behind the same name. The models listing is the only place the dated
+ * version appears, and scripts/eval records it per run.
+ */
+function readModelVersion(body: unknown): string | null {
+  const value = (body as { modelVersion?: unknown } | null | undefined)
+    ?.modelVersion;
+  return typeof value === "string" ? value : null;
 }
 
 async function callGoogle<T>(
@@ -107,7 +213,7 @@ async function callGoogle<T>(
   schema: z.ZodType<T>,
   timeoutMs: number,
   files: AiFile[] | undefined,
-  usage: Usage,
+  meta: CallMeta,
 ): Promise<T> {
   if (!config.apiKey) {
     // Fail before any request: the SDK would fail the same way, but later and
@@ -140,6 +246,10 @@ async function callGoogle<T>(
             ],
           }
         : { prompt }),
+      // Pinned above, and omitted entirely when AI_TEMPERATURE=provider so
+      // a control arm can reproduce the old sampling.
+      ...(config.temperature === null ? {} : { temperature: config.temperature }),
+      ...(config.seed === null ? {} : { seed: config.seed }),
       abortSignal: controller.signal,
       // One attempt per call, like the previous provider: the caller's timeout
       // is the whole budget, and a retry policy is a separate decision.
@@ -158,8 +268,9 @@ async function callGoogle<T>(
       ? await generateObject({ ...request, schema: jsonSchema(responseSchema) })
       : await generateObject({ ...request, output: "no-schema" });
     candidate = result.object;
-    usage.input = result.usage.inputTokens;
-    usage.output = result.usage.outputTokens;
+    meta.input = result.usage.inputTokens;
+    meta.output = result.usage.outputTokens;
+    meta.modelVersion = readModelVersion(result.response?.body);
   } catch (error) {
     throw toAppError(error, timeoutMs);
   } finally {

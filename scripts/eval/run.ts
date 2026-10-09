@@ -48,11 +48,20 @@ const FIXTURE_SOURCES = [
   { dir: path.join(EVAL_DIR, "fixtures.local"), source: "local" },
 ] as const;
 
-// Provider, model and token usage are private to lib/ai/client.ts. Its
-// per-call metadata log line is the only place they surface, so they are read
-// from it. The line's shape is pinned by lib/ai/client.test.ts.
+// Provider, model, model version, sampling and token usage are private to
+// lib/ai/client.ts. Its per-call metadata log line is the only place they
+// surface, so they are read from it. The shape is pinned by client.test.ts.
 const AI_LOG_LINE =
-  /\[CVision\]\[ai\] provider=(\S+) model=(\S+) ms=\d+ in=(\d+|\?) out=(\d+|\?)/;
+  /\[CVision\]\[ai\] provider=(\S+) model=(\S+) ver=(\S+) temp=(\S+) seed=(\S+) ms=\d+ in=(\d+|\?) out=(\d+|\?)/;
+
+/**
+ * Two runs are only comparable when the same model answered under the same
+ * sampling, close enough in time that the provider cannot have changed
+ * underneath them. The alias we call has no dated snapshot to pin (every
+ * dated form 404s), so "the same model" is as strong as the API lets us be,
+ * and this window is the rest of the guarantee.
+ */
+const MAX_SESSION_GAP_HOURS = 6;
 
 /**
  * What a fixture claims about the analysis of its own CV. `in` is a dot path
@@ -107,6 +116,24 @@ type RequirementAssertion = {
   why?: string;
 };
 
+/**
+ * The identity of a run: which model answered and how it was sampled.
+ * `apiModelVersion` is the dated build the models listing reports for the
+ * alias (today "3.5-flash-lite-07-2026"); the response itself only echoes the
+ * alias, so this field is the one that would change if the alias were
+ * re-pointed under us.
+ */
+type Engine = {
+  provider: string | null;
+  model: string | null;
+  modelVersion: string | null;
+  apiModelVersion: string | null;
+  /** As sent: "0", or "provider" when no temperature was sent at all. */
+  temperature: string | null;
+  /** As sent: a number, or "none" when no seed was sent. */
+  seed: string | null;
+};
+
 type AssertionResult = {
   kind: keyof FixtureExpectations;
   in: string;
@@ -138,6 +165,12 @@ type RunRecord = {
   label: string;
   provider: string | null;
   model: string | null;
+  /**
+   * What produced this record, so a later comparison can refuse when it is
+   * not the same thing. Absent on runs captured before M2d, which is why
+   * those cannot be compared against: nobody recorded how they were sampled.
+   */
+  engine?: Engine;
   generatedAt: string;
   durationMs: number;
   input: {
@@ -176,9 +209,10 @@ compare model output across provider, model or prompt changes.
 
 Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force] [--pdf]
-  npm run eval -- compare <labelA> <labelB>
+  npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
-  npm run eval -- stability <label> <label> [...]
+  npm run eval -- canary <reference-label> [--only <id>]
+  npm run eval -- stability <label> <label> [...] [--force]
   npm run eval -- list
 
 recheck re-runs the content checks and the fixture assertions over a stored
@@ -198,20 +232,42 @@ Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
 billed model call.
 
-Workflow for a provider, model or prompt change:
-  1. Before the change, capture a baseline, twice:
-       npm run eval -- run baseline
-       npm run eval -- run baseline-2
-     Compare those two first: the model is not deterministic, and their
-     difference is the noise floor any later change must be read against.
-       npm run eval -- compare baseline baseline-2
-  2. Make the change (provider and model live in lib/ai/client.ts and .env,
-     prompts in lib/ai/prompts/), then run the same fixtures:
-       npm run eval -- run after-change
-  3. Compare scores side by side:
-       npm run eval -- compare baseline after-change
+Workflow for a provider, model or prompt change. The control arm is the
+method, not an extra step: the model behind the alias we call can change
+without us deploying, and it has - one fixture's quality score held 55-60
+across ten runs one week and spanned 25-75 the next, under prompts differing
+by two comment lines. A run compared against one from another day attributes
+that to your change. compare and stability refuse it.
+
+  1. Capture the change and its control in the SAME session. For a sampling
+     change the control needs no code edit:
+       npm run eval -- run change-a
+       AI_TEMPERATURE=provider npm run eval -- run control-a
+     For a prompt or schema change, apply the change, run it, revert it, run
+     the control - minutes apart, not days.
+  2. Compare them:
+       npm run eval -- compare control-a change-a
      Full output diff:
-       git diff --no-index scripts/eval/runs/baseline scripts/eval/runs/after-change
+       git diff --no-index scripts/eval/runs/control-a scripts/eval/runs/change-a
+  3. Repeat both arms two or three times. One run of each is an anecdote;
+     the stability command reads a set of runs of the same thing.
+       npm run eval -- stability change-a change-b change-c
+
+  --force compares anyway and prints why the result is unattributable. Use it
+  to look at old runs, never to judge a change.
+
+canary runs ONE fixture and byte-compares the analysis against a stored
+reference run. Output is deterministic at the pinned sampling, so a difference
+means something changed: the prompt, the schema, or the model behind the alias
+we call - which can change without us deploying, and is the case this exists
+for. One billed call. Exits non-zero on a difference. After an intended prompt
+change, capture a new reference and compare against that instead.
+
+Sampling: temperature is pinned in lib/ai/client.ts (0 since M2d, measured).
+AI_TEMPERATURE overrides it for one run; AI_TEMPERATURE=provider sends no
+temperature at all, which is how every run before M2d was sampled. Each run
+file records the model, the version the API reports for it and the setting
+used, and that is what compare checks.
 
 Fixtures:  scripts/eval/fixtures/<id>/        synthetic, committed
            scripts/eval/fixtures.local/<id>/  gitignored: put real CVs here
@@ -254,6 +310,8 @@ async function main(argv: string[]) {
       return compareCommand(rest);
     case "recheck":
       return recheckCommand(rest);
+    case "canary":
+      return canaryCommand(rest);
     case "stability":
       return stabilityCommand(rest);
     case "list":
@@ -320,8 +378,18 @@ async function runCommand(args: string[]) {
   const startedAt = new Date().toISOString();
   const records: RunRecord[] = [];
 
+  // One free metadata call per run, the first time a record names the model:
+  // the dated build behind the alias is the only drift signal available.
+  let apiModelVersion: string | null = null;
+  let versionLookedUp = false;
+
   for (const fixture of fixtures) {
     const record = await runFixture(fixture, label, timeoutMs, mode);
+    if (!versionLookedUp && record.model) {
+      apiModelVersion = await readApiModelVersion(record.model);
+      versionLookedUp = true;
+    }
+    if (record.engine) record.engine.apiModelVersion = apiModelVersion;
     await writeJson(path.join(outDir, `${fixture.id}.json`), record);
     console.log(formatProgress(record));
     records.push(record);
@@ -334,6 +402,7 @@ async function runCommand(args: string[]) {
     finishedAt: new Date().toISOString(),
     provider: identified?.provider ?? null,
     model: identified?.model ?? null,
+    engine: identified?.engine ?? null,
     timeoutMs,
     node: process.version,
     fixtures: records.map(({ fixture, result, durationMs }) => ({
@@ -345,7 +414,13 @@ async function runCommand(args: string[]) {
 
   const okCount = records.filter((record) => record.result.ok).length;
   console.log(
-    `\n${okCount}/${records.length} succeeded. Provider: ${identified?.provider ?? "unknown"}, model: ${identified?.model ?? "unknown"}.`,
+    `\n${okCount}/${records.length} succeeded. ${describeEngine(identified?.engine)}`,
+  );
+  // The method, printed where it is needed rather than left in the docs: a
+  // change measured against a run from another day attributes the provider's
+  // drift to the change.
+  console.log(
+    `A change needs its control beside it: capture both today, then\n  npm run eval -- compare <control> ${label}`,
   );
   if (!identified) {
     console.warn(
@@ -402,6 +477,15 @@ async function runFixture(
     label,
     provider: aiLog.meta.provider,
     model: aiLog.meta.model,
+    engine: {
+      provider: aiLog.meta.provider,
+      model: aiLog.meta.model,
+      modelVersion: aiLog.meta.modelVersion,
+      // Filled in by the caller: one lookup serves the whole run.
+      apiModelVersion: null,
+      temperature: aiLog.meta.temperature,
+      seed: aiLog.meta.seed,
+    },
     tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
@@ -600,14 +684,49 @@ function checkNote(checks: RunRecord["checks"]): string {
   return `quotes ${quotes}${detail}, false-missing ${counts["false-missing"]}, numbers ${counts["fabricated-number"]}`;
 }
 
+/**
+ * The dated build behind the model alias, from the free models listing - not
+ * a generateContent call, so it costs nothing and bills nothing. The response
+ * to an analysis only ever echoes the alias, so without this a re-pointed
+ * alias would show up as unexplained variance, which is exactly what it did.
+ */
+async function readApiModelVersion(model: string): Promise<string | null> {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!apiKey) return null;
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as { version?: unknown };
+    return typeof body.version === "string" ? body.version : null;
+  } catch {
+    // Offline, or the endpoint moved. A run without it is still valid; it
+    // just cannot be compared against one that has it.
+    return null;
+  }
+}
+
 function captureAiLog() {
   const original = console.info;
   const meta: {
     provider: string | null;
     model: string | null;
+    modelVersion: string | null;
+    temperature: string | null;
+    seed: string | null;
     inputTokens: number | null;
     outputTokens: number | null;
-  } = { provider: null, model: null, inputTokens: null, outputTokens: null };
+  } = {
+    provider: null,
+    model: null,
+    modelVersion: null,
+    temperature: null,
+    seed: null,
+    inputTokens: null,
+    outputTokens: null,
+  };
 
   const count = (value: string) => (value === "?" ? null : Number(value));
 
@@ -616,8 +735,11 @@ function captureAiLog() {
     if (!match) return original(...args);
     meta.provider = match[1];
     meta.model = match[2];
-    meta.inputTokens = count(match[3]);
-    meta.outputTokens = count(match[4]);
+    meta.modelVersion = match[3] === "?" ? null : match[3];
+    meta.temperature = match[4];
+    meta.seed = match[5];
+    meta.inputTokens = count(match[6]);
+    meta.outputTokens = count(match[7]);
   };
 
   return {
@@ -725,6 +847,86 @@ async function recheckCommand(args: string[]) {
   }
 }
 
+// ---------------------------------------------------------------- canary
+
+/**
+ * The standing drift detector. The model string we call is an alias with no
+ * callable dated snapshot, so the provider can serve a different build under
+ * it without any deploy of ours - and analysis quality would change for users
+ * with nothing to roll back to. Since M2d the output is reproducible, which
+ * makes "did anything change?" answerable with one call and a byte compare.
+ */
+async function canaryCommand(args: string[]) {
+  const { positional, flags } = parseFlags(args);
+  const [reference] = positional;
+  if (!reference) fail(`canary needs a reference run label.\n\n${USAGE}`);
+
+  const stored = await readRun(reference);
+  const only = flags.get("only");
+  const wanted =
+    typeof only === "string"
+      ? stored.get(only)
+      : // Default to a synthetic fixture: a canary must not need the local
+        // CVs, which only exist on one machine.
+        [...stored.values()].find(
+          (record) => record.source === "synthetic" && record.result.ok,
+        );
+  if (!wanted) {
+    fail(
+      `${typeof only === "string" ? `Fixture "${only}"` : "No usable synthetic fixture"} is not in run "${reference}".`,
+    );
+  }
+  if (!wanted.result.ok) fail(`${wanted.fixture} failed in "${reference}"; pick another.`);
+
+  const fixture = (await loadFixtures()).find((one) => one.id === wanted.fixture);
+  if (!fixture) fail(`Fixture "${wanted.fixture}" no longer exists.`);
+
+  console.log(
+    `Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`,
+  );
+
+  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, "text");
+  if (fresh.engine && fresh.model) {
+    fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
+  }
+  console.log(`  now:       ${describeEngine(fresh.engine)}`);
+
+  if (!fresh.result.ok) {
+    console.error(`\nFAILED: the call did not complete (${fresh.result.error.code}).`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const differences: string[] = [];
+  for (const key of ["modelVersion", "apiModelVersion", "temperature", "seed"] as const) {
+    const before = wanted.engine?.[key] ?? "unrecorded";
+    const after = fresh.engine?.[key] ?? "unrecorded";
+    if (before !== after) differences.push(`${key}: ${before} -> ${after}`);
+  }
+
+  const sections = Object.keys(fresh.result.feedback) as Array<
+    keyof ResumeAnalysisFeedback
+  >;
+  const changed = sections.filter(
+    (section) =>
+      JSON.stringify(fresh.result.ok && fresh.result.feedback[section]) !==
+      JSON.stringify(wanted.result.ok && wanted.result.feedback[section]),
+  );
+
+  if (!differences.length && !changed.length) {
+    console.log("\nUnchanged: same model, same sampling, byte-identical analysis.");
+    return;
+  }
+
+  console.error("\nCHANGED:");
+  for (const difference of differences) console.error(`  engine   ${difference}`);
+  if (changed.length) console.error(`  output   ${changed.join(", ")}`);
+  console.error(
+    "\nIf nothing of ours changed, the model behind the alias did. Re-read the\nsuite before trusting the analysis, and re-baseline deliberately.",
+  );
+  process.exitCode = 1;
+}
+
 // ---------------------------------------------------------------- compare
 
 const SCORE_ROWS: Array<[string, (feedback: ResumeAnalysisFeedback) => number]> = [
@@ -735,11 +937,19 @@ const SCORE_ROWS: Array<[string, (feedback: ResumeAnalysisFeedback) => number]> 
 ];
 
 async function compareCommand(args: string[]) {
-  const [labelA, labelB] = parseFlags(args).positional;
+  const { positional, flags } = parseFlags(args);
+  const [labelA, labelB] = positional;
   if (!labelA || !labelB) fail(`compare needs two labels.\n\n${USAGE}`);
 
   const runA = await readRun(labelA);
   const runB = await readRun(labelB);
+  requireComparable(
+    [
+      [labelA, runA],
+      [labelB, runB],
+    ],
+    flags.has("force"),
+  );
 
   console.log(`A = ${labelA}  (${identity(runA)})`);
   console.log(`B = ${labelB}  (${identity(runB)})`);
@@ -858,6 +1068,98 @@ async function compareCommand(args: string[]) {
   );
 }
 
+/**
+ * Refuses a comparison that cannot mean anything. Two runs are comparable
+ * when the same provider, model, reported version and sampling produced them,
+ * within one session - and M2d is why: the same prompt produced 55-60 on one
+ * fixture across ten runs in one week and 25-75 the next, so a cross-session
+ * delta measures the provider as much as the change.
+ *
+ * Runs captured before M2d carry no sampling record at all. Those are refused
+ * by the same rule rather than by a special case: nobody can say how they
+ * were sampled, which is the problem.
+ */
+function requireComparable(
+  runs: ReadonlyArray<readonly [string, Map<string, RunRecord>]>,
+  force: boolean,
+) {
+  const problems: string[] = [];
+  const fingerprints = runs.map(([label, run]) => {
+    const engine = [...run.values()].find((record) => record.engine)?.engine;
+    return { label, engine, window: captureWindow(run) };
+  });
+
+  const unrecorded = fingerprints.filter(
+    (one) => !one.engine || one.engine.temperature === null,
+  );
+  if (unrecorded.length) {
+    problems.push(
+      `no sampling recorded in ${unrecorded.map((one) => one.label).join(", ")} (captured before M2d; how it was sampled is unknown)`,
+    );
+  }
+
+  const [first, ...rest] = fingerprints;
+  for (const other of rest) {
+    for (const key of [
+      "provider",
+      "model",
+      "modelVersion",
+      "apiModelVersion",
+      "temperature",
+      "seed",
+    ] as const) {
+      const a = first.engine?.[key] ?? null;
+      const b = other.engine?.[key] ?? null;
+      if (a !== b) {
+        problems.push(
+          `${key} differs: ${first.label}=${a ?? "unrecorded"} vs ${other.label}=${b ?? "unrecorded"}`,
+        );
+      }
+    }
+    const gapHours = sessionGapHours(first.window, other.window);
+    if (gapHours !== null && gapHours > MAX_SESSION_GAP_HOURS) {
+      problems.push(
+        `captured ${gapHours.toFixed(1)} h apart (${first.label} and ${other.label}); the limit is ${MAX_SESSION_GAP_HOURS} h, because the model behind the alias can change without notice`,
+      );
+    }
+  }
+
+  if (problems.length === 0) return;
+
+  const detail = problems.map((problem) => `  - ${problem}`).join("\n");
+  if (!force) {
+    fail(
+      `These runs are not comparable:\n${detail}\n\nCapture a control arm in the same session instead:\n  AI_TEMPERATURE=provider npm run eval -- run <control-label>   (or set the change aside and re-run)\nOr pass --force to compare anyway and read every delta as unattributable.`,
+    );
+  }
+  console.log(
+    `!! FORCED COMPARISON - the deltas below are not attributable to any change:\n${detail}\n`,
+  );
+}
+
+/** Earliest and latest record in a run, as epoch milliseconds. */
+function captureWindow(run: Map<string, RunRecord>): [number, number] | null {
+  const times = [...run.values()]
+    .map((record) => Date.parse(record.generatedAt))
+    .filter((time) => Number.isFinite(time));
+  return times.length ? [Math.min(...times), Math.max(...times)] : null;
+}
+
+/** Hours between the end of the earlier capture and the start of the later. */
+function sessionGapHours(
+  a: [number, number] | null,
+  b: [number, number] | null,
+): number | null {
+  if (!a || !b) return null;
+  const [earlier, later] = a[0] <= b[0] ? [a, b] : [b, a];
+  return Math.max(0, later[0] - earlier[1]) / 3_600_000;
+}
+
+function describeEngine(engine: Engine | null | undefined): string {
+  if (!engine) return "Provider and model unknown.";
+  return `Provider: ${engine.provider ?? "unknown"}, model: ${engine.model ?? "unknown"} (api version ${engine.apiModelVersion ?? "unknown"}), temperature ${engine.temperature ?? "unrecorded"}, seed ${engine.seed ?? "unrecorded"}.`;
+}
+
 async function readRun(label: string): Promise<Map<string, RunRecord>> {
   const dir = path.join(RUNS_DIR, label);
   if (!existsSync(dir)) fail(`No run named "${label}" in ${display(RUNS_DIR)}.`);
@@ -873,7 +1175,16 @@ async function readRun(label: string): Promise<Map<string, RunRecord>> {
 
 function identity(run: Map<string, RunRecord>): string {
   const record = [...run.values()].find((candidate) => candidate.model !== null);
-  return record ? `${record.provider} / ${record.model}` : "provider and model unknown";
+  if (!record) return "provider and model unknown";
+  const engine = record.engine;
+  return [
+    `${record.provider} / ${record.model}`,
+    engine?.apiModelVersion ? `api ${engine.apiModelVersion}` : null,
+    `temp ${engine?.temperature ?? "unrecorded"}/seed ${engine?.seed ?? "unrecorded"}`,
+    new Date(record.generatedAt).toISOString().slice(0, 16).replace("T", " "),
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 function statusOf(record: RunRecord): string {
@@ -901,12 +1212,18 @@ function statusOf(record: RunRecord): string {
  * cheaper problem.
  */
 async function stabilityCommand(args: string[]) {
-  const labels = parseFlags(args).positional;
+  const { positional: labels, flags } = parseFlags(args);
   if (labels.length < 2) {
     fail(`stability needs at least two run labels.\n\n${USAGE}`);
   }
 
   const runs = await Promise.all(labels.map((label) => readRun(label)));
+  // Same rule as compare: a partition that "moved" between two differently
+  // sampled runs says nothing about the prompt.
+  requireComparable(
+    labels.map((label, index) => [label, runs[index]] as const),
+    flags.has("force"),
+  );
   const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
 
   console.log(`Partition stability across ${labels.length} runs: ${labels.join(", ")}\n`);
