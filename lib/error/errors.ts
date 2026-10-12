@@ -11,9 +11,6 @@ export type ErrorCode =
   | "AI_MISCONFIGURED"
   | "AI_CONTENT_BLOCKED"
   | "AI_BAD_FORMAT"
-  | "TRANSCRIPT_TOO_LONG"
-  | "TRANSCRIPT_EMPTY"
-  | "INTERVIEW_ALREADY_SCORED"
   // Voice session (ElevenLabs): the interview room's equivalent of AI_*.
   | "VOICE_UNAVAILABLE"
   | "VOICE_MISCONFIGURED"
@@ -66,26 +63,6 @@ export class PdfNoTextError extends AppError {
 export class StorageUnavailableError extends AppError {
   constructor(message = "File storage failed") {
     super("STORAGE_UNAVAILABLE", message);
-  }
-}
-
-export class TranscriptTooLongError extends AppError {
-  constructor(message = "Transcript exceeds the length limits") {
-    super("TRANSCRIPT_TOO_LONG", message);
-  }
-}
-
-/** The call ended before anything was transcribed. */
-export class TranscriptEmptyError extends AppError {
-  constructor(message = "Transcript is empty") {
-    super("TRANSCRIPT_EMPTY", message);
-  }
-}
-
-/** Feedback already exists. The room redirects first, so this is a double submit. */
-export class InterviewAlreadyScoredError extends AppError {
-  constructor(message = "Interview already has feedback") {
-    super("INTERVIEW_ALREADY_SCORED", message);
   }
 }
 

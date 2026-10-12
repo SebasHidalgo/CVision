@@ -46,7 +46,6 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     status: "SCHEDULED",
     finalized: false,
     createdAt: new Date("2026-10-01T00:00:00Z"),
-    recordingUrl: null,
     conversationId: null,
     contextMismatch: false,
     failureReason: null,

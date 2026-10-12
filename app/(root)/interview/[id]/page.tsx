@@ -1,8 +1,8 @@
 import InterviewScreen from "@/screens/Interview/InterviewScreen";
 
-// Bounds submitInterviewFeedbackAction: a database read, the 45 s AI timeout
-// and the feedback write. A literal, as Next requires.
-export const maxDuration = 60;
+// One database read and a Clerk profile read: the voice session itself is
+// issued by /api/interview/[id]/session, which carries its own budget.
+export const maxDuration = 30;
 
 type InterviewPageParams = Promise<{ id: string }>;
 

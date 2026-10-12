@@ -38,8 +38,8 @@ import type { Requirement } from "@/lib/schemas/resumeSchema";
 /**
  * Turns a stored transcript into stored feedback. One entry point for the
  * webhook (after the response), the feedback page (lazy, when it finds a
- * pending interview) and the legacy Vapi action. Idempotent and race-safe
- * by construction: the first thing it does is a conditional claim, and a
+ * pending interview) and the owner's retry. Idempotent and race-safe by
+ * construction: the first thing it does is a conditional claim, and a
  * caller that fails to claim does nothing and pays nothing.
  */
 
@@ -225,7 +225,7 @@ export async function generateInterviewFeedback(
   const turns = transcriptSchema.safeParse(row.transcript);
   if (!turns.success) return fail(FEEDBACK_FAILURE_REASONS.transcriptInvalid);
   // Belt to the webhook's suspender: it never hands over a transcript
-  // without candidate turns, but the legacy action can.
+  // without candidate turns, but the row is Json and could be edited by hand.
   if (!turns.data.some(isCandidateTurn)) return fail(FEEDBACK_FAILURE_REASONS.noCandidateTurns);
 
   const context = buildFeedbackContext(row);

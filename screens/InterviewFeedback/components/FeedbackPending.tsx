@@ -6,10 +6,15 @@ import RefreshPoller from "./RefreshPoller";
 type FeedbackPendingProps = {
   role: string;
   date: string;
+  /**
+   * "transcript": the call just ended and the platform has not delivered the
+   * transcript yet. "scoring": the transcript is stored and being read.
+   */
+  waitingFor: "transcript" | "scoring";
 };
 
-/** Shown while the transcript is being scored; polls until it is. */
-export default function FeedbackPending({ role, date }: FeedbackPendingProps) {
+/** Shown while the interview is being saved or scored; polls until it is. */
+export default function FeedbackPending({ role, date, waitingFor }: FeedbackPendingProps) {
   return (
     <article className="wrap py-10 lg:py-14">
       <RefreshPoller />
@@ -22,12 +27,12 @@ export default function FeedbackPending({ role, date }: FeedbackPendingProps) {
       <section className="py-12 lg:py-16" role="status" aria-live="polite">
         <p className="flex items-center gap-3 text-lg text-ink">
           <Loader2 aria-hidden className="size-5 animate-spin text-signal" />
-          Preparing your feedback.
+          {waitingFor === "transcript" ? "Saving your interview." : "Preparing your feedback."}
         </p>
         <p className="lede mt-4 max-w-xl">
-          The transcript is being read against the posting and the gaps your
-          analysis found. This usually takes under a minute; the page updates
-          by itself.
+          {waitingFor === "transcript"
+            ? "The transcript arrives a few seconds after the call ends, then it is read against the posting and the gaps your analysis found. The page updates by itself."
+            : "The transcript is being read against the posting and the gaps your analysis found. This usually takes under a minute; the page updates by itself."}
         </p>
         <p className="mt-6 text-sm text-ink-3">
           If nothing changes after a couple of minutes, reload the page.

@@ -24,20 +24,23 @@ export type DbResumeWithFeedback = Prisma.ResumeAnalysisGetPayload<{
 }>;
 
 /**
- * Columns no screen reads: the transcript and the issued context can be
- * tens of kilobytes per row, and `finalized` is derived above.
+ * Columns no screen reads here: the transcript and the issued context can be
+ * tens of kilobytes per row (the feedback page reads the transcript through
+ * its own query), `finalized` is derived above, and `recordingUrl` is a
+ * leftover of the browser recording that no longer exists.
  */
 export const interviewOmit = {
   transcript: true,
   issuedContext: true,
   finalized: true,
+  recordingUrl: true,
 } satisfies Prisma.InterviewOmit;
 
 export type DbInterview = Prisma.InterviewGetPayload<{ omit: typeof interviewOmit }>;
 
 /** Feedback plus what the report needs from its interview. */
 export const feedbackInclude = {
-  interview: { select: { role: true, createdAt: true, recordingUrl: true } },
+  interview: { select: { role: true, createdAt: true } },
 } satisfies Prisma.InterviewFeedbackInclude;
 
 export type DbInterviewFeedback = Prisma.InterviewFeedbackGetPayload<{
@@ -86,7 +89,6 @@ export function mapDbInterview(db: DbInterview): Interview {
     status: db.status,
     finalized: isFinalized(db.status),
     createdAt: db.createdAt,
-    recordingUrl: db.recordingUrl,
     resumeAnalysisId: db.resumeAnalysisId,
     conversationId: db.conversationId,
     startCount: db.startCount,
@@ -116,7 +118,6 @@ export function mapDbInterviewFeedback(
     interviewId: db.interviewId,
     role: db.interview.role,
     createdAt: db.interview.createdAt.toISOString(),
-    recordingUrl: db.interview.recordingUrl,
     totalScore: db.totalScore,
     report: parsed.data,
   };

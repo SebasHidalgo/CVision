@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { fetchInterviewById } from "@/lib/database/interview";
+import {
+  MAX_INTERVIEW_DURATION_SECONDS,
+  MAX_INTERVIEW_STARTS,
+} from "@/lib/elevenlabs/agentConfig";
 import { interviewPhase } from "@/lib/interviewStatus";
 import InterviewAgent from "./components/InterviewAgent";
 
@@ -22,7 +26,7 @@ export default async function InterviewScreen({
   }
 
   // Without a linked analysis there is no job context for the interviewer.
-  if (!interview.resumeAnalysis) redirect("/interviews");
+  if (!interview.resumeAnalysis || !interview.resumeAnalysisId) redirect("/interviews");
 
   const user = await getAuthUser();
 
@@ -30,9 +34,12 @@ export default async function InterviewScreen({
     <InterviewAgent
       interviewId={interview.id}
       role={interview.role}
-      jobDescription={interview.resumeAnalysis.jobDescription}
-      userName={user.firstName ?? "there"}
-      userProfilePic={user.imageUrl}
+      company={interview.resumeAnalysis.companyName}
+      candidateName={user.firstName ?? user.fullName}
+      analysisId={interview.resumeAnalysisId}
+      startCount={interview.startCount}
+      maxStarts={MAX_INTERVIEW_STARTS}
+      maxDurationSeconds={MAX_INTERVIEW_DURATION_SECONDS}
     />
   );
 }

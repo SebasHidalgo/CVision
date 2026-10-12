@@ -54,14 +54,24 @@ export const INTERVIEW_WEBHOOK_NAME = "CVision post-call transcript";
 export const INTERVIEW_AGENT_LLM: ElevenLabs.Llm = "gemini-3.5-flash";
 export const INTERVIEW_AGENT_LLM_TEMPERATURE = 0.3;
 
-/** Sarah, the premade voice the Vapi room used, so the interviewer sounds the same. */
+/** Sarah, a premade ElevenLabs voice: the one the interviewer has always had. */
 export const INTERVIEW_AGENT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
-/** Low-latency multilingual TTS; covers English and Spanish. */
-export const INTERVIEW_AGENT_TTS_MODEL: ElevenLabs.TtsConversationalModel = "eleven_flash_v2_5";
+/**
+ * TTS models. The platform ties the default model to the agent's default
+ * language: an English agent must use an English-only model (the first real
+ * sync was refused with "English Agents must use turbo or flash v2"), and
+ * every other language needs the multilingual one, declared per language in
+ * `languagePresets` below. The Spanish preset is what a session's language
+ * override selects.
+ */
+export const INTERVIEW_AGENT_TTS_MODEL: ElevenLabs.TtsConversationalModel = "eleven_flash_v2";
+export const INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL: ElevenLabs.TtsConversationalModel = "eleven_flash_v2_5";
 export const INTERVIEW_AGENT_ASR_PROVIDER: ElevenLabs.AsrProvider = "scribe_realtime";
 
 /** Default language; a session may override it to Spanish (see overrides below). */
 export const INTERVIEW_AGENT_DEFAULT_LANGUAGE = "en";
+/** The other language the agent is configured for, as a preset the override can select. */
+export const INTERVIEW_AGENT_EXTRA_LANGUAGES = ["es"] as const;
 
 /** Said by the platform when the hard cap cuts the call. Plain field, English only. */
 const MAX_DURATION_MESSAGE =
@@ -125,6 +135,20 @@ export function buildInterviewAgentDefinition({
         modelId: INTERVIEW_AGENT_TTS_MODEL,
         voiceId: INTERVIEW_AGENT_VOICE_ID,
       },
+      // One preset per non-default language: same voice, multilingual model.
+      // The first message is a variable already in the session's language,
+      // so no translation is attached.
+      languagePresets: Object.fromEntries(
+        INTERVIEW_AGENT_EXTRA_LANGUAGES.map((language) => [
+          language,
+          {
+            overrides: {
+              agent: { language },
+              tts: { modelId: INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL },
+            },
+          },
+        ]),
+      ),
       turn: {
         turnTimeout: INTERVIEW_TURN_TIMEOUT_SECONDS,
         silenceEndCallTimeout: INTERVIEW_SILENCE_END_CALL_SECONDS,

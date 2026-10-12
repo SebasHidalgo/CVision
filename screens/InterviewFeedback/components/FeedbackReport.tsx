@@ -1,23 +1,26 @@
 import Link from "next/link";
-import { ArrowLeft, Check, Video } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import Reveal from "@/components/motion/Reveal";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import ScoreReadout from "@/components/score/ScoreReadout";
-import { Button } from "@/components/ui/button";
 import type {
   AnchoredPoint,
   GapOutcome,
   InterviewFeedbackReport,
   InterviewStats,
 } from "@/lib/ai/schemas";
+import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import { ordinal } from "@/lib/format";
 import { PERFORMANCE_LABEL, scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import type { InterviewFeedback } from "@/types/interview";
+import TranscriptSection from "./TranscriptSection";
 
 type FeedbackReportProps = {
   feedback: InterviewFeedback;
+  /** The stored turns the report quotes from; null when the row has none. */
+  transcript: TranscriptTurn[] | null;
   /** Already formatted on the server. */
   date: string;
 };
@@ -82,7 +85,7 @@ function PointList({
   );
 }
 
-export default function FeedbackReport({ feedback, date }: FeedbackReportProps) {
+export default function FeedbackReport({ feedback, transcript, date }: FeedbackReportProps) {
   const { report } = feedback;
 
   return (
@@ -114,14 +117,6 @@ export default function FeedbackReport({ feedback, date }: FeedbackReportProps) 
         />
 
         <div className="mt-10 flex flex-wrap items-center gap-3">
-          {feedback.recordingUrl && (
-            <Button asChild variant="outline" className="h-11 gap-2 px-5">
-              <a href={feedback.recordingUrl} target="_blank" rel="noopener noreferrer">
-                <Video className="size-4" />
-                Watch the recording
-              </a>
-            </Button>
-          )}
           <Link href="/interviews" className="link-rule inline-flex items-center gap-2 px-2 text-sm text-ink-2">
             <ArrowLeft className="size-4" />
             All interviews
@@ -289,6 +284,8 @@ export default function FeedbackReport({ feedback, date }: FeedbackReportProps) 
           </blockquote>
         </section>
       </Reveal>
+
+      {transcript && <TranscriptSection turns={transcript} />}
     </article>
   );
 }

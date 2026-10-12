@@ -2,15 +2,18 @@
  * Pushes the interview agent defined in lib/elevenlabs/agentConfig.ts to
  * ElevenLabs, so the dashboard mirrors the code and not the other way round.
  *
- *   npm run agent:sync -- [--webhook-url https://host/api/webhooks/elevenlabs] [--dry-run]
+ *   npm run agent:sync -- [--webhook-url https://host/api/webhooks/elevenlabs] [--replace-webhook] [--dry-run]
  *
  * Idempotent: with ELEVENLABS_AGENT_ID unset it creates the agent and prints
  * the id to put in .env; with it set it updates that agent in place. The
  * post-call webhook is a workspace object found by name; when it does not
  * exist and --webhook-url is given, it is created and its secret is printed
  * once (it cannot be read back), to put in ELEVENLABS_WEBHOOK_SECRET.
- * Without a webhook the agent is pushed anyway, with a warning: sessions
- * would run but no transcript would come back.
+ * A webhook's URL cannot be changed once created (the platform's update
+ * call has no URL field), so a new URL, as with a tunnel that changed,
+ * needs --replace-webhook: the old one is deleted and a new one created,
+ * with a new secret. Without a webhook the agent is pushed anyway, with a
+ * warning: sessions would run but no transcript would come back.
  *
  * Reads ELEVENLABS_API_KEY from .env. Never prints it.
  */
@@ -24,6 +27,7 @@ import {
 const { values: args } = parseArgs({
   options: {
     "webhook-url": { type: "string" },
+    "replace-webhook": { type: "boolean", default: false },
     "dry-run": { type: "boolean", default: false },
   },
 });
@@ -45,7 +49,7 @@ async function main() {
 
   const client = new ElevenLabsClient({ apiKey, maxRetries: 0, timeoutInSeconds: 30 });
 
-  const postCallWebhookId = await ensureWebhook(client, args["webhook-url"] ?? null);
+  const postCallWebhookId = await ensureWebhook(client, args["webhook-url"] ?? null, args["replace-webhook"]);
   const definition = buildInterviewAgentDefinition({ postCallWebhookId });
 
   let resultingAgentId: string;
@@ -67,6 +71,7 @@ async function main() {
 async function ensureWebhook(
   client: ElevenLabsClient,
   webhookUrl: string | null,
+  replace: boolean,
 ): Promise<string | null> {
   const { webhooks } = await client.webhooks.list({ includeUsages: true });
   const existing = webhooks.find((webhook) => webhook.name === INTERVIEW_WEBHOOK_NAME);
@@ -78,15 +83,22 @@ async function ensureWebhook(
         ? "AUTO-DISABLED after repeated failures"
         : "enabled";
     console.log(`Webhook "${existing.name}" ${existing.webhookId} -> ${existing.webhookUrl} (${state})`);
-    if (webhookUrl && webhookUrl !== existing.webhookUrl) {
-      console.warn(
-        `  --webhook-url differs from the existing URL; update it in the dashboard (Settings > Webhooks) or delete and re-run.`,
-      );
+
+    const urlChanged = webhookUrl !== null && webhookUrl !== existing.webhookUrl;
+    if (urlChanged && replace) {
+      await client.webhooks.delete(existing.webhookId);
+      console.log(`  Deleted it: the URL changed and --replace-webhook was given. Its secret is now invalid.`);
+    } else {
+      if (urlChanged) {
+        console.warn(
+          "  --webhook-url differs from the existing URL. A webhook's URL cannot be changed; re-run with --replace-webhook to delete and recreate it (new secret).",
+        );
+      }
+      if (existing.isDisabled || existing.isAutoDisabled) {
+        console.warn("  Re-enable it in the dashboard; transcripts are not being delivered.");
+      }
+      return existing.webhookId;
     }
-    if (existing.isDisabled || existing.isAutoDisabled) {
-      console.warn("  Re-enable it in the dashboard; transcripts are not being delivered.");
-    }
-    return existing.webhookId;
   }
 
   if (!webhookUrl) {

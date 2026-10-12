@@ -21,12 +21,6 @@ const COPY: Record<ErrorCode, string> = {
     "The analyzer declined to process this content. Remove anything unusual from the CV or job description and try again.",
   AI_BAD_FORMAT:
     "We couldn't read the analysis. Try again — it usually works on a retry.",
-  TRANSCRIPT_TOO_LONG:
-    "This interview is too long to score. Try a shorter session.",
-  TRANSCRIPT_EMPTY:
-    "The interview ended before anything was transcribed, so there's nothing to score. Reload the page to start again.",
-  INTERVIEW_ALREADY_SCORED:
-    "This interview already has its feedback. You'll find it under Interviews.",
   VOICE_UNAVAILABLE:
     "The interviewer couldn't connect right now. Give it a minute and try again.",
   VOICE_MISCONFIGURED:

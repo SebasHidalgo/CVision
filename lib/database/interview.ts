@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
-import { STARTABLE_STATUSES, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { z } from "zod";
+import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import {
   feedbackInclude,
@@ -169,40 +170,33 @@ export async function reserveInterviewSession(
   }
 }
 
+const transcriptSchema = z.array(transcriptTurnSchema);
+
 /**
- * The legacy Vapi path: stores a transcript the browser supplied, marked as
- * such, and hands the interview to feedback generation. Owner-scoped and
- * guarded on the startable states, so a second submit changes nothing.
- * Removed in M3-C with the room that produces it.
+ * The stored turns of one of the caller's interviews, for the feedback page
+ * to show back. `null` when there is no transcript yet, when the row holds
+ * something that is not a transcript, or when the interview is not theirs.
  */
-export async function storeClientTranscript(params: {
-  interviewId: string;
-  turns: TranscriptTurn[];
-  recordingUrl?: string;
-}): Promise<boolean> {
+export async function fetchInterviewTranscript(
+  interviewId: string
+): Promise<TranscriptTurn[] | null> {
   try {
     const userId = await requireUserId();
 
-    const result = await prisma.interview.updateMany({
-      where: {
-        id: params.interviewId,
-        userId,
-        status: { in: [...STARTABLE_STATUSES] },
-      },
-      data: {
-        status: "FEEDBACK_PENDING",
-        transcript: params.turns as Prisma.InputJsonValue,
-        transcriptSource: "browser",
-        endedAt: new Date(),
-        failureReason: null,
-        feedbackAttempts: 0,
-        ...(params.recordingUrl ? { recordingUrl: params.recordingUrl } : {}),
-      },
+    const row = await prisma.interview.findFirst({
+      where: { id: interviewId, userId },
+      select: { transcript: true },
     });
+    if (!row?.transcript) return null;
 
-    return result.count === 1;
+    const parsed = transcriptSchema.safeParse(row.transcript);
+    if (!parsed.success) {
+      console.warn(`[CVision] Interview ${interviewId} transcript is outside the schema`);
+      return null;
+    }
+    return parsed.data;
   } catch (error) {
-    handleError(error, "Failed to store client transcript");
+    handleError(error, "Failed to retrieve interview transcript");
   }
 }
 

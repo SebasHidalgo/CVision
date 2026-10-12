@@ -106,14 +106,14 @@ export default function InterviewCta({
           </h2>
           <p className="lede mt-4 max-w-xl">
             {rehearsed
-              ? "Your feedback report shows how you handled the gaps the analysis found, in your own words."
-              : "A voice interviewer built from this exact posting asks the questions, you answer, and you get scored on five things when you hang up."}
+              ? "Your feedback report shows how you handled the gaps the analysis found, quoting your own words, with the full transcript underneath."
+              : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."}
           </p>
         </div>
         <div className="flex flex-col items-start gap-3 md:col-span-4 md:items-end">
           {control}
           {!target && (
-            <p className="eyebrow">Needs a microphone · takes a few seconds to set up</p>
+            <p className="eyebrow">Needs a microphone · up to 12 minutes · works on a phone</p>
           )}
         </div>
       </div>

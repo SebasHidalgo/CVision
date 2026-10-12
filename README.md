@@ -20,6 +20,56 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Voice interview: local development
+
+The mock interview runs on ElevenLabs Agents. The browser gets a single-use
+conversation token from `POST /api/interview/[id]/session` and talks to
+ElevenLabs over WebRTC; the transcript comes back to the server by webhook
+(`POST /api/webhooks/elevenlabs`), which is what triggers the feedback. The
+webhook needs a public URL, so local development needs a tunnel.
+
+1. Put the key in `.env` (see `.env.template`): `ELEVENLABS_API_KEY`. Leave
+   `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET` empty the first time.
+
+2. Start the tunnel to the dev server's port. With ngrok's free static domain
+   (one per account, reserved in the ngrok dashboard) the URL survives restarts:
+
+   ```bash
+   ngrok http --url=<your-domain>.ngrok-free.app 3000
+   ```
+
+   Without a static domain, `ngrok http 3000` gives a URL that changes on
+   every restart; every change means re-running the sync below with the new
+   URL and updating the webhook URL in the ElevenLabs dashboard
+   (Settings > Webhooks), because the sync script does not overwrite an
+   existing webhook's URL.
+
+3. Push the agent (defined in `lib/elevenlabs/agentConfig.ts`) and create the
+   post-call webhook, once:
+
+   ```bash
+   npm run agent:sync -- --webhook-url https://<tunnel-host>/api/webhooks/elevenlabs
+   ```
+
+   It prints the agent id and, the first time only, the webhook secret. Put
+   both in `.env` as `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET`.
+   Re-run the same command (without `--webhook-url`, or with the same one)
+   after any change to `agentConfig.ts` or the interviewer prompt: the
+   dashboard mirrors the code, not the other way round.
+
+4. Run the app and open it **through the tunnel URL**, not localhost, so the
+   same origin serves the page, the session endpoint and the webhook:
+
+   ```bash
+   npm run dev
+   ```
+
+   The microphone requires a secure context; the tunnel is https, and so is
+   the phone test. Interviews work on a phone over the same URL.
+
+5. To check the agent as the platform holds it (limits, auth, webhook), run
+   the sync again: it prints the effective settings at the end.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

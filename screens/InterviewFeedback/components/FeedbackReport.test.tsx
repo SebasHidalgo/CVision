@@ -51,14 +51,22 @@ const feedback: InterviewFeedback = {
   interviewId: "interview_1",
   role: "Backend Engineer",
   createdAt: "2026-10-11T10:00:00.000Z",
-  recordingUrl: null,
   totalScore: 71,
   report,
 };
 
 describe("FeedbackReport", () => {
   it("renders the gap follow-through first, with outcomes, quotes and anchored points", () => {
-    const html = renderToStaticMarkup(<FeedbackReport feedback={feedback} date="October 11, 2026" />);
+    const html = renderToStaticMarkup(
+      <FeedbackReport
+        feedback={feedback}
+        transcript={[
+          { role: "agent", message: "Tell me about the Kubernetes migration.", time_in_call_secs: 12 },
+          { role: "user", message: "Last year we moved the six orders services to a managed Kubernetes cluster.", time_in_call_secs: 15 },
+        ]}
+        date="October 11, 2026"
+      />,
+    );
 
     // The lead section, one row per gap, with its outcome label and quote.
     const gaps = html.indexOf("Your weak spots, in the room");
@@ -87,11 +95,29 @@ describe("FeedbackReport", () => {
     expect(html).toContain("rolled back the deploy first");
     expect(html).toContain("Bring a GraphQL example");
     expect(html).toContain("Dangling anchor is tolerated");
+
+    // The transcript closes the page, collapsed, with speaker and time.
+    const transcript = html.indexOf("<details");
+    expect(transcript).toBeGreaterThan(html.indexOf("Final assessment"));
+    expect(html).toContain("Tell me about the Kubernetes migration.");
+    expect(html).toContain("0:15");
+    expect(html).not.toContain("recording");
+  });
+
+  it("renders no transcript section when the row has none", () => {
+    const html = renderToStaticMarkup(
+      <FeedbackReport feedback={feedback} transcript={null} date="October 11, 2026" />,
+    );
+    expect(html).not.toContain("<details");
   });
 
   it("says so when the analysis found nothing to probe", () => {
     const html = renderToStaticMarkup(
-      <FeedbackReport feedback={{ ...feedback, report: { ...report, gapFollowThrough: [] } }} date="October 11, 2026" />,
+      <FeedbackReport
+        feedback={{ ...feedback, report: { ...report, gapFollowThrough: [] } }}
+        transcript={null}
+        date="October 11, 2026"
+      />,
     );
     expect(html).toContain("The analysis found no gaps to probe.");
   });

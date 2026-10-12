@@ -1,484 +1,452 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Loader2, Mic, MonitorUp, Phone, PhoneOff } from "lucide-react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ConversationProvider, useConversation } from "@elevenlabs/react";
+import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
-import { interviewer } from "@/lib/ai/prompts/interviewer.prompt";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
-import { MAX_TRANSCRIPT_MESSAGES } from "@/lib/schemas/interviewSchema";
-import { uploadFileToSupabase } from "@/lib/supabase";
+import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
-import { vapi } from "@/lib/vapiSdk";
-import { submitInterviewFeedbackAction } from "@/screens/Interview/actions/submitInterviewFeedbackAction";
-import Transcript, { type TranscriptMessage } from "./Transcript";
+import {
+  countdownNotice,
+  countdownPhase,
+  formatClock,
+  remainingSeconds,
+} from "../utils/countdown";
+import { requestInterviewSession } from "../utils/session";
+import Transcript, { type TranscriptLine } from "./Transcript";
 
-enum CallStatus {
-  INACTIVE = "INACTIVE",
-  CONNECTING = "CONNECTING",
-  ACTIVE = "ACTIVE",
-  FINISHED = "FINISHED",
-}
-
-type InterviewAgentProps = {
+export type InterviewAgentProps = {
   interviewId: string;
   role: string;
-  jobDescription: string;
-  userName: string;
-  userProfilePic: string;
+  company: string;
+  /** Clerk first name; null when the account has none. */
+  candidateName: string | null;
+  /** Where the cap message sends the candidate to rehearse again. */
+  analysisId: string;
+  /** Sessions already issued for this interview, and the cap. */
+  startCount: number;
+  maxStarts: number;
+  /** The agent's hard limit; the session response repeats it. */
+  maxDurationSeconds: number;
 };
 
-const BRIEFING = [
-  {
-    icon: Mic,
-    text: "Your microphone, so the interviewer can hear you.",
-  },
-  {
-    icon: MonitorUp,
-    text: "Sharing this tab, so the session is recorded for you to review.",
-  },
-];
-
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+/**
+ * The interview room. The browser never holds a key: Start asks the server
+ * for a session, and the server answers with a single-use conversation token
+ * and the variables it issued, which go to the SDK untouched. What the
+ * candidate says is transcribed by the platform and delivered to the server
+ * by webhook; the transcript shown here is for the candidate's eyes and is
+ * never sent anywhere.
+ */
+export default function InterviewAgent(props: InterviewAgentProps) {
+  return (
+    <ConversationProvider>
+      <InterviewRoom {...props} />
+    </ConversationProvider>
+  );
 }
 
-export default function InterviewAgent({
-  userName,
+type Phase =
+  | { kind: "idle" }
+  | { kind: "starting"; step: "microphone" | "session" | "connecting" }
+  | { kind: "live" }
+  | { kind: "ending" }
+  | { kind: "ended" }
+  | { kind: "dropped" };
+
+const MIC_COPY = {
+  insecure:
+    "The microphone only works over a secure connection. Open this page over https and try again.",
+  denied:
+    "Microphone access was blocked. Allow the microphone for this site in your browser's site settings (the icon next to the address bar), then try again.",
+  missing:
+    "No microphone was found. Connect one, or check that the browser can see it, then try again.",
+  failed:
+    "The microphone could not be opened. Close other apps that may be using it and try again.",
+};
+
+/**
+ * Asks for the microphone before anything is paid for: a denied permission
+ * costs nothing, while a session issued and never joined costs a start. The
+ * SDK asks again when the session starts; by then the answer is remembered.
+ */
+async function requestMicrophone(): Promise<string | null> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return MIC_COPY.insecure;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    for (const track of stream.getTracks()) track.stop();
+    return null;
+  } catch (error) {
+    const name = error instanceof DOMException ? error.name : "";
+    if (name === "NotAllowedError" || name === "SecurityError") return MIC_COPY.denied;
+    if (name === "NotFoundError" || name === "OverconstrainedError") return MIC_COPY.missing;
+    return MIC_COPY.failed;
+  }
+}
+
+/** The SDK always reaches onDisconnect after endSession; this is the belt for a hook that never fires. */
+const END_FALLBACK_MS = 5_000;
+
+function InterviewRoom({
   interviewId,
   role,
-  jobDescription,
-  userProfilePic,
+  company,
+  candidateName,
+  analysisId,
+  startCount,
+  maxStarts,
+  maxDurationSeconds,
 }: InterviewAgentProps) {
   const router = useRouter();
-  const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
-  const [messages, setMessages] = useState<TranscriptMessage[]>([]);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [notice, setNotice] = useState<string | null>(null);
+  const [startsUsed, setStartsUsed] = useState(startCount);
+  const [session, setSession] = useState<InterviewSessionResponse | null>(null);
+  const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [lines, setLines] = useState<TranscriptLine[]>([]);
 
-  // Recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
-  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
-  const [feedbackReady, setFeedbackReady] = useState(false);
-
-  // Audio context for mixing the interviewer's voice into the recording
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-  const connectedAudioTracksRef = useRef<Set<string>>(new Set());
-
+  // The SDK's callbacks fire outside React's render; they read the phase
+  // through a ref so a callback registered on an earlier render sees the
+  // current one.
+  const phaseRef = useRef(phase);
   useEffect(() => {
-    const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
-    const onCallEnd = () => {
-      setCallStatus(CallStatus.FINISHED);
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state !== "inactive"
-      ) {
-        mediaRecorderRef.current.stop();
-      }
-    };
+    phaseRef.current = phase;
+  }, [phase]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onMessage = (message: any) => {
-      if (message.type === "transcript" && message.transcriptType === "final") {
-        const newMessage = { role: message.role, content: message.transcript };
-        setMessages((prev) => [...prev, newMessage]);
-      }
-    };
-
-    const onSpeechStart = () => setIsSpeaking(true);
-    const onSpeechEnd = () => setIsSpeaking(false);
-    const onError = (error: Error) => console.error("Error:", error);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onParticipantUpdated = (participant: any) => {
-      if (participant.local) return;
-      const audioTrack =
-        participant.tracks?.audio?.persistentTrack ||
-        participant.tracks?.audio?.track;
-      if (!audioTrack || !audioContextRef.current || !audioDestinationRef.current) return;
-      if (connectedAudioTracksRef.current.has(audioTrack.id)) return;
-
-      connectedAudioTracksRef.current.add(audioTrack.id);
-      try {
-        const source = audioContextRef.current.createMediaStreamSource(
-          new MediaStream([audioTrack]),
-        );
-        source.connect(audioDestinationRef.current);
-      } catch (e) {
-        console.error("Error connecting remote audio track:", e);
-      }
-    };
-
-    vapi.on("call-start", onCallStart);
-    vapi.on("call-end", onCallEnd);
-    vapi.on("message", onMessage);
-    vapi.on("speech-start", onSpeechStart);
-    vapi.on("speech-end", onSpeechEnd);
-    vapi.on("error", onError);
-    vapi.on("daily-participant-updated", onParticipantUpdated);
-
+  const endFallback = useRef<number | null>(null);
+  useEffect(() => {
     return () => {
-      vapi.off("call-start", onCallStart);
-      vapi.off("call-end", onCallEnd);
-      vapi.off("message", onMessage);
-      vapi.off("speech-start", onSpeechStart);
-      vapi.off("speech-end", onSpeechEnd);
-      vapi.off("error", onError);
-      vapi.off("daily-participant-updated", onParticipantUpdated);
+      if (endFallback.current !== null) window.clearTimeout(endFallback.current);
     };
   }, []);
 
-  // Call clock
-  useEffect(() => {
-    if (callStatus !== CallStatus.ACTIVE) return;
-    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(timer);
-  }, [callStatus]);
+  const feedbackHref = `/interview/${interviewId}/feedback?ended=1`;
 
-  const startRecording = async () => {
-    try {
-      recordedChunksRef.current = [];
-      setRecordedVideoUrl(null);
+  const goToFeedback = useCallback(() => {
+    setPhase({ kind: "ended" });
+    router.push(feedbackHref);
+  }, [router, feedbackHref]);
 
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" },
-        audio: false,
-        // @ts-expect-error Chromium-only hint, harmless elsewhere.
-        preferCurrentTab: true,
-      });
+  const failStart = useCallback((copy: string) => {
+    setNotice(copy);
+    setPhase({ kind: "idle" });
+  }, []);
 
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+  const { startSession, endSession, mode } = useConversation({
+    onConnect: () => {
+      setConnectedAt(Date.now());
+      setNow(Date.now());
+      setNotice(null);
+      setPhase({ kind: "live" });
+    },
+    onDisconnect: (details) => {
+      const current = phaseRef.current.kind;
+      if (current === "ended") return;
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const destination = audioContext.createMediaStreamDestination();
-      audioDestinationRef.current = destination;
+      // The platform's hard limit arrives as an error event; it is the agent
+      // ending the call, not a failure.
+      const endedByCall =
+        details.reason === "user" ||
+        details.reason === "agent" ||
+        (details.reason === "error" && details.context.type === "max_duration_exceeded");
 
-      if (micStream.getAudioTracks().length > 0) {
-        const micAudioSource = audioContext.createMediaStreamSource(micStream);
-        micAudioSource.connect(destination);
-      }
-
-      const tracks: MediaStreamTrack[] = [
-        displayStream.getVideoTracks()[0],
-        destination.stream.getAudioTracks()[0],
-      ];
-
-      const mixedStream = new MediaStream(tracks);
-
-      const mediaRecorder = new MediaRecorder(mixedStream, {
-        mimeType: "video/webm",
-      });
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, {
-          type: "video/webm",
-        });
-        setRecordedVideoUrl(URL.createObjectURL(blob));
-
-        displayStream.getTracks().forEach((track) => track.stop());
-        micStream.getTracks().forEach((track) => track.stop());
-        if (audioContext.state !== "closed") {
-          audioContext.close();
-        }
-      };
-
-      mediaRecorder.start(1000);
-      mediaRecorderRef.current = mediaRecorder;
-      return true;
-    } catch (err) {
-      console.error("Error starting recording:", err);
-      return false;
-    }
-  };
-
-  const stopRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
-  const handleGenerateFeedback = async (messagesToSave: TranscriptMessage[]) => {
-    setIsGeneratingFeedback(true);
-    let uploadedVideoUrl: string | undefined = undefined;
-
-    if (recordedChunksRef.current.length > 0) {
-      try {
-        const file = new File(
-          recordedChunksRef.current,
-          `interview-${interviewId}-${Date.now()}.webm`,
-          { type: "video/webm" },
-        );
-        uploadedVideoUrl = await uploadFileToSupabase(file, file.name);
-      } catch (error) {
-        console.error("Error uploading recording:", error);
-      }
-    }
-
-    try {
-      const result = await submitInterviewFeedbackAction({
-        interviewId,
-        // The server caps the transcript; send the last turns so a long
-        // interview isn't rejected outright.
-        transcript: messagesToSave.slice(-MAX_TRANSCRIPT_MESSAGES),
-        recordingUrl: uploadedVideoUrl,
-      });
-
-      if (!result.ok) {
-        toast.error(actionErrorCopy(result.code));
+      if (current === "ending" || endedByCall) {
+        goToFeedback();
         return;
       }
-      setFeedbackReady(true);
-    } catch {
-      toast.error(actionErrorCopy("UNKNOWN"));
-    } finally {
-      // In finally so a failure can't leave the button spinning forever.
-      setIsGeneratingFeedback(false);
-    }
-  };
+      if (current === "starting") {
+        failStart(actionErrorCopy("VOICE_UNAVAILABLE"));
+        return;
+      }
+      setPhase({ kind: "dropped" });
+    },
+    onError: (message) => {
+      // The SDK's own message: about the session, never about the candidate.
+      console.error("[CVision][room] voice session error:", message);
+      if (phaseRef.current.kind === "starting") failStart(actionErrorCopy("VOICE_UNAVAILABLE"));
+    },
+    onMessage: ({ role: speaker, message }) => {
+      if (!message.trim()) return;
+      setLines((prev) => [...prev, { role: speaker, text: message }]);
+    },
+    // An interrupted agent line is reported as what was planned, then
+    // corrected to what was actually said.
+    onAgentResponseCorrection: ({ original_agent_response, corrected_agent_response }) => {
+      setLines((prev) => {
+        const index = prev.findLastIndex(
+          (line) => line.role === "agent" && line.text === original_agent_response,
+        );
+        if (index < 0) return prev;
+        const next = prev.slice();
+        next[index] = { role: "agent", text: corrected_agent_response };
+        return next;
+      });
+    },
+  });
 
-  useEffect(() => {
-    if (callStatus === CallStatus.FINISHED) {
-      handleGenerateFeedback(messages);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callStatus]);
+  const handleStart = async () => {
+    setNotice(null);
+    setLines([]);
+    setConnectedAt(null);
+    setPhase({ kind: "starting", step: "microphone" });
 
-  const handleCall = async () => {
-    setPermissionError(null);
-    setCallStatus(CallStatus.CONNECTING);
-
-    const recordingStarted = await startRecording();
-    if (!recordingStarted) {
-      setPermissionError(
-        "The interview can't start without your microphone and this tab being shared. Allow both and try again.",
-      );
-      setCallStatus(CallStatus.INACTIVE);
+    const micProblem = await requestMicrophone();
+    if (micProblem) {
+      failStart(micProblem);
       return;
     }
 
-    try {
-      await vapi.start(interviewer, {
-        variableValues: {
-          jobdescription: jobDescription,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to start VAPI:", error);
-      stopRecording();
-      setCallStatus(CallStatus.INACTIVE);
-      toast.error("The interviewer couldn't connect. Try again in a moment.");
+    setPhase({ kind: "starting", step: "session" });
+    const result = await requestInterviewSession(interviewId);
+    if (!result.ok) {
+      if (result.code === "INTERVIEW_START_LIMIT") setStartsUsed(maxStarts);
+      failStart(actionErrorCopy(result.code));
+      return;
     }
+
+    // The server recorded the start when it answered; from here on it counts.
+    setStartsUsed((used) => used + 1);
+    setSession(result.data);
+    setPhase({ kind: "starting", step: "connecting" });
+    startSession({
+      connectionType: "webrtc",
+      conversationToken: result.data.conversationToken,
+      dynamicVariables: result.data.dynamicVariables,
+      overrides: { agent: { language: result.data.language } },
+    });
   };
 
-  const handleDisconnect = () => {
-    setCallStatus(CallStatus.FINISHED);
-    vapi.stop();
-    stopRecording();
+  const handleEnd = () => {
+    setPhase({ kind: "ending" });
+    endSession();
+    endFallback.current = window.setTimeout(() => {
+      if (phaseRef.current.kind === "ending") goToFeedback();
+    }, END_FALLBACK_MS);
   };
 
-  const active = callStatus === CallStatus.ACTIVE;
-  const finished = callStatus === CallStatus.FINISHED;
-  const connecting = callStatus === CallStatus.CONNECTING;
+  // The clock ticks only while the call is live.
+  useEffect(() => {
+    if (phase.kind !== "live") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [phase.kind]);
 
-  const orbState: VoiceOrbState = finished
-    ? "ended"
-    : connecting
-      ? "connecting"
-      : active
-        ? isSpeaking
-          ? "speaking"
-          : "listening"
-        : "idle";
+  const live = phase.kind === "live";
+  const starting = phase.kind === "starting";
+  const atCap = startsUsed >= maxStarts;
+  const attemptsLeft = Math.max(0, maxStarts - startsUsed);
 
-  const statusLine = finished
-    ? "Interview ended"
-    : connecting
+  const maxSeconds = session?.maxDurationSeconds ?? maxDurationSeconds;
+  const language = session?.language ?? "en";
+  const remaining =
+    live && connectedAt !== null ? remainingSeconds(maxSeconds, connectedAt, now) : maxSeconds;
+  const clockPhase = live ? countdownPhase(remaining) : "normal";
+  const clockNotice = live ? countdownNotice(clockPhase, language) : null;
+
+  const speaking = live && mode === "speaking";
+
+  const orbState: VoiceOrbState =
+    phase.kind === "ending" || phase.kind === "ended"
+      ? "ended"
+      : starting
+        ? "connecting"
+        : live
+          ? speaking
+            ? "speaking"
+            : "listening"
+          : "idle";
+
+  const statusLine =
+    phase.kind === "starting"
       ? "Connecting"
-      : active
-        ? isSpeaking
-          ? "Interviewer is speaking"
-          : "Listening to you"
-        : "Ready when you are";
+      : phase.kind === "live"
+        ? speaking
+          ? "Interviewer speaking"
+          : "Your turn"
+        : phase.kind === "ending"
+          ? "Ending the interview"
+          : phase.kind === "ended"
+            ? "Interview ended"
+            : phase.kind === "dropped"
+              ? "Connection lost"
+              : atCap
+                ? "No attempts left"
+                : "Ready when you are";
+
+  const startLabel =
+    phase.kind === "starting"
+      ? phase.step === "microphone"
+        ? "Checking the microphone"
+        : phase.step === "session"
+          ? "Starting"
+          : "Connecting"
+      : phase.kind === "dropped"
+        ? "Try again"
+        : "Start the interview";
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
-        {/* Room header */}
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
           <div>
             <Eyebrow tick>Interview room</Eyebrow>
             <h1 className="display-md mt-3">{role}</h1>
+            <p className="mt-2 text-ink-2">{company}</p>
           </div>
           <div className="flex items-center gap-4">
             <span
               aria-hidden
               className={cn(
                 "size-2 rounded-full",
-                active ? "glow-signal bg-signal animate-blink" : finished ? "bg-ink-3" : "bg-line-strong",
+                live
+                  ? "glow-signal bg-signal animate-blink"
+                  : phase.kind === "ended" || phase.kind === "dropped"
+                    ? "bg-ink-3"
+                    : "bg-line-strong",
               )}
             />
             <span className="eyebrow text-ink">{statusLine}</span>
-            <span className="eyebrow tabular border-l border-line pl-4">
-              {formatDuration(elapsed)}
+            <span
+              className={cn(
+                "eyebrow tabular border-l border-line pl-4",
+                clockPhase === "final" && "text-signal",
+                clockPhase === "warning" && "text-ink",
+              )}
+              aria-label={live ? "Time left" : "Interview length"}
+            >
+              {formatClock(remaining)}
             </span>
           </div>
         </header>
 
         <div className="grid flex-1 gap-12 py-10 lg:grid-cols-12 lg:gap-16">
-          {/* Stage */}
-          <section
-            aria-label="Interviewer"
-            className="flex flex-col items-center lg:col-span-5"
-          >
+          <section aria-label="Interviewer" className="flex flex-col items-center lg:col-span-5">
             <VoiceOrb state={orbState} className="w-56 sm:w-64 lg:w-72" />
 
-            <div className="mt-10 flex items-center gap-5">
-              <div className="relative size-12 overflow-hidden rounded-full border border-line-strong">
-                <Image
-                  src={userProfilePic}
-                  alt=""
-                  fill
-                  sizes="48px"
-                  className="object-cover"
-                />
-              </div>
-              <div>
-                <p className="font-medium">{userName}</p>
-                <p className="eyebrow mt-1">Candidate</p>
-              </div>
+            <div className="mt-10 text-center">
+              <p className="font-medium">{candidateName ?? "You"}</p>
+              <p className="eyebrow mt-1">Candidate</p>
             </div>
 
-            {!active && !finished && (
+            {phase.kind === "idle" && !atCap && (
+              <dl className="mt-12 grid w-full max-w-sm grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <dt className="eyebrow">Length</dt>
+                  <dd className="mt-1 text-ink">Up to {Math.round(maxSeconds / 60)} minutes</dd>
+                </div>
+                <div>
+                  <dt className="eyebrow">Attempt</dt>
+                  <dd className="mt-1 text-ink">
+                    {startsUsed + 1} of {maxStarts}
+                  </dd>
+                </div>
+              </dl>
+            )}
+
+            {phase.kind === "idle" && atCap && (
               <div className="mt-12 w-full max-w-sm">
-                <p className="eyebrow">Before we start, the browser will ask for</p>
-                <ul className="mt-4 space-y-3">
-                  {BRIEFING.map((item) => (
-                    <li key={item.text} className="flex gap-3 text-sm leading-relaxed text-ink-2">
-                      <item.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink" />
-                      {item.text}
-                    </li>
-                  ))}
-                </ul>
-                <p className="eyebrow mt-5">Expect ten to fifteen minutes.</p>
+                <p className="text-sm leading-relaxed text-ink-2">
+                  {actionErrorCopy("INTERVIEW_START_LIMIT")}
+                </p>
+                <Link
+                  href={`/resume/analysis/${analysisId}`}
+                  className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
+                >
+                  Back to the analysis
+                  <ArrowRight className="size-4" />
+                </Link>
               </div>
             )}
 
-            {finished && recordedVideoUrl && (
-              <figure className="mt-12 w-full max-w-sm">
-                <figcaption className="eyebrow mb-3">Your recording</figcaption>
-                <video
-                  src={recordedVideoUrl}
-                  controls
-                  className="w-full border border-line bg-studio"
-                />
-              </figure>
+            {phase.kind === "dropped" && (
+              <div className="mt-12 w-full max-w-sm">
+                <p className="text-sm leading-relaxed text-ink">
+                  The connection to the interviewer was lost.
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-2">
+                  {attemptsLeft === 0
+                    ? "There are no attempts left for this interview."
+                    : `You have ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} left. If you had already answered some questions, what was said may be scored as it stands.`}
+                </p>
+                <Link
+                  href={feedbackHref}
+                  className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
+                >
+                  Check for feedback
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
             )}
           </section>
 
-          {/* Transcript */}
           <Transcript
-            messages={messages}
-            userName={userName}
-            live={active}
+            lines={lines}
+            live={live}
             className="max-h-[60dvh] lg:col-span-7 lg:max-h-none"
           />
         </div>
 
-        {/* Controls */}
         <footer className="sticky bottom-0 -mx-[clamp(1.25rem,4vw,3rem)] mt-auto border-t border-line bg-paper/90 px-[clamp(1.25rem,4vw,3rem)] py-4 backdrop-blur-[6px]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div role="status" aria-live="polite" className="min-h-5 text-sm">
-              {permissionError ? (
+              {notice ? (
                 <p className="flex items-center gap-2 text-signal">
                   <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
-                  {permissionError}
+                  {notice}
                 </p>
-              ) : finished ? (
-                <p className="text-ink-2">
-                  {isGeneratingFeedback
-                    ? "Scoring the interview. This takes a minute."
-                    : feedbackReady
-                      ? "Your feedback is ready."
-                      : "The interview ended."}
+              ) : clockNotice ? (
+                <p className={cn("font-medium", clockPhase === "final" ? "text-signal" : "text-ink")}>
+                  {clockNotice}
                 </p>
               ) : (
                 <p className="text-ink-2">
-                  {active
-                    ? "Speak naturally. Hang up whenever you're done."
-                    : "Questions are built from the job post you analyzed."}
+                  {live
+                    ? "Speak naturally. End the interview whenever you are done."
+                    : phase.kind === "ended"
+                      ? "Opening your feedback."
+                      : "The questions come from the posting and your analysis."}
                 </p>
               )}
             </div>
 
-            {active ? (
+            {live ? (
               <Button
                 variant="destructive"
                 size="lg"
-                onClick={handleDisconnect}
+                onClick={handleEnd}
                 className="h-12 gap-2 px-6 text-base"
               >
                 <PhoneOff className="size-5" />
-                End interview
+                End the interview
               </Button>
-            ) : finished ? (
+            ) : phase.kind === "ending" || phase.kind === "ended" ? (
+              <Button size="lg" disabled className="h-12 gap-2 px-6 text-base">
+                <Loader2 className="size-5 animate-spin" />
+                {phase.kind === "ending" ? "Ending" : "Opening your feedback"}
+              </Button>
+            ) : atCap ? null : (
               <Button
                 size="lg"
-                disabled={isGeneratingFeedback || !feedbackReady}
-                onClick={() => router.push(`/interview/${interviewId}/feedback`)}
-                className="group h-12 gap-2 px-6 text-base"
-              >
-                {isGeneratingFeedback ? (
-                  <>
-                    <Loader2 className="size-5 animate-spin" />
-                    Generating feedback
-                  </>
-                ) : (
-                  <>
-                    Read your feedback
-                    <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                size="lg"
-                onClick={handleCall}
-                disabled={connecting}
+                onClick={handleStart}
+                disabled={starting}
                 className="h-12 gap-2 px-6 text-base"
               >
-                {connecting ? (
-                  <>
-                    <Loader2 className="size-5 animate-spin" />
-                    Connecting
-                  </>
+                {starting ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : phase.kind === "dropped" ? (
+                  <RotateCcw className="size-5" />
                 ) : (
-                  <>
-                    <Phone className="size-5" />
-                    Start the interview
-                  </>
+                  <Phone className="size-5" />
                 )}
+                {startLabel}
               </Button>
             )}
           </div>
