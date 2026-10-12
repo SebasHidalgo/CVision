@@ -1,0 +1,9 @@
+[
+  { "role": "agent", "message": "Hi Priya, thanks for joining. I'll be interviewing you for the Frontend Engineer role at Lumen Health. We have about 12 minutes. To start, tell me briefly about your background and what drew you to this role.", "time_in_call_secs": 0 },
+  { "role": "user", "message": "Hi. I've been doing React for about three years, mostly on a booking flow for a clinic app. Healthcare is what I want to stay in.", "time_in_call_secs": 12 },
+  { "role": "agent", "message": "Tell me about accessibility work you've shipped. How did you check it met WCAG?", "time_in_call_secs": 28 },
+  { "role": "user", "message": "On the booking flow I made sure everything worked with the keyboard and used proper headings and labels. I didn't run a formal audit, we didn't have the tooling for that, but I tested with a screen reader myself a couple of times.", "time_in_call_secs": 34 },
+  { "role": "agent", "message": "Which screen reader, and what did you find?", "time_in_call_secs": 60 },
+  { "role": "user", "message": "VoiceOver on my Mac. It read the date picker as a bunch of unlabeled buttons, so I added aria labels with the full date. Sorry, I actually have to go, something came up. Can we stop here?", "time_in_call_secs": 65 },
+  { "role": "agent", "message": "Of course. Thank you, Priya. Your feedback will follow.", "time_in_call_secs": 88 }
+]

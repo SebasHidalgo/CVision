@@ -1,6 +1,7 @@
 import { Prisma, type InterviewStatus } from "@prisma/client";
 import type { ResumeAnalysis } from "@/types/resume";
 import type { Interview, InterviewFeedback } from "@/types/interview";
+import { interviewFeedbackReportSchema } from "@/lib/ai/schemas";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 
 /**
@@ -92,12 +93,24 @@ export function mapDbInterview(db: DbInterview): Interview {
     startedAt: db.startedAt,
     endedAt: db.endedAt,
     durationSeconds: db.durationSeconds,
+    failureReason: db.failureReason,
   };
 }
 
+/**
+ * The stored report is validated, not cast. A row written before the M3-B
+ * shape (or by a later one) reads as `null`, and the page says the feedback
+ * is unavailable instead of rendering half a report.
+ */
 export function mapDbInterviewFeedback(
   db: DbInterviewFeedback
-): InterviewFeedback {
+): InterviewFeedback | null {
+  const parsed = interviewFeedbackReportSchema.safeParse(db.report);
+  if (!parsed.success) {
+    console.warn(`[CVision] Interview feedback ${db.id} is outside the schema`);
+    return null;
+  }
+
   return {
     id: db.id,
     interviewId: db.interviewId,
@@ -105,9 +118,6 @@ export function mapDbInterviewFeedback(
     createdAt: db.interview.createdAt.toISOString(),
     recordingUrl: db.interview.recordingUrl,
     totalScore: db.totalScore,
-    categoryScores: db.categoryScores as InterviewFeedback["categoryScores"],
-    strengths: db.strengths,
-    areasForImprovement: db.areasForImprovement,
-    finalAssessment: db.finalAssessment,
+    report: parsed.data,
   };
 }

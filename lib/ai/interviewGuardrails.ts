@@ -1,0 +1,353 @@
+import {
+  groundQuotes,
+  loosen,
+  MAGNITUDE_WORDS,
+  mentionsTerm,
+  normalizeWhitespace,
+  numbersIn,
+  type GroundingKind,
+  type Located,
+} from "@/lib/ai/analysisChecks";
+import { spanFor } from "@/lib/ai/analysisGuardrails";
+import { isCandidateTurn } from "@/lib/ai/interviewStats";
+import type { AiFeedback } from "@/lib/ai/schemas";
+import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { Requirement } from "@/lib/schemas/resumeSchema";
+
+/**
+ * Content checks and guardrail for the interview feedback, the counterpart of
+ * analysisChecks + analysisGuardrails for the analysis. Same contract: the
+ * violations are what the model produced, counted before any edit; the
+ * interventions are what was done about them on the way to the user; the
+ * harness measures the first and reports the second.
+ */
+
+export type InterviewCheckName =
+  /** A quote that is not a verbatim span of a CANDIDATE turn. */
+  | "evidence-grounding"
+  /** A strength or area whose anchor points at nothing in the answer. */
+  | "anchor-invalid"
+  /** gapFollowThrough does not have exactly one row per gap. */
+  | "gap-coverage"
+  /** A number in the prose that is in neither the transcript nor the posting. */
+  | "fabricated-number"
+  /** A technology-shaped term in the prose that is in neither. */
+  | "fabricated-term";
+
+export type InterviewCheckViolation = {
+  check: InterviewCheckName;
+  path: string;
+  value: string;
+  kind?: GroundingKind;
+  note?: string;
+};
+
+export type InterviewInterventionAction =
+  | "quote-dropped"
+  | "quote-normalized"
+  | "item-dropped"
+  | "recorded";
+
+export type InterviewIntervention = {
+  check: InterviewCheckName;
+  action: InterviewInterventionAction;
+  path: string;
+  /** Never logged in production: it carries what the candidate said. */
+  value: string;
+  replacement?: string;
+};
+
+export type InterviewInterventionCounts = Record<InterviewInterventionAction, number>;
+
+export type InterviewGuardReport = {
+  violations: InterviewCheckViolation[];
+  interventions: InterviewIntervention[];
+  counts: InterviewInterventionCounts;
+};
+
+export type InterviewCheckInput = {
+  /** The CANDIDATE turns, joined: the only text a quote may come from. */
+  candidateText: string;
+  /** Everything the prose may legitimately name: whole transcript, posting, analysis, stats. */
+  allowedText: string;
+  gaps: Requirement[];
+  feedback: AiFeedback;
+};
+
+/** The candidate's words, one turn per line, as the grounding source. */
+export function candidateText(turns: TranscriptTurn[]): string {
+  return turns
+    .filter(isCandidateTurn)
+    .map((turn) => (turn.message ?? "").trim())
+    .join("\n");
+}
+
+const emptyCounts = (): InterviewInterventionCounts => ({
+  "quote-dropped": 0,
+  "quote-normalized": 0,
+  "item-dropped": 0,
+  recorded: 0,
+});
+
+function quoteFields(feedback: AiFeedback): Located[] {
+  return [
+    ...feedback.gapFollowThrough.map((row, i) => ({
+      path: `gapFollowThrough[${i}].quote`,
+      value: row.quote,
+    })),
+    ...feedback.notableAnswers.map((answer, i) => ({
+      path: `notableAnswers[${i}].quote`,
+      value: answer.quote,
+    })),
+  ];
+}
+
+/** The free text where an invented number or technology would hide. */
+function proseFields(feedback: AiFeedback): Located[] {
+  return [
+    ...feedback.gapFollowThrough.map((row, i) => ({ path: `gapFollowThrough[${i}].note`, value: row.note })),
+    ...feedback.notableAnswers.map((answer, i) => ({ path: `notableAnswers[${i}].why`, value: answer.why })),
+    ...feedback.categoryScores.map((category, i) => ({ path: `categoryScores[${i}].comment`, value: category.comment })),
+    ...feedback.strengths.map((item, i) => ({ path: `strengths[${i}].point`, value: item.point })),
+    ...feedback.areasForImprovement.map((item, i) => ({ path: `areasForImprovement[${i}].point`, value: item.point })),
+    { path: "finalAssessment", value: feedback.finalAssessment },
+  ];
+}
+
+const anchorTargets = (feedback: AiFeedback) => ({
+  notableAnswers: feedback.notableAnswers.length,
+  gapFollowThrough: feedback.gapFollowThrough.length,
+});
+
+function checkAnchors(feedback: AiFeedback): InterviewCheckViolation[] {
+  const sizes = anchorTargets(feedback);
+  const lists = [
+    ["strengths", feedback.strengths],
+    ["areasForImprovement", feedback.areasForImprovement],
+  ] as const;
+
+  return lists.flatMap(([name, items]) =>
+    items.flatMap((item, i) =>
+      item.anchor.index < sizes[item.anchor.source]
+        ? []
+        : [
+            {
+              check: "anchor-invalid" as const,
+              path: `${name}[${i}].anchor`,
+              value: `${item.anchor.source}[${item.anchor.index}]`,
+              note: `${item.anchor.source} has ${sizes[item.anchor.source]} entries`,
+            },
+          ],
+    ),
+  );
+}
+
+/** Whether a row's requirement text names this gap: equal, or one contains the other, loosely. */
+function namesGap(rowRequirement: string, gap: string): boolean {
+  const a = loosen(rowRequirement);
+  const b = loosen(gap);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+/**
+ * One row per gap, no more, no fewer. Rows are matched to gaps by text; a
+ * gap with no row, a row for no gap, and a gap with two rows are each
+ * reported. Recorded, never corrected: adding a row would be a judgement the
+ * model did not make, and removing one would hide what it said.
+ */
+function checkGapCoverage(gaps: Requirement[], feedback: AiFeedback): InterviewCheckViolation[] {
+  const violations: InterviewCheckViolation[] = [];
+  const rows = feedback.gapFollowThrough;
+  const matchedRows = new Set<number>();
+
+  gaps.forEach((gap, g) => {
+    const matches = rows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row, i }) => !matchedRows.has(i) && namesGap(row.requirement, gap.requirement));
+    if (matches.length === 0) {
+      violations.push({ check: "gap-coverage", path: `gapFollowThrough`, value: gap.requirement, note: `no row for gap ${g + 1}` });
+      return;
+    }
+    matchedRows.add(matches[0].i);
+    for (const extra of matches.slice(1)) {
+      matchedRows.add(extra.i);
+      violations.push({ check: "gap-coverage", path: `gapFollowThrough[${extra.i}]`, value: extra.row.requirement, note: `second row for gap ${g + 1}` });
+    }
+  });
+
+  rows.forEach((row, i) => {
+    if (!matchedRows.has(i)) {
+      violations.push({ check: "gap-coverage", path: `gapFollowThrough[${i}]`, value: row.requirement, note: "row for no listed gap" });
+    }
+  });
+
+  return violations;
+}
+
+/**
+ * Numbers in the prose that neither speaker said and the posting does not
+ * state. Scores the model restates ("a 60") would be flagged too, which is
+ * why the field comments ask for reasons rather than numbers.
+ */
+function checkFabricatedNumbers(allowedText: string, feedback: AiFeedback): InterviewCheckViolation[] {
+  const allowed = new Set(numbersIn(normalizeWhitespace(allowedText)));
+
+  return proseFields(feedback).flatMap(({ path, value }) => {
+    const digits = [...new Set(numbersIn(value))]
+      .filter((number) => !allowed.has(number))
+      .map((number) => ({ value: number, note: "number not in the transcript or the posting" }));
+    const words = MAGNITUDE_WORDS.filter(
+      (word) =>
+        mentionsTerm(value, word) &&
+        !mentionsTerm(allowedText, word) &&
+        !mentionsTerm(allowedText, word.replace(/s$/, "")),
+    ).map((word) => ({ value: word, note: "quantity not in the transcript or the posting" }));
+
+    return [...digits, ...words].map((found) => ({
+      check: "fabricated-number" as const,
+      path,
+      ...found,
+    }));
+  });
+}
+
+/**
+ * Technology-shaped tokens: CamelCase words, acronyms of two letters or more,
+ * dotted names such as Node.js, the C family, and any capitalized word that
+ * is not the first of its sentence (a proper noun: a product, an employer, a
+ * tool). Misses a lower-case technology ("docker") and over-reports a proper
+ * noun used in passing; recorded only, so over-reporting costs nothing.
+ */
+const TECH_TOKEN = /(?<![A-Za-z0-9])(?:[A-Z][a-z]+(?:[A-Z][A-Za-z0-9]*)+|[A-Z]{2,}[A-Za-z0-9+#]*|[A-Za-z]+\.(?:js|JS|NET)|C\+\+|C#)(?![A-Za-z0-9])/g;
+/** A capitalized word after a space that does not follow sentence punctuation. */
+const MID_SENTENCE_PROPER = /(?<=[^.!?:\n"(]\s)([A-Z][a-z]+[a-z0-9+#]*)(?![A-Za-z0-9])/g;
+/** Acronyms and words that are ordinary writing, not technologies. */
+const TECH_STOPLIST = new Set(["OK", "AI", "CV", "HR", "IT", "STAR", "FYI", "TL;DR", "ATS", "English", "Spanish"]);
+
+function checkFabricatedTerms(allowedText: string, feedback: AiFeedback): InterviewCheckViolation[] {
+  return proseFields(feedback).flatMap(({ path, value }) => {
+    const found = [
+      ...(value.match(TECH_TOKEN) ?? []),
+      ...[...value.matchAll(MID_SENTENCE_PROPER)].map((m) => m[1]),
+    ];
+    const terms = [...new Set(found)].filter(
+      (term) => !TECH_STOPLIST.has(term) && !mentionsTerm(allowedText, term),
+    );
+    return terms.map((term) => ({
+      check: "fabricated-term" as const,
+      path,
+      value: term,
+      note: "technology not in the transcript or the posting",
+    }));
+  });
+}
+
+/** Every check, in one pass, before any edit. */
+export function checkInterviewFeedback(input: InterviewCheckInput): InterviewCheckViolation[] {
+  return [
+    ...groundQuotes(input.candidateText, quoteFields(input.feedback)).map((violation) => ({
+      check: "evidence-grounding" as const,
+      ...violation,
+    })),
+    ...checkAnchors(input.feedback),
+    ...checkGapCoverage(input.gaps, input.feedback),
+    ...checkFabricatedNumbers(input.allowedText, input.feedback),
+    ...checkFabricatedTerms(input.allowedText, input.feedback),
+  ];
+}
+
+export function countInterviewChecks(
+  violations: InterviewCheckViolation[],
+): Record<InterviewCheckName, number> {
+  const counts: Record<InterviewCheckName, number> = {
+    "evidence-grounding": 0,
+    "anchor-invalid": 0,
+    "gap-coverage": 0,
+    "fabricated-number": 0,
+    "fabricated-term": 0,
+  };
+  for (const violation of violations) counts[violation.check] += 1;
+  return counts;
+}
+
+/**
+ * Guards one feedback. Quotes that cannot be found are dropped, not the row
+ * that carries them: a gap row with no quotable evidence is still the
+ * model's verdict on that gap, and the invented quote is the harm. A
+ * strength or area whose anchor points at nothing is dropped whole, because
+ * an unanchored point is exactly what the anchor exists to forbid.
+ * Everything else is recorded and left alone.
+ */
+export function guardInterviewFeedback(input: InterviewCheckInput): {
+  feedback: AiFeedback;
+  guard: InterviewGuardReport;
+} {
+  const violations = checkInterviewFeedback(input);
+  const interventions: InterviewIntervention[] = [];
+  const counts = emptyCounts();
+  const record = (intervention: InterviewIntervention) => {
+    interventions.push(intervention);
+    counts[intervention.action] += 1;
+  };
+
+  const cleaned: AiFeedback = structuredClone(input.feedback);
+
+  for (const violation of violations) {
+    switch (violation.check) {
+      case "evidence-grounding": {
+        const span =
+          violation.kind === "case-or-punctuation"
+            ? spanFor(input.candidateText, violation.value)
+            : null;
+        // A word-aligned span keeps the comma that ends the word; still a
+        // verbatim span without it, and easier to read back.
+        const quote = span ? span.replace(/[,;:]+$/, "") : "";
+        writeQuote(cleaned, violation.path, quote);
+        record({
+          check: violation.check,
+          action: span ? "quote-normalized" : "quote-dropped",
+          path: violation.path,
+          value: violation.value,
+          ...(span ? { replacement: span.replace(/[,;:]+$/, "") } : {}),
+        });
+        break;
+      }
+      case "anchor-invalid": {
+        blankItem(cleaned, violation.path);
+        record({ check: violation.check, action: "item-dropped", path: violation.path, value: violation.value });
+        break;
+      }
+      default:
+        record({ check: violation.check, action: "recorded", path: violation.path, value: violation.value });
+    }
+  }
+
+  cleaned.strengths = cleaned.strengths.filter((item) => item.point !== "");
+  cleaned.areasForImprovement = cleaned.areasForImprovement.filter((item) => item.point !== "");
+
+  return { feedback: cleaned, guard: { violations, interventions, counts } };
+}
+
+function writeQuote(feedback: AiFeedback, path: string, value: string) {
+  const index = Number(/\[(\d+)\]/.exec(path)?.[1] ?? -1);
+  if (index < 0) return;
+  if (path.startsWith("gapFollowThrough")) feedback.gapFollowThrough[index].quote = value;
+  else if (path.startsWith("notableAnswers")) feedback.notableAnswers[index].quote = value;
+}
+
+/** Blanked rather than spliced so sibling paths stay valid; swept afterwards. */
+function blankItem(feedback: AiFeedback, path: string) {
+  const index = Number(/\[(\d+)\]/.exec(path)?.[1] ?? -1);
+  if (index < 0) return;
+  const list = path.startsWith("strengths") ? feedback.strengths : feedback.areasForImprovement;
+  if (list[index]) list[index].point = "";
+}
+
+/** `quote-dropped 2, item-dropped 1` - or "" when nothing fired. */
+export function describeInterviewCounts(counts: InterviewInterventionCounts): string {
+  return Object.entries(counts)
+    .filter(([, count]) => count > 0)
+    .map(([action, count]) => `${action} ${count}`)
+    .join(", ");
+}

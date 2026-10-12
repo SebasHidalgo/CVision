@@ -54,6 +54,9 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     endedAt: null,
     durationSeconds: null,
     startCount: 0,
+    transcriptSource: null,
+    feedbackAttempts: 0,
+    feedbackStartedAt: null,
     resumeAnalysisId: RESUME_ID,
     resumeAnalysis: {
       jobDescription: "We are looking for a frontend engineer to own the checkout flow with React.",

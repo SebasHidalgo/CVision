@@ -3,13 +3,23 @@ import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
 import { fetchAllInterviews } from "@/lib/database/interview";
 import { formatDate, ordinal } from "@/lib/format";
+import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
 import { cn } from "@/lib/utils";
 
 const VISIBLE_TECH = 4;
 
+/** The reading on the right of each row, by phase. */
+const READING: Record<InterviewPhase, { text: string; dot: string }> = {
+  ready: { text: "Ready to start", dot: "glow-signal bg-signal animate-blink" },
+  pending: { text: "Preparing feedback", dot: "bg-fair animate-blink" },
+  done: { text: "Completed · view feedback", dot: "bg-strong" },
+  failed: { text: "Didn't complete · see why", dot: "bg-weak" },
+  expired: { text: "Expired", dot: "bg-ink-3" },
+};
+
 export default async function InterviewsScreen() {
   const interviews = await fetchAllInterviews();
-  const completed = interviews.filter((interview) => interview.finalized).length;
+  const completed = interviews.filter((interview) => interview.status === "COMPLETED").length;
 
   return (
     <div className="wrap py-12 lg:py-16">
@@ -44,18 +54,14 @@ export default async function InterviewsScreen() {
         <ol className="divide-y divide-line border-b border-line">
           {interviews.map((interview, i) => {
             const hidden = interview.techstack.length - VISIBLE_TECH;
+            const destination = interviewDestination(interview);
+            const reading = READING[destination.phase];
 
             return (
               <IndexRow
                 key={interview.id}
                 index={ordinal(i)}
-                // A finished interview opens its feedback; an unfinished one,
-                // the room.
-                href={
-                  interview.finalized
-                    ? `/interview/${interview.id}/feedback`
-                    : `/interview/${interview.id}`
-                }
+                href={destination.href}
                 title={interview.role}
                 subtitle={
                   interview.techstack.length > 0 ? (
@@ -79,14 +85,8 @@ export default async function InterviewsScreen() {
                 meta={formatDate(interview.createdAt)}
                 reading={
                   <p className="flex items-center gap-3 text-sm font-medium text-ink">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "size-2 rounded-full",
-                        interview.finalized ? "bg-strong" : "glow-signal bg-signal animate-blink",
-                      )}
-                    />
-                    {interview.finalized ? "Completed · view feedback" : "Ready to start"}
+                    <span aria-hidden className={cn("size-2 rounded-full", reading.dot)} />
+                    {reading.text}
                   </p>
                 }
               />

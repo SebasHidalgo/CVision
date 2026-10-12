@@ -4,10 +4,8 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
-import { NotFoundError } from "@/lib/error/errors";
-import { STARTABLE_STATUSES } from "@/lib/elevenlabs/postCall";
+import { STARTABLE_STATUSES, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import type { Interview, InterviewFeedback } from "@/types/interview";
-import type { FeedbackObject } from "@/lib/ai/schemas";
 import {
   feedbackInclude,
   interviewOmit,
@@ -45,11 +43,18 @@ export type CreateInterviewData = {
   resumeId: string;
 };
 
+/**
+ * One interview per analysis, enforced by the unique on `resumeAnalysisId`.
+ * Two submits racing past the action's read (two tabs, or the two CTAs on the
+ * detail page) both get here; the loser hits the unique and is handed the
+ * winner's id instead of an error.
+ */
 export async function createInterview(
   data: CreateInterviewData
 ): Promise<string> {
+  let userId: string | undefined;
   try {
-    const userId = await requireUserId();
+    userId = await requireUserId();
 
     const dbInterview = await prisma.interview.create({
       data: {
@@ -62,6 +67,17 @@ export async function createInterview(
 
     return dbInterview.id;
   } catch (error) {
+    if (
+      userId &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const existing = await prisma.interview.findFirst({
+        where: { resumeAnalysisId: data.resumeId, userId },
+        select: { id: true },
+      });
+      if (existing) return existing.id;
+    }
     handleError(error, "Failed to create interview record");
   }
 }
@@ -139,6 +155,7 @@ export async function reserveInterviewSession(
         startedAt: data.startedAt,
         startCount: { increment: 1 },
         transcript: Prisma.DbNull,
+        transcriptSource: null,
         failureReason: null,
         contextMismatch: false,
         endedAt: null,
@@ -153,56 +170,67 @@ export async function reserveInterviewSession(
 }
 
 /**
- * Closes an interview: stores the feedback, marks it finalized and attaches the
- * recording. One atomic write with `userId` in the `where`, so it is a no-op on
- * someone else's interview.
+ * The legacy Vapi path: stores a transcript the browser supplied, marked as
+ * such, and hands the interview to feedback generation. Owner-scoped and
+ * guarded on the startable states, so a second submit changes nothing.
+ * Removed in M3-C with the room that produces it.
  */
-export async function saveInterviewFeedback(params: {
+export async function storeClientTranscript(params: {
   interviewId: string;
-  feedback: FeedbackObject;
+  turns: TranscriptTurn[];
   recordingUrl?: string;
-}): Promise<string> {
-  const { interviewId, feedback, recordingUrl } = params;
-
+}): Promise<boolean> {
   try {
     const userId = await requireUserId();
 
-    const updated = await prisma.interview.update({
-      where: { id: interviewId, userId },
-      data: {
-        status: "COMPLETED",
-        // Legacy column, kept in step with `status` until M3-D drops it.
-        finalized: true,
-        ...(recordingUrl ? { recordingUrl } : {}),
-        InterviewFeedback: {
-          create: {
-            totalScore: feedback.totalScore,
-            categoryScores: feedback.categoryScores as Prisma.InputJsonValue,
-            strengths: feedback.strengths,
-            areasForImprovement: feedback.areasForImprovement,
-            finalAssessment: feedback.finalAssessment,
-          },
-        },
+    const result = await prisma.interview.updateMany({
+      where: {
+        id: params.interviewId,
+        userId,
+        status: { in: [...STARTABLE_STATUSES] },
       },
-      include: { InterviewFeedback: true },
+      data: {
+        status: "FEEDBACK_PENDING",
+        transcript: params.turns as Prisma.InputJsonValue,
+        transcriptSource: "browser",
+        endedAt: new Date(),
+        failureReason: null,
+        feedbackAttempts: 0,
+        ...(params.recordingUrl ? { recordingUrl: params.recordingUrl } : {}),
+      },
     });
 
-    if (!updated.InterviewFeedback) {
-      throw new NotFoundError("Interview feedback was not persisted");
-    }
-
-    return updated.InterviewFeedback.id;
+    return result.count === 1;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      handleError(
-        new NotFoundError("Interview not found for this user"),
-        "Failed to create interview feedback"
-      );
-    }
-    handleError(error, "Failed to create interview feedback");
+    handleError(error, "Failed to store client transcript");
+  }
+}
+
+/**
+ * Lets the owner retry feedback generation after it gave up. Only a FAILED
+ * row whose failure was the generation itself qualifies: one that never got
+ * a transcript has nothing to generate from.
+ */
+export async function reopenInterviewForFeedback(
+  interviewId: string,
+  feedbackFailureReason: string,
+): Promise<boolean> {
+  try {
+    const userId = await requireUserId();
+
+    const result = await prisma.interview.updateMany({
+      where: {
+        id: interviewId,
+        userId,
+        status: "FAILED",
+        failureReason: feedbackFailureReason,
+      },
+      data: { status: "FEEDBACK_PENDING", feedbackAttempts: 0, failureReason: null },
+    });
+
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, "Failed to reopen interview for feedback");
   }
 }
 

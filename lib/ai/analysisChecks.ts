@@ -24,6 +24,14 @@ export type CheckName =
  */
 export type GroundingKind = "not-found" | "case-or-punctuation" | "altered";
 
+/** A violation before it is tagged with the check that found it. */
+export type QuoteViolation = {
+  path: string;
+  value: string;
+  kind: GroundingKind;
+  note?: string;
+};
+
 export type CheckViolation = {
   check: CheckName;
   /** Where in the analysis, e.g. `skills.matchedSkills[0].evidence`. */
@@ -36,7 +44,7 @@ export type CheckViolation = {
   note?: string;
 };
 
-type Located = { path: string; value: string };
+export type Located = { path: string; value: string };
 
 /** Exported for the guardrails, which have to agree with the checks exactly. */
 export const normalizeWhitespace = (text: string) =>
@@ -198,9 +206,27 @@ const GROUNDING_NOTE: Record<GroundingKind, string | undefined> = {
 };
 
 /**
- * Quotes that are not in the CV, split by how they fail. Whitespace is
+ * Quotes that are not in `sourceText`, split by how they fail. Whitespace is
  * normalized on both sides; everything else must match exactly, so a quote the
  * model tidied up is reported as `case-or-punctuation` rather than passed.
+ * Shared by the analysis (against the CV) and the interview feedback
+ * (against the candidate turns).
+ */
+export function groundQuotes(sourceText: string, quotes: Located[]): QuoteViolation[] {
+  const source = normalizeWhitespace(sourceText);
+  const loose = loosen(sourceText);
+
+  return quotes.flatMap(({ path, value }) => {
+    const quote = normalizeWhitespace(value);
+    if (!quote || source.includes(quote)) return [];
+
+    const kind = classifyQuote(loose, quote);
+    return [{ path, value: quote, kind, note: GROUNDING_NOTE[kind] }];
+  });
+}
+
+/**
+ * Quotes that are not in the CV, split by how they fail.
  *
  * Misses: quotes embedded in the prose `description` fields, and a fabricated
  * quote that happens to be a verbatim span of the CV.
@@ -209,24 +235,10 @@ export function checkEvidenceGrounding(
   cvText: string,
   feedback: ResumeAnalysisFeedback,
 ): CheckViolation[] {
-  const cv = normalizeWhitespace(cvText);
-  const looseCv = loosen(cvText);
-
-  return quoteFields(feedback).flatMap(({ path, value }) => {
-    const quote = normalizeWhitespace(value);
-    if (!quote || cv.includes(quote)) return [];
-
-    const kind = classifyQuote(looseCv, quote);
-    return [
-      {
-        check: "evidence-grounding" as const,
-        path,
-        value: quote,
-        kind,
-        note: GROUNDING_NOTE[kind],
-      },
-    ];
-  });
+  return groundQuotes(cvText, quoteFields(feedback)).map((violation) => ({
+    check: "evidence-grounding" as const,
+    ...violation,
+  }));
 }
 
 /**
@@ -263,7 +275,7 @@ export function checkFalseMissing(
  * Quantities that carry a claim, written as words rather than digits. Small
  * counts ("one", "three") are left out: they are ordinary prose, not metrics.
  */
-const MAGNITUDE_WORDS = [
+export const MAGNITUDE_WORDS = [
   "zero",
   "half",
   "double",
@@ -278,7 +290,7 @@ const MAGNITUDE_WORDS = [
 ];
 
 /** Digit runs, normalized: "1,200" and "1200." both become "1200". */
-function numbersIn(text: string): string[] {
+export function numbersIn(text: string): string[] {
   return (text.match(/\d[\d.,]*/g) ?? []).map((token) =>
     token.replace(/[.,]+$/, "").replace(/,/g, ""),
   );

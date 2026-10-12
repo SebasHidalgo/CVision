@@ -1,6 +1,7 @@
 import type { InterviewStatus } from "@prisma/client";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { InterviewerVariables } from "@/lib/ai/prompts/interviewer.agent";
+import type { InterviewFeedbackReport } from "@/lib/ai/schemas";
 
 export type {
   CreateInterviewInput,
@@ -24,6 +25,8 @@ export type Interview = {
   startedAt: Date | null;
   endedAt: Date | null;
   durationSeconds: number | null;
+  /** Why the latest step produced nothing; see `FEEDBACK_FAILURE_REASONS`. */
+  failureReason: string | null;
 };
 
 /** What `POST /api/interview/[id]/session` returns on success. */
@@ -48,12 +51,6 @@ export type InterviewFeedback = {
   createdAt: string;
   recordingUrl: string | null;
   totalScore: number;
-  categoryScores: Array<{
-    name: string;
-    score: number;
-    comment: string;
-  }>;
-  strengths: string[];
-  areasForImprovement: string[];
-  finalAssessment: string;
+  /** The validated report: gap follow-through, notable answers, scores, stats, prose. */
+  report: InterviewFeedbackReport;
 };

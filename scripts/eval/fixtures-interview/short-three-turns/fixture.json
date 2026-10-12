@@ -1,0 +1,31 @@
+{
+  "purpose": "Three candidate turns and under ninety seconds on the floor before the candidate leaves. The assessment has to say it was short and treat the scores as low-confidence; the notable answers must not be padded to reach a count; the two gaps that were never asked about are not_raised.",
+  "candidateName": "Priya",
+  "language": "en",
+  "durationSeconds": 95,
+  "context": {
+    "role": "Frontend Engineer",
+    "company": "Lumen Health",
+    "jobDescription": "Lumen Health is looking for a Frontend Engineer to build patient-facing web apps in React and TypeScript. Required: 3+ years with React; TypeScript; accessibility (WCAG 2.1 AA) in shipped products; automated testing with Playwright or Cypress. Nice to have: design system experience.",
+    "analysisSummary": "React and TypeScript are met. Accessibility is partly covered: the resume mentions semantic HTML but no WCAG work or audits. End-to-end testing is missing entirely; only unit tests appear.",
+    "requirements": [
+      { "requirement": "3+ years with React", "kind": "required", "status": "met", "evidence": "React developer, 2021-present", "note": "" },
+      { "requirement": "TypeScript", "kind": "required", "status": "met", "evidence": "TypeScript across all projects since 2022", "note": "" },
+      { "requirement": "Accessibility (WCAG 2.1 AA) in shipped products", "kind": "required", "status": "partial", "evidence": "Semantic HTML and keyboard navigation on the booking flow", "note": "No WCAG audit, no mention of screen readers or contrast." },
+      { "requirement": "Automated testing with Playwright or Cypress", "kind": "required", "status": "missing", "evidence": "", "note": "Only Jest unit tests appear." }
+    ]
+  },
+  "expect": {
+    "mustMatch": [
+      { "in": "finalAssessment", "pattern": "short|brief|cut short|few answers|three answers|under two minutes|limited|low.confidence|not enough", "why": "RULE 6: a short transcript is called short, in prose." }
+    ],
+    "gapOutcomes": [
+      { "matching": "playwright|cypress|testing", "outcome": ["not_raised"], "why": "The interviewer never got to it." }
+    ],
+    "maxViolations": [
+      { "check": "evidence-grounding", "max": 0 },
+      { "check": "fabricated-number", "max": 0 },
+      { "check": "fabricated-term", "max": 0 }
+    ]
+  }
+}

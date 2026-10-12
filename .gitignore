@@ -44,7 +44,8 @@ next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 
-claude.md
+# Project instructions for Claude Code: local, never in the public repo
+CLAUDE.md
 
 /docs
 

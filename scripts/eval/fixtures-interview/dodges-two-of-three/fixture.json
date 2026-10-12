@@ -1,0 +1,35 @@
+{
+  "purpose": "Same posting and gaps as addresses-every-gap, but the candidate answers two of the three probes with 'I'm familiar with', generalities and no example. Those two rows must not come back addressed; the GraphQL one, answered with a concrete example, may.",
+  "candidateName": "Luis",
+  "language": "en",
+  "durationSeconds": 470,
+  "context": {
+    "role": "Backend Engineer",
+    "company": "Northwind Freight",
+    "jobDescription": "Northwind Freight is hiring a Backend Engineer for the shipment tracking platform. You will own Node.js services written in TypeScript, model data in PostgreSQL, and run what you ship on our Kubernetes clusters. Required: 3+ years building backend services in Node.js and TypeScript; solid PostgreSQL, including query tuning; experience deploying and operating services on Kubernetes; participation in an on-call rotation and incident response. Nice to have: GraphQL API design, and experience with event-driven systems.",
+    "analysisSummary": "The resume meets the Node.js, TypeScript and PostgreSQL requirements with concrete evidence. Kubernetes is only partly covered: the resume shows Docker but no cluster operation. There is nothing on on-call or incident response, and nothing on GraphQL.",
+    "requirements": [
+      { "requirement": "3+ years building backend services in Node.js and TypeScript", "kind": "required", "status": "met", "evidence": "Built and maintained six Node.js services in TypeScript for the orders platform (2021-2025)", "note": "Four years of exactly this." },
+      { "requirement": "Solid PostgreSQL, including query tuning", "kind": "required", "status": "met", "evidence": "Tuned the orders reporting queries in PostgreSQL, cutting the nightly job from 40 to 9 minutes", "note": "Tuning is shown with a figure." },
+      { "requirement": "Experience deploying and operating services on Kubernetes", "kind": "required", "status": "partial", "evidence": "Containerized the services with Docker and wrote the compose setup for local development", "note": "Docker is there; nothing shows deploying to or operating a Kubernetes cluster." },
+      { "requirement": "Participation in an on-call rotation and incident response", "kind": "required", "status": "missing", "evidence": "", "note": "The resume never mentions on-call, paging or incidents." },
+      { "requirement": "GraphQL API design", "kind": "preferred", "status": "missing", "evidence": "", "note": "Only REST APIs appear." }
+    ]
+  },
+  "expect": {
+    "gapOutcomes": [
+      { "matching": "kubernetes", "outcome": ["dodged", "partially"], "why": "'Familiar with', docs and talks, no deployment: dodged, or at most partial." },
+      { "matching": "on-call|incident", "outcome": ["dodged", "partially"], "why": "Talks about handling pressure in general; names no rotation and no incident." },
+      { "matching": "graphql", "outcome": ["addressed", "partially"], "why": "The one probe answered with a built thing and a decision." }
+    ],
+    "maxViolations": [
+      { "check": "evidence-grounding", "max": 0, "why": "Every quote must be a verbatim span of a candidate turn." },
+      { "check": "fabricated-number", "max": 0 },
+      { "check": "fabricated-term", "max": 0 }
+    ],
+    "scores": [
+      { "category": "total", "max": 69, "why": "Two of three probes dodged is the 'mostly general' band or below; the anti-inflation line exists for this fixture." },
+      { "category": "Technical Knowledge", "max": 69, "why": "Nothing specific was said about Kubernetes or incidents, two of the posting's four required items." }
+    ]
+  }
+}

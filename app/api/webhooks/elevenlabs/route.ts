@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { storeConversationTranscript } from "@/lib/database/interviewTranscript";
 import { verifyWebhookEvent, WebhookRejectedError } from "@/lib/elevenlabs/client";
 import {
@@ -6,8 +8,10 @@ import {
   postCallTranscriptionSchema,
 } from "@/lib/elevenlabs/postCall";
 
-// Signature check and two database round trips; nothing slow belongs here.
-export const maxDuration = 30;
+// The response goes out after the store; feedback generation runs in
+// after(), which the platform keeps alive up to this limit: a 45 s model
+// call plus two database writes.
+export const maxDuration = 60;
 
 const LOG = "[CVision][webhook] elevenlabs:";
 
@@ -71,6 +75,20 @@ export async function POST(request: Request) {
         console.info(
           `${LOG} stored conversation=${data.conversation_id} interview=${result.interviewId} status=${result.status} turns=${data.transcript.length}`,
         );
+        if (result.status === "FEEDBACK_PENDING") {
+          // Respond first, generate after. No retry here: the feedback page
+          // re-triggers an interview it finds still pending, and the
+          // generator's claim makes the two paths safe together.
+          const interviewId = result.interviewId;
+          after(async () => {
+            try {
+              const outcome = await generateInterviewFeedback(interviewId);
+              console.info(`${LOG} feedback for interview=${interviewId}: ${outcome.kind}`);
+            } catch (error) {
+              console.error(`${LOG} feedback for interview=${interviewId} threw:`, error);
+            }
+          });
+        }
         break;
       case "duplicate":
         console.info(

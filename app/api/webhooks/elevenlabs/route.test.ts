@@ -1,9 +1,18 @@
+import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { storeConversationTranscript } from "@/lib/database/interviewTranscript";
 import { signWebhookPayload } from "@/lib/elevenlabs/webhookSignature";
 import { POST } from "./route";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({ storeConversationTranscript: vi.fn() }));
+vi.mock("@/lib/ai/interviewFeedback", () => ({ generateInterviewFeedback: vi.fn() }));
+// after() needs a request scope Next provides at runtime; here it runs the
+// task at once so the test can see what was scheduled.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: vi.fn((task: () => unknown) => void task()) };
+});
 
 const SECRET = "whsec_test_0123456789";
 const NOW = Math.floor(Date.now() / 1000);
@@ -48,6 +57,7 @@ beforeEach(() => {
     interviewId: "int_1",
     status: "FEEDBACK_PENDING",
   });
+  vi.mocked(generateInterviewFeedback).mockResolvedValue({ kind: "completed", feedbackId: "fb_1" });
   for (const method of ["info", "warn", "error"] as const) {
     vi.spyOn(console, method).mockImplementation(() => {});
   }
@@ -100,6 +110,36 @@ describe("POST /api/webhooks/elevenlabs: verification", () => {
   });
 });
 
+describe("POST /api/webhooks/elevenlabs: feedback trigger", () => {
+  it("schedules feedback generation after the response when a scoreable transcript was stored", async () => {
+    const { raw, signature } = signed(event());
+
+    expect(await deliver(raw, signature)).toBe(200);
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(generateInterviewFeedback).toHaveBeenCalledWith("int_1");
+  });
+
+  it("does not generate for a transcript with no candidate turns, a duplicate, or an unmatched one", async () => {
+    for (const result of [
+      { outcome: "stored" as const, interviewId: "int_1", status: "IN_PROGRESS" },
+      { outcome: "duplicate" as const, interviewId: "int_1" },
+      { outcome: "unmatched" as const },
+    ]) {
+      vi.mocked(storeConversationTranscript).mockResolvedValueOnce(result);
+      const { raw, signature } = signed(event());
+      expect(await deliver(raw, signature)).toBe(200);
+    }
+    expect(generateInterviewFeedback).not.toHaveBeenCalled();
+  });
+
+  it("still answers 200 when the scheduled generation throws", async () => {
+    vi.mocked(generateInterviewFeedback).mockRejectedValue(new Error("db down"));
+    const { raw, signature } = signed(event());
+
+    expect(await deliver(raw, signature)).toBe(200);
+  });
+});
+
 describe("POST /api/webhooks/elevenlabs: routing and dead ends", () => {
   it("acknowledges other event types without storing", async () => {
     const { raw, signature } = signed({ type: "post_call_audio", event_timestamp: NOW, data: { conversation_id: "conv_1", full_audio: "" } });
@@ -113,16 +153,6 @@ describe("POST /api/webhooks/elevenlabs: routing and dead ends", () => {
 
     expect(await deliver(raw, signature)).toBe(200);
     expect(storeConversationTranscript).not.toHaveBeenCalled();
-  });
-
-  it("acknowledges an unmatched conversation and a duplicate delivery with 200", async () => {
-    vi.mocked(storeConversationTranscript).mockResolvedValueOnce({ outcome: "unmatched" });
-    const first = signed(event());
-    expect(await deliver(first.raw, first.signature)).toBe(200);
-
-    vi.mocked(storeConversationTranscript).mockResolvedValueOnce({ outcome: "duplicate", interviewId: "int_1" });
-    const replay = signed(event());
-    expect(await deliver(replay.raw, replay.signature)).toBe(200);
   });
 
   it("answers 500 when the write fails, so the platform retries", async () => {

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { interviewDestination } from "@/lib/interviewStatus";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -21,7 +22,7 @@ type InterviewCtaProps = {
 
 /**
  * One analysis owns at most one interview, so the action changes with state:
- * create it, open the room, or read the feedback.
+ * create it, open the room, wait for the feedback, or read it.
  */
 export default function InterviewCta({
   resumeId,
@@ -55,11 +56,8 @@ export default function InterviewCta({
     setIsCreating(false);
   };
 
-  const target = interview
-    ? interview.finalized
-      ? { href: `/interview/${interview.id}/feedback`, label: "Read interview feedback" }
-      : { href: `/interview/${interview.id}`, label: "Open the interview room" }
-    : null;
+  const target = interview ? interviewDestination(interview) : null;
+  const rehearsed = target !== null && target.phase !== "ready";
 
   const compactClasses = "h-11 gap-2 px-5";
   const fullClasses = "group h-12 gap-2 px-7 text-base";
@@ -102,13 +100,13 @@ export default function InterviewCta({
       <div className="mt-5 grid gap-8 md:grid-cols-12 md:items-end">
         <div className="md:col-span-8">
           <h2 id="interview-cta-title" className="display-md text-ink">
-            {target?.href.endsWith("/feedback")
+            {rehearsed
               ? "You already rehearsed this one."
               : `Rehearse the ${jobTitle} interview out loud.`}
           </h2>
           <p className="lede mt-4 max-w-xl">
-            {target?.href.endsWith("/feedback")
-              ? "Your transcript, recording and scores are waiting in the feedback report."
+            {rehearsed
+              ? "Your feedback report shows how you handled the gaps the analysis found, in your own words."
               : "A voice interviewer built from this exact posting asks the questions, you answer, and you get scored on five things when you hang up."}
           </p>
         </div>

@@ -69,6 +69,7 @@ export async function storeConversationTranscript({
         status: outcome.status,
         conversationId: data.conversation_id,
         transcript: data.transcript as Prisma.InputJsonValue,
+        transcriptSource: "elevenlabs",
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),

@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 
 /** One turn, kept loose on purpose: the row stores the array verbatim. */
-const transcriptTurnSchema = z.looseObject({
+export const transcriptTurnSchema = z.looseObject({
   role: z.string(),
   message: z.string().nullish(),
   time_in_call_secs: z.number().nullish(),
