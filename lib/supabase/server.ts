@@ -66,6 +66,20 @@ function storage(timeoutMs = STORAGE_TIMEOUT_MS) {
 
 const isNotFound = (error: StorageFailure) => error.statusCode === "404" || error.status === 404;
 
+/**
+ * For calls the SDK makes without parsing the answer (downloads, HEADs) a
+ * failure arrives as the raw response, wrapped; the platform's own code is
+ * in its JSON body (HTTP 400 with `statusCode: "404"` for a missing object).
+ */
+async function isNotFoundResponse(error: StorageFailure & { originalError?: unknown }): Promise<boolean> {
+  if (isNotFound(error)) return true;
+  const raw = error.originalError;
+  if (!(raw instanceof Response)) return false;
+  if (raw.status === 404) return true;
+  const body = (await raw.clone().json().catch(() => null)) as { statusCode?: unknown } | null;
+  return body?.statusCode === "404";
+}
+
 /** SDK failures into the app's taxonomy. The message never carries a key. */
 function toStorageError(error: unknown, what: string): StorageUnavailableError {
   const detail =
@@ -102,20 +116,41 @@ export async function createSignedReadUrl(
   return result.data.signedUrl;
 }
 
-/** Stores one object under `key`. Throws when storage refuses or fails. */
-export async function uploadObject(
-  key: string,
-  body: Blob | Uint8Array,
-  contentType = "application/pdf",
-): Promise<void> {
+/**
+ * A single-use URL the browser PUTs the file to, with the token in the
+ * query string and nothing else to send: no key of any kind. The bucket's
+ * own size and type limits apply to what arrives. Two hours' validity is
+ * the platform's, not a choice here.
+ */
+export async function createSignedUploadUrl(key: string): Promise<string> {
   const { files } = storage();
-  let result: Awaited<ReturnType<typeof files.upload>>;
+  let result: Awaited<ReturnType<typeof files.createSignedUploadUrl>>;
   try {
-    result = await files.upload(key, body, { contentType, upsert: false });
+    result = await files.createSignedUploadUrl(key);
   } catch (error) {
-    throw toStorageError(error, "upload");
+    throw toStorageError(error, "signed upload");
   }
-  if (result.error) throw toStorageError(result.error, "upload");
+  if (result.error) throw toStorageError(result.error, "signed upload");
+  return result.data.signedUrl;
+}
+
+/**
+ * The object's bytes, with the storage timeout on the request. `null` when
+ * there is no such object: the caller decides what that means.
+ */
+export async function downloadObject(key: string): Promise<Uint8Array | null> {
+  const { files } = storage();
+  let result: Awaited<ReturnType<typeof files.download>>;
+  try {
+    result = await files.download(key);
+  } catch (error) {
+    throw toStorageError(error, "download");
+  }
+  if (result.error) {
+    if (await isNotFoundResponse(result.error)) return null;
+    throw toStorageError(result.error, "download");
+  }
+  return new Uint8Array(await result.data.arrayBuffer());
 }
 
 /**

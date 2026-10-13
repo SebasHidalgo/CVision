@@ -16,13 +16,15 @@ import {
   type CreateResumeInput,
 } from "@/lib/schemas/resumeSchema";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
+import { createResumeUploadAction } from "@/screens/ResumeUpload/actions/createResumeUploadAction";
+import { runResumeUpload, type UploadStage } from "@/screens/ResumeUpload/utils/upload";
 import AnalysisInProgress from "./AnalysisInProgress";
 import Field from "./Field";
 import FileUploader from "./FileUploader";
 
 export default function UploadForm() {
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [stage, setStage] = useState<UploadStage | null>(null);
 
   const {
     register,
@@ -32,7 +34,7 @@ export default function UploadForm() {
     watch,
     formState: { errors },
   } = useForm<CreateResumeInput>({
-    // Same schema the server action validates with.
+    // Same fields the server action validates with, plus the file.
     resolver: zodResolver(createResumeInputSchema),
     defaultValues: {
       companyName: "",
@@ -53,35 +55,30 @@ export default function UploadForm() {
   };
 
   const onSubmit = async (data: CreateResumeInput) => {
-    setIsProcessing(true);
+    const { resume, ...details } = data;
 
-    try {
-      const body = new FormData();
-      body.append("companyName", data.companyName);
-      body.append("jobTitle", data.jobTitle);
-      body.append("jobDescription", data.jobDescription);
-      body.append("resume", data.resume);
+    // The file goes straight to storage; the action only ever sees its key.
+    const result = await runResumeUpload({
+      file: resume,
+      details,
+      createUpload: createResumeUploadAction,
+      analyze: analyzeResumeAction,
+      onStage: setStage,
+    });
 
-      const result = await analyzeResumeAction(body);
-
-      if (result.ok) {
-        // Stay on the progress screen: resetting now would bring back a
-        // submittable form until the report loads, inviting a double submit.
-        router.push(`/resume/analysis/${result.data.resumeId}`);
-        return;
-      }
-
-      toast.error(actionErrorCopy(result.code));
-    } catch {
-      // Rejected rather than returned: network drop, platform 413/504, or a
-      // stale deployment.
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+    if (result.ok) {
+      // Stay on the progress screen: resetting now would bring back a
+      // submittable form until the report loads, inviting a double submit.
+      router.push(`/resume/analysis/${result.resumeId}`);
+      return;
     }
 
-    setIsProcessing(false);
+    // Every failure is retryable from the form, with the file still selected.
+    toast.error(actionErrorCopy(result.code));
+    setStage(null);
   };
 
-  if (isProcessing) return <AnalysisInProgress />;
+  if (stage) return <AnalysisInProgress stage={stage} fileSize={resumeFile?.size ?? 0} />;
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-8">

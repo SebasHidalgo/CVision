@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSignedReadUrl,
+  createSignedUploadUrl,
+  downloadObject,
   objectExists,
   removeObject,
   SIGNED_READ_TTL_SECONDS,
-  uploadObject,
 } from "./server";
 
 const URL_BASE = "https://project.supabase.test";
@@ -82,17 +83,51 @@ describe("createSignedReadUrl", () => {
   });
 });
 
-describe("uploadObject, objectExists, removeObject", () => {
-  it("uploads as a PDF without overwriting", async () => {
-    const calls = stubStorage(() => json({ Key: `files-bucket/${KEY}` }));
+describe("createSignedUploadUrl", () => {
+  it("asks the upload-sign endpoint with the service role and returns the URL with its token", async () => {
+    const calls = stubStorage(() =>
+      json({ url: `/object/upload/sign/files-bucket/${KEY}?token=up_tok` }),
+    );
 
-    await uploadObject(KEY, new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+    const url = await createSignedUploadUrl(KEY);
 
+    expect(url).toBe(`${URL_BASE}/storage/v1/object/upload/sign/files-bucket/${KEY}?token=up_tok`);
     expect(calls[0].method).toBe("POST");
-    expect(calls[0].url).toBe(`${URL_BASE}/storage/v1/object/files-bucket/${KEY}`);
-    expect(calls[0].headers.get("x-upsert")).toBe("false");
-    expect(calls[0].headers.get("content-type")).toBe("application/pdf");
+    expect(calls[0].headers.get("authorization")).toBe("Bearer service-role-test-key");
+    // Not an upsert: a second PUT with the same token is refused by storage.
+    expect(calls[0].headers.get("x-upsert")).toBeNull();
   });
+
+  it("reports storage trouble as STORAGE_UNAVAILABLE", async () => {
+    stubStorage(() => json({ statusCode: "500", error: "x", message: "boom" }, 500));
+    await expect(createSignedUploadUrl(KEY)).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
+  });
+});
+
+describe("downloadObject", () => {
+  it("fetches the object's bytes with the service role", async () => {
+    const calls = stubStorage(() => new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]), { status: 200 }));
+
+    const bytes = await downloadObject(KEY);
+
+    expect(Array.from(bytes ?? [])).toEqual([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].url).toBe(`${URL_BASE}/storage/v1/object/files-bucket/${KEY}`);
+    expect(calls[0].headers.get("authorization")).toBe("Bearer service-role-test-key");
+  });
+
+  it("answers null when there is no such object", async () => {
+    stubStorage(() => json({ statusCode: "404", error: "not_found", message: "Object not found" }, 400));
+    expect(await downloadObject(KEY)).toBeNull();
+  });
+
+  it("reports other failures as STORAGE_UNAVAILABLE", async () => {
+    stubStorage(() => json({ statusCode: "500", error: "x", message: "boom" }, 500));
+    await expect(downloadObject(KEY)).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
+  });
+});
+
+describe("objectExists, removeObject", () => {
 
   it("answers whether an object exists from a HEAD", async () => {
     const calls = stubStorage(() => new Response(null, { status: 200 }));

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractTextFromPDFFile } from "@/lib/pdfParse";
+import { extractTextFromPDFBytes } from "@/lib/pdfParse";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import golden from "./analysisRequest.golden.json";
 import { installFakeProvider, reply, type ProviderRequest } from "./client.stub";
@@ -11,9 +11,13 @@ import {
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
-vi.mock("@/lib/pdfParse", () => ({ extractTextFromPDFFile: vi.fn() }));
+vi.mock("@/lib/pdfParse", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
+  return { ...actual, extractTextFromPDFBytes: vi.fn() };
+});
 vi.mock("@/lib/supabase/server", () => ({
-  uploadObject: vi.fn(async () => {}),
+  // Bytes that begin as a PDF does; the parser itself is stubbed above.
+  downloadObject: vi.fn(async () => new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34])),
   removeObject: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/database/resume", () => ({
@@ -51,17 +55,16 @@ function viaHarnessPath(resumeText: string) {
 }
 
 function viaActionPath(resumeText: string) {
-  vi.mocked(extractTextFromPDFFile).mockResolvedValue(resumeText);
-  const body = new FormData();
-  body.append("companyName", "Northwind");
-  body.append("jobTitle", JOB_TITLE);
-  body.append("jobDescription", JOB_DESCRIPTION);
-  body.append(
-    "resume",
-    new File([new Uint8Array(1024)], "cv.pdf", { type: "application/pdf" }),
-  );
+  vi.mocked(extractTextFromPDFBytes).mockResolvedValue(resumeText);
 
-  return requestFrom(() => analyzeResumeAction(body));
+  return requestFrom(() =>
+    analyzeResumeAction({
+      companyName: "Northwind",
+      jobTitle: JOB_TITLE,
+      jobDescription: JOB_DESCRIPTION,
+      resumeKey: "cv/user_1/11111111-2222-4333-8444-555555555555.pdf",
+    }),
+  );
 }
 
 /** The smallest answer that satisfies resumeFeedbackSchema. */

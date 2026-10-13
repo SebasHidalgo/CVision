@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
-import { extractTextFromPDFFile, MIN_PDF_TEXT_CHARS } from "./pdfParse";
+import { extractTextFromPDFFile, hasPdfHeader, MIN_PDF_TEXT_CHARS } from "./pdfParse";
 
 /** A one-page PDF whose page draws `content`. ASCII only, so length = bytes. */
 function pdfBytes(content: string): Uint8Array<ArrayBuffer> {
@@ -116,6 +116,23 @@ describe("extractTextFromPDFFile", () => {
 
     expect(error).toBeInstanceOf(PdfUnreadableError);
     expect(error).toHaveProperty("code", "PDF_UNREADABLE");
+  });
+});
+
+describe("hasPdfHeader", () => {
+  const ascii = (text: string) => new TextEncoder().encode(text);
+
+  it("accepts a header at the start, or after a preamble the specification allows", () => {
+    expect(hasPdfHeader(pdfBytes(textPage("Jane Doe")))).toBe(true);
+    expect(hasPdfHeader(ascii("%PDF-1.7\n"))).toBe(true);
+    expect(hasPdfHeader(new Uint8Array([...new Uint8Array(1024), ...ascii("%PDF-1.4")]))).toBe(true);
+  });
+
+  it("rejects bytes with no header, a header too far in, an empty file, and a partial header", () => {
+    expect(hasPdfHeader(ascii("PK\u0003\u0004 a docx renamed .pdf"))).toBe(false);
+    expect(hasPdfHeader(new Uint8Array([...new Uint8Array(1025), ...ascii("%PDF-1.4")]))).toBe(false);
+    expect(hasPdfHeader(new Uint8Array())).toBe(false);
+    expect(hasPdfHeader(ascii("%PDF"))).toBe(false);
   });
 });
 

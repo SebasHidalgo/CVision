@@ -14,6 +14,23 @@ export const MIN_PDF_TEXT_CHARS = 200;
  */
 const PARAGRAPH_GAP_RATIO = 1.6;
 
+/**
+ * The PDF specification lets up to this many bytes precede the `%PDF-`
+ * header, and pdf.js reads such files. A stricter check would refuse files
+ * the parser accepts.
+ */
+const PDF_HEADER_WINDOW_BYTES = 1024;
+const PDF_HEADER = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
+
+/** Whether the bytes begin as a PDF does, before any parsing is paid for. */
+export function hasPdfHeader(bytes: Uint8Array): boolean {
+  const limit = Math.min(bytes.length, PDF_HEADER_WINDOW_BYTES + PDF_HEADER.length) - PDF_HEADER.length;
+  for (let at = 0; at <= limit; at += 1) {
+    if (PDF_HEADER.every((byte, i) => bytes[at + i] === byte)) return true;
+  }
+  return false;
+}
+
 /** The pdf.js text items we use; marked-content entries carry no `str`. */
 type TextItem = { str: string; hasEOL: boolean; transform: number[] };
 
@@ -21,6 +38,19 @@ type Line = { text: string; y: number };
 
 const isTextItem = (item: unknown): item is TextItem =>
   typeof (item as TextItem)?.str === "string";
+
+/** `extractTextFromPDFBytes` for a `File`, as the tests build them. */
+export async function extractTextFromPDFFile(file: File): Promise<string> {
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch (error) {
+    throw new PdfUnreadableError(
+      `PDF could not be read: ${error instanceof Error ? error.name : "unknown error"}`,
+    );
+  }
+  return extractTextFromPDFBytes(bytes);
+}
 
 /**
  * The PDF's text as a document: one line per line of the page, blank lines at
@@ -32,11 +62,10 @@ const isTextItem = (item: unknown): item is TextItem =>
  * headings, bullet boundaries and readability, none of which survive a flat
  * run of text.
  */
-export async function extractTextFromPDFFile(file: File): Promise<string> {
+export async function extractTextFromPDFBytes(bytes: Uint8Array): Promise<string> {
   let text: string;
 
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
     text = await readDocument(bytes);
   } catch (error) {
     throw new PdfUnreadableError(

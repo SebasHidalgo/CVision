@@ -5,6 +5,10 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "PDF_UNREADABLE"
   | "PDF_NO_TEXT"
+  // The upload, which goes from the browser straight to storage.
+  | "NOT_A_PDF"
+  | "FILE_TOO_LARGE"
+  | "UPLOAD_FAILED"
   | "STORAGE_UNAVAILABLE"
   | "STORAGE_MISCONFIGURED"
   | "AI_UNAVAILABLE"
@@ -59,6 +63,30 @@ export class PdfUnreadableError extends AppError {
 export class PdfNoTextError extends AppError {
   constructor(message = "PDF has no extractable text") {
     super("PDF_NO_TEXT", message);
+  }
+}
+
+/** The uploaded bytes do not start as a PDF does: a renamed file, not a damaged one. */
+export class NotAPdfError extends AppError {
+  constructor(message = "Uploaded file is not a PDF") {
+    super("NOT_A_PDF", message);
+  }
+}
+
+/** The object in storage is over the limit the form and the bucket enforce. */
+export class FileTooLargeError extends AppError {
+  constructor(message = "Uploaded file exceeds the size limit") {
+    super("FILE_TOO_LARGE", message);
+  }
+}
+
+/**
+ * The browser's PUT to storage failed, or the action was asked to analyze
+ * a key no object sits under: the upload did not go through.
+ */
+export class UploadFailedError extends AppError {
+  constructor(message = "Upload did not complete") {
+    super("UPLOAD_FAILED", message);
   }
 }
 

@@ -1,3 +1,4 @@
+import { MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import type { ErrorCode } from "./errors";
 
 /** User-facing copy per error code. Backend messages are never rendered. */
@@ -9,6 +10,11 @@ const COPY: Record<ErrorCode, string> = {
     "We couldn't open this PDF. It may be damaged or password-protected. Export a fresh copy without a password and upload that.",
   PDF_NO_TEXT:
     "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
+  NOT_A_PDF:
+    "That file isn't a PDF. Export your CV as a PDF and upload that.",
+  FILE_TOO_LARGE: `The file is larger than ${MAX_RESUME_SIZE_LABEL}. Export it again with compressed images and upload that.`,
+  UPLOAD_FAILED:
+    "The upload didn't go through. Check your connection and try again.",
   STORAGE_UNAVAILABLE:
     "We couldn't save your PDF, so the analysis didn't run. Try again in a few minutes.",
   STORAGE_MISCONFIGURED:
