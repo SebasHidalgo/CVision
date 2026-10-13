@@ -32,14 +32,18 @@ const OUTCOME: Record<GapOutcome, { label: string; className: string }> = {
   not_raised: { label: "Not raised", className: "text-ink-3" },
 };
 
-/** "6 answers · 54 words each · about 5 min speaking", from the measured stats. */
+/**
+ * "6 answers · 54 words each · about 5 min on the floor", from the measured
+ * stats. "On the floor" is from each answer's start to the interviewer's
+ * next turn, so it includes the pause before the reply.
+ */
 function describeStats(stats: InterviewStats): string {
   const parts = [
     `${stats.candidateTurns} ${stats.candidateTurns === 1 ? "answer" : "answers"}`,
     `${Math.round(stats.averageCandidateTurnWords)} words each`,
   ];
-  if (stats.candidateFloorSeconds !== null) {
-    parts.push(`about ${Math.max(1, Math.round(stats.candidateFloorSeconds / 60))} min speaking`);
+  if (stats.candidateOnFloorSeconds !== null) {
+    parts.push(`about ${Math.max(1, Math.round(stats.candidateOnFloorSeconds / 60))} min on the floor`);
   }
   if (stats.short) parts.push("short interview, low-confidence scores");
   return parts.join(" · ");

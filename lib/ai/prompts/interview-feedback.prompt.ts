@@ -99,8 +99,10 @@ const RESPONSE_FORMAT = `{
     name: "Communication Skills" | "Technical Knowledge" | "Problem Solving" | "Cultural Fit" | "Confidence and Clarity";
     score: number;
     // One to three sentences that name what the score rests on. A number
-    // without a reason teaches nothing. Pacing comments use the measured
-    // stats, never an estimate.
+    // without a reason teaches nothing. The Communication Skills comment is
+    // the one place the measured stats are cited, as pacing (how much was
+    // said, how long the answers ran), never as an estimate; the other four
+    // comments do not repeat the numbers.
     comment: string;
   }[];
 
@@ -112,8 +114,10 @@ const RESPONSE_FORMAT = `{
     anchor: { source: "notableAnswers" | "gapFollowThrough"; index: number };
   }[];
 
-  // Two to four things to work on, anchored the same way. Each point says
-  // what to do differently next time, concretely, as a suggestion (RULE 4).
+  // Up to four things to work on, anchored the same way, and none if there
+  // is nothing to say: an empty list is honest, filler is not. Each point
+  // says what to do differently next time, concretely, as a suggestion
+  // (RULE 4).
   areasForImprovement: {
     point: string;
     anchor: { source: "notableAnswers" | "gapFollowThrough"; index: number };
@@ -121,8 +125,10 @@ const RESPONSE_FORMAT = `{
 
   // Three to five sentences, in prose, written to the candidate: how the
   // interview went against the posting, the one thing that would change the
-  // outcome most, and, when the interview was short, that it was short and
-  // the scores are low-confidence (RULE 6).
+  // outcome most, and, only when the MEASURED STATS block says the interview
+  // is SHORT, that it was short and the scores are low-confidence (RULE 6).
+  // An interview the stats call long enough is not called short here. Do not
+  // restate the measured stats: no turn counts, word counts or seconds.
   finalAssessment: string;
 }`;
 
@@ -201,7 +207,7 @@ ${input.gaps.map((gap, i) => `${i + 1}. ${gap.requirement}`).join("\n") || "(non
 ${formatTranscript(input.turns)}
 === END TRANSCRIPT ===
 
-=== MEASURED STATS (computed from the transcript timings; use these for any comment on pacing or length, do not estimate) ===
+=== MEASURED STATS (computed from the transcript timings; cite them only in the Communication Skills comment, as pacing, and in the assessment only to say the interview was short; do not estimate) ===
 ${describeInterviewStats(input.stats)}
 === END MEASURED STATS ===
 

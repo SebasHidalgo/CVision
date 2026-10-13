@@ -184,6 +184,7 @@ export async function scoreTranscript({
     allowedText: feedbackAllowedText({ context, turns, stats }),
     gaps: context.gaps,
     feedback: answer,
+    stats,
   });
 
   return {

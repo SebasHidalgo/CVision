@@ -10,7 +10,7 @@ import {
 } from "@/lib/ai/analysisChecks";
 import { spanFor } from "@/lib/ai/analysisGuardrails";
 import { isCandidateTurn } from "@/lib/ai/interviewStats";
-import type { AiFeedback } from "@/lib/ai/schemas";
+import type { AiFeedback, InterviewStats } from "@/lib/ai/schemas";
 import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 
@@ -72,6 +72,8 @@ export type InterviewCheckInput = {
   allowedText: string;
   gaps: Requirement[];
   feedback: AiFeedback;
+  /** The measured stats, so a rounding of one ("about 400 words" for 398) is not an invention. */
+  stats?: InterviewStats;
 };
 
 /** The candidate's words, one turn per line, as the grounding source. */
@@ -185,31 +187,69 @@ function checkGapCoverage(gaps: Requirement[], feedback: AiFeedback): InterviewC
   return violations;
 }
 
-/**
- * Numbers in the prose that neither speaker said and the posting does not
- * state. Scores the model restates ("a 60") would be flagged too, which is
- * why the field comments ask for reasons rather than numbers.
- */
-function checkFabricatedNumbers(allowedText: string, feedback: AiFeedback): InterviewCheckViolation[] {
-  const allowed = new Set(numbersIn(normalizeWhitespace(allowedText)));
+/** How far a prose number may sit from a measured stat and still count as a rounding of it. */
+export const STAT_ROUNDING_TOLERANCE = 0.02;
 
-  return proseFields(feedback).flatMap(({ path, value }) => {
-    const digits = [...new Set(numbersIn(value))]
-      .filter((number) => !allowed.has(number))
-      .map((number) => ({ value: number, note: "number not in the transcript or the posting" }));
-    const words = MAGNITUDE_WORDS.filter(
+/** The stat values a number may be a rounding of, in the units the model sees and in minutes. */
+function statValues(stats: InterviewStats | undefined): number[] {
+  if (!stats) return [];
+  const seconds = [stats.candidateOnFloorSeconds, stats.longestTurnGapSeconds, stats.durationSeconds];
+  return [
+    stats.totalTurns,
+    stats.candidateTurns,
+    stats.candidateWords,
+    stats.averageCandidateTurnWords,
+    ...seconds,
+    ...seconds.map((value) => (value === null ? null : value / 60)),
+  ].filter((value): value is number => typeof value === "number" && value > 0);
+}
+
+const isRoundingOf = (number: number, values: number[]) =>
+  values.some((value) => Math.abs(number - value) <= value * STAT_ROUNDING_TOLERANCE);
+
+/**
+ * Numbers in the prose that neither speaker said, the posting does not
+ * state, and the measured stats do not account for within a rounding.
+ * Scores the model restates ("a 60") would be flagged too, which is why the
+ * field comments ask for reasons rather than numbers. Quantity words
+ * ("dozens", "zero") are only checked inside quotes, where they would be an
+ * invention; in prose they are ordinary writing ("zero hands-on experience").
+ */
+function checkFabricatedNumbers(
+  allowedText: string,
+  candidateText: string,
+  feedback: AiFeedback,
+  stats: InterviewStats | undefined,
+): InterviewCheckViolation[] {
+  const allowed = new Set(numbersIn(normalizeWhitespace(allowedText)));
+  const measured = statValues(stats);
+
+  const digits = proseFields(feedback).flatMap(({ path, value }) =>
+    [...new Set(numbersIn(value))]
+      .filter((number) => !allowed.has(number) && !isRoundingOf(Number(number), measured))
+      .map((number) => ({
+        check: "fabricated-number" as const,
+        path,
+        value: number,
+        note: "number not in the transcript, the posting or the measured stats",
+      })),
+  );
+
+  const words = quoteFields(feedback).flatMap(({ path, value }) =>
+    MAGNITUDE_WORDS.filter(
       (word) =>
         mentionsTerm(value, word) &&
-        !mentionsTerm(allowedText, word) &&
-        !mentionsTerm(allowedText, word.replace(/s$/, "")),
-    ).map((word) => ({ value: word, note: "quantity not in the transcript or the posting" }));
-
-    return [...digits, ...words].map((found) => ({
+        !mentionsTerm(candidateText, word) &&
+        !mentionsTerm(candidateText, word.replace(/s$/, "")),
+    ).map((word) => ({
       check: "fabricated-number" as const,
       path,
-      ...found,
-    }));
-  });
+      value: word,
+      note: "quantity the candidate did not say",
+    })),
+  );
+
+  return [...digits, ...words];
 }
 
 /**
@@ -223,7 +263,7 @@ const TECH_TOKEN = /(?<![A-Za-z0-9])(?:[A-Z][a-z]+(?:[A-Z][A-Za-z0-9]*)+|[A-Z]{2
 /** A capitalized word after a space that does not follow sentence punctuation. */
 const MID_SENTENCE_PROPER = /(?<=[^.!?:\n"(]\s)([A-Z][a-z]+[a-z0-9+#]*)(?![A-Za-z0-9])/g;
 /** Acronyms and words that are ordinary writing, not technologies. */
-const TECH_STOPLIST = new Set(["OK", "AI", "CV", "HR", "IT", "STAR", "FYI", "TL;DR", "ATS", "English", "Spanish"]);
+const TECH_STOPLIST = new Set(["OK", "AI", "CV", "HR", "IT", "UI", "UX", "STAR", "FYI", "TL;DR", "ATS", "English", "Spanish"]);
 
 function checkFabricatedTerms(allowedText: string, feedback: AiFeedback): InterviewCheckViolation[] {
   return proseFields(feedback).flatMap(({ path, value }) => {
@@ -252,7 +292,7 @@ export function checkInterviewFeedback(input: InterviewCheckInput): InterviewChe
     })),
     ...checkAnchors(input.feedback),
     ...checkGapCoverage(input.gaps, input.feedback),
-    ...checkFabricatedNumbers(input.allowedText, input.feedback),
+    ...checkFabricatedNumbers(input.allowedText, input.candidateText, input.feedback, input.stats),
     ...checkFabricatedTerms(input.allowedText, input.feedback),
   ];
 }

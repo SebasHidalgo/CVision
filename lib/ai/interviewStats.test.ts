@@ -18,7 +18,7 @@ const TIMED: TranscriptTurn[] = [
 ];
 
 describe("computeInterviewStats", () => {
-  it("counts candidate turns and words, and measures the floor from turn starts", () => {
+  it("counts candidate turns and words, and measures time on the floor from turn starts", () => {
     const stats = computeInterviewStats(TIMED, 150);
 
     expect(stats).toEqual({
@@ -27,7 +27,7 @@ describe("computeInterviewStats", () => {
       candidateWords: 12 + 10 + 9,
       averageCandidateTurnWords: 10.3,
       // (40-5) + (100-45) + (150-110)
-      candidateFloorSeconds: 130,
+      candidateOnFloorSeconds: 130,
       // 45 -> 100
       longestTurnGapSeconds: 55,
       durationSeconds: 150,
@@ -39,7 +39,7 @@ describe("computeInterviewStats", () => {
     const stats = computeInterviewStats(TIMED, null);
 
     // The last candidate turn gets no span: nothing starts after it.
-    expect(stats.candidateFloorSeconds).toBe(90);
+    expect(stats.candidateOnFloorSeconds).toBe(90);
     expect(stats.durationSeconds).toBeNull();
   });
 
@@ -48,7 +48,7 @@ describe("computeInterviewStats", () => {
     const stats = computeInterviewStats([...untimed, turn("user", "One more answer here.", null)], null);
 
     expect(stats.candidateTurns).toBe(4);
-    expect(stats.candidateFloorSeconds).toBeNull();
+    expect(stats.candidateOnFloorSeconds).toBeNull();
     expect(stats.longestTurnGapSeconds).toBeNull();
     // Four turns, so not short by count; time unknown, so not short by time.
     expect(stats.short).toBe(false);

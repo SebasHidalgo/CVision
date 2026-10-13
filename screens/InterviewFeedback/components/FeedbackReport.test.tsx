@@ -39,7 +39,7 @@ const report: InterviewFeedbackReport = {
     candidateTurns: 6,
     candidateWords: 420,
     averageCandidateTurnWords: 70,
-    candidateFloorSeconds: 301,
+    candidateOnFloorSeconds: 301,
     longestTurnGapSeconds: 40,
     durationSeconds: 400,
     short: false,
@@ -86,7 +86,7 @@ describe("FeedbackReport", () => {
 
     // Scores, stats line, prose.
     for (const name of FEEDBACK_CATEGORIES) expect(html).toContain(name);
-    expect(html).toContain("6 answers · 70 words each · about 5 min speaking");
+    expect(html).toContain("6 answers · 70 words each · about 5 min on the floor");
     expect(html).toContain("Specific where it counted; vague on GraphQL.");
 
     // A strength shows the words it rests on; a gap-anchored area shows the

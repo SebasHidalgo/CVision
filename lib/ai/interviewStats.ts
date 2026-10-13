@@ -17,11 +17,12 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
  * Facts about the transcript, from its turns alone. Deterministic, so the
  * model is handed them as data and told not to estimate pacing itself.
  *
- * The turns carry a start offset and no end, so "floor" time is the span
- * from a candidate turn's start to the next turn's start, which includes the
- * pause before the interviewer replies; and the longest gap between two
+ * The turns carry a start offset and no end, so time "on the floor" is the
+ * span from a candidate turn's start to the next turn's start, which includes
+ * the pause before the interviewer replies: an upper bound on speaking time,
+ * named so it is not mistaken for one. The longest gap between two
  * consecutive starts bounds the longest silence from above. Both are null
- * when no offsets exist, which is the legacy browser transcript.
+ * when no offsets exist.
  */
 export function computeInterviewStats(
   turns: TranscriptTurn[],
@@ -31,35 +32,35 @@ export function computeInterviewStats(
   const candidateWords = candidate.reduce((sum, turn) => sum + wordCount(turn.message ?? ""), 0);
 
   const timed = turns.every((turn) => typeof turn.time_in_call_secs === "number");
-  let candidateFloorSeconds: number | null = null;
+  let candidateOnFloorSeconds: number | null = null;
   let longestTurnGapSeconds: number | null = null;
 
   if (timed && turns.length > 0) {
     const starts = turns.map((turn) => turn.time_in_call_secs as number);
     const end = durationSeconds ?? starts[starts.length - 1];
-    candidateFloorSeconds = 0;
+    candidateOnFloorSeconds = 0;
     longestTurnGapSeconds = 0;
 
     for (let i = 0; i < turns.length; i += 1) {
       const next = i + 1 < starts.length ? starts[i + 1] : end;
       const span = Math.max(0, next - starts[i]);
-      if (isCandidateTurn(turns[i])) candidateFloorSeconds += span;
+      if (isCandidateTurn(turns[i])) candidateOnFloorSeconds += span;
       if (i + 1 < starts.length) longestTurnGapSeconds = Math.max(longestTurnGapSeconds, span);
     }
-    candidateFloorSeconds = round(candidateFloorSeconds);
+    candidateOnFloorSeconds = round(candidateOnFloorSeconds);
     longestTurnGapSeconds = round(longestTurnGapSeconds);
   }
 
   const short =
     candidate.length < SHORT_INTERVIEW_TURNS ||
-    (candidateFloorSeconds !== null && candidateFloorSeconds < SHORT_INTERVIEW_SECONDS);
+    (candidateOnFloorSeconds !== null && candidateOnFloorSeconds < SHORT_INTERVIEW_SECONDS);
 
   return {
     totalTurns: turns.length,
     candidateTurns: candidate.length,
     candidateWords,
     averageCandidateTurnWords: candidate.length ? round(candidateWords / candidate.length) : 0,
-    candidateFloorSeconds,
+    candidateOnFloorSeconds,
     longestTurnGapSeconds,
     durationSeconds: durationSeconds ?? null,
     short,
@@ -73,9 +74,9 @@ export function describeInterviewStats(stats: InterviewStats): string {
   const lines = [
     `Candidate turns: ${stats.candidateTurns} of ${stats.totalTurns} turns in total`,
     `Candidate words: ${stats.candidateWords} (average ${stats.averageCandidateTurnWords} per turn)`,
-    stats.candidateFloorSeconds === null
-      ? "Candidate speaking time: not measured (no timings in this transcript)"
-      : `Candidate speaking time: about ${Math.round(stats.candidateFloorSeconds)} seconds`,
+    stats.candidateOnFloorSeconds === null
+      ? "Candidate time on the floor: not measured (no timings in this transcript)"
+      : `Candidate time on the floor: about ${Math.round(stats.candidateOnFloorSeconds)} seconds (from each candidate turn's start to the next turn's start, so it includes the pause before the interviewer replied)`,
     stats.longestTurnGapSeconds === null
       ? "Longest gap between turns: not measured"
       : `Longest gap between turns: about ${Math.round(stats.longestTurnGapSeconds)} seconds`,

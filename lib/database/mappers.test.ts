@@ -23,7 +23,7 @@ const REPORT = {
     candidateTurns: 1,
     candidateWords: 3,
     averageCandidateTurnWords: 3,
-    candidateFloorSeconds: null,
+    candidateOnFloorSeconds: null,
     longestTurnGapSeconds: null,
     durationSeconds: null,
     short: true,

@@ -97,6 +97,48 @@ describe("checkInterviewFeedback", () => {
     expect(coverage.map((v) => v.note)).toEqual(["second row for gap 1", "no row for gap 2", "row for no listed gap"]);
   });
 
+  it("lets a rounding of a measured stat through, and a quantity word in prose", () => {
+    const stats = {
+      totalTurns: 9,
+      candidateTurns: 4,
+      candidateWords: 398,
+      averageCandidateTurnWords: 99.5,
+      candidateOnFloorSeconds: 412,
+      longestTurnGapSeconds: 31,
+      durationSeconds: 540,
+      short: false,
+    };
+    const violations = checkInterviewFeedback({
+      ...input(
+        feedback({
+          categoryScores: categories("About 400 words over nine answers, roughly 7 minutes on the floor; zero hands-on experience with Terraform."),
+          notableAnswers: [{ quote: "I did build a REST API at Northwind.", worked: true, why: "Dozens of endpoints, they said." }],
+        }),
+      ),
+      stats,
+    });
+    // 400 is within 2% of 398 and 7 of 412/60; "zero" and "dozens" are prose, not quotes.
+    expect(violations.filter((v) => v.check === "fabricated-number")).toEqual([]);
+  });
+
+  it("still reports a number outside the rounding tolerance, and a quantity word inside a quote", () => {
+    const violations = checkInterviewFeedback({
+      ...input(
+        feedback({
+          categoryScores: categories("Around 450 words in total."),
+          notableAnswers: [{ quote: "I did build a REST API at Northwind.", worked: true, why: "" }],
+          gapFollowThrough: [
+            { requirement: "GraphQL schema design", outcome: "dodged", quote: "I have seen GraphQL around, mostly in demos.", note: "" },
+            { requirement: "Terraform", outcome: "dodged", quote: "dozens of Terraform modules", note: "" },
+          ],
+        }),
+      ),
+      stats: { totalTurns: 9, candidateTurns: 4, candidateWords: 398, averageCandidateTurnWords: 99.5, candidateOnFloorSeconds: 412, longestTurnGapSeconds: 31, durationSeconds: 540, short: false },
+    });
+    const numbers = violations.filter((v) => v.check === "fabricated-number").map((v) => `${v.path}:${v.value}`);
+    expect(numbers).toEqual(expect.arrayContaining(["categoryScores[0].comment:450", "gapFollowThrough[1].quote:dozens"]));
+  });
+
   it("reports numbers and technology names that neither speaker nor the posting said", () => {
     const violations = checkInterviewFeedback(
       input(

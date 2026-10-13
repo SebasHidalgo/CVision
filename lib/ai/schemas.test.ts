@@ -133,7 +133,7 @@ describe("interviewFeedbackReportSchema: what is persisted", () => {
     candidateTurns: 4,
     candidateWords: 220,
     averageCandidateTurnWords: 55,
-    candidateFloorSeconds: 310.5,
+    candidateOnFloorSeconds: 310.5,
     longestTurnGapSeconds: 42,
     durationSeconds: 400,
     short: false,
@@ -146,7 +146,7 @@ describe("interviewFeedbackReportSchema: what is persisted", () => {
   });
 
   it("accepts null timings for a transcript without offsets", () => {
-    const untimed = { ...stats, candidateFloorSeconds: null, longestTurnGapSeconds: null, durationSeconds: null };
+    const untimed = { ...stats, candidateOnFloorSeconds: null, longestTurnGapSeconds: null, durationSeconds: null };
     expect(
       interviewFeedbackReportSchema.safeParse({ ...feedback(), totalScore: 70, interviewStats: untimed }).success,
     ).toBe(true);

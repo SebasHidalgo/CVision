@@ -152,8 +152,12 @@ export const interviewStatsSchema = z.object({
   candidateTurns: z.number().int().min(0),
   candidateWords: z.number().int().min(0),
   averageCandidateTurnWords: z.number().min(0),
-  /** Seconds between each candidate turn's start and the next turn's start. */
-  candidateFloorSeconds: z.number().min(0).nullable(),
+  /**
+   * Seconds the candidate held the floor: from each candidate turn's start to
+   * the next turn's start, so speaking time plus the pause before the
+   * interviewer replied. An upper bound on speaking, never "speaking time".
+   */
+  candidateOnFloorSeconds: z.number().min(0).nullable(),
   /** Longest span between two consecutive turn starts; an upper bound on silence. */
   longestTurnGapSeconds: z.number().min(0).nullable(),
   durationSeconds: z.number().min(0).nullable(),
