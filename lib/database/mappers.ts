@@ -15,8 +15,17 @@ export function isFinalized(status: InterviewStatus): boolean {
 /** Single source for the resume + feedback read shape. */
 export const resumeInclude = {
   feedback: { omit: { id: true, resumeId: true } },
-  // Enough to route from an analysis to its interview, or its feedback.
-  Interview: { select: { id: true, status: true } },
+  // Enough to list the rehearsals and route to each one or its feedback.
+  interviews: {
+    select: {
+      id: true,
+      status: true,
+      attemptNumber: true,
+      createdAt: true,
+      InterviewFeedback: { select: { totalScore: true } },
+    },
+    orderBy: { attemptNumber: "desc" },
+  },
 } satisfies Prisma.ResumeAnalysisInclude;
 
 export type DbResumeWithFeedback = Prisma.ResumeAnalysisGetPayload<{
@@ -69,13 +78,13 @@ export function mapDbResume(db: DbResumeWithFeedback): ResumeAnalysis {
     resumeUrl: db.resumeUrl,
     userId: db.userId,
     feedback: parsed?.success ? parsed.data : null,
-    interview: db.Interview
-      ? {
-          id: db.Interview.id,
-          status: db.Interview.status,
-          finalized: isFinalized(db.Interview.status),
-        }
-      : null,
+    interviews: db.interviews.map((interview) => ({
+      id: interview.id,
+      status: interview.status,
+      attemptNumber: interview.attemptNumber,
+      totalScore: interview.InterviewFeedback?.totalScore ?? null,
+      createdAt: interview.createdAt.toISOString(),
+    })),
     createdAt: db.createdAt.toISOString(),
   };
 }
@@ -90,6 +99,7 @@ export function mapDbInterview(db: DbInterview): Interview {
     finalized: isFinalized(db.status),
     createdAt: db.createdAt,
     resumeAnalysisId: db.resumeAnalysisId,
+    attemptNumber: db.attemptNumber,
     conversationId: db.conversationId,
     startCount: db.startCount,
     startedAt: db.startedAt,

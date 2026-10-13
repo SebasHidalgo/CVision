@@ -17,7 +17,7 @@ type AnalysisHeaderProps = {
   summary: string;
   resumeUrl: string;
   resumeId: string;
-  interview: ResumeAnalysis["interview"];
+  attempts: ResumeAnalysis["interviews"];
 };
 
 /**
@@ -36,7 +36,7 @@ export default function AnalysisHeader({
   summary,
   resumeUrl,
   resumeId,
-  interview,
+  attempts,
 }: AnalysisHeaderProps) {
   return (
     <header className="border-b border-line pb-10 lg:pb-12">
@@ -81,7 +81,7 @@ export default function AnalysisHeader({
             variant="compact"
             resumeId={resumeId}
             jobTitle={jobTitle}
-            interview={interview}
+            attempts={attempts}
           />
         </div>
       </div>

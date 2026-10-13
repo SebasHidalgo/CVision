@@ -44,41 +44,72 @@ export type CreateInterviewData = {
   resumeId: string;
 };
 
+export type CreateInterviewResult = {
+  id: string;
+  attemptNumber: number;
+  /** False when a live attempt already existed and was returned instead. */
+  created: boolean;
+};
+
+/** Racing creates surface as one of these; the loser reads again and finds the winner live. */
+const RACE_CODES = new Set(["P2034", "P2002"]);
+const CREATE_ATTEMPTS = 3;
+
 /**
- * One interview per analysis, enforced by the unique on `resumeAnalysisId`.
- * Two submits racing past the action's read (two tabs, or the two CTAs on the
- * detail page) both get here; the loser hits the unique and is handed the
- * winner's id instead of an error.
+ * Starts the next rehearsal of an analysis, or hands back the one that is
+ * still live. One live attempt (SCHEDULED or IN_PROGRESS) at a time, and
+ * attempt numbers that never collide: the check and the numbered insert run
+ * in one serializable transaction, so two submits racing past the action's
+ * read (two tabs, or the two CTAs on the detail page) cannot both create.
+ * The loser's transaction fails to serialize, or hits the unique on
+ * (analysis, attempt), and the retry finds the winner.
  */
 export async function createInterview(
   data: CreateInterviewData
-): Promise<string> {
-  let userId: string | undefined;
+): Promise<CreateInterviewResult> {
   try {
-    userId = await requireUserId();
+    const userId = await requireUserId();
 
-    const dbInterview = await prisma.interview.create({
-      data: {
-        role: data.role,
-        techstack: data.techstack,
-        userId,
-        resumeAnalysisId: data.resumeId,
-      },
-    });
+    for (let round = 0; round < CREATE_ATTEMPTS; round += 1) {
+      try {
+        return await prisma.$transaction(
+          async (tx) => {
+            const live = await tx.interview.findFirst({
+              where: {
+                resumeAnalysisId: data.resumeId,
+                userId,
+                status: { in: [...STARTABLE_STATUSES] },
+              },
+              select: { id: true, attemptNumber: true },
+            });
+            if (live) return { id: live.id, attemptNumber: live.attemptNumber, created: false };
 
-    return dbInterview.id;
-  } catch (error) {
-    if (
-      userId &&
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      const existing = await prisma.interview.findFirst({
-        where: { resumeAnalysisId: data.resumeId, userId },
-        select: { id: true },
-      });
-      if (existing) return existing.id;
+            const last = await tx.interview.aggregate({
+              where: { resumeAnalysisId: data.resumeId },
+              _max: { attemptNumber: true },
+            });
+            const created = await tx.interview.create({
+              data: {
+                role: data.role,
+                techstack: data.techstack,
+                userId,
+                resumeAnalysisId: data.resumeId,
+                attemptNumber: (last._max.attemptNumber ?? 0) + 1,
+              },
+              select: { id: true, attemptNumber: true },
+            });
+            return { id: created.id, attemptNumber: created.attemptNumber, created: true };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        const raced =
+          error instanceof Prisma.PrismaClientKnownRequestError && RACE_CODES.has(error.code);
+        if (!raced || round === CREATE_ATTEMPTS - 1) throw error;
+      }
     }
+    throw new Error("unreachable");
+  } catch (error) {
     handleError(error, "Failed to create interview record");
   }
 }

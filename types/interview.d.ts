@@ -14,6 +14,8 @@ export type Interview = {
   finalized: boolean;
   createdAt: Date;
   resumeAnalysisId: string | null;
+  /** 1 for the first rehearsal of its analysis, 2 for the next. */
+  attemptNumber: number;
   /** Latest issued voice session, and how many have been issued. */
   conversationId: string | null;
   startCount: number;

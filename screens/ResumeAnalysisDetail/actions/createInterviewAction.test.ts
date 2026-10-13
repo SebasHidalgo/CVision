@@ -24,7 +24,7 @@ function resumeWith(
     resumeUrl: "cv/user_1/x.pdf",
     userId: "user_1",
     createdAt: "2026-10-01T00:00:00.000Z",
-    interview: null,
+    interviews: [],
     feedback: {
       skills: { matchedSkills },
     } as unknown as ResumeAnalysis["feedback"],
@@ -35,7 +35,7 @@ function resumeWith(
 beforeEach(() => {
   // restoreMocks only restores spies; call history on vi.fn() survives it.
   vi.clearAllMocks();
-  vi.mocked(createInterview).mockResolvedValue("interview_1");
+  vi.mocked(createInterview).mockResolvedValue({ id: "interview_1", attemptNumber: 1, created: true });
   // The action logs failures server-side; keep the test output readable.
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -89,18 +89,42 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
 });
 
 describe("createInterviewAction: guards", () => {
-  it("returns the existing interview instead of creating a second one", async () => {
-    vi.mocked(fetchResumeById).mockResolvedValue(
-      resumeWith([], {
-        interview: { id: "interview_0", status: "SCHEDULED", finalized: false },
-      }),
-    );
-
-    const result = await createInterviewAction({ resumeId: RESUME_ID });
-
-    expect(result).toEqual({ ok: true, data: { interviewId: "interview_0" } });
-    expect(createInterview).not.toHaveBeenCalled();
+  const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["status"], attemptNumber: number) => ({
+    id,
+    status,
+    attemptNumber,
+    totalScore: status === "COMPLETED" ? 60 : null,
+    createdAt: "2026-10-01T00:00:00.000Z",
   });
+
+  it.each(["SCHEDULED", "IN_PROGRESS"] as const)(
+    "returns the live %s attempt instead of creating another",
+    async (status) => {
+      vi.mocked(fetchResumeById).mockResolvedValue(
+        resumeWith([], { interviews: [attempt("interview_2", status, 2), attempt("interview_1", "COMPLETED", 1)] }),
+      );
+
+      const result = await createInterviewAction({ resumeId: RESUME_ID });
+
+      expect(result).toEqual({ ok: true, data: { interviewId: "interview_2" } });
+      expect(createInterview).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["COMPLETED", "FAILED", "FEEDBACK_PENDING"] as const)(
+    "creates the next attempt when the latest is %s",
+    async (status) => {
+      vi.mocked(fetchResumeById).mockResolvedValue(
+        resumeWith([], { interviews: [attempt("interview_1", status, 1)] }),
+      );
+      vi.mocked(createInterview).mockResolvedValue({ id: "interview_2", attemptNumber: 2, created: true });
+
+      const result = await createInterviewAction({ resumeId: RESUME_ID });
+
+      expect(result).toEqual({ ok: true, data: { interviewId: "interview_2" } });
+      expect(createInterview).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("answers NOT_FOUND for a missing or foreign analysis", async () => {
     vi.mocked(fetchResumeById).mockResolvedValue(null);

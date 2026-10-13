@@ -17,8 +17,9 @@ model ResumeAnalysis {
   userId         String
   createdAt      DateTime @default(now())
 
-  feedback  ResumeFeedback?
-  Interview Interview?
+  feedback   ResumeFeedback?
+  /// Every rehearsal of this analysis, numbered by `attemptNumber`.
+  interviews Interview[]
 
   @@index([userId, createdAt])
 }
@@ -110,13 +111,17 @@ model Interview {
   /// When the current GENERATING claim was taken, to detect a dead worker.
   feedbackStartedAt DateTime?
 
-  resumeAnalysisId String?         @unique
+  resumeAnalysisId String?
   /// Deleting an analysis keeps the interview and its feedback: the room
   /// already redirects when there is no analysis to build questions from.
   resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id], onDelete: SetNull)
+  /// 1 for the first rehearsal of an analysis, 2 for the next. Unique per
+  /// analysis, so two creates racing for the same number cannot both land.
+  attemptNumber    Int             @default(1)
 
   InterviewFeedback InterviewFeedback?
 
+  @@unique([resumeAnalysisId, attemptNumber])
   @@index([userId, createdAt])
 }
 

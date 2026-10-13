@@ -28,9 +28,9 @@ async function main() {
   if (!owner) throw new Error("no interview rows to take the owner id from");
 
   if (cleanup) {
-    const seeded = await prisma.resumeAnalysis.findMany({ where: { companyName: { contains: LABEL } }, select: { id: true, Interview: { select: { id: true } } } });
+    const seeded = await prisma.resumeAnalysis.findMany({ where: { companyName: { contains: LABEL } }, select: { id: true, interviews: { select: { id: true } } } });
     for (const row of seeded) {
-      if (row.Interview) await prisma.interview.delete({ where: { id: row.Interview.id } });
+      for (const interview of row.interviews) await prisma.interview.delete({ where: { id: interview.id } });
       await prisma.resumeAnalysis.delete({ where: { id: row.id } });
     }
     console.log(`deleted ${seeded.length} seeded analysis row(s) and their interviews`);

@@ -62,7 +62,12 @@ export default async function InterviewsScreen() {
                 key={interview.id}
                 index={ordinal(i)}
                 href={destination.href}
-                title={interview.role}
+                title={
+                  <>
+                    {interview.role}
+                    <span className="eyebrow ml-3 align-middle">Attempt {interview.attemptNumber}</span>
+                  </>
+                }
                 subtitle={
                   interview.techstack.length > 0 ? (
                     <span className="flex flex-wrap gap-1.5">

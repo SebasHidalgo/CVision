@@ -3,32 +3,39 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, Loader2, Mic } from "lucide-react";
+import { ArrowRight, Loader2, Mic, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/limits";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
-import { interviewDestination } from "@/lib/interviewStatus";
+import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
 type InterviewCtaProps = {
   resumeId: string;
   jobTitle: string;
-  interview: ResumeAnalysis["interview"];
+  attempts: ResumeAnalysis["interviews"];
   /** "compact" sits in the header; "full" closes the report. */
   variant: "compact" | "full";
+  /** The full variant's list of attempts, rendered by the server. */
+  children?: React.ReactNode;
 };
 
+const MAX_MINUTES = Math.round(MAX_INTERVIEW_DURATION_SECONDS / 60);
+
 /**
- * One analysis owns at most one interview, so the action changes with state:
- * create it, open the room, wait for the feedback, or read it.
+ * An analysis can be rehearsed as many times as the candidate wants, one
+ * attempt at a time: the control opens the live attempt when there is one,
+ * and otherwise starts the next.
  */
 export default function InterviewCta({
   resumeId,
   jobTitle,
-  interview,
+  attempts,
   variant,
+  children,
 }: InterviewCtaProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
@@ -56,16 +63,16 @@ export default function InterviewCta({
     setIsCreating(false);
   };
 
-  const target = interview ? interviewDestination(interview) : null;
-  const rehearsed = target !== null && target.phase !== "ready";
+  const live = liveAttempt(attempts);
+  const rehearsed = attempts.length > 0;
 
   const compactClasses = "h-11 gap-2 px-5";
   const fullClasses = "group h-12 gap-2 px-7 text-base";
 
-  const control = target ? (
+  const control = live ? (
     <Button asChild className={variant === "compact" ? compactClasses : fullClasses}>
-      <Link href={target.href}>
-        {target.label}
+      <Link href={interviewDestination(live).href}>
+        {interviewDestination(live).label}
         <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
       </Link>
     </Button>
@@ -79,6 +86,11 @@ export default function InterviewCta({
         <>
           <Loader2 className="size-4 animate-spin" />
           Preparing the interview…
+        </>
+      ) : rehearsed ? (
+        <>
+          <RotateCcw className="size-4" />
+          Rehearse again
         </>
       ) : (
         <>
@@ -100,23 +112,28 @@ export default function InterviewCta({
       <div className="mt-5 grid gap-8 md:grid-cols-12 md:items-end">
         <div className="md:col-span-8">
           <h2 id="interview-cta-title" className="display-md text-ink">
-            {rehearsed
-              ? "You already rehearsed this one."
-              : `Rehearse the ${jobTitle} interview out loud.`}
+            {live
+              ? "Your interview is ready."
+              : rehearsed
+                ? "Rehearse it again."
+                : `Rehearse the ${jobTitle} interview out loud.`}
           </h2>
           <p className="lede mt-4 max-w-xl">
-            {rehearsed
-              ? "Your feedback report shows how you handled the gaps the analysis found, quoting your own words, with the full transcript underneath."
-              : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."}
+            {live
+              ? "An attempt is waiting in the room. Finish it, and the feedback lands here."
+              : rehearsed
+                ? "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed."
+                : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."}
           </p>
         </div>
         <div className="flex flex-col items-start gap-3 md:col-span-4 md:items-end">
           {control}
-          {!target && (
-            <p className="eyebrow">Needs a microphone · up to 12 minutes · works on a phone</p>
+          {!live && (
+            <p className="eyebrow">Needs a microphone · up to {MAX_MINUTES} minutes · works on a phone</p>
           )}
         </div>
       </div>
+      {children && <div className="mt-10">{children}</div>}
     </section>
   );
 }

@@ -14,8 +14,10 @@ import {
  * next sync.
  */
 
-/** Hard cap enforced by the platform: billing stops here even if the tab hangs. */
-export const MAX_INTERVIEW_DURATION_SECONDS = 12 * 60;
+// The limits the browser also shows live in limits.ts (no imports there);
+// re-exported so server code keeps one import for the agent's numbers.
+export { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/limits";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/limits";
 
 /**
  * Silence handling. `turnTimeout` is how long the agent waits for an answer
@@ -26,13 +28,6 @@ export const MAX_INTERVIEW_DURATION_SECONDS = 12 * 60;
  */
 export const INTERVIEW_TURN_TIMEOUT_SECONDS = 15;
 export const INTERVIEW_SILENCE_END_CALL_SECONDS = 60;
-
-/**
- * Sessions one interview may issue: one real attempt plus two retries for a
- * dropped connection. Every start is a paid call, and before this an
- * unfinished interview could be restarted without limit.
- */
-export const MAX_INTERVIEW_STARTS = 3;
 
 /**
  * Conversations per day across all users, an abuse brake rather than a

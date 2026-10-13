@@ -38,6 +38,11 @@ const LABEL: Record<InterviewPhase, string> = {
   expired: "Interview expired",
 };
 
+/** The one attempt of an analysis that can still be started, if any. */
+export function liveAttempt<T extends { status: InterviewStatus }>(attempts: T[]): T | null {
+  return attempts.find((attempt) => interviewPhase(attempt.status) === "ready") ?? null;
+}
+
 /** Where a link to this interview should go, and what it should say. */
 export function interviewDestination(interview: {
   id: string;
