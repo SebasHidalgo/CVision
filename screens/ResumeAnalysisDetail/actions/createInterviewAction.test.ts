@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInterview } from "@/lib/database/interview";
 import { fetchResumeById } from "@/lib/database/resume";
+import { MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS } from "@/lib/interviewLimits";
 import { MAX_TECHSTACK_ITEM_CHARS, MAX_TECHSTACK_ITEMS } from "@/lib/schemas/interviewSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { createInterviewAction } from "./createInterviewAction";
@@ -32,6 +33,14 @@ function resumeWith(
   };
 }
 
+const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["status"], attemptNumber: number) => ({
+  id,
+  status,
+  attemptNumber,
+  totalScore: status === "COMPLETED" ? 60 : null,
+  createdAt: "2026-10-01T00:00:00.000Z",
+});
+
 beforeEach(() => {
   // restoreMocks only restores spies; call history on vi.fn() survives it.
   vi.clearAllMocks();
@@ -57,6 +66,7 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
       role: "Frontend Engineer",
       techstack: ["React", "TypeScript"],
       resumeId: RESUME_ID,
+      maxAttempts: MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS,
     });
   });
 
@@ -89,14 +99,6 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
 });
 
 describe("createInterviewAction: guards", () => {
-  const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["status"], attemptNumber: number) => ({
-    id,
-    status,
-    attemptNumber,
-    totalScore: status === "COMPLETED" ? 60 : null,
-    createdAt: "2026-10-01T00:00:00.000Z",
-  });
-
   it.each(["SCHEDULED", "IN_PROGRESS"] as const)(
     "returns the live %s attempt instead of creating another",
     async (status) => {
@@ -140,5 +142,55 @@ describe("createInterviewAction: guards", () => {
 
     expect(result).toEqual({ ok: false, code: "INVALID_INPUT" });
     expect(fetchResumeById).not.toHaveBeenCalled();
+  });
+});
+
+describe("createInterviewAction: the provisional cap", () => {
+  it("refuses a fourth rehearsal with INTERVIEW_ATTEMPT_LIMIT, before the data layer", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([], {
+        interviews: [
+          attempt("i3", "COMPLETED", 3),
+          attempt("i2", "FEEDBACK_PENDING", 2),
+          attempt("i1", "COMPLETED", 1),
+        ],
+      }),
+    );
+
+    const result = await createInterviewAction({ resumeId: RESUME_ID });
+
+    expect(result).toEqual({ ok: false, code: "INTERVIEW_ATTEMPT_LIMIT" });
+    expect(createInterview).not.toHaveBeenCalled();
+  });
+
+  it("does not count FAILED or EXPIRED attempts: a lost session is not a used rehearsal", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([], {
+        interviews: [
+          attempt("i5", "EXPIRED", 5),
+          attempt("i4", "FAILED", 4),
+          attempt("i3", "COMPLETED", 3),
+          attempt("i2", "FAILED", 2),
+          attempt("i1", "COMPLETED", 1),
+        ],
+      }),
+    );
+    vi.mocked(createInterview).mockResolvedValue({ id: "i6", attemptNumber: 6, created: true });
+
+    const result = await createInterviewAction({ resumeId: RESUME_ID });
+
+    expect(result).toEqual({ ok: true, data: { interviewId: "i6" } });
+    expect(createInterview).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the cap's refusal from the data layer through as the same code", async () => {
+    const { InterviewAttemptLimitError } = await import("@/lib/error/errors");
+    vi.mocked(fetchResumeById).mockResolvedValue(resumeWith([]));
+    vi.mocked(createInterview).mockRejectedValue(new InterviewAttemptLimitError());
+
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({
+      ok: false,
+      code: "INTERVIEW_ATTEMPT_LIMIT",
+    });
   });
 });

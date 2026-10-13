@@ -5,6 +5,7 @@ import {
   MAX_INTERVIEW_DURATION_SECONDS,
   MAX_INTERVIEW_STARTS,
 } from "@/lib/elevenlabs/agentConfig";
+import { MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS } from "@/lib/interviewLimits";
 import { interviewPhase } from "@/lib/interviewStatus";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
 
@@ -37,6 +38,8 @@ export default async function InterviewScreen({
       company={interview.resumeAnalysis.companyName}
       candidateName={user.firstName ?? user.fullName}
       analysisId={interview.resumeAnalysisId}
+      attemptNumber={interview.attemptNumber}
+      maxAttempts={MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS}
       startCount={interview.startCount}
       maxStarts={MAX_INTERVIEW_STARTS}
       maxDurationSeconds={MAX_INTERVIEW_DURATION_SECONDS}

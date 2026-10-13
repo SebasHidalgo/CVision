@@ -19,6 +19,10 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The analysis works
 from there; the voice interview needs the tunnel described below.
 
+On Windows, run `npx prisma db push` (and `npx prisma generate`) with the
+dev server stopped: while it runs it holds the Prisma query engine open, and
+the push fails with `EPERM` when it tries to replace the engine file.
+
 Before handing in a change: `npx tsc --noEmit`, `npm test`, `npm run build`.
 `npm run eval` scores the real analysis over fixed fixtures and
 `npm run eval -- interview run <label>` does the same for the interview

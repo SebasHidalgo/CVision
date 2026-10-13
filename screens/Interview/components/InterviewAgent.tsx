@@ -17,7 +17,7 @@ import {
   formatClock,
   remainingSeconds,
 } from "../utils/countdown";
-import { requestInterviewSession } from "../utils/session";
+import { reportInterviewEnded, requestInterviewSession } from "../utils/session";
 import Transcript, { type TranscriptLine } from "./Transcript";
 
 export type InterviewAgentProps = {
@@ -28,7 +28,13 @@ export type InterviewAgentProps = {
   candidateName: string | null;
   /** Where the cap message sends the candidate to rehearse again. */
   analysisId: string;
-  /** Sessions already issued for this interview, and the cap. */
+  /** Which rehearsal of the analysis this is, and how many it allows. */
+  attemptNumber: number;
+  maxAttempts: number;
+  /**
+   * Starts (connections) already issued for this interview, and the cap.
+   * A different counter from the attempt: it exists for dropped calls.
+   */
   startCount: number;
   maxStarts: number;
   /** The agent's hard limit; the session response repeats it. */
@@ -94,12 +100,16 @@ async function requestMicrophone(): Promise<string | null> {
 /** The SDK always reaches onDisconnect after endSession; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
 
+const startsCopy = (left: number) => `${left} ${left === 1 ? "start" : "starts"} left`;
+
 function InterviewRoom({
   interviewId,
   role,
   company,
   candidateName,
   analysisId,
+  attemptNumber,
+  maxAttempts,
   startCount,
   maxStarts,
   maxDurationSeconds,
@@ -150,6 +160,10 @@ function InterviewRoom({
     onDisconnect: (details) => {
       const current = phaseRef.current.kind;
       if (current === "ended") return;
+
+      // Whatever ended it, the server learns the call is over now rather
+      // than when the transcript lands. Not awaited: nothing here depends on it.
+      void reportInterviewEnded(interviewId, details.reason);
 
       // The platform's hard limit arrives as an error event; it is the agent
       // ending the call, not a failure.
@@ -242,7 +256,8 @@ function InterviewRoom({
   const live = phase.kind === "live";
   const starting = phase.kind === "starting";
   const atCap = startsUsed >= maxStarts;
-  const attemptsLeft = Math.max(0, maxStarts - startsUsed);
+  const startsLeft = Math.max(0, maxStarts - startsUsed);
+  const dropped = phase.kind === "dropped";
 
   const maxSeconds = session?.maxDurationSeconds ?? maxDurationSeconds;
   const language = session?.language ?? "en";
@@ -275,10 +290,10 @@ function InterviewRoom({
           ? "Ending the interview"
           : phase.kind === "ended"
             ? "Interview ended"
-            : phase.kind === "dropped"
+            : dropped
               ? "Connection lost"
               : atCap
-                ? "No attempts left"
+                ? "No starts left"
                 : "Ready when you are";
 
   const startLabel =
@@ -288,7 +303,7 @@ function InterviewRoom({
         : phase.step === "session"
           ? "Starting"
           : "Connecting"
-      : phase.kind === "dropped"
+      : dropped
         ? "Try again"
         : "Start the interview";
 
@@ -297,7 +312,9 @@ function InterviewRoom({
       <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
           <div>
-            <Eyebrow tick>Interview room</Eyebrow>
+            <Eyebrow tick>
+              Interview room · Attempt {attemptNumber} of {maxAttempts}
+            </Eyebrow>
             <h1 className="display-md mt-3">{role}</h1>
             <p className="mt-2 text-ink-2">{company}</p>
           </div>
@@ -308,7 +325,7 @@ function InterviewRoom({
                 "size-2 rounded-full",
                 live
                   ? "glow-signal bg-signal animate-blink"
-                  : phase.kind === "ended" || phase.kind === "dropped"
+                  : phase.kind === "ended" || dropped
                     ? "bg-ink-3"
                     : "bg-line-strong",
               )}
@@ -337,16 +354,10 @@ function InterviewRoom({
             </div>
 
             {phase.kind === "idle" && !atCap && (
-              <dl className="mt-12 grid w-full max-w-sm grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <dl className="mt-12 w-full max-w-sm text-sm">
                 <div>
                   <dt className="eyebrow">Length</dt>
                   <dd className="mt-1 text-ink">Up to {Math.round(maxSeconds / 60)} minutes</dd>
-                </div>
-                <div>
-                  <dt className="eyebrow">Attempt</dt>
-                  <dd className="mt-1 text-ink">
-                    {startsUsed + 1} of {maxStarts}
-                  </dd>
                 </div>
               </dl>
             )}
@@ -366,15 +377,15 @@ function InterviewRoom({
               </div>
             )}
 
-            {phase.kind === "dropped" && (
+            {dropped && (
               <div className="mt-12 w-full max-w-sm">
                 <p className="text-sm leading-relaxed text-ink">
                   The connection to the interviewer was lost.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                  {attemptsLeft === 0
-                    ? "There are no attempts left for this interview."
-                    : `You have ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} left. If you had already answered some questions, what was said may be scored as it stands.`}
+                  {startsLeft === 0
+                    ? "There are no starts left for this interview."
+                    : "If you had already answered some questions, what was said may be scored as it stands."}
                 </p>
                 <Link
                   href={feedbackHref}
@@ -406,6 +417,8 @@ function InterviewRoom({
                 <p className={cn("font-medium", clockPhase === "final" ? "text-signal" : "text-ink")}>
                   {clockNotice}
                 </p>
+              ) : dropped && startsLeft > 0 ? (
+                <p className="font-medium text-ink">Reconnect — {startsCopy(startsLeft)}</p>
               ) : (
                 <p className="text-ink-2">
                   {live
@@ -441,7 +454,7 @@ function InterviewRoom({
               >
                 {starting ? (
                   <Loader2 className="size-5 animate-spin" />
-                ) : phase.kind === "dropped" ? (
+                ) : dropped ? (
                   <RotateCcw className="size-5" />
                 ) : (
                   <Phone className="size-5" />

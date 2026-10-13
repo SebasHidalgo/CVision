@@ -101,9 +101,10 @@ export const NO_CANDIDATE_TURNS = "NO_CANDIDATE_TURNS";
 export const SESSION_LOST = "SESSION_LOST";
 
 /**
- * How long after the hard limit a webhook is still given a chance before the
- * server goes and fetches the conversation itself. The owner's live run
- * measured about a minute between the end of the call and the delivery.
+ * How long after the call is known to be over a webhook is still given a
+ * chance before the server goes and fetches the conversation itself. The
+ * owner's live runs measured about a minute between the end of the call and
+ * the delivery.
  */
 export const RECONCILE_GRACE_SECONDS = 2 * 60;
 
@@ -112,13 +113,16 @@ export type StrandedCandidate = {
   conversationId: string | null;
   hasTranscript: boolean;
   startedAt: Date | null;
+  /** The room's report of the end of the call, when it made one. */
+  endedAt: Date | null;
 };
 
 /**
- * An interview whose latest session was issued long enough ago that the call
- * must be over, and whose transcript never arrived. The window is the agent's
- * hard limit plus the grace, counted from the session issue, because the
- * server never learns when the call actually ended until the transcript does.
+ * An interview whose latest call must be over and whose transcript never
+ * arrived. When the room reported the end of the call, the window is the
+ * grace from that moment. When it did not (the tab was closed mid-call), it
+ * is the agent's hard limit plus the grace, counted from the session issue,
+ * the latest the call could have ended.
  */
 export function isStranded(
   row: StrandedCandidate,
@@ -127,8 +131,9 @@ export function isStranded(
 ): boolean {
   if (row.status !== "IN_PROGRESS") return false;
   if (!row.conversationId || row.hasTranscript || !row.startedAt) return false;
-  const windowMs = (maxDurationSeconds + RECONCILE_GRACE_SECONDS) * 1000;
-  return now.getTime() - row.startedAt.getTime() > windowMs;
+  const graceMs = RECONCILE_GRACE_SECONDS * 1000;
+  if (row.endedAt) return now.getTime() - row.endedAt.getTime() > graceMs;
+  return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
 }
 
 /** The dynamic variable the session endpoint issues so a payload can be matched without a conversation id. */

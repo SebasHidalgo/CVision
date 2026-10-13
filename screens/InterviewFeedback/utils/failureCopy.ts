@@ -11,7 +11,7 @@ export type FailureCopy = {
 const COPY: Record<string, FailureCopy> = {
   [FEEDBACK_FAILURE_REASONS.noCandidateTurns]: {
     title: "The interviewer never heard you.",
-    body: "Every attempt ended without a single answer from you, which usually means the microphone was muted or not allowed. Check the browser's microphone permission, then rehearse again from the analysis.",
+    body: "Every connection ended without a single answer from you, which usually means the microphone was muted or not allowed. Check the browser's microphone permission, then rehearse again from the analysis.",
     canRetryFeedback: false,
   },
   [FEEDBACK_FAILURE_REASONS.transcriptInvalid]: {

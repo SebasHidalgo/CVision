@@ -7,7 +7,8 @@ type AttemptNotScoredProps = {
   interview: { id: string; role: string };
   /** "silent": the platform heard nothing. "lost": the platform has no record of the session. */
   reason: "silent" | "lost";
-  attemptsLeft: number;
+  /** Starts (connections) this interview can still issue. */
+  startsLeft: number;
   date: string;
 };
 
@@ -23,10 +24,10 @@ const COPY = {
 };
 
 /**
- * The latest attempt produced nothing to score and the interview is still
+ * The latest call produced nothing to score and the interview is still
  * startable, so the way forward is the room, not a retry of the scoring.
  */
-export default function AttemptNotScored({ interview, reason, attemptsLeft, date }: AttemptNotScoredProps) {
+export default function AttemptNotScored({ interview, reason, startsLeft, date }: AttemptNotScoredProps) {
   const copy = COPY[reason];
 
   return (
@@ -43,8 +44,8 @@ export default function AttemptNotScored({ interview, reason, attemptsLeft, date
           {copy.title}
         </p>
         <p className="lede mt-4 max-w-xl">
-          {copy.body} The attempt counts, but the interview is still yours: you have{" "}
-          {attemptsLeft} {attemptsLeft === 1 ? "attempt" : "attempts"} left.
+          {copy.body} That start counts, but the interview is still yours: you have{" "}
+          {startsLeft} {startsLeft === 1 ? "start" : "starts"} left.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">

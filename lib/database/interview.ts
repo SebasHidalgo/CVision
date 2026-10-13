@@ -3,9 +3,11 @@ import "server-only";
 import { Prisma, type InterviewStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
+import { InterviewAttemptLimitError } from "@/lib/error/errors";
 import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { UNCOUNTED_ATTEMPT_STATUSES } from "@/lib/interviewLimits";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import {
   feedbackInclude,
@@ -42,6 +44,8 @@ export type CreateInterviewData = {
   role: string;
   techstack: string[];
   resumeId: string;
+  /** The provisional cap on counted attempts per analysis. */
+  maxAttempts: number;
 };
 
 export type CreateInterviewResult = {
@@ -57,12 +61,13 @@ const CREATE_ATTEMPTS = 3;
 
 /**
  * Starts the next rehearsal of an analysis, or hands back the one that is
- * still live. One live attempt (SCHEDULED or IN_PROGRESS) at a time, and
- * attempt numbers that never collide: the check and the numbered insert run
- * in one serializable transaction, so two submits racing past the action's
- * read (two tabs, or the two CTAs on the detail page) cannot both create.
- * The loser's transaction fails to serialize, or hits the unique on
- * (analysis, attempt), and the retry finds the winner.
+ * still live. One live attempt (SCHEDULED or IN_PROGRESS) at a time, no more
+ * counted attempts than the cap, and attempt numbers that never collide: the
+ * checks and the numbered insert run in one serializable transaction, so two
+ * submits racing past the action's read (two tabs, or the two CTAs on the
+ * detail page) cannot both create. The loser's transaction fails to
+ * serialize, or hits the unique on (analysis, attempt), and the retry finds
+ * the winner, or the cap.
  */
 export async function createInterview(
   data: CreateInterviewData
@@ -83,6 +88,16 @@ export async function createInterview(
               select: { id: true, attemptNumber: true },
             });
             if (live) return { id: live.id, attemptNumber: live.attemptNumber, created: false };
+
+            // Lost sessions and silent attempts (FAILED, EXPIRED) are not
+            // rehearsals the candidate got; they do not use up the cap.
+            const used = await tx.interview.count({
+              where: {
+                resumeAnalysisId: data.resumeId,
+                status: { notIn: [...UNCOUNTED_ATTEMPT_STATUSES] as InterviewStatus[] },
+              },
+            });
+            if (used >= data.maxAttempts) throw new InterviewAttemptLimitError();
 
             const last = await tx.interview.aggregate({
               where: { resumeAnalysisId: data.resumeId },
@@ -251,6 +266,7 @@ export async function fetchInterviewStatus(interviewId: string): Promise<
       conversationId: string | null;
       hasTranscript: boolean;
       startedAt: Date | null;
+      endedAt: Date | null;
     })
   | null
 > {
@@ -267,6 +283,7 @@ export async function fetchInterviewStatus(interviewId: string): Promise<
         conversationId: true,
         transcriptSource: true,
         startedAt: true,
+        endedAt: true,
         InterviewFeedback: { select: { id: true } },
       },
     });
@@ -281,9 +298,35 @@ export async function fetchInterviewStatus(interviewId: string): Promise<
       conversationId: row.conversationId,
       hasTranscript: row.transcriptSource !== null,
       startedAt: row.startedAt,
+      endedAt: row.endedAt,
     };
   } catch (error) {
     handleError(error, "Failed to retrieve interview status");
+  }
+}
+
+/**
+ * The room's report that the call ended. A hint, not the record: it is
+ * written only while the interview is still IN_PROGRESS with no end time, so
+ * the platform's own values, when the transcript arrives, win over it. A new
+ * session clears it again. False when nothing was written: already ended,
+ * no longer in progress, or not the caller's.
+ */
+export async function markInterviewEnded(params: {
+  interviewId: string;
+  endedAt: Date;
+}): Promise<boolean> {
+  try {
+    const userId = await requireUserId();
+
+    const result = await prisma.interview.updateMany({
+      where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
+      data: { endedAt: params.endedAt },
+    });
+
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, "Failed to record the end of the interview");
   }
 }
 

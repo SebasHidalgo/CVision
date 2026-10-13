@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { requestInterviewSession } from "./session";
+import { reportInterviewEnded, requestInterviewSession } from "./session";
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 
@@ -63,5 +63,29 @@ describe("requestInterviewSession", () => {
     });
 
     expect(await requestInterviewSession(INTERVIEW_ID, fetchImpl)).toEqual({ ok: false, code: "REQUEST_FAILED" });
+  });
+});
+
+describe("reportInterviewEnded", () => {
+  it("posts the reason to the ended endpoint with keepalive, so it outlives the navigation", async () => {
+    const fetchImpl = respond({ ok: true, data: { recorded: true } });
+
+    await reportInterviewEnded(INTERVIEW_ID, "agent", fetchImpl);
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `/api/interview/${INTERVIEW_ID}/ended`,
+      expect.objectContaining({ method: "POST", keepalive: true, body: JSON.stringify({ reason: "agent" }) }),
+    );
+  });
+
+  it("swallows every failure: a rejected fetch and a non-2xx alike", async () => {
+    await expect(
+      reportInterviewEnded(INTERVIEW_ID, "error", vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      })),
+    ).resolves.toBeUndefined();
+    await expect(
+      reportInterviewEnded(INTERVIEW_ID, "error", respond({ ok: false, code: "UNAUTHORIZED" }, 401)),
+    ).resolves.toBeUndefined();
   });
 });

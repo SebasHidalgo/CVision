@@ -28,7 +28,9 @@ const COPY: Record<ErrorCode, string> = {
   INTERVIEW_NOT_STARTABLE:
     "This interview has already ended. Your feedback will appear under Interviews once it's ready.",
   INTERVIEW_START_LIMIT:
-    "This interview has been started the maximum number of times. Run a new analysis to rehearse again.",
+    "This interview has used all of its starts: every connection to the interviewer counts as one. Rehearse again from the analysis.",
+  INTERVIEW_ATTEMPT_LIMIT:
+    "This analysis has used all of its rehearsals. Run a new analysis to rehearse again.",
   INTERVIEW_CONTEXT_MISSING:
     "This interview has no analysis to build questions from. Run a new analysis and rehearse from there.",
   REQUEST_FAILED:

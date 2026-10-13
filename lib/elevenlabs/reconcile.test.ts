@@ -26,6 +26,7 @@ const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForRecon
   conversationId: "conv_1",
   transcriptSource: null,
   startedAt: new Date(NOW.getTime() - WINDOW_MS - 1_000),
+  endedAt: null,
   startCount: 1,
   ...overrides,
 });
@@ -79,6 +80,18 @@ describe("reconcileStrandedInterview", () => {
 
     expect(await reconcileStrandedInterview(INTERVIEW_ID, NOW)).toEqual({ kind: "not-stranded" });
     expect(fetchConversation).not.toHaveBeenCalled();
+  });
+
+  it("runs two minutes after the room reported the end of a short call, without waiting out the hard limit", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(
+      row({
+        startedAt: new Date(NOW.getTime() - 5 * 60_000),
+        endedAt: new Date(NOW.getTime() - RECONCILE_GRACE_SECONDS * 1000 - 1_000),
+      }),
+    );
+
+    expect((await reconcileStrandedInterview(INTERVIEW_ID, NOW)).kind).toBe("stored");
+    expect(fetchConversation).toHaveBeenCalledWith("conv_1");
   });
 
   it("past the window, fetches the latest conversation and stores it through the webhook's path, marked as the API's", async () => {

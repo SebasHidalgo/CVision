@@ -9,6 +9,7 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/limits";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { countedAttempts, MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS } from "@/lib/interviewLimits";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -26,9 +27,9 @@ type InterviewCtaProps = {
 const MAX_MINUTES = Math.round(MAX_INTERVIEW_DURATION_SECONDS / 60);
 
 /**
- * An analysis can be rehearsed as many times as the candidate wants, one
- * attempt at a time: the control opens the live attempt when there is one,
- * and otherwise starts the next.
+ * An analysis can be rehearsed up to the cap, one attempt at a time: the
+ * control opens the live attempt when there is one, otherwise starts the
+ * next, and at the cap says so instead.
  */
 export default function InterviewCta({
   resumeId,
@@ -64,7 +65,10 @@ export default function InterviewCta({
   };
 
   const live = liveAttempt(attempts);
+  const used = countedAttempts(attempts);
   const rehearsed = attempts.length > 0;
+  const atCap = !live && used >= MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS;
+  const usedLine = `${used} of ${MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS} rehearsals used`;
 
   const compactClasses = "h-11 gap-2 px-5";
   const fullClasses = "group h-12 gap-2 px-7 text-base";
@@ -76,6 +80,8 @@ export default function InterviewCta({
         <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
       </Link>
     </Button>
+  ) : atCap ? (
+    <p className="eyebrow flex h-11 items-center text-ink">{usedLine}</p>
   ) : (
     <Button
       onClick={handleCreate}
@@ -114,22 +120,29 @@ export default function InterviewCta({
           <h2 id="interview-cta-title" className="display-md text-ink">
             {live
               ? "Your interview is ready."
-              : rehearsed
-                ? "Rehearse it again."
-                : `Rehearse the ${jobTitle} interview out loud.`}
+              : atCap
+                ? "Every rehearsal of this posting is used."
+                : rehearsed
+                  ? "Rehearse it again."
+                  : `Rehearse the ${jobTitle} interview out loud.`}
           </h2>
           <p className="lede mt-4 max-w-xl">
             {live
               ? "An attempt is waiting in the room. Finish it, and the feedback lands here."
-              : rehearsed
-                ? "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed."
-                : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."}
+              : atCap
+                ? "Each rehearsal below is scored on its own. To rehearse this posting again, run a new analysis."
+                : rehearsed
+                  ? "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed."
+                  : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."}
           </p>
         </div>
         <div className="flex flex-col items-start gap-3 md:col-span-4 md:items-end">
           {control}
-          {!live && (
-            <p className="eyebrow">Needs a microphone · up to {MAX_MINUTES} minutes · works on a phone</p>
+          {!live && !atCap && (
+            <p className="eyebrow">
+              Needs a microphone · up to {MAX_MINUTES} minutes · works on a phone
+              {rehearsed ? ` · ${usedLine}` : ""}
+            </p>
           )}
         </div>
       </div>

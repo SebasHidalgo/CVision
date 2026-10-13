@@ -33,6 +33,7 @@ const snapshot = (overrides: Partial<NonNullable<Awaited<ReturnType<typeof fetch
   conversationId: "conv_1",
   hasTranscript: false,
   startedAt: new Date(),
+  endedAt: null,
   ...overrides,
 });
 
@@ -97,7 +98,30 @@ describe("GET /api/interview/[id]/status", () => {
     });
   });
 
-  it("answers the attempts used and the reason when the platform has no record of the session", async () => {
+  it("reconciles two minutes after the room reported the end of the call, long before the hard limit", async () => {
+    vi.mocked(fetchInterviewStatus)
+      .mockResolvedValueOnce(
+        snapshot({
+          startedAt: new Date(Date.now() - 4 * 60_000),
+          endedAt: new Date(Date.now() - RECONCILE_GRACE_SECONDS * 1000 - 1_000),
+        }),
+      )
+      .mockResolvedValueOnce(snapshot({ status: "FEEDBACK_PENDING", hasTranscript: true }));
+    vi.mocked(reconcileStrandedInterview).mockResolvedValue({
+      kind: "stored",
+      result: { outcome: "stored", interviewId: INTERVIEW_ID, status: "FEEDBACK_PENDING" },
+    });
+
+    const { body } = await get();
+
+    expect(reconcileStrandedInterview).toHaveBeenCalledWith(INTERVIEW_ID);
+    expect(body).toEqual({
+      ok: true,
+      data: { status: "FEEDBACK_PENDING", hasFeedback: false, startCount: 1, failureReason: null },
+    });
+  });
+
+  it("answers the starts used and the reason when the platform has no record of the session", async () => {
     vi.mocked(fetchInterviewStatus)
       .mockResolvedValueOnce(snapshot({ startedAt: new Date(Date.now() - WINDOW_MS - 1_000) }))
       .mockResolvedValueOnce(snapshot({ failureReason: "SESSION_LOST" }));

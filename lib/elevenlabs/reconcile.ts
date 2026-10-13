@@ -43,6 +43,7 @@ export async function reconcileStrandedInterview(
       conversationId: row.conversationId,
       hasTranscript: row.transcriptSource !== null,
       startedAt: row.startedAt,
+      endedAt: row.endedAt,
     },
     now,
     MAX_INTERVIEW_DURATION_SECONDS,

@@ -48,6 +48,29 @@ export async function requestInterviewSession(
   return { ok: false, code: "REQUEST_FAILED" };
 }
 
+/**
+ * Tells the server the call ended, with the SDK's reason. Fire and forget:
+ * the room navigates to the feedback page without waiting, `keepalive` lets
+ * the request outlive the page, and nothing is done with the answer. The
+ * server treats it as a hint that shortens the wait for a lost webhook.
+ */
+export async function reportInterviewEnded(
+  interviewId: string,
+  reason: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  try {
+    await fetchImpl(`/api/interview/${encodeURIComponent(interviewId)}/ended`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ reason }),
+      keepalive: true,
+    });
+  } catch {
+    // The reconcile fallback covers a report that never arrives.
+  }
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();

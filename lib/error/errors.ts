@@ -17,6 +17,7 @@ export type ErrorCode =
   // Interview state at session start.
   | "INTERVIEW_NOT_STARTABLE"
   | "INTERVIEW_START_LIMIT"
+  | "INTERVIEW_ATTEMPT_LIMIT"
   | "INTERVIEW_CONTEXT_MISSING"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
@@ -131,6 +132,13 @@ export class InterviewNotStartableError extends AppError {
 export class InterviewStartLimitError extends AppError {
   constructor(message = "Interview start limit reached") {
     super("INTERVIEW_START_LIMIT", message);
+  }
+}
+
+/** The analysis has used every rehearsal the provisional cap allows. */
+export class InterviewAttemptLimitError extends AppError {
+  constructor(message = "Interview attempt limit reached for this analysis") {
+    super("INTERVIEW_ATTEMPT_LIMIT", message);
   }
 }
 

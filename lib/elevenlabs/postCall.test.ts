@@ -156,18 +156,28 @@ describe("isStranded", () => {
   const now = new Date("2026-10-13T12:00:00Z");
   const max = 720;
   const windowMs = (max + RECONCILE_GRACE_SECONDS) * 1000;
+  const graceMs = RECONCILE_GRACE_SECONDS * 1000;
   const candidate = (overrides: Partial<StrandedCandidate> = {}): StrandedCandidate => ({
     status: "IN_PROGRESS",
     conversationId: "conv_1",
     hasTranscript: false,
     startedAt: new Date(now.getTime() - windowMs - 1),
+    endedAt: null,
     ...overrides,
   });
 
-  it("is true only past the hard limit plus the grace, counted from the session issue", () => {
+  it("without an end time, is true only past the hard limit plus the grace, counted from the session issue", () => {
     expect(isStranded(candidate(), now, max)).toBe(true);
     expect(isStranded(candidate({ startedAt: new Date(now.getTime() - windowMs) }), now, max)).toBe(false);
     expect(isStranded(candidate({ startedAt: new Date(now.getTime() - 60_000) }), now, max)).toBe(false);
+  });
+
+  it("with the room's end time, is true past the grace from that moment, whatever the session age", () => {
+    const recent = new Date(now.getTime() - 60_000);
+    expect(isStranded(candidate({ startedAt: recent, endedAt: new Date(now.getTime() - graceMs - 1) }), now, max)).toBe(true);
+    expect(isStranded(candidate({ startedAt: recent, endedAt: new Date(now.getTime() - graceMs) }), now, max)).toBe(false);
+    // An old session whose call ended a moment ago is not stranded yet.
+    expect(isStranded(candidate({ endedAt: new Date(now.getTime() - 30_000) }), now, max)).toBe(false);
   });
 
   it("is false without a session, with a transcript, or outside IN_PROGRESS", () => {

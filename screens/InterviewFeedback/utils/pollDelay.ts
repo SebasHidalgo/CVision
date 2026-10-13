@@ -12,6 +12,14 @@ export const POLL_FAST_UNTIL_MS = 30_000;
 /** ...medium until here, slow after. */
 export const POLL_MEDIUM_UNTIL_MS = 120_000;
 
+/**
+ * The poller stops here, counted from the page's mount. By then the
+ * reconcile has had its chance many times over; a wait this long is a dead
+ * generator or a platform that never finished, and a page that polls forever
+ * would hide it.
+ */
+export const POLL_CEILING_MS = 60 * 60_000;
+
 export function pollDelayMs(elapsedMs: number): number {
   if (elapsedMs < POLL_FAST_UNTIL_MS) return POLL_FAST_MS;
   if (elapsedMs < POLL_MEDIUM_UNTIL_MS) return POLL_MEDIUM_MS;

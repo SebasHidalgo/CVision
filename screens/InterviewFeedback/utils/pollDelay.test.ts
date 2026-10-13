@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  POLL_CEILING_MS,
   POLL_FAST_MS,
   POLL_FAST_UNTIL_MS,
   POLL_MEDIUM_MS,
@@ -28,5 +29,10 @@ describe("pollsDuring", () => {
     expect(pollsDuring(240_000)).toBe(40);
     // A twelve-minute interview whose webhook never came, up to the reconcile window.
     expect(pollsDuring(14 * 60_000)).toBe(100);
+  });
+
+  it("is bounded by the ceiling: an hour of polling is 376 small reads, then nothing", () => {
+    expect(POLL_CEILING_MS).toBe(60 * 60_000);
+    expect(pollsDuring(POLL_CEILING_MS)).toBe(376);
   });
 });

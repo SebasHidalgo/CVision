@@ -119,6 +119,7 @@ export async function fetchInterviewForReconcile(interviewId: string) {
         conversationId: true,
         transcriptSource: true,
         startedAt: true,
+        endedAt: true,
         startCount: true,
       },
     });

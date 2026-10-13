@@ -62,6 +62,7 @@ const callbacks = () => sdk.callbacks as Callbacks;
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const ANALYSIS_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
+const ENDED_URL = `/api/interview/${INTERVIEW_ID}/ended`;
 
 const SESSION = {
   connectionType: "webrtc" as const,
@@ -83,6 +84,8 @@ const props: InterviewAgentProps = {
   company: "Northwind",
   candidateName: "Ana",
   analysisId: ANALYSIS_ID,
+  attemptNumber: 2,
+  maxAttempts: 3,
   startCount: 0,
   maxStarts: 3,
   maxDurationSeconds: 720,
@@ -93,6 +96,10 @@ const getUserMedia = vi.fn();
 function respond(body: unknown, status = 200) {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json(body, { status })));
 }
+
+/** The requests made so far, as [url, init] pairs. */
+const requests = () => vi.mocked(fetch).mock.calls as unknown as [string, RequestInit | undefined][];
+const endedReports = () => requests().filter(([url]) => url === ENDED_URL);
 
 const startButton = () => screen.getByRole("button", { name: /start the interview|try again/i });
 
@@ -141,24 +148,34 @@ afterEach(() => {
 });
 
 describe("InterviewAgent: before the call", () => {
-  it("shows the role, company, candidate, length and attempt, with one Start button", () => {
+  it("shows the role, company, candidate, length and the attempt of the analysis, with one Start button", () => {
     render(<InterviewAgent {...props} startCount={1} />);
 
     expect(screen.getByRole("heading", { name: "Backend Engineer" })).toBeTruthy();
     expect(screen.getByText("Northwind")).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
-    expect(screen.getByText("2 of 3")).toBeTruthy();
+    expect(screen.getByText(/Attempt 2 of 3/)).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("at the cap, shows the cap message and a link to the analysis instead of Start", () => {
+  it("labels the attempt from the analysis's numbering, never from the start counter", () => {
+    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} />);
+
+    expect(screen.getByText(/Attempt 1 of 3/)).toBeTruthy();
+    expect(screen.queryByText(/starts? left/)).toBeNull();
+    // The old cell that showed the start counter as "3 of 3" is gone.
+    expect(screen.queryByText("3 of 3")).toBeNull();
+  });
+
+  it("at the start cap, explains that connections are what ran out and links to the analysis instead of Start", () => {
     render(<InterviewAgent {...props} startCount={3} />);
 
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByText(/maximum number of times/)).toBeTruthy();
+    expect(screen.getByText("No starts left")).toBeTruthy();
+    expect(screen.getByText(/every connection to the interviewer counts as one/)).toBeTruthy();
     expect(screen.getByRole("link", { name: /back to the analysis/i }).getAttribute("href")).toBe(
       `/resume/analysis/${ANALYSIS_ID}`,
     );
@@ -203,7 +220,7 @@ describe("InterviewAgent: starting", () => {
 
   it.each([
     { when: "the middleware answers a 404 page", body: "<!doctype html>", status: 404, copy: /didn't go through/ },
-    { when: "the server answers 409 at the cap", body: { ok: false, code: "INTERVIEW_START_LIMIT" }, status: 409, copy: /maximum number of times/ },
+    { when: "the server answers 409 at the cap", body: { ok: false, code: "INTERVIEW_START_LIMIT" }, status: 409, copy: /all of its starts/ },
     { when: "the server answers 409 for an ended interview", body: { ok: false, code: "INTERVIEW_NOT_STARTABLE" }, status: 409, copy: /already ended/ },
     { when: "the server answers 503", body: { ok: false, code: "VOICE_UNAVAILABLE" }, status: 503, copy: /couldn't connect/ },
   ])("shows the copy and does not start the SDK when $when", async ({ body, status, copy }) => {
@@ -251,7 +268,7 @@ describe("InterviewAgent: starting", () => {
     expect(startButton().hasAttribute("disabled")).toBe(false);
   });
 
-  it("re-enables Start when the SDK fails to connect after a session was issued", async () => {
+  it("re-enables Start when the SDK fails to connect after a session was issued, without showing the start counter", async () => {
     respond({ ok: true, data: SESSION });
     render(<InterviewAgent {...props} />);
     await clickStart();
@@ -262,8 +279,7 @@ describe("InterviewAgent: starting", () => {
 
     expect(screen.getByRole("status").textContent).toMatch(/couldn't connect/);
     expect(startButton().hasAttribute("disabled")).toBe(false);
-    // That start was consumed: the next attempt is numbered accordingly.
-    expect(screen.getByText("2 of 3")).toBeTruthy();
+    expect(screen.queryByText(/starts? left/)).toBeNull();
   });
 });
 
@@ -333,7 +349,7 @@ describe("InterviewAgent: during the call", () => {
 });
 
 describe("InterviewAgent: ending", () => {
-  it("End calls endSession, waits for the disconnect, then opens the feedback page without sending anything", async () => {
+  it("End calls endSession, waits for the disconnect, then reports the end and opens the feedback page", async () => {
     render(<InterviewAgent {...props} />);
     await connect();
 
@@ -342,19 +358,23 @@ describe("InterviewAgent: ending", () => {
     });
     expect(sdk.endSession).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
+    expect(endedReports()).toHaveLength(0);
     expect(screen.getByText("Ending the interview")).toBeTruthy();
 
     await act(async () => {
       callbacks().onDisconnect?.({ reason: "user" });
     });
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    // One session request, one end-of-call report with the SDK's reason, kept alive past the navigation.
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const [, init] = endedReports()[0];
+    expect(init).toMatchObject({ method: "POST", keepalive: true, body: JSON.stringify({ reason: "user" }) });
   });
 
   it.each<DisconnectionDetails>([
     { reason: "agent", context: { type: "close", reason: "agent disconnected" } },
     { reason: "error", message: "max duration", context: { type: "max_duration_exceeded" } },
-  ])("opens the feedback page when the call ends from the other side ($reason)", async (details) => {
+  ])("opens the feedback page and reports the reason when the call ends from the other side ($reason)", async (details) => {
     render(<InterviewAgent {...props} />);
     await connect();
 
@@ -363,9 +383,28 @@ describe("InterviewAgent: ending", () => {
     });
 
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: details.reason }));
   });
 
-  it("on an unexpected disconnect, says the connection was lost, how many attempts remain, and Try again goes through Start", async () => {
+  it("does not wait on the report: the feedback page opens even when it fails", async () => {
+    render(<InterviewAgent {...props} />);
+    await connect();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "agent", context: { type: "end_call" } });
+    });
+
+    expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+    expect(fetch).toHaveBeenCalledWith(ENDED_URL, expect.anything());
+  });
+
+  it("on an unexpected disconnect, says the connection was lost, shows the starts left next to Try again, and Try again goes through Start", async () => {
     render(<InterviewAgent {...props} startCount={1} />);
     await connect();
 
@@ -379,17 +418,20 @@ describe("InterviewAgent: ending", () => {
 
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByText("Connection lost")).toBeTruthy();
-    expect(screen.getByText(/you have 1 attempt left/i)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Reconnect — 1 start left");
+    expect(screen.getByRole("button", { name: /try again/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /check for feedback/i }).getAttribute("href")).toBe(
       `/interview/${INTERVIEW_ID}/feedback?ended=1`,
     );
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "error" }));
 
     await clickStart();
-    expect(fetch).toHaveBeenCalledTimes(2);
+    // Session, report, session again.
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect(sdk.startSession).toHaveBeenCalledTimes(2);
   });
 
-  it("after the last attempt drops, offers no retry", async () => {
+  it("after the last start drops, offers no retry and says so", async () => {
     render(<InterviewAgent {...props} startCount={2} />);
     await connect();
 
@@ -397,7 +439,8 @@ describe("InterviewAgent: ending", () => {
       callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
     });
 
-    expect(screen.getByText(/no attempts left/i)).toBeTruthy();
+    expect(screen.getByText(/no starts left for this interview/i)).toBeTruthy();
+    expect(screen.queryByText(/Reconnect/)).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
   });
 });

@@ -34,3 +34,14 @@ export const interviewStatusSnapshotSchema = z.object({
 });
 
 export type InterviewStatusSnapshot = z.infer<typeof interviewStatusSnapshotSchema>;
+
+/**
+ * What the room posts to `POST /api/interview/[id]/ended` when the call
+ * ends: the SDK's disconnect reason, for the log. Short and optional, since
+ * nothing is decided on it.
+ */
+export const interviewEndedRequestSchema = z.object({
+  reason: z.string().trim().max(40).optional(),
+});
+
+export type InterviewEndedRequest = z.infer<typeof interviewEndedRequestSchema>;
