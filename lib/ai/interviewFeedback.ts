@@ -43,9 +43,10 @@ import type { Requirement } from "@/lib/schemas/resumeSchema";
  * caller that fails to claim does nothing and pays nothing.
  */
 
-// Not yet measured on this prompt: the input is a transcript plus the
-// posting and the breakdown, the output is smaller than an analysis, so the
-// analysis budget times 1.5. The webhook route's maxDuration is sized on top.
+// Measured in M3-B and again in M3-D with the harness: 2.8 to 4.8 s per call
+// on five fixtures of up to 16 turns (gemini-3.5-flash-lite, about 3,500
+// input and 1,300 output tokens). 45 s is ten times the slowest, for a slow
+// day at the provider. The webhook route's maxDuration is sized on top.
 export const FEEDBACK_TIMEOUT_MS = 45_000;
 
 /** Claims, not calls: the second claim that fails the provider ends the interview. */

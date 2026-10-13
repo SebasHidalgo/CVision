@@ -35,14 +35,12 @@ export type DbResumeWithFeedback = Prisma.ResumeAnalysisGetPayload<{
 /**
  * Columns no screen reads here: the transcript and the issued context can be
  * tens of kilobytes per row (the feedback page reads the transcript through
- * its own query), `finalized` is derived above, and `recordingUrl` is a
- * leftover of the browser recording that no longer exists.
+ * its own query), and `finalized` is derived above.
  */
 export const interviewOmit = {
   transcript: true,
   issuedContext: true,
   finalized: true,
-  recordingUrl: true,
 } satisfies Prisma.InterviewOmit;
 
 export type DbInterview = Prisma.InterviewGetPayload<{ omit: typeof interviewOmit }>;

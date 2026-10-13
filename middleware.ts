@@ -9,13 +9,27 @@ const isPublicRoute = createRouteMatcher(["/", "/api/webhooks/elevenlabs"]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
+// An API consumer gets an honest status: Clerk's own protection answers a
+// signed-out API call with its 404 page, which the room's client tolerates
+// but nobody can act on.
+const isApiRoute = createRouteMatcher(["/api(.*)"]);
+
 export default clerkMiddleware(async (auth, req) => {
+  if (isPublicRoute(req)) return;
+
   if (isAdminRoute(req) && !(await auth()).userId) {
     const url = new URL("/", req.url);
     return NextResponse.redirect(url);
   }
 
-  if (!isPublicRoute(req)) await auth.protect();
+  if (isApiRoute(req)) {
+    if (!(await auth()).userId) {
+      return NextResponse.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
+    }
+    return;
+  }
+
+  await auth.protect();
 });
 
 export const config = {

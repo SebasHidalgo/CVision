@@ -71,9 +71,6 @@ model Interview {
   /// Legacy, write-only: reads derive it from `status`. Dropped in M3-D.
   finalized    Boolean         @default(false)
   createdAt    DateTime        @default(now())
-  /// Legacy: the browser recording of the Vapi room. Nothing writes it since
-  /// M3-C and no screen reads it. Dropped in M3-D.
-  recordingUrl String?
 
   /// The conversation the stored transcript came from, or, before one is
   /// stored, the latest issued session. Unique so one conversation can only

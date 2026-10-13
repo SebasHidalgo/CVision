@@ -6,7 +6,7 @@ import {
   MAX_INTERVIEW_STARTS,
 } from "@/lib/elevenlabs/agentConfig";
 import { interviewPhase } from "@/lib/interviewStatus";
-import InterviewAgent from "./components/InterviewAgent";
+import InterviewRoomLoader from "./components/InterviewRoomLoader";
 
 type InterviewScreenProps = {
   interviewId: string;
@@ -31,7 +31,7 @@ export default async function InterviewScreen({
   const user = await getAuthUser();
 
   return (
-    <InterviewAgent
+    <InterviewRoomLoader
       interviewId={interview.id}
       role={interview.role}
       company={interview.resumeAnalysis.companyName}
