@@ -12,7 +12,6 @@ import type { Interview, InterviewFeedback } from "@/types/interview";
 import {
   feedbackInclude,
   interviewOmit,
-  isFinalized,
   mapDbInterview,
   mapDbInterviewFeedback,
 } from "./mappers";
@@ -33,12 +32,10 @@ const interviewDetailInclude = {
   },
 } satisfies Prisma.InterviewInclude;
 
-type DbInterviewDetail = Prisma.InterviewGetPayload<{
+export type InterviewWithResume = Prisma.InterviewGetPayload<{
   include: typeof interviewDetailInclude;
   omit: typeof interviewOmit;
 }>;
-
-export type InterviewWithResume = DbInterviewDetail & { finalized: boolean };
 
 export type CreateInterviewData = {
   role: string;
@@ -152,13 +149,11 @@ export async function fetchInterviewById(
   try {
     const userId = await requireUserId();
 
-    const row = await prisma.interview.findFirst({
+    return await prisma.interview.findFirst({
       where: { id: interviewId, userId },
       include: interviewDetailInclude,
       omit: interviewOmit,
     });
-
-    return row ? { ...row, finalized: isFinalized(row.status) } : null;
   } catch (error) {
     handleError(error, "Failed to retrieve interview record");
   }

@@ -1,16 +1,8 @@
-import { Prisma, type InterviewStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { ResumeAnalysis } from "@/types/resume";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import { interviewFeedbackReportSchema } from "@/lib/ai/schemas";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
-
-/**
- * `finalized` is derived, never read from its column: the column is legacy
- * (write-only until M3-D removes it) and `status` is the source of truth.
- */
-export function isFinalized(status: InterviewStatus): boolean {
-  return status === "COMPLETED";
-}
 
 /** Single source for the resume + feedback read shape. */
 export const resumeInclude = {
@@ -35,12 +27,11 @@ export type DbResumeWithFeedback = Prisma.ResumeAnalysisGetPayload<{
 /**
  * Columns no screen reads here: the transcript and the issued context can be
  * tens of kilobytes per row (the feedback page reads the transcript through
- * its own query), and `finalized` is derived above.
+ * its own query).
  */
 export const interviewOmit = {
   transcript: true,
   issuedContext: true,
-  finalized: true,
 } satisfies Prisma.InterviewOmit;
 
 export type DbInterview = Prisma.InterviewGetPayload<{ omit: typeof interviewOmit }>;
@@ -73,7 +64,7 @@ export function mapDbResume(db: DbResumeWithFeedback): ResumeAnalysis {
     companyName: db.companyName,
     jobTitle: db.jobTitle,
     jobDescription: db.jobDescription,
-    resumeUrl: db.resumeUrl,
+    resumeKey: db.resumeKey,
     userId: db.userId,
     feedback: parsed?.success ? parsed.data : null,
     interviews: db.interviews.map((interview) => ({
@@ -94,7 +85,6 @@ export function mapDbInterview(db: DbInterview): Interview {
     techstack: db.techstack,
     userId: db.userId,
     status: db.status,
-    finalized: isFinalized(db.status),
     createdAt: db.createdAt,
     resumeAnalysisId: db.resumeAnalysisId,
     attemptNumber: db.attemptNumber,

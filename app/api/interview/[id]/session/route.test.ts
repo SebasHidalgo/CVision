@@ -44,7 +44,6 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     techstack: ["React"],
     userId: "user_1",
     status: "SCHEDULED",
-    finalized: false,
     createdAt: new Date("2026-10-01T00:00:00Z"),
     conversationId: null,
     issuedConversationIds: [],

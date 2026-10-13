@@ -12,10 +12,9 @@ import {
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/pdfParse", () => ({ extractTextFromPDFFile: vi.fn() }));
-vi.mock("@/lib/supabase", () => ({
-  buildResumeKey: vi.fn(() => "cv/user_1/x.pdf"),
-  uploadFileToSupabase: vi.fn(async () => "https://example.test/cv.pdf"),
-  removeFileFromSupabase: vi.fn(async () => {}),
+vi.mock("@/lib/supabase/server", () => ({
+  uploadObject: vi.fn(async () => {}),
+  removeObject: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/database/resume", () => ({
   createResume: vi.fn(async () => "resume_1"),

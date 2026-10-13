@@ -12,7 +12,8 @@ export type CreateResumeData = {
   companyName: string;
   jobTitle: string;
   jobDescription: string;
-  resumeUrl: string;
+  /** The object's key in the private bucket, `cv/{userId}/{uuid}.pdf`. */
+  resumeKey: string;
   feedback: ResumeAnalysisFeedback;
 };
 
@@ -29,7 +30,7 @@ export async function createResume(data: CreateResumeData): Promise<string> {
         companyName: data.companyName,
         jobTitle: data.jobTitle,
         jobDescription: data.jobDescription,
-        resumeUrl: data.resumeUrl,
+        resumeKey: data.resumeKey,
         userId,
         feedback: {
           create: {

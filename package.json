@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "vitest run",
     "eval": "tsx --conditions=react-server --env-file-if-exists=.env scripts/eval/run.ts",
-    "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts"
+    "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts",
+    "storage:bucket": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/bucket-private.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.69",

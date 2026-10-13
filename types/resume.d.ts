@@ -12,7 +12,8 @@ export type ResumeAnalysis = {
   companyName: string;
   jobTitle: string;
   jobDescription: string;
-  resumeUrl: string;
+  /** The CV's key in the private bucket; a read URL is signed from it on demand. */
+  resumeKey: string;
   userId: string;
   feedback: ResumeAnalysisFeedback | null;
   /** Every rehearsal of this analysis, newest attempt first. */

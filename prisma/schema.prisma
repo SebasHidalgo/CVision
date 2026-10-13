@@ -13,7 +13,9 @@ model ResumeAnalysis {
   companyName    String
   jobTitle       String
   jobDescription String
-  resumeUrl      String
+  /// Storage key of the CV, `cv/{userId}/{uuid}.pdf`, in the private bucket.
+  /// Never a URL: reads are signed on demand, for minutes.
+  resumeKey      String
   userId         String
   createdAt      DateTime @default(now())
 
@@ -37,8 +39,7 @@ model ResumeFeedback {
   jobFit                     Json
 }
 
-/// Lifecycle of a voice interview. `finalized` below is legacy: it is derived
-/// from this in the data layer and goes away in M3-D.
+/// Lifecycle of a voice interview.
 ///
 ///   SCHEDULED        created, never started
 ///   IN_PROGRESS      a session was issued; no scoreable transcript yet. Still
@@ -68,8 +69,6 @@ model Interview {
   techstack    String[]
   userId       String
   status       InterviewStatus @default(SCHEDULED)
-  /// Legacy, write-only: reads derive it from `status`. Dropped in M3-D.
-  finalized    Boolean         @default(false)
   createdAt    DateTime        @default(now())
 
   /// The conversation the stored transcript came from, or, before one is
@@ -98,6 +97,9 @@ model Interview {
   failureReason   String?
 
   startedAt       DateTime?
+  /// First written by the room's end-of-call report (a hint that shortens
+  /// the reconcile window), then overwritten by the platform's value when the
+  /// transcript arrives. Cleared when a new session is issued.
   endedAt         DateTime?
   durationSeconds Int?
   /// Sessions issued for this interview. Capped by the session endpoint:

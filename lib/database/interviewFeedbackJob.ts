@@ -121,7 +121,7 @@ export async function completeInterviewFeedback(params: {
     return await prisma.$transaction(async (tx) => {
       const completed = await tx.interview.updateMany({
         where: { id: params.interviewId, status: "GENERATING" },
-        data: { status: "COMPLETED", finalized: true, failureReason: null },
+        data: { status: "COMPLETED", failureReason: null },
       });
       if (completed.count === 0) return null;
 

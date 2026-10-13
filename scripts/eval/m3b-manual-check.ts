@@ -60,7 +60,7 @@ async function main() {
       companyName: `${ctx.company} ${LABEL}`,
       jobTitle: ctx.role,
       jobDescription: ctx.jobDescription,
-      resumeUrl: "cv/synthetic/m3b-check.pdf",
+      resumeKey: "cv/synthetic/00000000-0000-4000-8000-000000000000.pdf",
       userId: owner.userId,
       feedback: {
         create: {

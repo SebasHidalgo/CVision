@@ -10,8 +10,6 @@ export type Interview = {
   techstack: string[];
   userId: string;
   status: InterviewStatus;
-  /** Derived from `status`; the column it mirrors goes away in M3-D. */
-  finalized: boolean;
   createdAt: Date;
   resumeAnalysisId: string | null;
   /** 1 for the first rehearsal of its analysis, 2 for the next. */

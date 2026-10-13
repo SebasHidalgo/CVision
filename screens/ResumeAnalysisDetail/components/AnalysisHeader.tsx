@@ -15,7 +15,8 @@ type AnalysisHeaderProps = {
   fit: FitVerdict;
   qualityScore: number;
   summary: string;
-  resumeUrl: string;
+  /** A signed, short-lived read URL for the CV; null when it could not be signed. */
+  resumeUrl: string | null;
   resumeId: string;
   attempts: ResumeAnalysis["interviews"];
 };

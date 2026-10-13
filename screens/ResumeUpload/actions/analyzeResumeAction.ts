@@ -8,11 +8,8 @@ import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
 import { extractTextFromPDFFile } from "@/lib/pdfParse";
 import { createResumeInputSchema } from "@/lib/schemas/resumeSchema";
-import {
-  buildResumeKey,
-  removeFileFromSupabase,
-  uploadFileToSupabase,
-} from "@/lib/supabase";
+import { buildResumeKey } from "@/lib/supabase/resumeKey";
+import { removeObject, uploadObject } from "@/lib/supabase/server";
 import type { ActionResult } from "@/types/action";
 
 /**
@@ -50,7 +47,7 @@ export async function analyzeResumeAction(
 
     // Upload before inference so a storage failure doesn't waste the model run.
     uploadedKey = buildResumeKey(userId);
-    const resumeUrl = await uploadFileToSupabase(resume, uploadedKey);
+    await uploadObject(uploadedKey, resume);
 
     const { feedback } = await analyzeResume({
       jobTitle,
@@ -62,7 +59,7 @@ export async function analyzeResumeAction(
       companyName,
       jobTitle,
       jobDescription,
-      resumeUrl,
+      resumeKey: uploadedKey,
       feedback,
     });
 
@@ -72,7 +69,7 @@ export async function analyzeResumeAction(
     return { ok: true, data: { resumeId } };
   } catch (error) {
     // Drop the file when no record ends up pointing at it.
-    if (uploadedKey) await removeFileFromSupabase(uploadedKey);
+    if (uploadedKey) await removeObject(uploadedKey);
 
     return toActionError(error, "Failed to analyze resume");
   }

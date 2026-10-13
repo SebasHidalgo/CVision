@@ -5,7 +5,12 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type ResumeDrawerProps = {
-  resumeUrl: string;
+  /**
+   * A signed read URL minted by the server for this render, valid for
+   * minutes. Null when the file could not be signed: the button says so
+   * instead of opening an empty sheet.
+   */
+  resumeUrl: string | null;
   title: string;
 };
 
@@ -21,6 +26,15 @@ export default function ResumeDrawer({ resumeUrl, title }: ResumeDrawerProps) {
     setOpen(true);
     ref.current?.showModal();
   };
+
+  if (resumeUrl === null) {
+    return (
+      <Button variant="outline" disabled title="The file is not available right now" className="h-11 gap-2 px-5">
+        <FileText className="size-4" />
+        CV unavailable
+      </Button>
+    );
+  }
 
   return (
     <>

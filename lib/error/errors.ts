@@ -6,6 +6,7 @@ export type ErrorCode =
   | "PDF_UNREADABLE"
   | "PDF_NO_TEXT"
   | "STORAGE_UNAVAILABLE"
+  | "STORAGE_MISCONFIGURED"
   | "AI_UNAVAILABLE"
   | "AI_RATE_LIMITED"
   | "AI_MISCONFIGURED"
@@ -64,6 +65,13 @@ export class PdfNoTextError extends AppError {
 export class StorageUnavailableError extends AppError {
   constructor(message = "File storage failed") {
     super("STORAGE_UNAVAILABLE", message);
+  }
+}
+
+/** Missing URL or service role: an operator problem no retry fixes. */
+export class StorageMisconfiguredError extends AppError {
+  constructor(message = "File storage misconfigured") {
+    super("STORAGE_MISCONFIGURED", message);
   }
 }
 

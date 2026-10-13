@@ -3,7 +3,7 @@ import type { InterviewStatus } from "@prisma/client";
 /**
  * What a status means for navigation. Three screens route on it (the list,
  * the analysis CTA and the room), so it lives here rather than in any one of
- * them. `finalized` is gone from the decision: it only ever meant COMPLETED.
+ * them.
  *
  *   ready    the room: nothing scoreable yet
  *   pending  the feedback page, which generates and polls

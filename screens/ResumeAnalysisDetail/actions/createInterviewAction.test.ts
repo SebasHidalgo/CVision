@@ -22,7 +22,7 @@ function resumeWith(
     companyName: "Northwind",
     jobTitle: "Frontend Engineer",
     jobDescription: "React, TypeScript, testing.",
-    resumeUrl: "cv/user_1/x.pdf",
+    resumeKey: "cv/user_1/11111111-2222-4333-8444-555555555555.pdf",
     userId: "user_1",
     createdAt: "2026-10-01T00:00:00.000Z",
     interviews: [],

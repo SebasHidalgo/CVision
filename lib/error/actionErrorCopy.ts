@@ -11,6 +11,8 @@ const COPY: Record<ErrorCode, string> = {
     "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
   STORAGE_UNAVAILABLE:
     "We couldn't save your PDF, so the analysis didn't run. Try again in a few minutes.",
+  STORAGE_MISCONFIGURED:
+    "File storage is misconfigured on our side. Retrying won't help — please check back later.",
   AI_UNAVAILABLE:
     "The analyzer isn't responding right now. Give it a minute and try again.",
   AI_RATE_LIMITED:
