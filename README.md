@@ -23,10 +23,50 @@ On Windows, run `npx prisma db push` (and `npx prisma generate`) with the
 dev server stopped: while it runs it holds the Prisma query engine open, and
 the push fails with `EPERM` when it tries to replace the engine file.
 
+Besides Clerk and the database, `.env` needs `NEXT_PUBLIC_SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API → the
+`service_role` key marked secret). The service role is read on the server
+only; the browser never holds a Supabase key of any kind.
+
 Before handing in a change: `npx tsc --noEmit`, `npm test`, `npm run build`.
 `npm run eval` scores the real analysis over fixed fixtures and
 `npm run eval -- interview run <label>` does the same for the interview
 feedback; both bill the model once per fixture (`npm run eval -- help`).
+
+## File storage
+
+CVs live in one private Supabase Storage bucket, `files-bucket`, under
+`cv/{userId}/{uuid}.pdf`. Every storage call goes through
+`lib/supabase/server.ts` with the service role.
+
+The upload never passes through a server function:
+
+1. `createResumeUploadAction` mints a key under the caller's prefix and a
+   single-use signed upload URL.
+2. The browser PUTs the PDF to that URL with the file and its type, nothing
+   else. The bucket refuses anything that is not `application/pdf` or is
+   over the limit in `lib/uploadLimits.ts`.
+3. `analyzeResumeAction` receives the key, checks it is the caller's,
+   downloads the object, checks the PDF header and the size, parses the
+   text and runs the analysis as before.
+
+The CV drawer reads through a signed URL minted when the analysis page
+renders, valid for ten minutes.
+
+`npm run storage:bucket` applies the bucket settings from code (private,
+PDF only, size cap) and verifies them: the old public URL must answer 400
+and a signed URL must serve the PDF. It also lists the row-level policies
+on `storage.objects`, which the Storage API cannot change. **No policy
+should exist for the `anon` or `public` roles**: the service role bypasses
+policies, and nothing else should reach the bucket. If the listing shows
+any (a Supabase project created with the "give anon full access" template
+has four), drop them in the dashboard under Storage → Policies.
+
+`npm run storage:gc` lists every object with a verdict and deletes nothing;
+`npm run storage:gc -- --delete` removes the orphans: objects under `cv/`
+that no analysis references and that are older than a day (an upload in
+progress has no row yet), and anything outside `cv/`. Run it by hand until
+deploy, then as a Vercel cron.
 
 ## Voice interview: local development
 
