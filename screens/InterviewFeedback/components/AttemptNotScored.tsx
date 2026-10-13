@@ -3,18 +3,32 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 
-type NothingHeardProps = {
+type AttemptNotScoredProps = {
   interview: { id: string; role: string };
+  /** "silent": the platform heard nothing. "lost": the platform has no record of the session. */
+  reason: "silent" | "lost";
   attemptsLeft: number;
   date: string;
 };
 
+const COPY = {
+  silent: {
+    title: "The interviewer never heard you.",
+    body: "The call ended without a single answer from you, which usually means the microphone was muted or not allowed. Nothing was scored.",
+  },
+  lost: {
+    title: "That session never reached the interviewer.",
+    body: "The voice platform has no record of the call, so there is nothing to score. This happens when the connection failed before the interview started.",
+  },
+};
+
 /**
- * The call ended and the platform heard nothing from the candidate. The
- * interview is still startable, so the way forward is the room, not a retry
- * of the scoring.
+ * The latest attempt produced nothing to score and the interview is still
+ * startable, so the way forward is the room, not a retry of the scoring.
  */
-export default function NothingHeard({ interview, attemptsLeft, date }: NothingHeardProps) {
+export default function AttemptNotScored({ interview, reason, attemptsLeft, date }: AttemptNotScoredProps) {
+  const copy = COPY[reason];
+
   return (
     <article className="wrap py-10 lg:py-14">
       <header className="border-b border-line pb-10 lg:pb-12">
@@ -26,13 +40,11 @@ export default function NothingHeard({ interview, attemptsLeft, date }: NothingH
       <section className="py-12 lg:py-16">
         <p className="flex items-center gap-3 text-lg text-ink">
           <span aria-hidden className="size-2 shrink-0 rounded-full bg-weak" />
-          The interviewer never heard you.
+          {copy.title}
         </p>
         <p className="lede mt-4 max-w-xl">
-          The call ended without a single answer from you, which usually means
-          the microphone was muted or not allowed. Nothing was scored and the
-          attempt is not wasted beyond itself: you have {attemptsLeft}{" "}
-          {attemptsLeft === 1 ? "attempt" : "attempts"} left.
+          {copy.body} The attempt counts, but the interview is still yours: you have{" "}
+          {attemptsLeft} {attemptsLeft === 1 ? "attempt" : "attempts"} left.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">

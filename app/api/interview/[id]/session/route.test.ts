@@ -47,6 +47,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     finalized: false,
     createdAt: new Date("2026-10-01T00:00:00Z"),
     conversationId: null,
+    issuedConversationIds: [],
     contextMismatch: false,
     failureReason: null,
     startedAt: null,

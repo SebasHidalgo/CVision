@@ -47,8 +47,89 @@ export const postCallTranscriptionSchema = z.looseObject({
 
 export type PostCallTranscription = z.infer<typeof postCallTranscriptionSchema>;
 
+/**
+ * What `GET /v1/convai/conversations/{id}` answers, structurally: the SDK's
+ * camelCase model, reduced to the fields the webhook also carries.
+ */
+export type ConversationApiRecord = {
+  agentId: string;
+  conversationId: string;
+  status: string;
+  transcript: { role: string; message?: string | null; timeInCallSecs: number }[];
+  metadata: {
+    startTimeUnixSecs: number;
+    callDurationSecs: number;
+    terminationReason?: string | null;
+  };
+  conversationInitiationClientData?: { dynamicVariables?: Record<string, unknown> | null } | null;
+};
+
+/** The platform's conversation statuses that mean the call is over. */
+export const CONVERSATION_ENDED_STATUSES: ReadonlySet<string> = new Set(["done", "failed"]);
+
+/**
+ * The API record as the webhook would have delivered it, so one storage path
+ * serves both. Field for field: role, message and time_in_call_secs per
+ * turn; start, duration and termination reason in the metadata; the dynamic
+ * variables the client sent. What the webhook has that the API lacks is only
+ * the envelope's `event_timestamp`, which the store falls back from.
+ */
+export function fromConversationApi(record: ConversationApiRecord): PostCallTranscription {
+  return {
+    agent_id: record.agentId,
+    conversation_id: record.conversationId,
+    status: record.status,
+    transcript: record.transcript.map((turn) => ({
+      role: turn.role,
+      message: turn.message ?? null,
+      time_in_call_secs: turn.timeInCallSecs,
+    })),
+    metadata: {
+      start_time_unix_secs: record.metadata.startTimeUnixSecs,
+      call_duration_secs: record.metadata.callDurationSecs,
+      termination_reason: record.metadata.terminationReason ?? null,
+    },
+    conversation_initiation_client_data: record.conversationInitiationClientData
+      ? { dynamic_variables: record.conversationInitiationClientData.dynamicVariables ?? null }
+      : null,
+  };
+}
+
 /** `failureReason` when the candidate never spoke. */
 export const NO_CANDIDATE_TURNS = "NO_CANDIDATE_TURNS";
+/** `failureReason` when the platform has no record of the latest session. */
+export const SESSION_LOST = "SESSION_LOST";
+
+/**
+ * How long after the hard limit a webhook is still given a chance before the
+ * server goes and fetches the conversation itself. The owner's live run
+ * measured about a minute between the end of the call and the delivery.
+ */
+export const RECONCILE_GRACE_SECONDS = 2 * 60;
+
+export type StrandedCandidate = {
+  status: InterviewStatus;
+  conversationId: string | null;
+  hasTranscript: boolean;
+  startedAt: Date | null;
+};
+
+/**
+ * An interview whose latest session was issued long enough ago that the call
+ * must be over, and whose transcript never arrived. The window is the agent's
+ * hard limit plus the grace, counted from the session issue, because the
+ * server never learns when the call actually ended until the transcript does.
+ */
+export function isStranded(
+  row: StrandedCandidate,
+  now: Date,
+  maxDurationSeconds: number,
+): boolean {
+  if (row.status !== "IN_PROGRESS") return false;
+  if (!row.conversationId || row.hasTranscript || !row.startedAt) return false;
+  const windowMs = (maxDurationSeconds + RECONCILE_GRACE_SECONDS) * 1000;
+  return now.getTime() - row.startedAt.getTime() > windowMs;
+}
 
 /** The dynamic variable the session endpoint issues so a payload can be matched without a conversation id. */
 export const INTERVIEW_ID_VARIABLE = "interview_id";

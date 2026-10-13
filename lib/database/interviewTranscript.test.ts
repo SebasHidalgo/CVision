@@ -1,0 +1,120 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/lib/prisma";
+import type { PostCallTranscription } from "@/lib/elevenlabs/postCall";
+import { markSessionLost, storeConversationTranscript } from "./interviewTranscript";
+
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    interview: { findFirst: vi.fn(), updateMany: vi.fn() },
+  },
+}));
+
+const findFirst = vi.mocked(prisma.interview.findFirst);
+const updateMany = vi.mocked(prisma.interview.updateMany);
+
+const payload = (overrides: Partial<PostCallTranscription> = {}): PostCallTranscription => ({
+  agent_id: "agent_1",
+  conversation_id: "conv_2",
+  status: "done",
+  transcript: [
+    { role: "agent", message: "Hi.", time_in_call_secs: 0 },
+    { role: "user", message: "Hello.", time_in_call_secs: 3 },
+  ],
+  metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, termination_reason: null },
+  conversation_initiation_client_data: { dynamic_variables: { interview_id: "int_1" } },
+  ...overrides,
+});
+
+const row = (overrides: Record<string, unknown> = {}) => ({
+  id: "int_1",
+  status: "IN_PROGRESS",
+  conversationId: "conv_2",
+  issuedConversationIds: ["conv_1", "conv_2"],
+  transcript: null,
+  issuedContext: null,
+  startCount: 2,
+  ...overrides,
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  updateMany.mockResolvedValue({ count: 1 });
+});
+
+describe("storeConversationTranscript: how a delivery finds its row", () => {
+  it("matches on membership in the issued ids, so an earlier session's delivery still lands", async () => {
+    findFirst.mockResolvedValueOnce(row() as never);
+
+    const result = await storeConversationTranscript({ data: payload({ conversation_id: "conv_1" }), eventTimestamp: null });
+
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(findFirst.mock.calls[0][0]).toMatchObject({
+      where: { issuedConversationIds: { has: "conv_1" } },
+    });
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
+    // The stored transcript's conversation becomes the row's, and the source is the webhook's.
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: "int_1" },
+      data: { conversationId: "conv_1", transcriptSource: "elevenlabs", status: "FEEDBACK_PENDING" },
+    });
+  });
+
+  it("falls back to the interview_id variable only for a row that was never issued a session", async () => {
+    findFirst.mockResolvedValueOnce(null as never).mockResolvedValueOnce(row({ issuedConversationIds: [], conversationId: null }) as never);
+
+    await storeConversationTranscript({ data: payload({ conversation_id: "conv_x" }), eventTimestamp: null });
+
+    expect(findFirst).toHaveBeenCalledTimes(2);
+    expect(findFirst.mock.calls[1][0]).toMatchObject({
+      where: { id: "int_1", issuedConversationIds: { isEmpty: true } },
+    });
+  });
+
+  it("does not use the variable when the delivery names no interview, and reports unmatched", async () => {
+    findFirst.mockResolvedValueOnce(null as never);
+
+    const result = await storeConversationTranscript({
+      data: payload({ conversation_id: "conv_x", conversation_initiation_client_data: null }),
+      eventTimestamp: null,
+    });
+
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ outcome: "unmatched" });
+  });
+
+  it("the first delivery with candidate turns wins; a later one for another issued session is a duplicate", async () => {
+    // First call: conv_1 delivers with candidate turns.
+    findFirst.mockResolvedValueOnce(row() as never);
+    expect(await storeConversationTranscript({ data: payload({ conversation_id: "conv_1" }), eventTimestamp: null })).toMatchObject({
+      outcome: "stored",
+      status: "FEEDBACK_PENDING",
+    });
+
+    // Then conv_2 delivers: the row is past the startable states.
+    findFirst.mockResolvedValueOnce(row({ status: "FEEDBACK_PENDING", conversationId: "conv_1", transcript: [{ role: "user", message: "Hello." }] }) as never);
+    expect(await storeConversationTranscript({ data: payload({ conversation_id: "conv_2" }), eventTimestamp: null })).toEqual({
+      outcome: "duplicate",
+      interviewId: "int_1",
+    });
+    expect(updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the reconcile fetch as the API's source", async () => {
+    findFirst.mockResolvedValueOnce(row() as never);
+
+    await storeConversationTranscript({ data: payload(), eventTimestamp: null, source: "elevenlabs-api" });
+
+    expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { transcriptSource: "elevenlabs-api" } });
+  });
+});
+
+describe("markSessionLost", () => {
+  it("writes the reason only while the row is startable, on that conversation, with no transcript", async () => {
+    expect(await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST" })).toBe(true);
+
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: "int_1", conversationId: "conv_2", transcriptSource: null },
+      data: { failureReason: "SESSION_LOST" },
+    });
+  });
+});

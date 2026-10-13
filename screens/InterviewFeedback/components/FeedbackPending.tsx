@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
-import RefreshPoller from "./RefreshPoller";
+import type { InterviewStatusSnapshot } from "@/lib/schemas/interviewSessionSchema";
+import StatusPoller from "./StatusPoller";
 
 type FeedbackPendingProps = {
+  interviewId: string;
   role: string;
   date: string;
   /**
@@ -11,13 +13,15 @@ type FeedbackPendingProps = {
    * transcript yet. "scoring": the transcript is stored and being read.
    */
   waitingFor: "transcript" | "scoring";
+  /** What this render is based on; the poller re-renders when it changes. */
+  seen: Pick<InterviewStatusSnapshot, "status" | "hasFeedback" | "failureReason">;
 };
 
 /** Shown while the interview is being saved or scored; polls until it is. */
-export default function FeedbackPending({ role, date, waitingFor }: FeedbackPendingProps) {
+export default function FeedbackPending({ interviewId, role, date, waitingFor, seen }: FeedbackPendingProps) {
   return (
     <article className="wrap py-10 lg:py-14">
-      <RefreshPoller />
+      <StatusPoller interviewId={interviewId} seen={seen} />
       <header className="border-b border-line pb-10 lg:pb-12">
         <Eyebrow tick>Interview feedback · {date}</Eyebrow>
         <p className="mt-6 text-lg text-ink-2">Mock interview</p>
@@ -31,11 +35,11 @@ export default function FeedbackPending({ role, date, waitingFor }: FeedbackPend
         </p>
         <p className="lede mt-4 max-w-xl">
           {waitingFor === "transcript"
-            ? "The transcript arrives a few seconds after the call ends, then it is read against the posting and the gaps your analysis found. The page updates by itself."
+            ? "The transcript usually arrives within a minute of the call ending, then it is read against the posting and the gaps your analysis found. The page updates by itself."
             : "The transcript is being read against the posting and the gaps your analysis found. This usually takes under a minute; the page updates by itself."}
         </p>
         <p className="mt-6 text-sm text-ink-3">
-          If nothing changes after a couple of minutes, reload the page.
+          You can leave this page; the result will be waiting under Interviews.
         </p>
         <Link
           href="/interviews"

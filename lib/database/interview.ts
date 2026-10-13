@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type InterviewStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
@@ -153,6 +153,7 @@ export async function reserveInterviewSession(
         status: "IN_PROGRESS",
         issuedContext: data.issuedContext,
         conversationId: data.conversationId,
+        issuedConversationIds: { push: data.conversationId },
         startedAt: data.startedAt,
         startCount: { increment: 1 },
         transcript: Prisma.DbNull,
@@ -197,6 +198,61 @@ export async function fetchInterviewTranscript(
     return parsed.data;
   } catch (error) {
     handleError(error, "Failed to retrieve interview transcript");
+  }
+}
+
+/** What the status endpoint answers, and what the feedback page polls for. */
+export type InterviewStatusSnapshot = {
+  status: InterviewStatus;
+  hasFeedback: boolean;
+  startCount: number;
+  failureReason: string | null;
+};
+
+/**
+ * The few columns a poll needs, owner-scoped. `transcriptSource` stands in
+ * for "a transcript is stored": it is set with the transcript and cleared
+ * when a new session is issued, and it is not tens of kilobytes.
+ */
+export async function fetchInterviewStatus(interviewId: string): Promise<
+  | (InterviewStatusSnapshot & {
+      id: string;
+      conversationId: string | null;
+      hasTranscript: boolean;
+      startedAt: Date | null;
+    })
+  | null
+> {
+  try {
+    const userId = await requireUserId();
+
+    const row = await prisma.interview.findFirst({
+      where: { id: interviewId, userId },
+      select: {
+        id: true,
+        status: true,
+        startCount: true,
+        failureReason: true,
+        conversationId: true,
+        transcriptSource: true,
+        startedAt: true,
+        InterviewFeedback: { select: { id: true } },
+      },
+    });
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      status: row.status,
+      hasFeedback: row.InterviewFeedback !== null,
+      startCount: row.startCount,
+      failureReason: row.failureReason,
+      conversationId: row.conversationId,
+      hasTranscript: row.transcriptSource !== null,
+      startedAt: row.startedAt,
+    };
+  } catch (error) {
+    handleError(error, "Failed to retrieve interview status");
   }
 }
 

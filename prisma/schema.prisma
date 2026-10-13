@@ -74,10 +74,15 @@ model Interview {
   /// M3-C and no screen reads it. Dropped in M3-D.
   recordingUrl String?
 
-  /// ElevenLabs conversation id of the latest issued session. Set when the
-  /// session is issued, so the post-call webhook matches by it; unique so one
-  /// conversation can only ever land on one interview.
+  /// The conversation the stored transcript came from, or, before one is
+  /// stored, the latest issued session. Unique so one conversation can only
+  /// ever land on one interview; also the id the reconcile path fetches.
   conversationId String? @unique
+  /// Every conversation id the session endpoint has issued for this
+  /// interview. The webhook and the reconcile path match a delivery on
+  /// membership here, so a second session issued while a call is still live
+  /// cannot orphan the first call's transcript.
+  issuedConversationIds String[] @default([])
   /// Transcript turns, verbatim from the post-call webhook.
   transcript     Json?
   /// Where the transcript came from. Only "elevenlabs" (the signed webhook)
@@ -91,7 +96,7 @@ model Interview {
   /// `issuedContext`: the browser tampered with its own session.
   contextMismatch Boolean @default(false)
   /// Why the latest step produced nothing: NO_CANDIDATE_TURNS,
-  /// CONTEXT_MISSING, TRANSCRIPT_INVALID or FEEDBACK_FAILED.
+  /// SESSION_LOST, CONTEXT_MISSING, TRANSCRIPT_INVALID or FEEDBACK_FAILED.
   failureReason   String?
 
   startedAt       DateTime?

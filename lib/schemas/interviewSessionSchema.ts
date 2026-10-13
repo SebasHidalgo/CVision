@@ -20,3 +20,17 @@ export const interviewSessionResponseSchema = z.object({
 });
 
 export type InterviewSessionResponse = z.infer<typeof interviewSessionResponseSchema>;
+
+/**
+ * What `GET /api/interview/[id]/status` answers: enough for the feedback
+ * page to know whether it would render differently. `status` is the Prisma
+ * enum, kept as a string here so the browser never imports the client.
+ */
+export const interviewStatusSnapshotSchema = z.object({
+  status: z.string().min(1),
+  hasFeedback: z.boolean(),
+  startCount: z.number().int().min(0),
+  failureReason: z.string().nullable(),
+});
+
+export type InterviewStatusSnapshot = z.infer<typeof interviewStatusSnapshotSchema>;

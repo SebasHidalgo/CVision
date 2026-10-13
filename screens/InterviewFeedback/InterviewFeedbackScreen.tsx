@@ -6,15 +6,16 @@ import {
   fetchInterviewById,
   fetchInterviewTranscript,
 } from "@/lib/database/interview";
-import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { NO_CANDIDATE_TURNS } from "@/lib/elevenlabs/postCall";
+import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
+import { isStranded, NO_CANDIDATE_TURNS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
+import { reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
 import { formatLongDate } from "@/lib/format";
 import { interviewPhase } from "@/lib/interviewStatus";
+import AttemptNotScored from "./components/AttemptNotScored";
 import FeedbackFailed from "./components/FeedbackFailed";
 import FeedbackPending from "./components/FeedbackPending";
 import FeedbackReport from "./components/FeedbackReport";
 import FeedbackUnavailable from "./components/FeedbackUnavailable";
-import NothingHeard from "./components/NothingHeard";
 
 type InterviewFeedbackScreenProps = {
   interviewId: string;
@@ -31,34 +32,69 @@ export default async function InterviewFeedbackScreen({
   justEnded,
 }: InterviewFeedbackScreenProps) {
   // Already scoped to the owner: another user's interview comes back null.
-  const interview = await fetchInterviewById(interviewId);
+  let interview = await fetchInterviewById(interviewId);
   if (!interview) redirect("/interviews");
+
+  // The webhook never came and the call must be over: fetch the transcript
+  // from the platform through the same path the webhook uses. The poll does
+  // this too; here it covers a page opened long after the call.
+  const strandedCandidate = {
+    status: interview.status,
+    conversationId: interview.conversationId,
+    hasTranscript: interview.transcriptSource !== null,
+    startedAt: interview.startedAt,
+  };
+  if (isStranded(strandedCandidate, new Date(), MAX_INTERVIEW_DURATION_SECONDS)) {
+    try {
+      const outcome = await reconcileStrandedInterview(interview.id);
+      if (outcome.kind === "stored" || outcome.kind === "lost") {
+        interview = (await fetchInterviewById(interview.id)) ?? interview;
+      }
+    } catch (error) {
+      console.error(`[CVision][feedback] reconcile interview=${interview.id} failed:`, error);
+    }
+  }
 
   const phase = interviewPhase(interview.status);
   const date = formatLongDate(interview.createdAt);
+  const seen = {
+    status: interview.status,
+    hasFeedback: false,
+    failureReason: interview.failureReason,
+  };
 
   if (phase === "ready") {
     if (!justEnded) redirect(`/interview/${interview.id}`);
 
-    // The webhook came back with no candidate turns: the interview is still
-    // theirs to start, and the room is where that happens.
-    if (interview.failureReason === NO_CANDIDATE_TURNS) {
+    // The latest attempt produced nothing: the interview is still theirs to
+    // start, and the room is where that happens.
+    if (interview.failureReason === NO_CANDIDATE_TURNS || interview.failureReason === SESSION_LOST) {
       return (
-        <NothingHeard
+        <AttemptNotScored
           interview={{ id: interview.id, role: interview.role }}
+          reason={interview.failureReason === SESSION_LOST ? "lost" : "silent"}
           attemptsLeft={Math.max(0, MAX_INTERVIEW_STARTS - interview.startCount)}
           date={date}
         />
       );
     }
-    return <FeedbackPending role={interview.role} date={date} waitingFor="transcript" />;
+    return (
+      <FeedbackPending
+        interviewId={interview.id}
+        role={interview.role}
+        date={date}
+        waitingFor="transcript"
+        seen={seen}
+      />
+    );
   }
 
   if (phase === "pending") {
-    // The lazy path. The webhook's after() normally gets here first; when it
-    // did not (a lost callback, a dead worker), this page is the retry. The
-    // generator claims the row conditionally, so a page load racing the
-    // webhook produces one model call, and the page polls until it lands.
+    // The lazy path, once per render. The webhook's after() normally gets
+    // here first; when it did not (a lost callback, a dead worker), this is
+    // the retry. The generator claims the row conditionally, so a render
+    // racing the webhook produces one model call; the poller re-renders
+    // this page only when the status changes, not on every poll.
     after(async () => {
       try {
         const outcome = await generateInterviewFeedback(interview.id);
@@ -67,7 +103,15 @@ export default async function InterviewFeedbackScreen({
         console.error(`[CVision][feedback] page trigger interview=${interview.id} threw:`, error);
       }
     });
-    return <FeedbackPending role={interview.role} date={date} waitingFor="scoring" />;
+    return (
+      <FeedbackPending
+        interviewId={interview.id}
+        role={interview.role}
+        date={date}
+        waitingFor="scoring"
+        seen={seen}
+      />
+    );
   }
 
   if (phase === "failed" || phase === "expired") {

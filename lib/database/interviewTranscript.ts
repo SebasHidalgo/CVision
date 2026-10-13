@@ -23,6 +23,7 @@ const postCallSelect = {
   id: true,
   status: true,
   conversationId: true,
+  issuedConversationIds: true,
   transcript: true,
   issuedContext: true,
   startCount: true,
@@ -36,17 +37,23 @@ export type StoreTranscriptResult =
 /**
  * Matches the payload to its interview and stores it according to
  * `decidePostCallOutcome`. The conversation id is the key: the session
- * endpoint stored it when the token was issued. The `interview_id` variable
- * is only a fallback, and only for a row that was never given a conversation
- * id, so a variable the browser could alter cannot land a transcript on an
- * interview that has its own session.
+ * endpoint recorded every id it issued, and a delivery matches the row whose
+ * list contains it. The `interview_id` variable is only a fallback, and only
+ * for a row that was never issued a session, so a variable the browser could
+ * alter cannot land a transcript on an interview that has its own sessions.
+ * The same path serves the webhook and the reconcile fallback.
  */
+export type TranscriptSource = "elevenlabs" | "elevenlabs-api";
+
 export async function storeConversationTranscript({
   data,
   eventTimestamp,
+  source = "elevenlabs",
 }: {
   data: PostCallTranscription;
   eventTimestamp: number | null | undefined;
+  /** "elevenlabs" for the signed webhook, "elevenlabs-api" for the reconcile fetch. */
+  source?: TranscriptSource;
 }): Promise<StoreTranscriptResult> {
   try {
     const row = await findRow(data);
@@ -69,7 +76,7 @@ export async function storeConversationTranscript({
         status: outcome.status,
         conversationId: data.conversation_id,
         transcript: data.transcript as Prisma.InputJsonValue,
-        transcriptSource: "elevenlabs",
+        transcriptSource: source,
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
@@ -86,8 +93,8 @@ export async function storeConversationTranscript({
 }
 
 async function findRow(data: PostCallTranscription) {
-  const byConversation = await prisma.interview.findUnique({
-    where: { conversationId: data.conversation_id },
+  const byConversation = await prisma.interview.findFirst({
+    where: { issuedConversationIds: { has: data.conversation_id } },
     select: postCallSelect,
   });
   if (byConversation) return byConversation;
@@ -96,7 +103,53 @@ async function findRow(data: PostCallTranscription) {
   if (!interviewId) return null;
 
   return prisma.interview.findFirst({
-    where: { id: interviewId, conversationId: null },
+    where: { id: interviewId, issuedConversationIds: { isEmpty: true } },
     select: postCallSelect,
   });
+}
+
+/** The columns the reconcile fallback decides on. No session: it runs from a poll. */
+export async function fetchInterviewForReconcile(interviewId: string) {
+  try {
+    return await prisma.interview.findUnique({
+      where: { id: interviewId },
+      select: {
+        id: true,
+        status: true,
+        conversationId: true,
+        transcriptSource: true,
+        startedAt: true,
+        startCount: true,
+      },
+    });
+  } catch (error) {
+    handleError(error, "Failed to read interview for reconciliation");
+  }
+}
+
+/**
+ * The platform has no record of the latest session: the attempt is lost, but
+ * not the interview. The row stays startable with the start already counted,
+ * and the reason tells the feedback page what to say. Guarded on the
+ * conversation id so a webhook that lands in between is not overwritten.
+ */
+export async function markSessionLost(params: {
+  interviewId: string;
+  conversationId: string;
+  reason: string;
+}): Promise<boolean> {
+  try {
+    const result = await prisma.interview.updateMany({
+      where: {
+        id: params.interviewId,
+        status: { in: [...STARTABLE_STATUSES] },
+        conversationId: params.conversationId,
+        transcriptSource: null,
+      },
+      data: { failureReason: params.reason },
+    });
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, "Failed to mark interview session as lost");
+  }
 }

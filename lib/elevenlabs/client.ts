@@ -6,15 +6,22 @@ import {
   ElevenLabsTimeoutError,
 } from "@elevenlabs/elevenlabs-js";
 import {
+  CONVERSATION_ENDED_STATUSES,
+  fromConversationApi,
+  type PostCallTranscription,
+} from "@/lib/elevenlabs/postCall";
+import {
   type AppError,
   VoiceMisconfiguredError,
   VoiceUnavailableError,
 } from "@/lib/error/errors";
 
 /**
- * The only module that talks to ElevenLabs at runtime. Two calls: issue a
- * conversation token (session endpoint) and verify a webhook signature
- * (post-call route). The agent itself is managed by scripts/elevenlabs.
+ * The only module that talks to ElevenLabs at runtime. Three calls: issue a
+ * conversation token (session endpoint), verify a webhook signature
+ * (post-call route), and fetch a conversation by id (the reconcile fallback
+ * for a webhook that never arrived). The agent itself is managed by
+ * scripts/elevenlabs.
  */
 
 /** A single fast call; the route's budget is on top of this. */
@@ -75,6 +82,41 @@ export async function issueConversationToken(): Promise<ConversationSession> {
     conversationId,
     expiresAt: tokenExpiry(token) ?? new Date(Date.now() + CONVERSATION_TOKEN_TTL_MS),
   };
+}
+
+export type FetchedConversation =
+  /** The platform still has the call open, or is still processing it. */
+  | { kind: "in-progress"; platformStatus: string }
+  /** Over, in the shape the webhook would have delivered. */
+  | { kind: "ended"; data: PostCallTranscription }
+  /** The platform has no such conversation. */
+  | { kind: "not-found" };
+
+/**
+ * The platform's own record of a conversation the server issued. Only the
+ * reconcile path calls this, for an interview whose webhook never came, so
+ * the id is always one the session endpoint minted.
+ */
+export async function fetchConversation(conversationId: string): Promise<FetchedConversation> {
+  const { apiKey } = readConfig();
+  if (!apiKey) throw new VoiceMisconfiguredError("ELEVENLABS_API_KEY is not set");
+
+  const client = new ElevenLabsClient({
+    apiKey,
+    timeoutInSeconds: TOKEN_TIMEOUT_SECONDS,
+    maxRetries: 0,
+  });
+
+  try {
+    const record = await client.conversationalAi.conversations.get(conversationId);
+    if (!CONVERSATION_ENDED_STATUSES.has(record.status)) {
+      return { kind: "in-progress", platformStatus: record.status };
+    }
+    return { kind: "ended", data: fromConversationApi(record) };
+  } catch (error) {
+    if (error instanceof ElevenLabsError && error.statusCode === 404) return { kind: "not-found" };
+    throw toVoiceError(error);
+  }
 }
 
 /** Thrown when a webhook delivery fails verification. Never reaches a user. */

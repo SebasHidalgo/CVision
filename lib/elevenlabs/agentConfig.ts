@@ -122,9 +122,14 @@ export function buildInterviewAgentDefinition({
           prompt: INTERVIEWER_AGENT_PROMPT,
           llm: INTERVIEW_AGENT_LLM,
           temperature: INTERVIEW_AGENT_LLM_TEMPERATURE,
-          // No tools, no knowledge base: the context is all in the prompt.
+          // No knowledge base and no custom tools: the context is all in the
+          // prompt. The one system tool lets the agent end the call after its
+          // closing line instead of waiting for the candidate or for silence.
           toolIds: [],
           knowledgeBase: [],
+          builtInTools: {
+            endCall: { type: "system", name: "end_call", params: { systemToolType: "end_call" } },
+          },
         },
       },
       asr: {

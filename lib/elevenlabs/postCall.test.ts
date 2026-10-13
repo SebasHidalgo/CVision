@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   decidePostCallOutcome,
+  fromConversationApi,
   hasCandidateTurns,
   initiationDataMatches,
   interviewIdFromPayload,
+  isStranded,
   NO_CANDIDATE_TURNS,
   postCallEventSchema,
   postCallTranscriptionSchema,
+  RECONCILE_GRACE_SECONDS,
   type PostCallRow,
   type PostCallTranscription,
+  type StrandedCandidate,
 } from "./postCall";
 
 const ISSUED = { interview_id: "int_1", candidate_name: "Ana", role: "Frontend Engineer" };
@@ -145,5 +149,77 @@ describe("decidePostCallOutcome", () => {
     const outcome = decide(row(), payload({ metadata: { call_duration_secs: 30 } }));
 
     expect(outcome).toMatchObject({ startedAt: null, endedAt: new Date((START + 500) * 1000), durationSeconds: 30 });
+  });
+});
+
+describe("isStranded", () => {
+  const now = new Date("2026-10-13T12:00:00Z");
+  const max = 720;
+  const windowMs = (max + RECONCILE_GRACE_SECONDS) * 1000;
+  const candidate = (overrides: Partial<StrandedCandidate> = {}): StrandedCandidate => ({
+    status: "IN_PROGRESS",
+    conversationId: "conv_1",
+    hasTranscript: false,
+    startedAt: new Date(now.getTime() - windowMs - 1),
+    ...overrides,
+  });
+
+  it("is true only past the hard limit plus the grace, counted from the session issue", () => {
+    expect(isStranded(candidate(), now, max)).toBe(true);
+    expect(isStranded(candidate({ startedAt: new Date(now.getTime() - windowMs) }), now, max)).toBe(false);
+    expect(isStranded(candidate({ startedAt: new Date(now.getTime() - 60_000) }), now, max)).toBe(false);
+  });
+
+  it("is false without a session, with a transcript, or outside IN_PROGRESS", () => {
+    expect(isStranded(candidate({ conversationId: null }), now, max)).toBe(false);
+    expect(isStranded(candidate({ hasTranscript: true }), now, max)).toBe(false);
+    expect(isStranded(candidate({ startedAt: null }), now, max)).toBe(false);
+    expect(isStranded(candidate({ status: "FEEDBACK_PENDING" }), now, max)).toBe(false);
+    expect(isStranded(candidate({ status: "SCHEDULED" }), now, max)).toBe(false);
+  });
+});
+
+describe("fromConversationApi", () => {
+  it("maps the API's record to the webhook's field names, turn for turn", () => {
+    const data = fromConversationApi({
+      agentId: "agent_1",
+      conversationId: "conv_1",
+      status: "done",
+      transcript: [
+        { role: "agent", message: "Hi.", timeInCallSecs: 0 },
+        { role: "user", message: "Hello there.", timeInCallSecs: 4 },
+        { role: "agent", message: undefined, timeInCallSecs: 9 },
+      ],
+      metadata: { startTimeUnixSecs: START, callDurationSecs: 300.5, terminationReason: "end_call tool" },
+      conversationInitiationClientData: { dynamicVariables: { interview_id: "int_1" } },
+    });
+
+    expect(data).toEqual({
+      agent_id: "agent_1",
+      conversation_id: "conv_1",
+      status: "done",
+      transcript: [
+        { role: "agent", message: "Hi.", time_in_call_secs: 0 },
+        { role: "user", message: "Hello there.", time_in_call_secs: 4 },
+        { role: "agent", message: null, time_in_call_secs: 9 },
+      ],
+      metadata: { start_time_unix_secs: START, call_duration_secs: 300.5, termination_reason: "end_call tool" },
+      conversation_initiation_client_data: { dynamic_variables: { interview_id: "int_1" } },
+    });
+    // The result is what the webhook schema accepts, and the store decides on it the same way.
+    expect(postCallTranscriptionSchema.safeParse(data).success).toBe(true);
+    expect(decide(row({ conversationId: "conv_1" }), data)).toMatchObject({ kind: "store", status: "FEEDBACK_PENDING", durationSeconds: 301 });
+  });
+
+  it("keeps no initiation data when the API has none", () => {
+    const data = fromConversationApi({
+      agentId: "a",
+      conversationId: "c",
+      status: "failed",
+      transcript: [],
+      metadata: { startTimeUnixSecs: START, callDurationSecs: 0 },
+    });
+    expect(data.conversation_initiation_client_data).toBeNull();
+    expect(data.metadata?.termination_reason).toBeNull();
   });
 });
