@@ -12,16 +12,42 @@ Gemini for the text analysis, ElevenLabs Agents for the voice interview.
 ```bash
 npm install
 cp .env.template .env   # then fill it in
-npx prisma db push      # the schema has no migrations folder yet
+npm run db:deploy       # applies prisma/migrations to the database
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The analysis works
 from there; the voice interview needs the tunnel described below.
 
-On Windows, run `npx prisma db push` (and `npx prisma generate`) with the
-dev server stopped: while it runs it holds the Prisma query engine open, and
-the push fails with `EPERM` when it tries to replace the engine file.
+## The database schema
+
+The schema is versioned: `prisma/migrations` is the history, and the
+database is only ever changed by applying a migration file. There is no
+`db push`.
+
+- `npm run db:migrate -- --create-only --name <what_changed>` after editing
+  `prisma/schema.prisma`: Prisma writes the SQL into a new folder under
+  `prisma/migrations`. **Read that SQL before applying it**: a renamed
+  column arrives as a drop and an add, and a required column on a non-empty
+  table needs a default or a backfill you write by hand into the file.
+- `npm run db:deploy` applies what is pending; `npm run db:status` shows the
+  history against the database.
+- Migrations run over `DIRECT_URL` (port 5432, session mode), never over
+  the transaction pooler. `migrate dev` also creates a temporary shadow
+  database there; the Supabase `postgres` role can.
+- **Every new table gets `ALTER TABLE "<Table>" ENABLE ROW LEVEL SECURITY;`
+  in its migration.** Prisma does not model row-level security, and a
+  database rebuilt from the history would otherwise come back with it off.
+  The app connects as the table owner and bypasses RLS; nothing else may
+  reach the tables (no policies, Data API off). `npm run db:check-rls` fails
+  when any table in `public` has it off, and belongs on the deploy list.
+- A migration that touches `_prisma_migrations` must say `IF EXISTS`:
+  Prisma never creates that table in the shadow database.
+
+On Windows, run `npm run db:migrate`, `npm run db:deploy` and
+`npx prisma generate` with the dev server stopped: while it runs it holds
+the Prisma query engine open, and regenerating the client fails with
+`EPERM` when it tries to replace the engine file.
 
 Besides Clerk and the database, `.env` needs `NEXT_PUBLIC_SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API → the
