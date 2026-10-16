@@ -8,7 +8,7 @@ import {
 } from "@/lib/database/interview";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { isStranded } from "@/lib/elevenlabs/postCall";
-import { reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
 import { formatLongDate } from "@/lib/format";
 import AttemptNotScored from "./components/AttemptNotScored";
 import FeedbackFailed from "./components/FeedbackFailed";
@@ -52,7 +52,7 @@ export default async function InterviewFeedbackScreen({
   if (isStranded(candidateOf(interview), now, MAX_INTERVIEW_DURATION_SECONDS)) {
     try {
       const outcome = await reconcileStrandedInterview(interview.id, now);
-      if (outcome.kind === "stored" || outcome.kind === "lost") {
+      if (reconcileChangedRow(outcome)) {
         interview = (await fetchInterviewById(interview.id)) ?? interview;
       }
     } catch (error) {

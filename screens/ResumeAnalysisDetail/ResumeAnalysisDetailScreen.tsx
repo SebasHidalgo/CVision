@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { fetchResumeById } from "@/lib/database/resume";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
-import { createSignedReadUrl } from "@/lib/supabase/server";
 import AnalysisHeader from "./components/AnalysisHeader";
 import DimensionNav from "./components/DimensionNav";
 import DimensionSections from "./components/DimensionSections";
@@ -32,16 +31,6 @@ export default async function ResumeAnalysisDetailScreen({
     score: scores[dimension.id],
   }));
 
-  // The CV is read through a URL signed here, for minutes, from the row the
-  // owner check already passed. Storage trouble must not take the report
-  // down with it: the drawer says the file is unavailable instead.
-  let resumeUrl: string | null = null;
-  try {
-    resumeUrl = await createSignedReadUrl(analysis.resumeKey);
-  } catch (error) {
-    console.error(`[CVision] signed read for analysis ${analysis.id} failed:`, error);
-  }
-
   return (
     <article className="wrap py-10 lg:py-14">
       <AnalysisHeader
@@ -51,7 +40,6 @@ export default async function ResumeAnalysisDetailScreen({
         fit={deriveFitVerdict(feedback)}
         qualityScore={feedback.overall.qualityScore}
         summary={feedback.overall.summaryText}
-        resumeUrl={resumeUrl}
         resumeId={analysis.id}
         attempts={analysis.interviews}
       />

@@ -1,7 +1,22 @@
 /**
+ * The interview limits the browser also shows. Import-free so a client
+ * component can read them without pulling the agent definition and the
+ * interviewer prompt into its bundle.
+ */
+
+/** Hard cap enforced by the platform: billing stops here even if the tab hangs. */
+export const MAX_INTERVIEW_DURATION_SECONDS = 12 * 60;
+
+/**
+ * Sessions one interview may issue: one real connection plus two retries for
+ * a dropped one. Every start is a paid call, and before this an unfinished
+ * interview could be restarted without limit.
+ */
+export const MAX_INTERVIEW_STARTS = 3;
+
+/**
  * Provisional cap on rehearsals of one analysis. A constant, not a quota: M1b
- * replaces it with per-user limits. Import-free, like lib/elevenlabs/limits.ts,
- * so client components can read it for copy without pulling anything else.
+ * replaces it with per-user limits.
  */
 export const MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS = 3;
 

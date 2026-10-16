@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  claimReconcile,
   fetchInterviewForReconcile,
   markSessionLost,
   storeConversationTranscript,
 } from "@/lib/database/interviewTranscript";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { fetchConversation } from "@/lib/elevenlabs/client";
-import { RECONCILE_GRACE_SECONDS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
-import { reconcileNeedsFeedback, reconcileStrandedInterview } from "./reconcile";
+import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
+import { reconcileChangedRow, reconcileNeedsFeedback, reconcileStrandedInterview } from "./reconcile";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({
+  claimReconcile: vi.fn(async () => true),
   fetchInterviewForReconcile: vi.fn(),
   markSessionLost: vi.fn(async () => true),
   storeConversationTranscript: vi.fn(),
@@ -48,6 +50,7 @@ const ended = () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(claimReconcile).mockResolvedValue(true);
   vi.mocked(fetchInterviewForReconcile).mockResolvedValue(row());
   vi.mocked(fetchConversation).mockResolvedValue(ended());
   vi.mocked(storeConversationTranscript).mockResolvedValue({
@@ -134,6 +137,42 @@ describe("reconcileStrandedInterview", () => {
       reason: SESSION_LOST,
     });
     expect(storeConversationTranscript).not.toHaveBeenCalled();
+  });
+
+  it("asks the platform at most once a minute: a check that cannot claim the slot fetches nothing", async () => {
+    vi.mocked(claimReconcile).mockResolvedValue(false);
+
+    const outcome = await reconcileStrandedInterview(INTERVIEW_ID, NOW);
+
+    expect(outcome).toEqual({ kind: "throttled" });
+    expect(claimReconcile).toHaveBeenCalledWith({
+      interviewId: INTERVIEW_ID,
+      now: NOW,
+      minIntervalMs: RECONCILE_MIN_INTERVAL_MS,
+    });
+    expect(fetchConversation).not.toHaveBeenCalled();
+    expect(reconcileChangedRow(outcome)).toBe(false);
+    expect(reconcileNeedsFeedback(outcome)).toBe(false);
+  });
+
+  it("two concurrent checks fetch once: the claim is the race's only winner", async () => {
+    vi.mocked(claimReconcile).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    const outcomes = await Promise.all([
+      reconcileStrandedInterview(INTERVIEW_ID, NOW),
+      reconcileStrandedInterview(INTERVIEW_ID, NOW),
+    ]);
+
+    expect(fetchConversation).toHaveBeenCalledTimes(1);
+    expect(outcomes.map((outcome) => outcome.kind).sort()).toEqual(["stored", "throttled"]);
+  });
+
+  it("does not claim the slot for an interview that is not stranded", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(row({ transcriptSource: "elevenlabs" }));
+
+    await reconcileStrandedInterview(INTERVIEW_ID, NOW);
+
+    expect(claimReconcile).not.toHaveBeenCalled();
   });
 
   it("reports a silent or duplicate store as not needing feedback", async () => {

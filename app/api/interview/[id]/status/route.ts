@@ -4,7 +4,11 @@ import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { isStranded } from "@/lib/elevenlabs/postCall";
-import { reconcileNeedsFeedback, reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import {
+  reconcileChangedRow,
+  reconcileNeedsFeedback,
+  reconcileStrandedInterview,
+} from "@/lib/elevenlabs/reconcile";
 import { NotFoundError } from "@/lib/error/errors";
 import { routeOk, toRouteError } from "@/lib/error/toRouteResponse";
 import type { InterviewStatusSnapshot } from "@/lib/schemas/interviewSessionSchema";
@@ -45,7 +49,7 @@ export async function GET(
             }
           });
         }
-        if (outcome.kind !== "not-stranded" && outcome.kind !== "in-progress") {
+        if (reconcileChangedRow(outcome)) {
           row = (await fetchInterviewStatus(id)) ?? row;
         }
       } catch (error) {

@@ -64,6 +64,9 @@ export const analyzeResumeInputSchema = resumeDetailsSchema.extend({
 
 export type AnalyzeResumeInput = z.infer<typeof analyzeResumeInputSchema>;
 
+/** An analysis named by id, for actions that act on one the caller owns. */
+export const resumeIdInputSchema = z.object({ resumeId: z.uuid() });
+
 // Numbers or numeric strings only; an absent score is a violation, not a 0.
 const scoreSchema = aiScoreSchema();
 

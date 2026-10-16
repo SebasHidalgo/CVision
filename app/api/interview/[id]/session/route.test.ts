@@ -56,6 +56,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     transcriptSource: null,
     feedbackAttempts: 0,
     feedbackStartedAt: null,
+    reconcileCheckedAt: null,
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {

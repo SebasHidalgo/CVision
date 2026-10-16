@@ -15,8 +15,6 @@ type AnalysisHeaderProps = {
   fit: FitVerdict;
   qualityScore: number;
   summary: string;
-  /** A signed, short-lived read URL for the CV; null when it could not be signed. */
-  resumeUrl: string | null;
   resumeId: string;
   attempts: ResumeAnalysis["interviews"];
 };
@@ -35,7 +33,6 @@ export default function AnalysisHeader({
   fit,
   qualityScore,
   summary,
-  resumeUrl,
   resumeId,
   attempts,
 }: AnalysisHeaderProps) {
@@ -77,7 +74,7 @@ export default function AnalysisHeader({
       <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:items-start">
         <p className="lede lg:col-span-8">{summary}</p>
         <div className="flex flex-wrap gap-3 lg:col-span-4 lg:justify-end">
-          <ResumeDrawer resumeUrl={resumeUrl} title={`${jobTitle} · ${companyName}`} />
+          <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />
           <InterviewCta
             variant="compact"
             resumeId={resumeId}

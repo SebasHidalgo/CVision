@@ -72,6 +72,22 @@ export async function fetchAllResumes(): Promise<ResumeAnalysis[]> {
   }
 }
 
+/** The CV's storage key of one of the caller's analyses; `null` when missing or not theirs. */
+export async function fetchResumeKey(id: string): Promise<string | null> {
+  try {
+    const userId = await requireUserId();
+
+    const row = await prisma.resumeAnalysis.findFirst({
+      where: { id, userId },
+      select: { resumeKey: true },
+    });
+
+    return row?.resumeKey ?? null;
+  } catch (error) {
+    handleError(error, "Failed to retrieve resume key");
+  }
+}
+
 /**
  * Ownership lives in the `where` clause, so it can't be skipped and there is no
  * gap between reading and checking. `null` covers both "missing" and "not

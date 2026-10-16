@@ -7,9 +7,12 @@ import { ArrowRight, Loader2, Mic, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/limits";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
-import { countedAttempts, MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS } from "@/lib/interviewLimits";
+import {
+  countedAttempts,
+  MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS,
+  MAX_INTERVIEW_DURATION_SECONDS,
+} from "@/lib/interviewLimits";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";

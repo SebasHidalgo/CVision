@@ -136,6 +136,19 @@ describe("GET /api/interview/[id]/status", () => {
     });
   });
 
+  it("does not read the row again for a throttled or in-progress reconcile", async () => {
+    vi.mocked(fetchInterviewStatus).mockResolvedValue(
+      snapshot({ startedAt: new Date(Date.now() - WINDOW_MS - 1_000) }),
+    );
+    vi.mocked(reconcileStrandedInterview).mockResolvedValueOnce({ kind: "throttled" });
+    await get();
+    vi.mocked(reconcileStrandedInterview).mockResolvedValueOnce({ kind: "in-progress", platformStatus: "processing" });
+    await get();
+
+    expect(fetchInterviewStatus).toHaveBeenCalledTimes(2);
+    expect(after).not.toHaveBeenCalled();
+  });
+
   it("still answers the status when the platform fails to answer the reconcile", async () => {
     vi.mocked(fetchInterviewStatus).mockResolvedValue(
       snapshot({ startedAt: new Date(Date.now() - WINDOW_MS - 1_000) }),

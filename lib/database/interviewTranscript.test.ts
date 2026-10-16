@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import type { PostCallTranscription } from "@/lib/elevenlabs/postCall";
-import { markSessionLost, storeConversationTranscript } from "./interviewTranscript";
+import { claimReconcile, markSessionLost, storeConversationTranscript } from "./interviewTranscript";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
@@ -105,6 +105,43 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
     await storeConversationTranscript({ data: payload(), eventTimestamp: null, source: "elevenlabs-api" });
 
     expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { transcriptSource: "elevenlabs-api" } });
+  });
+
+  it("writes the times the delivery carries, and leaves them alone when it carries none", async () => {
+    findFirst.mockResolvedValueOnce(row() as never);
+    await storeConversationTranscript({ data: payload(), eventTimestamp: null });
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      data: { startedAt: new Date(1_760_000_000 * 1000), endedAt: new Date((1_760_000_000 + 200) * 1000), durationSeconds: 200 },
+    });
+
+    // No metadata and no event timestamp: the room's endedAt must survive.
+    findFirst.mockResolvedValueOnce(row() as never);
+    await storeConversationTranscript({ data: payload({ metadata: null }), eventTimestamp: null });
+    const { data } = updateMany.mock.calls[1][0] as { data: Record<string, unknown> };
+    expect(data).not.toHaveProperty("endedAt");
+    expect(data).not.toHaveProperty("durationSeconds");
+    expect(data).not.toHaveProperty("startedAt");
+  });
+});
+
+describe("claimReconcile", () => {
+  const now = new Date("2026-10-16T12:00:00Z");
+
+  it("takes the slot only when the last check is older than the interval, or there was none", async () => {
+    expect(await claimReconcile({ interviewId: "int_1", now, minIntervalMs: 60_000 })).toBe(true);
+
+    expect(updateMany.mock.calls[0][0]).toEqual({
+      where: {
+        id: "int_1",
+        OR: [{ reconcileCheckedAt: null }, { reconcileCheckedAt: { lt: new Date("2026-10-16T11:59:00Z") } }],
+      },
+      data: { reconcileCheckedAt: now },
+    });
+  });
+
+  it("reports false when another check holds the slot", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+    expect(await claimReconcile({ interviewId: "int_1", now, minIntervalMs: 60_000 })).toBe(false);
   });
 });
 

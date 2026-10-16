@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  claimReconcile,
   fetchInterviewForReconcile,
   markSessionLost,
   storeConversationTranscript,
@@ -8,14 +9,14 @@ import {
 } from "@/lib/database/interviewTranscript";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { fetchConversation } from "@/lib/elevenlabs/client";
-import { isStranded, SESSION_LOST } from "@/lib/elevenlabs/postCall";
+import { isStranded, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
 
 /**
  * The fallback for a webhook that never arrived. The webhook stays primary;
- * this runs only for an interview whose latest session must be over by the
- * agent's own limit and whose transcript is still missing, and it goes
- * through the exact storage path the webhook uses, so the outcome (scored,
- * silent, duplicate) is decided once, in one place.
+ * this runs only for an interview whose latest call must be over and whose
+ * transcript is still missing, at most once a minute per interview, and it
+ * goes through the exact storage path the webhook uses, so the outcome
+ * (scored, silent, duplicate) is decided once, in one place.
  */
 
 const LOG = "[CVision][reconcile]";
@@ -23,6 +24,8 @@ const LOG = "[CVision][reconcile]";
 export type ReconcileOutcome =
   /** Not IN_PROGRESS, no session issued, a transcript already stored, or inside the window. */
   | { kind: "not-stranded" }
+  /** Another check ran within the last minute: nothing asked, poll on. */
+  | { kind: "throttled" }
   /** The platform still has the call open or is processing it: poll on. */
   | { kind: "in-progress"; platformStatus: string }
   /** The platform has no record of the session: the attempt is lost, the interview is not. */
@@ -49,6 +52,9 @@ export async function reconcileStrandedInterview(
     MAX_INTERVIEW_DURATION_SECONDS,
   );
   if (!stranded) return { kind: "not-stranded" };
+
+  const claimed = await claimReconcile({ interviewId, now, minIntervalMs: RECONCILE_MIN_INTERVAL_MS });
+  if (!claimed) return { kind: "throttled" };
 
   const fetched = await fetchConversation(row.conversationId);
 
@@ -81,4 +87,9 @@ export function reconcileNeedsFeedback(outcome: ReconcileOutcome): boolean {
     outcome.result.outcome === "stored" &&
     outcome.result.status === "FEEDBACK_PENDING"
   );
+}
+
+/** True when a reconcile outcome changed the row, so a caller should read it again. */
+export function reconcileChangedRow(outcome: ReconcileOutcome): boolean {
+  return outcome.kind === "stored" || outcome.kind === "lost";
 }

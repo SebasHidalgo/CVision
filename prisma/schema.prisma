@@ -105,6 +105,10 @@ model Interview {
   /// Sessions issued for this interview. Capped by the session endpoint:
   /// every start is a paid call.
   startCount      Int       @default(0)
+  /// When the reconcile fallback last asked the platform about the latest
+  /// session. A conditional update on it throttles the fallback to one
+  /// platform call per minute per interview, however many tabs poll.
+  reconcileCheckedAt DateTime?
   /// Feedback generation claims so far; the generator gives up after two.
   feedbackAttempts  Int       @default(0)
   /// When the current GENERATING claim was taken, to detect a dead worker.

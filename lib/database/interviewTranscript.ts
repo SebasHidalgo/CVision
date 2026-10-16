@@ -70,6 +70,8 @@ export async function storeConversationTranscript({
     // The state guard makes two concurrent deliveries of the same event
     // idempotent: the second finds the row already past the startable states
     // and writes nothing.
+    // Times only when the delivery carries them: a payload without metadata
+    // must not blank what the room reported.
     const updated = await prisma.interview.updateMany({
       where: { id: row.id, status: { in: [...STARTABLE_STATUSES] } },
       data: {
@@ -80,8 +82,8 @@ export async function storeConversationTranscript({
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
-        endedAt: outcome.endedAt,
-        durationSeconds: outcome.durationSeconds,
+        ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
+        ...(outcome.durationSeconds !== null ? { durationSeconds: outcome.durationSeconds } : {}),
       },
     });
 
@@ -125,6 +127,34 @@ export async function fetchInterviewForReconcile(interviewId: string) {
     });
   } catch (error) {
     handleError(error, "Failed to read interview for reconciliation");
+  }
+}
+
+/**
+ * Takes the right to ask the platform about this interview now. One
+ * conditional update: it succeeds only when the last check is older than
+ * the interval (or there was none), so two tabs polling the same stranded
+ * interview produce one platform call, and the loser learns it from false.
+ */
+export async function claimReconcile(params: {
+  interviewId: string;
+  now: Date;
+  minIntervalMs: number;
+}): Promise<boolean> {
+  try {
+    const result = await prisma.interview.updateMany({
+      where: {
+        id: params.interviewId,
+        OR: [
+          { reconcileCheckedAt: null },
+          { reconcileCheckedAt: { lt: new Date(params.now.getTime() - params.minIntervalMs) } },
+        ],
+      },
+      data: { reconcileCheckedAt: params.now },
+    });
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, "Failed to claim the reconcile check");
   }
 }
 

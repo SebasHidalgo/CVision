@@ -14,10 +14,11 @@ import {
  * next sync.
  */
 
-// The limits the browser also shows live in limits.ts (no imports there);
-// re-exported so server code keeps one import for the agent's numbers.
-export { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/limits";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/limits";
+// The limits the browser also shows live in lib/interviewLimits.ts (no
+// imports there); re-exported so server code keeps one import for the
+// agent's numbers.
+export { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
 /**
  * Silence handling. `turnTimeout` is how long the agent waits for an answer

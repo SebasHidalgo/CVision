@@ -108,6 +108,14 @@ export const SESSION_LOST = "SESSION_LOST";
  */
 export const RECONCILE_GRACE_SECONDS = 2 * 60;
 
+/**
+ * The least time between two platform calls for one stranded interview.
+ * Every poll of every open tab reaches the reconcile; without this, a
+ * conversation the platform keeps processing would be fetched six times a
+ * minute per tab.
+ */
+export const RECONCILE_MIN_INTERVAL_MS = 60_000;
+
 export type StrandedCandidate = {
   status: InterviewStatus;
   conversationId: string | null;
