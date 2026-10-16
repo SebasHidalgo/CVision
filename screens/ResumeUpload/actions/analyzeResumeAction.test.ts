@@ -8,7 +8,7 @@ import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 import { analyzeResumeAction } from "./analyzeResumeAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/supabase/server", () => ({ downloadObject: vi.fn(), removeObject: vi.fn(async () => {}) }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
@@ -49,10 +49,12 @@ beforeEach(() => {
 });
 
 describe("analyzeResumeAction: the key", () => {
-  it("downloads the caller's own object, analyzes it and stores the key", async () => {
+  it("makes sure the account's row exists, downloads the caller's own object, analyzes it and stores the key", async () => {
+    const { ensureUser } = await import("@/lib/database/user");
     const result = await analyzeResumeAction(input());
 
     expect(result).toEqual({ ok: true, data: { resumeId: "resume_1" } });
+    expect(ensureUser).toHaveBeenCalledTimes(1);
     expect(downloadObject).toHaveBeenCalledWith(OWN_KEY);
     expect(createResume).toHaveBeenCalledWith(expect.objectContaining({ resumeKey: OWN_KEY }));
     expect(removeObject).not.toHaveBeenCalled();

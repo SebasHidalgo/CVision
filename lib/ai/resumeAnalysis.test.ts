@@ -10,7 +10,7 @@ import {
 } from "./resumeAnalysis";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
   return { ...actual, extractTextFromPDFBytes: vi.fn() };

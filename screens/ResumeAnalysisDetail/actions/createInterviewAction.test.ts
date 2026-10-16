@@ -7,7 +7,7 @@ import type { ResumeAnalysis } from "@/types/resume";
 import { createInterviewAction } from "./createInterviewAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/database/resume", () => ({ fetchResumeById: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ createInterview: vi.fn() }));
 
@@ -68,6 +68,8 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
       resumeId: RESUME_ID,
       maxAttempts: MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS,
     });
+    const { ensureUser } = await import("@/lib/database/user");
+    expect(ensureUser).toHaveBeenCalledTimes(1);
   });
 
   it("drops names too long for a chip and stops at the item cap", async () => {

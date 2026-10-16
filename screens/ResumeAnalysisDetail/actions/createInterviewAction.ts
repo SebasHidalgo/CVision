@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/auth";
 import { createInterview } from "@/lib/database/interview";
 import { fetchResumeById } from "@/lib/database/resume";
+import { ensureUser } from "@/lib/database/user";
 import { InterviewAttemptLimitError, NotFoundError } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
@@ -24,7 +24,8 @@ export async function createInterviewAction(
   input: unknown,
 ): Promise<ActionResult<{ interviewId: string }>> {
   try {
-    await requireUserId();
+    // Identity and the account's row, before the interview row points at it.
+    await ensureUser();
 
     const parsed = createInterviewInputSchema.safeParse(input);
     if (!parsed.success) throw new ValidationError("Invalid interview input");

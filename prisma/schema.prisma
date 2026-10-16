@@ -8,6 +8,20 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// One row per Clerk account that has touched the app. The id is Clerk's and
+/// nothing else is stored until billing needs it. Written by the Clerk
+/// webhook (user.created) and, since the webhook may be late or unregistered,
+/// by `ensureUser` before any row keyed by `userId` is inserted. Deleting it
+/// cascades to every analysis and interview of the account.
+model User {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analyses   ResumeAnalysis[]
+  interviews Interview[]
+}
+
 model ResumeAnalysis {
   id             String   @id @default(uuid())
   companyName    String
@@ -17,6 +31,7 @@ model ResumeAnalysis {
   /// Never a URL: reads are signed on demand, for minutes.
   resumeKey      String
   userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 
   feedback   ResumeFeedback?
@@ -68,6 +83,7 @@ model Interview {
   role         String
   techstack    String[]
   userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   status       InterviewStatus @default(SCHEDULED)
   createdAt    DateTime        @default(now())
 
@@ -115,9 +131,10 @@ model Interview {
   feedbackStartedAt DateTime?
 
   resumeAnalysisId String?
-  /// Deleting an analysis keeps the interview and its feedback: the room
-  /// already redirects when there is no analysis to build questions from.
-  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id], onDelete: SetNull)
+  /// Deleting an analysis deletes its rehearsals and their feedback with it:
+  /// the feedback is judged against that analysis and means nothing without
+  /// it. The deletion routine refuses while a rehearsal is live.
+  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id], onDelete: Cascade)
   /// 1 for the first rehearsal of an analysis, 2 for the next. Unique per
   /// analysis, so two creates racing for the same number cannot both land.
   attemptNumber    Int             @default(1)

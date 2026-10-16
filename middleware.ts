@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 // webhook authenticates its caller itself (HMAC signature on the raw body).
 // This is defense in depth: every Server Action, Route Handler and data-layer
 // call checks the session again.
-const isPublicRoute = createRouteMatcher(["/", "/api/webhooks/elevenlabs"]);
+const isPublicRoute = createRouteMatcher(["/", "/api/webhooks/elevenlabs", "/api/webhooks/clerk"]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 

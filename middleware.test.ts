@@ -51,19 +51,22 @@ describe("middleware", () => {
     expect(protect).not.toHaveBeenCalled();
   });
 
-  it("keeps the webhook public: no session is read and nothing is answered", async () => {
-    const auth = authFor(null);
-    const spy = vi.fn(auth);
-    const response = await (middleware as unknown as Handler)(
-      Object.assign(spy, { protect }),
-      request("/api/webhooks/elevenlabs"),
-      {},
-    );
+  it.each(["/api/webhooks/elevenlabs", "/api/webhooks/clerk"])(
+    "keeps the webhook %s public: no session is read and nothing is answered",
+    async (path) => {
+      const auth = authFor(null);
+      const spy = vi.fn(auth);
+      const response = await (middleware as unknown as Handler)(
+        Object.assign(spy, { protect }),
+        request(path),
+        {},
+      );
 
-    expect(response).toBeUndefined();
-    expect(spy).not.toHaveBeenCalled();
-    expect(protect).not.toHaveBeenCalled();
-  });
+      expect(response).toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+      expect(protect).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not make any other /api/webhooks path public", async () => {
     expect((await run("/api/webhooks/other", null))?.status).toBe(401);

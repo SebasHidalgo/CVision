@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUserId } from "@/lib/auth";
+import { ensureUser } from "@/lib/database/user";
 import { toActionError } from "@/lib/error/toActionResult";
 import { buildResumeKey } from "@/lib/supabase/resumeKey";
 import { createSignedUploadUrl } from "@/lib/supabase/server";
@@ -22,7 +22,8 @@ export type ResumeUpload = {
  */
 export async function createResumeUploadAction(): Promise<ActionResult<ResumeUpload>> {
   try {
-    const userId = await requireUserId();
+    // The account's row has to exist before the analysis row can point at it.
+    const userId = await ensureUser();
 
     const resumeKey = buildResumeKey(userId);
     const uploadUrl = await createSignedUploadUrl(resumeKey);

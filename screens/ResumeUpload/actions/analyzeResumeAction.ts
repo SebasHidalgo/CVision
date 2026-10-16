@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/auth";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { createResume } from "@/lib/database/resume";
+import { ensureUser } from "@/lib/database/user";
 import {
   FileTooLargeError,
   NotAPdfError,
@@ -33,7 +33,8 @@ export async function analyzeResumeAction(
   let downloadedKey: string | null = null;
 
   try {
-    const userId = await requireUserId();
+    // Identity and the account's row, before anything that inserts under it.
+    const userId = await ensureUser();
 
     const parsed = analyzeResumeInputSchema.safeParse(input);
     if (!parsed.success) {
