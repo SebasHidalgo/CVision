@@ -52,12 +52,40 @@ the Prisma query engine open, and regenerating the client fails with
 Besides Clerk and the database, `.env` needs `NEXT_PUBLIC_SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API → the
 `service_role` key marked secret). The service role is read on the server
-only; the browser never holds a Supabase key of any kind.
+only; the browser never holds a Supabase key of any kind. The Clerk webhook
+below needs `CLERK_WEBHOOK_SIGNING_SECRET`.
 
 Before handing in a change: `npx tsc --noEmit`, `npm test`, `npm run build`.
 `npm run eval` scores the real analysis over fixed fixtures and
 `npm run eval -- interview run <label>` does the same for the interview
 feedback; both bill the model once per fixture (`npm run eval -- help`).
+
+## Accounts and the Clerk webhook
+
+Every row belongs to a `User` row keyed by the Clerk user id. The actions
+that insert rows create it on the way (`ensureUser`), and Clerk's webhook
+keeps it in step: `user.created` writes it, `user.deleted` removes the
+account's analyses, rehearsals, feedback, CVs in the bucket and
+conversations on the voice platform, then the row.
+
+Register the endpoint once per Clerk instance, in the Clerk dashboard under
+Webhooks → Add Endpoint:
+
+- URL: `https://<your host>/api/webhooks/clerk` (locally, the ngrok domain
+  from the voice section). The route is public in the middleware; the
+  delivery is authenticated by its Svix signature over the raw body.
+- Events: `user.created` and `user.deleted`. Any other event is acknowledged
+  and ignored.
+- Copy the endpoint's Signing Secret into `.env` as
+  `CLERK_WEBHOOK_SIGNING_SECRET` and restart the dev server.
+
+A development instance and a production instance of Clerk are separate:
+production needs its own keys in `.env` and its own endpoint with its own
+secret.
+
+Deleting one analysis is a control on its page: it takes the CV, the
+analysis, every rehearsal and its feedback, and is refused while a rehearsal
+is in a call or being scored.
 
 ## File storage
 
@@ -93,6 +121,13 @@ has four), drop them in the dashboard under Storage → Policies.
 that no analysis references and that are older than a day (an upload in
 progress has no row yet), and anything outside `cv/`. Run it by hand until
 deploy, then as a Vercel cron.
+
+## Before a deploy
+
+`npx tsc --noEmit`, `npm test`, `npm run build`, `npm run db:status` (no
+pending migration), `npm run db:check-rls`, `npm run storage:gc` (dry run,
+nothing unexpected), `npm run eval -- canary <label>` (the model has not
+drifted).
 
 ## Voice interview: local development
 
