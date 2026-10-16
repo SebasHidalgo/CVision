@@ -1,10 +1,20 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signClerkWebhook } from "@/lib/clerk/webhookSignature";
-import { deleteUserRows, upsertUserById } from "@/lib/database/user";
+import { upsertUserById } from "@/lib/database/user";
+import { deleteAccountCascade } from "@/lib/deletion";
 import { POST } from "./route";
 
-vi.mock("@/lib/database/user", () => ({ upsertUserById: vi.fn(async () => {}), deleteUserRows: vi.fn(async () => true) }));
+vi.mock("@/lib/database/user", () => ({ upsertUserById: vi.fn(async () => {}) }));
+vi.mock("@/lib/deletion", () => ({ deleteAccountCascade: vi.fn() }));
+
+const deleted = (userRowRemoved: boolean) => ({
+  analyses: userRowRemoved ? 2 : 0,
+  leftoverObjects: 0,
+  leftoverObjectsRemoved: true,
+  conversationsFailed: 0,
+  userRowRemoved,
+});
 
 // A Svix-style secret: whsec_ plus base64 key material.
 const SECRET = `whsec_${Buffer.from("clerk-test-signing-key-0123456789").toString("base64")}`;
@@ -28,7 +38,7 @@ async function deliver(body: string, headers: Record<string, string>) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("CLERK_WEBHOOK_SIGNING_SECRET", SECRET);
-  vi.mocked(deleteUserRows).mockResolvedValue(true);
+  vi.mocked(deleteAccountCascade).mockResolvedValue(deleted(true));
   for (const method of ["info", "warn", "error"] as const) {
     vi.spyOn(console, method).mockImplementation(() => {});
   }
@@ -63,12 +73,12 @@ describe("POST /api/webhooks/clerk: verification", () => {
 });
 
 describe("POST /api/webhooks/clerk: events", () => {
-  it("user.deleted removes the account's rows, and a retry for an account already gone still answers 200", async () => {
+  it("user.deleted runs the account cascade, and a retry for an account already gone still answers 200", async () => {
     const body = userDeleted("user_9");
     expect(await deliver(body, signClerkWebhook(body, SECRET))).toBe(200);
-    expect(deleteUserRows).toHaveBeenCalledWith("user_9");
+    expect(deleteAccountCascade).toHaveBeenCalledWith("user_9");
 
-    vi.mocked(deleteUserRows).mockResolvedValue(false);
+    vi.mocked(deleteAccountCascade).mockResolvedValue(deleted(false));
     expect(await deliver(body, signClerkWebhook(body, SECRET, { id: "msg_retry" }))).toBe(200);
   });
 
@@ -78,7 +88,7 @@ describe("POST /api/webhooks/clerk: events", () => {
 
     const other = JSON.stringify({ type: "session.created", object: "event", data: { id: "sess_1", user_id: "user_9" } });
     expect(await deliver(other, signClerkWebhook(other, SECRET))).toBe(200);
-    expect(deleteUserRows).not.toHaveBeenCalled();
+    expect(deleteAccountCascade).not.toHaveBeenCalled();
     expect(upsertUserById).not.toHaveBeenCalled();
   });
 

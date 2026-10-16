@@ -156,14 +156,20 @@ export async function downloadObject(key: string): Promise<Uint8Array | null> {
 /**
  * Deletes by key, so a failed flow doesn't leave an unreferenced file. Never
  * throws: it runs from a catch, and the collector picks up what it misses.
+ * False when the delete did not go through.
  */
-export async function removeObject(key: string): Promise<void> {
+export async function removeObject(key: string): Promise<boolean> {
   try {
     const { files } = storage();
     const { error } = await files.remove([key]);
-    if (error) console.error(`[CVision][storage] remove failed: ${error.message}`);
+    if (error) {
+      console.error(`[CVision][storage] remove failed: ${error.message}`);
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error("[CVision][storage] remove failed:", error instanceof Error ? error.name : error);
+    return false;
   }
 }
 

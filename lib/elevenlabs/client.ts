@@ -17,11 +17,11 @@ import {
 } from "@/lib/error/errors";
 
 /**
- * The only module that talks to ElevenLabs at runtime. Three calls: issue a
+ * The only module that talks to ElevenLabs at runtime. Four calls: issue a
  * conversation token (session endpoint), verify a webhook signature
- * (post-call route), and fetch a conversation by id (the reconcile fallback
- * for a webhook that never arrived). The agent itself is managed by
- * scripts/elevenlabs.
+ * (post-call route), fetch a conversation by id (the reconcile fallback for
+ * a webhook that never arrived) and delete one (when its analysis or account
+ * is deleted). The agent itself is managed by scripts/elevenlabs.
  */
 
 /** A single fast call; the route's budget is on top of this. */
@@ -115,6 +115,30 @@ export async function fetchConversation(conversationId: string): Promise<Fetched
     return { kind: "ended", data: fromConversationApi(record) };
   } catch (error) {
     if (error instanceof ElevenLabsError && error.statusCode === 404) return { kind: "not-found" };
+    throw toVoiceError(error);
+  }
+}
+
+/**
+ * Removes a conversation, and its transcript, from the platform: the user
+ * deleted the analysis or the account it belonged to. "not-found" is as
+ * good as deleted, and what a retry gets.
+ */
+export async function deleteConversation(conversationId: string): Promise<"deleted" | "not-found"> {
+  const { apiKey } = readConfig();
+  if (!apiKey) throw new VoiceMisconfiguredError("ELEVENLABS_API_KEY is not set");
+
+  const client = new ElevenLabsClient({
+    apiKey,
+    timeoutInSeconds: TOKEN_TIMEOUT_SECONDS,
+    maxRetries: 0,
+  });
+
+  try {
+    await client.conversationalAi.conversations.delete(conversationId);
+    return "deleted";
+  } catch (error) {
+    if (error instanceof ElevenLabsError && error.statusCode === 404) return "not-found";
     throw toVoiceError(error);
   }
 }

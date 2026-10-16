@@ -257,7 +257,13 @@ export async function generateInterviewFeedback(
     totalScore: scored.report.totalScore,
     report: scored.report,
   });
-  if (!feedbackId) return { kind: "skipped" };
+  if (!feedbackId) {
+    // The guarded write hit no row: the interview was deleted (an analysis
+    // or an account went away mid-generation) or another generator took the
+    // claim over. Nothing to throw at; the model call is simply lost.
+    console.warn(`[CVision][feedback] interview=${interviewId} finished but the row is gone or no longer claimed; nothing written`);
+    return { kind: "skipped" };
+  }
 
   console.info(`[CVision][feedback] interview=${interviewId} completed, total=${scored.report.totalScore}`);
   return { kind: "completed", feedbackId };

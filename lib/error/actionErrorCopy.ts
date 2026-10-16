@@ -41,6 +41,8 @@ const COPY: Record<ErrorCode, string> = {
     "This analysis has used all of its rehearsals. Run a new analysis to rehearse again.",
   INTERVIEW_CONTEXT_MISSING:
     "This interview has no analysis to build questions from. Run a new analysis and rehearse from there.",
+  ANALYSIS_BUSY:
+    "An interview for this analysis is in progress. Try again when it ends.",
   REQUEST_FAILED:
     "The request didn't go through. Check your connection and try again. If it keeps failing, reload the page.",
   UNKNOWN: "Something went wrong on our side. Please try again.",

@@ -138,9 +138,12 @@ describe("objectExists, removeObject", () => {
     expect(await objectExists(KEY)).toBe(false);
   });
 
-  it("never throws from a remove: it runs from a catch", async () => {
+  it("never throws from a remove: it runs from a catch, and reports false instead", async () => {
     stubStorage(() => json({ statusCode: "500", error: "x", message: "boom" }, 500));
-    await expect(removeObject(KEY)).resolves.toBeUndefined();
+    await expect(removeObject(KEY)).resolves.toBe(false);
     expect(console.error).toHaveBeenCalled();
+
+    stubStorage(() => json([{ name: KEY }]));
+    await expect(removeObject(KEY)).resolves.toBe(true);
   });
 });

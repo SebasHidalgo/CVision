@@ -1,6 +1,7 @@
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import type { NextRequest } from "next/server";
-import { deleteUserRows, upsertUserById } from "@/lib/database/user";
+import { upsertUserById } from "@/lib/database/user";
+import { deleteAccountCascade } from "@/lib/deletion";
 
 const LOG = "[CVision][webhook] clerk:";
 
@@ -41,8 +42,12 @@ export async function POST(request: NextRequest) {
           console.warn(`${LOG} user.deleted without an id, acknowledged`);
           break;
         }
-        const removed = await deleteUserRows(userId);
-        console.info(`${LOG} user.deleted user=${userId} rows=${removed ? "removed" : "already gone"}`);
+        // Rows, the CVs in the bucket and the conversations on the voice
+        // platform; nothing refused, the account is gone. Idempotent.
+        const summary = await deleteAccountCascade(userId);
+        console.info(
+          `${LOG} user.deleted user=${userId} analyses=${summary.analyses} userRow=${summary.userRowRemoved ? "removed" : "already gone"}`,
+        );
         break;
       }
       default:

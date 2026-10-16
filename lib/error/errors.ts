@@ -24,6 +24,8 @@ export type ErrorCode =
   | "INTERVIEW_START_LIMIT"
   | "INTERVIEW_ATTEMPT_LIMIT"
   | "INTERVIEW_CONTEXT_MISSING"
+  // Deleting an analysis while a rehearsal of it is live or being scored.
+  | "ANALYSIS_BUSY"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -175,6 +177,13 @@ export class InterviewStartLimitError extends AppError {
 export class InterviewAttemptLimitError extends AppError {
   constructor(message = "Interview attempt limit reached for this analysis") {
     super("INTERVIEW_ATTEMPT_LIMIT", message);
+  }
+}
+
+/** A rehearsal of the analysis is in a call or being scored: it cannot vanish under it. */
+export class AnalysisBusyError extends AppError {
+  constructor(message = "An interview of this analysis is in progress") {
+    super("ANALYSIS_BUSY", message);
   }
 }
 

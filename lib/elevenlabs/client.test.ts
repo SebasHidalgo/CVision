@@ -1,21 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchConversation } from "./client";
+import { deleteConversation, fetchConversation } from "./client";
 
 const API_KEY = "test-elevenlabs-key";
 
-type Call = { url: URL; headers: Headers };
+type Call = { url: URL; headers: Headers; method: string };
 
 /** Routes the SDK's HTTP call to `handler`; returns the calls it made. */
 function stubElevenLabs(handler: (call: Call) => Response | Promise<Response>): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const call = { url: new URL(href), headers: new Headers(init?.headers) };
+    const call = { url: new URL(href), headers: new Headers(init?.headers), method: init?.method ?? "GET" };
     calls.push(call);
     return handler(call);
   });
   return calls;
 }
+
+describe("deleteConversation", () => {
+  it("sends DELETE for the id with the key in a header", async () => {
+    const calls = stubElevenLabs(() => new Response(null, { status: 200 }));
+
+    expect(await deleteConversation("conv_1")).toBe("deleted");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].url.pathname).toBe("/v1/convai/conversations/conv_1");
+    expect(calls[0].headers.get("xi-api-key")).toBe(API_KEY);
+  });
+
+  it("treats a conversation the platform no longer has as done, so a retry is harmless", async () => {
+    stubElevenLabs(() =>
+      Response.json({ detail: { type: "not_found", code: "conversation_not_found", message: "x" } }, { status: 404 }),
+    );
+    expect(await deleteConversation("conv_gone")).toBe("not-found");
+  });
+
+  it("reports other failures in the app's taxonomy", async () => {
+    stubElevenLabs(() => Response.json({ detail: "x" }, { status: 503 }));
+    await expect(deleteConversation("conv_1")).rejects.toMatchObject({ code: "VOICE_UNAVAILABLE" });
+  });
+});
 
 /** The platform's record, in the API's own casing. */
 const record = (overrides: Record<string, unknown> = {}) => ({

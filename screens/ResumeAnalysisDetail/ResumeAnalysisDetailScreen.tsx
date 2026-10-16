@@ -3,6 +3,7 @@ import { fetchResumeById } from "@/lib/database/resume";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
 import AnalysisHeader from "./components/AnalysisHeader";
+import DeleteAnalysis from "./components/DeleteAnalysis";
 import DimensionNav from "./components/DimensionNav";
 import DimensionSections from "./components/DimensionSections";
 import InterviewAttempts from "./components/InterviewAttempts";
@@ -62,6 +63,11 @@ export default async function ResumeAnalysisDetailScreen({
           >
             <InterviewAttempts attempts={analysis.interviews} />
           </InterviewCta>
+          <DeleteAnalysis
+            resumeId={analysis.id}
+            jobTitle={analysis.jobTitle}
+            companyName={analysis.companyName}
+          />
         </div>
       </div>
     </article>
