@@ -1,9 +1,31 @@
 import type { InterviewStats } from "@/lib/ai/schemas";
 import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
-/** Below either of these the feedback has to say the interview was short. */
-export const SHORT_INTERVIEW_SECONDS = 120;
-export const SHORT_INTERVIEW_TURNS = 4;
+/**
+ * "Short" is relative to the length the interview was booked for. The full
+ * twelve-minute interview is short under two minutes on the floor or four
+ * candidate turns, as it always was; the thresholds scale with the planned
+ * length, so a five-minute trial is short under fifty seconds or three
+ * turns, and a trial that filled its five minutes is complete, not short.
+ */
+export const SHORT_FLOOR_FRACTION = 120 / MAX_INTERVIEW_DURATION_SECONDS;
+export const SHORT_TURNS_FOR_FULL_INTERVIEW = 4;
+/** No planned length, however short, makes fewer answers than this enough to score. */
+export const SHORT_MIN_TURNS = 3;
+
+export type ShortThresholds = { seconds: number; turns: number };
+
+/** Below either of these, for the given planned length, the feedback has to say the interview was short. */
+export function shortThresholds(plannedSeconds: number): ShortThresholds {
+  return {
+    seconds: Math.round(plannedSeconds * SHORT_FLOOR_FRACTION),
+    turns: Math.max(
+      SHORT_MIN_TURNS,
+      Math.round((SHORT_TURNS_FOR_FULL_INTERVIEW * plannedSeconds) / MAX_INTERVIEW_DURATION_SECONDS),
+    ),
+  };
+}
 
 /** Transcript roles: ElevenLabs writes "user" and "agent". */
 export const CANDIDATE_ROLE = "user";
@@ -27,6 +49,7 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
 export function computeInterviewStats(
   turns: TranscriptTurn[],
   durationSeconds: number | null,
+  plannedSeconds: number = MAX_INTERVIEW_DURATION_SECONDS,
 ): InterviewStats {
   const candidate = turns.filter(isCandidateTurn);
   const candidateWords = candidate.reduce((sum, turn) => sum + wordCount(turn.message ?? ""), 0);
@@ -51,9 +74,10 @@ export function computeInterviewStats(
     longestTurnGapSeconds = round(longestTurnGapSeconds);
   }
 
+  const thresholds = shortThresholds(plannedSeconds);
   const short =
-    candidate.length < SHORT_INTERVIEW_TURNS ||
-    (candidateOnFloorSeconds !== null && candidateOnFloorSeconds < SHORT_INTERVIEW_SECONDS);
+    candidate.length < thresholds.turns ||
+    (candidateOnFloorSeconds !== null && candidateOnFloorSeconds < thresholds.seconds);
 
   return {
     totalTurns: turns.length,
@@ -63,6 +87,7 @@ export function computeInterviewStats(
     candidateOnFloorSeconds,
     longestTurnGapSeconds,
     durationSeconds: durationSeconds ?? null,
+    plannedSeconds,
     short,
   };
 }
@@ -71,7 +96,12 @@ const round = (value: number) => Math.round(value * 10) / 10;
 
 /** The stats as the prompt states them, so the model comments on measured pacing. */
 export function describeInterviewStats(stats: InterviewStats): string {
+  // Reports stored before the trial existed carry no planned length; they
+  // were all full interviews.
+  const plannedSeconds = stats.plannedSeconds ?? MAX_INTERVIEW_DURATION_SECONDS;
+  const thresholds = shortThresholds(plannedSeconds);
   const lines = [
+    `Planned length: ${Math.round(plannedSeconds / 60)} minutes (the format the candidate booked; an interview that fills it is complete, not short)`,
     `Candidate turns: ${stats.candidateTurns} of ${stats.totalTurns} turns in total`,
     `Candidate words: ${stats.candidateWords} (average ${stats.averageCandidateTurnWords} per turn)`,
     stats.candidateOnFloorSeconds === null
@@ -83,9 +113,10 @@ export function describeInterviewStats(stats: InterviewStats): string {
     stats.durationSeconds === null
       ? "Call duration: not recorded"
       : `Call duration: about ${Math.round(stats.durationSeconds)} seconds`,
+    `Short, for this planned length, means under ${thresholds.seconds} seconds on the floor or fewer than ${thresholds.turns} candidate turns.`,
     stats.short
-      ? "This interview is SHORT by the thresholds above: say so in the assessment, treat the scores as low-confidence in prose, and do not pad the notable answers."
-      : "This interview is long enough to score with normal confidence.",
+      ? "This interview is SHORT by those thresholds: say so in the assessment, treat the scores as low-confidence in prose, and do not pad the notable answers."
+      : "This interview is NOT short for its planned length: score it with normal confidence and do not call it short, brief or limited.",
   ];
   return lines.join("\n");
 }

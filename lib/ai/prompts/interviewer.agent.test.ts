@@ -89,7 +89,32 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
       expect(value.trim(), name).not.toBe("");
     }
     expect(dynamicVariables.interview_id).toBe("3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c");
-    expect(dynamicVariables.max_minutes).toBe("12");
+    expect(dynamicVariables.interview_minutes).toBe("12");
+    expect(dynamicVariables.gaps_to_cover).toBe("2");
+  });
+
+  it("briefs a five-minute trial on two gaps and no strengths, and on one gap plus one strength", () => {
+    const trial = buildInterviewerContext(input(MIXED, { maxDurationSeconds: 300, gapsToCover: 2 })).dynamicVariables;
+
+    expect(trial.interview_minutes).toBe("5");
+    expect(trial.gaps_to_cover).toBe("2");
+    expect(trial.requirements_gaps.split("\n")).toHaveLength(2);
+    expect(trial.requirements_met).toBe("(none)");
+    expect(trial.opening_line).toContain("We have about 5 minutes.");
+
+    const oneGap = buildInterviewerContext(
+      input(MIXED.filter((r) => r.requirement !== "Payments experience"), { maxDurationSeconds: 300, gapsToCover: 2 }),
+    ).dynamicVariables;
+
+    expect(oneGap.gaps_to_cover).toBe("1");
+    expect(oneGap.requirements_gaps).toContain("Node.js services");
+    expect(oneGap.requirements_met.split("\n")).toHaveLength(1);
+    expect(oneGap.requirements_met).toContain("React and TypeScript");
+  });
+
+  it("states the gap count the prompt will see in the prompt itself", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("There are {{gaps_to_cover}} of them.");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The call is {{interview_minutes}} minutes long");
   });
 
   it("speaks English by default: opening line, language name", () => {

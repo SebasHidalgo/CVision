@@ -161,7 +161,13 @@ export const interviewStatsSchema = z.object({
   /** Longest span between two consecutive turn starts; an upper bound on silence. */
   longestTurnGapSeconds: z.number().min(0).nullable(),
   durationSeconds: z.number().min(0).nullable(),
-  /** Under two minutes on the floor or fewer than four turns: scores are low-confidence. */
+  /**
+   * The length the interview was booked for (the agent's hard limit): what
+   * "short" is measured against. Absent on reports stored before the trial
+   * existed; those were all twelve-minute interviews.
+   */
+  plannedSeconds: z.number().positive().optional(),
+  /** Short for its planned length (see lib/ai/interviewStats.ts): scores are low-confidence. */
   short: z.boolean(),
 });
 

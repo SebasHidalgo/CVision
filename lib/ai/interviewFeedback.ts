@@ -32,6 +32,8 @@ import {
 } from "@/lib/database/interviewFeedbackJob";
 import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import { AppError, type ErrorCode } from "@/lib/error/errors";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { INTERVIEW_TIERS } from "@/lib/plans";
 import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 
@@ -75,8 +77,27 @@ const transcriptSchema = z.array(transcriptTurnSchema);
 
 /** The dynamic variables the session issued, when the row has them. */
 const issuedContextSchema = z
-  .object({ candidate_name: z.string().optional(), language_name: z.string().optional() })
+  .object({
+    candidate_name: z.string().optional(),
+    language_name: z.string().optional(),
+    interview_minutes: z.string().optional(),
+    /** The name the variable had before the trial existed. */
+    max_minutes: z.string().optional(),
+  })
   .loose();
+
+/**
+ * The length the interview was booked for, which is what "short" is judged
+ * against. The tier is set at the first token; a row from before tiers
+ * existed falls back to the minutes its session told the interviewer, and
+ * then to the full length, which is all there was.
+ */
+export function plannedSecondsOf(row: Pick<ClaimedInterview, "tier" | "issuedContext">): number {
+  if (row.tier) return INTERVIEW_TIERS[row.tier].seconds;
+  const issued = issuedContextSchema.safeParse(row.issuedContext ?? {});
+  const minutes = issued.success ? Number(issued.data.interview_minutes ?? issued.data.max_minutes) : NaN;
+  return Number.isInteger(minutes) && minutes > 0 ? minutes * 60 : MAX_INTERVIEW_DURATION_SECONDS;
+}
 
 export type FeedbackContext = {
   candidateName: string;
@@ -161,14 +182,17 @@ export async function scoreTranscript({
   context,
   turns,
   durationSeconds,
+  plannedSeconds = MAX_INTERVIEW_DURATION_SECONDS,
   timeoutMs = FEEDBACK_TIMEOUT_MS,
 }: {
   context: FeedbackContext;
   turns: TranscriptTurn[];
   durationSeconds: number | null;
+  /** What the interview was booked for; "short" is relative to it. */
+  plannedSeconds?: number;
   timeoutMs?: number;
 }): Promise<ScoredTranscript> {
-  const stats: InterviewStats = computeInterviewStats(turns, durationSeconds);
+  const stats: InterviewStats = computeInterviewStats(turns, durationSeconds, plannedSeconds);
   const prompt = interviewFeedbackPrompt({ ...context, turns, stats });
 
   const answer = await generateJson({
@@ -235,7 +259,12 @@ export async function generateInterviewFeedback(
 
   let scored: ScoredTranscript;
   try {
-    scored = await scoreTranscript({ context, turns: turns.data, durationSeconds: row.durationSeconds });
+    scored = await scoreTranscript({
+      context,
+      turns: turns.data,
+      durationSeconds: row.durationSeconds,
+      plannedSeconds: plannedSecondsOf(row),
+    });
   } catch (error) {
     const code: ErrorCode = error instanceof AppError ? error.code : "UNKNOWN";
     console.error(`[CVision][feedback] interview=${interviewId} attempt ${row.feedbackAttempts} failed:`, error);

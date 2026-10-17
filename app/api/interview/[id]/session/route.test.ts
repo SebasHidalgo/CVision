@@ -196,6 +196,8 @@ describe("POST /api/interview/[id]/session: happy path", () => {
     });
     expect(result.data.dynamicVariables.interview_id).toBe(INTERVIEW_ID);
     expect(result.data.dynamicVariables.candidate_name).toBe("Ana");
+    expect(result.data.dynamicVariables.interview_minutes).toBe("12");
+    expect(result.data.dynamicVariables.gaps_to_cover).toBe("1");
     expect(result.data.dynamicVariables.requirements_gaps).toContain("Payments");
     expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(Date.now());
 
@@ -250,7 +252,11 @@ describe("POST /api/interview/[id]/session: happy path", () => {
 
     expect(calls[0].url.searchParams.get("agent_id")).toBe(TRIAL_AGENT_ID);
     expect(data.maxDurationSeconds).toBe(300);
-    expect(data.dynamicVariables.max_minutes).toBe("5");
+    expect(data.dynamicVariables.interview_minutes).toBe("5");
+    // The analysis has one gap; the trial's budget of two holds it plus one strength.
+    expect(data.dynamicVariables.gaps_to_cover).toBe("1");
+    expect(data.dynamicVariables.requirements_gaps).toContain("Payments");
+    expect(data.dynamicVariables.requirements_met).toContain("React");
     expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ reservation: { usageEventId: "evt_t", tier: "TRIAL" } }));
   });
 

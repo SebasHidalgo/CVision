@@ -75,7 +75,7 @@ export async function POST(
       reservation = await reserveInterview(userId, interview.id);
       tier = reservation.tier;
     }
-    const maxDurationSeconds = INTERVIEW_TIERS[tier].seconds;
+    const { seconds: maxDurationSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
 
     const profile = await getUserProfile();
 
@@ -88,6 +88,7 @@ export async function POST(
       analysisSummary: context.data.overall.summaryText,
       requirements: context.data.jobFit.requirements,
       maxDurationSeconds,
+      gapsToCover,
     });
 
     const session = await issueConversationToken(tier);

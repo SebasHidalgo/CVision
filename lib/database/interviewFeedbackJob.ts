@@ -24,6 +24,7 @@ const claimedSelect = {
   transcriptSource: true,
   issuedContext: true,
   durationSeconds: true,
+  tier: true,
   feedbackAttempts: true,
   resumeAnalysis: {
     select: {

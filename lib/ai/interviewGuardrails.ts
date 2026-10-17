@@ -193,7 +193,12 @@ export const STAT_ROUNDING_TOLERANCE = 0.02;
 /** The stat values a number may be a rounding of, in the units the model sees and in minutes. */
 function statValues(stats: InterviewStats | undefined): number[] {
   if (!stats) return [];
-  const seconds = [stats.candidateOnFloorSeconds, stats.longestTurnGapSeconds, stats.durationSeconds];
+  const seconds = [
+    stats.candidateOnFloorSeconds,
+    stats.longestTurnGapSeconds,
+    stats.durationSeconds,
+    stats.plannedSeconds ?? null,
+  ];
   return [
     stats.totalTurns,
     stats.candidateTurns,

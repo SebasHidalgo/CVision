@@ -51,10 +51,20 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   },
 };
 
-/** The two agents' hard limits. The platform enforces them; the room shows them. */
-export const INTERVIEW_TIERS: Record<InterviewTierId, { seconds: number }> = {
-  TRIAL: { seconds: 5 * 60 },
-  FULL: { seconds: MAX_INTERVIEW_DURATION_SECONDS },
+export type InterviewTier = {
+  /** The agent's hard limit. The platform enforces it; the room shows it. */
+  seconds: number;
+  /**
+   * How many gaps the interviewer is briefed to probe. The trial has time
+   * for two questions and their follow-ups; the full interview lists every
+   * gap the context budget fits (its own cap is in the prompt builder).
+   */
+  gapsToCover: number;
+};
+
+export const INTERVIEW_TIERS: Record<InterviewTierId, InterviewTier> = {
+  TRIAL: { seconds: 5 * 60, gapsToCover: 2 },
+  FULL: { seconds: MAX_INTERVIEW_DURATION_SECONDS, gapsToCover: 30 },
 };
 
 export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;

@@ -98,6 +98,8 @@ const fixtureMetaSchema = z.object({
   candidateName: z.string().min(1),
   language: z.enum(["en", "es"]).optional(),
   durationSeconds: z.number().nullable().optional(),
+  /** The agent's limit the interview ran under; the full twelve minutes when absent. */
+  plannedSeconds: z.number().positive().optional(),
   context: z.object({
     role: z.string().min(1),
     company: z.string().min(1),
@@ -140,8 +142,8 @@ Usage:
   npm run eval -- interview list
 
 Fixtures:  scripts/eval/fixtures-interview/<id>/
-             fixture.json   { candidateName, language?, durationSeconds?, purpose?,
-                              context: { role, company, jobDescription,
+             fixture.json   { candidateName, language?, durationSeconds?, plannedSeconds?,
+                              purpose?, context: { role, company, jobDescription,
                                          analysisSummary, requirements[] },
                               expect? }
              transcript.json  [{ role: "agent"|"user", message, time_in_call_secs }]
@@ -273,6 +275,7 @@ async function runFixture(fixture: Fixture, label: string, timeoutMs: number): P
       context: fixture.context,
       turns: fixture.turns,
       durationSeconds: fixture.durationSeconds ?? null,
+      plannedSeconds: fixture.plannedSeconds,
       timeoutMs,
     });
     guard = scored.guard;
@@ -514,7 +517,7 @@ function allowedTextFor(fixture: Fixture): string {
   return feedbackAllowedText({
     context: fixture.context,
     turns: fixture.turns,
-    stats: computeInterviewStats(fixture.turns, fixture.durationSeconds ?? null),
+    stats: computeInterviewStats(fixture.turns, fixture.durationSeconds ?? null, fixture.plannedSeconds),
   });
 }
 
@@ -653,8 +656,9 @@ async function listCommand() {
   for (const fixture of fixtures) {
     const candidate = fixture.turns.filter((turn) => turn.role === "user").length;
     const assertions = Object.values(fixture.expect ?? {}).reduce((sum, group) => sum + (Array.isArray(group) ? group.length : 0), 0);
+    const planned = fixture.plannedSeconds ? `${Math.round(fixture.plannedSeconds / 60)}-min` : "12-min";
     console.log(
-      `  ${fixture.id.padEnd(26)} ${fixture.turns.length} turns (${candidate} candidate), ${fixture.context.gaps.length} gap(s), ${fixture.language ?? "en"}, ${assertions} assertion(s)`,
+      `  ${fixture.id.padEnd(26)} ${fixture.turns.length} turns (${candidate} candidate), ${fixture.context.gaps.length} gap(s), ${planned}, ${fixture.language ?? "en"}, ${assertions} assertion(s)`,
     );
   }
 }

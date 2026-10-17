@@ -7,7 +7,7 @@ import {
   type ClaimedInterview,
 } from "@/lib/database/interviewFeedbackJob";
 import { installFakeProvider, reply } from "./client.stub";
-import { FEEDBACK_MAX_ATTEMPTS, generateInterviewFeedback } from "./interviewFeedback";
+import { FEEDBACK_MAX_ATTEMPTS, generateInterviewFeedback, plannedSecondsOf } from "./interviewFeedback";
 import { FEEDBACK_CATEGORIES } from "./schemas";
 
 vi.mock("@/lib/database/interviewFeedbackJob", () => ({
@@ -46,6 +46,7 @@ function claimed(overrides: Partial<ClaimedInterview> = {}): ClaimedInterview {
     transcriptSource: "elevenlabs",
     issuedContext: { candidate_name: "Ana", language_name: "English" },
     durationSeconds: 60,
+    tier: null,
     feedbackAttempts: 1,
     resumeAnalysis: {
       jobTitle: "Backend Engineer",
@@ -214,5 +215,33 @@ describe("generateInterviewFeedback: failures", () => {
     });
     expect(failInterviewFeedback).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, reason: "FEEDBACK_FAILED" });
     expect(releaseInterviewFeedback).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateInterviewFeedback: the planned length", () => {
+  it("judges a trial against five minutes and a tierless row against the minutes its session issued, else twelve", () => {
+    expect(plannedSecondsOf({ tier: "TRIAL", issuedContext: null })).toBe(300);
+    expect(plannedSecondsOf({ tier: "FULL", issuedContext: { interview_minutes: "5" } })).toBe(720);
+    expect(plannedSecondsOf({ tier: null, issuedContext: { interview_minutes: "5" } })).toBe(300);
+    expect(plannedSecondsOf({ tier: null, issuedContext: { max_minutes: "12" } })).toBe(720);
+    expect(plannedSecondsOf({ tier: null, issuedContext: { max_minutes: "soon" } })).toBe(720);
+    expect(plannedSecondsOf({ tier: null, issuedContext: null })).toBe(720);
+  });
+
+  it("hands the trial's planned length to the stats, so two answers in a trial are short for five minutes, not twelve", async () => {
+    vi.mocked(claimInterviewForFeedback).mockResolvedValue(claimed({ tier: "TRIAL" }));
+    const { requests } = installFakeProvider(() => reply.json(answer()));
+
+    await generateInterviewFeedback(INTERVIEW_ID);
+
+    expect(completeInterviewFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        report: expect.objectContaining({
+          interviewStats: expect.objectContaining({ plannedSeconds: 300, short: true }),
+        }),
+      }),
+    );
+    expect(requests[0].prompt).toContain("Planned length: 5 minutes");
+    expect(requests[0].prompt).toContain("fewer than 3 candidate turns");
   });
 });
