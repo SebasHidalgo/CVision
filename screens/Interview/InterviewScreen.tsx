@@ -1,12 +1,10 @@
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { fetchInterviewById } from "@/lib/database/interview";
-import {
-  MAX_INTERVIEW_DURATION_SECONDS,
-  MAX_INTERVIEW_STARTS,
-} from "@/lib/elevenlabs/agentConfig";
-import { MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS } from "@/lib/interviewLimits";
+import { currentPlan, tierOf } from "@/lib/database/usage";
+import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { interviewPhase } from "@/lib/interviewStatus";
+import { INTERVIEW_TIERS } from "@/lib/plans";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
 
 type InterviewScreenProps = {
@@ -31,6 +29,10 @@ export default async function InterviewScreen({
 
   const user = await getAuthUser();
 
+  // The first token fixes the tier; before it, the plan says which agent
+  // the interview will run on, so the room shows the right length.
+  const tier = interview.tier ?? tierOf(await currentPlan());
+
   return (
     <InterviewRoomLoader
       interviewId={interview.id}
@@ -39,10 +41,9 @@ export default async function InterviewScreen({
       candidateName={user.firstName ?? user.fullName}
       analysisId={interview.resumeAnalysisId}
       attemptNumber={interview.attemptNumber}
-      maxAttempts={MAX_INTERVIEW_ATTEMPTS_PER_ANALYSIS}
       startCount={interview.startCount}
       maxStarts={MAX_INTERVIEW_STARTS}
-      maxDurationSeconds={MAX_INTERVIEW_DURATION_SECONDS}
+      maxDurationSeconds={INTERVIEW_TIERS[tier].seconds}
     />
   );
 }

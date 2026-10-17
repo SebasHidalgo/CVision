@@ -4,10 +4,9 @@ import {
   fetchInterviewById,
   reserveInterviewSession,
 } from "@/lib/database/interview";
-import {
-  MAX_INTERVIEW_DURATION_SECONDS,
-  MAX_INTERVIEW_STARTS,
-} from "@/lib/elevenlabs/agentConfig";
+import { assertRateLimit } from "@/lib/database/rateLimit";
+import { refundUsage, reserveInterview, type InterviewReservation } from "@/lib/database/usage";
+import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { issueConversationToken } from "@/lib/elevenlabs/client";
 import { STARTABLE_STATUSES } from "@/lib/elevenlabs/postCall";
 import {
@@ -17,11 +16,14 @@ import {
   NotFoundError,
 } from "@/lib/error/errors";
 import { routeOk, toRouteError } from "@/lib/error/toRouteResponse";
+import { INTERVIEW_TIERS } from "@/lib/plans";
 import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
 import type { InterviewSessionResponse } from "@/types/interview";
 
 // Two database round trips, one Clerk profile read and a 10 s token call.
 export const maxDuration = 30;
+
+const LOG = "[CVision][session]";
 
 /**
  * Issues a voice session for one of the caller's interviews: a WebRTC
@@ -30,16 +32,21 @@ export const maxDuration = 30;
  * convenience, not an input to anything that is scored.
  *
  * Every check runs before the token call, which is the first thing here that
- * touches a paid platform. The write comes after it, in one guarded update:
- * if that update finds the interview no longer startable (a second tab won
- * the race), the token is dropped unused and the caller gets a 409.
+ * touches a paid platform, and so does the quota: the interview's usage unit
+ * is reserved on its first token, in this request, never on creation and
+ * never again on a reconnect. The write comes after the token, in one
+ * guarded update: if that update finds the interview no longer startable (a
+ * second tab won the race), the token is dropped unused, the unit goes back
+ * and the caller gets a 409.
  */
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let reservation: InterviewReservation | null = null;
   try {
-    await requireUserId();
+    const userId = await requireUserId();
+    await assertRateLimit(userId, "interviewStart");
     const { id } = await params;
 
     // Owner-scoped: a foreign id is indistinguishable from a missing one.
@@ -61,6 +68,15 @@ export async function POST(
       throw new InterviewContextMissingError();
     }
 
+    // The first token takes the plan's unit and fixes the tier; a reconnect
+    // reuses the tier the first token set.
+    let tier = interview.tier ?? "FULL";
+    if (!interview.usageEventId) {
+      reservation = await reserveInterview(userId, interview.id);
+      tier = reservation.tier;
+    }
+    const maxDurationSeconds = INTERVIEW_TIERS[tier].seconds;
+
     const profile = await getUserProfile();
 
     const { dynamicVariables, language } = buildInterviewerContext({
@@ -71,10 +87,10 @@ export async function POST(
       jobDescription: analysis.jobDescription,
       analysisSummary: context.data.overall.summaryText,
       requirements: context.data.jobFit.requirements,
-      maxDurationSeconds: MAX_INTERVIEW_DURATION_SECONDS,
+      maxDurationSeconds,
     });
 
-    const session = await issueConversationToken();
+    const session = await issueConversationToken(tier);
 
     const reserved = await reserveInterviewSession({
       interviewId: interview.id,
@@ -82,10 +98,15 @@ export async function POST(
       conversationId: session.conversationId,
       startedAt: interview.startedAt ?? new Date(),
       maxStarts: MAX_INTERVIEW_STARTS,
+      ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier } } : {}),
     });
     if (!reserved) {
       throw new InterviewNotStartableError("Interview changed while issuing the session");
     }
+    if (reservation) {
+      console.info(`${LOG} interview=${interview.id} reserved ${reservation.kind} tier=${tier}`);
+    }
+    reservation = null;
 
     const body: InterviewSessionResponse = {
       connectionType: "webrtc",
@@ -94,10 +115,17 @@ export async function POST(
       dynamicVariables,
       language,
       expiresAt: session.expiresAt.toISOString(),
-      maxDurationSeconds: MAX_INTERVIEW_DURATION_SECONDS,
+      maxDurationSeconds,
     };
     return routeOk(body);
   } catch (error) {
+    // No token reached the browser: the unit reserved above goes back.
+    if (reservation) {
+      const code = (error as { code?: string })?.code ?? "SESSION_NOT_ISSUED";
+      await refundUsage(reservation.eventId, code).catch((refundError) => {
+        console.error(`${LOG} refund of ${reservation?.eventId} failed:`, refundError);
+      });
+    }
     return toRouteError(error, "Failed to issue an interview session");
   }
 }

@@ -85,7 +85,6 @@ const props: InterviewAgentProps = {
   candidateName: "Ana",
   analysisId: ANALYSIS_ID,
   attemptNumber: 2,
-  maxAttempts: 3,
   startCount: 0,
   maxStarts: 3,
   maxDurationSeconds: 720,
@@ -155,16 +154,17 @@ describe("InterviewAgent: before the call", () => {
     expect(screen.getByText("Northwind")).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
-    expect(screen.getByText(/Attempt 2 of 3/)).toBeTruthy();
+    expect(screen.getByText(/Attempt 2$/)).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("labels the attempt from the analysis's numbering, never from the start counter", () => {
-    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} />);
+  it("labels the attempt from the analysis's numbering, never from the start counter, and shows the tier's length", () => {
+    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} />);
 
-    expect(screen.getByText(/Attempt 1 of 3/)).toBeTruthy();
+    expect(screen.getByText(/Attempt 1$/)).toBeTruthy();
+    expect(screen.getByText("Up to 5 minutes")).toBeTruthy();
     expect(screen.queryByText(/starts? left/)).toBeNull();
     // The old cell that showed the start counter as "3 of 3" is gone.
     expect(screen.queryByText("3 of 3")).toBeNull();

@@ -28,9 +28,8 @@ export type InterviewAgentProps = {
   candidateName: string | null;
   /** Where the cap message sends the candidate to rehearse again. */
   analysisId: string;
-  /** Which rehearsal of the analysis this is, and how many it allows. */
+  /** Which rehearsal of the analysis this is. */
   attemptNumber: number;
-  maxAttempts: number;
   /**
    * Starts (connections) already issued for this interview, and the cap.
    * A different counter from the attempt: it exists for dropped calls.
@@ -109,7 +108,6 @@ function InterviewRoom({
   candidateName,
   analysisId,
   attemptNumber,
-  maxAttempts,
   startCount,
   maxStarts,
   maxDurationSeconds,
@@ -312,9 +310,7 @@ function InterviewRoom({
       <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
           <div>
-            <Eyebrow tick>
-              Interview room · Attempt {attemptNumber} of {maxAttempts}
-            </Eyebrow>
+            <Eyebrow tick>Interview room · Attempt {attemptNumber}</Eyebrow>
             <h1 className="display-md mt-3">{role}</h1>
             <p className="mt-2 text-ink-2">{company}</p>
           </div>

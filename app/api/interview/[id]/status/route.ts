@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
+import { assertRateLimit } from "@/lib/database/rateLimit";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { isStranded } from "@/lib/elevenlabs/postCall";
 import {
@@ -30,7 +31,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireUserId();
+    const userId = await requireUserId();
+    // Polled every 3 to 10 s by design: this ceiling only stops a runaway loop.
+    await assertRateLimit(userId, "status");
     const { id } = await params;
 
     let row = await fetchInterviewStatus(id);

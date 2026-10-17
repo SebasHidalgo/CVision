@@ -16,6 +16,8 @@ interface FileUploaderProps {
   file: File | null;
   onFileSelect: (file: File | null) => void;
   invalid?: boolean;
+  /** No analysis left this period: a file must not be picked only to fail after. */
+  disabled?: boolean;
 }
 
 /** Dropzone rejections are otherwise a silent no-op. */
@@ -47,6 +49,7 @@ export default function FileUploader({
   file,
   onFileSelect,
   invalid = false,
+  disabled = false,
 }: FileUploaderProps) {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => onFileSelect(acceptedFiles[0] ?? null),
@@ -59,6 +62,7 @@ export default function FileUploader({
       multiple: false,
       accept: { "application/pdf": [".pdf"] },
       maxSize: MAX_RESUME_BYTES,
+      disabled,
     });
 
   const clear = (event: React.MouseEvent) => {
@@ -73,6 +77,7 @@ export default function FileUploader({
     <div>
       <div
         {...getRootProps()}
+        aria-disabled={disabled || undefined}
         className={cn(
           "relative flex min-h-[9.5rem] cursor-pointer items-center justify-center border border-dashed px-6 py-8 transition-colors duration-200 ease-out-expo",
           isDragActive
@@ -81,6 +86,7 @@ export default function FileUploader({
               ? "border-line-strong bg-paper-2/70"
               : "border-line-strong hover:border-ink",
           invalid && !file && "border-signal",
+          disabled && "cursor-not-allowed opacity-50 hover:border-line-strong",
         )}
       >
         <input {...getInputProps()} name="resume" id="resume" />

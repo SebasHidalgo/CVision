@@ -11,6 +11,11 @@ import {
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
+vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
+vi.mock("@/lib/database/usage", () => ({
+  reserveUsage: vi.fn(async () => ({ eventId: "evt_1" })),
+  refundUsage: vi.fn(async () => true),
+}));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
   return { ...actual, extractTextFromPDFBytes: vi.fn() };

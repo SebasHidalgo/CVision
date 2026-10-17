@@ -7,7 +7,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
+import type { AnalysisQuotaView } from "@/lib/plans";
 import {
   createResumeInputSchema,
   MAX_COMPANY_NAME_CHARS,
@@ -22,9 +23,24 @@ import AnalysisInProgress from "./AnalysisInProgress";
 import Field from "./Field";
 import FileUploader from "./FileUploader";
 
-export default function UploadForm() {
+type UploadFormProps = {
+  quota: AnalysisQuotaView;
+};
+
+/** The one line the form says about the allowance, or nothing. */
+export function quotaLine(quota: AnalysisQuotaView): string | null {
+  if (quota.left === 0) {
+    return actionErrorCopy("ANALYSIS_QUOTA_EXCEEDED", { plan: quota.plan, resetsAt: quota.resetsAt });
+  }
+  if (!quota.announce) return null;
+  const noun = quota.left === 1 ? "analysis" : "analyses";
+  return `${quota.left} of ${quota.limit} ${noun} left this month · resets ${resetDateCopy(quota.resetsAt)}`;
+}
+
+export default function UploadForm({ quota }: UploadFormProps) {
   const router = useRouter();
   const [stage, setStage] = useState<UploadStage | null>(null);
+  const exhausted = quota.left === 0;
 
   const {
     register,
@@ -74,11 +90,15 @@ export default function UploadForm() {
     }
 
     // Every failure is retryable from the form, with the file still selected.
-    toast.error(actionErrorCopy(result.code));
+    toast.error(actionErrorCopy(result.code, result.meta));
     setStage(null);
+    // A quota refusal means the page's count is stale: re-read it.
+    if (result.code === "ANALYSIS_QUOTA_EXCEEDED") router.refresh();
   };
 
   if (stage) return <AnalysisInProgress stage={stage} fileSize={resumeFile?.size ?? 0} />;
+
+  const line = quotaLine(quota);
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -134,13 +154,16 @@ export default function UploadForm() {
             file={resumeFile ?? null}
             onFileSelect={handleFileSelect}
             invalid={Boolean(errors.resume)}
+            disabled={exhausted}
           />
         </div>
       </Field>
 
       <div className="flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="eyebrow">Runs while you wait · takes seconds</p>
-        <Button type="submit" size="lg" className="group h-12 px-7 text-base">
+        <p role={exhausted ? "status" : undefined} className={exhausted ? "text-sm font-medium text-ink" : "eyebrow"}>
+          {line ?? "Runs while you wait · takes seconds"}
+        </p>
+        <Button type="submit" size="lg" disabled={exhausted} className="group h-12 px-7 text-base">
           Run the analysis
           <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
         </Button>

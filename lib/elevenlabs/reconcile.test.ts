@@ -30,6 +30,7 @@ const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForRecon
   startedAt: new Date(NOW.getTime() - WINDOW_MS - 1_000),
   endedAt: null,
   startCount: 1,
+  usageEventId: "evt_1",
   ...overrides,
 });
 
@@ -135,8 +136,19 @@ describe("reconcileStrandedInterview", () => {
       interviewId: INTERVIEW_ID,
       conversationId: "conv_1",
       reason: SESSION_LOST,
+      exhausted: false,
+      usageEventId: "evt_1",
     });
     expect(storeConversationTranscript).not.toHaveBeenCalled();
+  });
+
+  it("a lost session on the last start ends the interview", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(row({ startCount: 3 }));
+    vi.mocked(fetchConversation).mockResolvedValue({ kind: "not-found" });
+
+    await reconcileStrandedInterview(INTERVIEW_ID, NOW);
+
+    expect(markSessionLost).toHaveBeenCalledWith(expect.objectContaining({ exhausted: true, usageEventId: "evt_1" }));
   });
 
   it("asks the platform at most once a minute: a check that cannot claim the slot fetches nothing", async () => {

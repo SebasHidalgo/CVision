@@ -1,6 +1,7 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import VerdictReadout from "@/components/score/VerdictReadout";
+import type { InterviewQuotaView } from "@/lib/plans";
 import type { FitVerdict } from "@/lib/schemas/resumeSchema";
 import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -17,6 +18,7 @@ type AnalysisHeaderProps = {
   summary: string;
   resumeId: string;
   attempts: ResumeAnalysis["interviews"];
+  quota: InterviewQuotaView;
 };
 
 /**
@@ -35,6 +37,7 @@ export default function AnalysisHeader({
   summary,
   resumeId,
   attempts,
+  quota,
 }: AnalysisHeaderProps) {
   return (
     <header className="border-b border-line pb-10 lg:pb-12">
@@ -80,6 +83,7 @@ export default function AnalysisHeader({
             resumeId={resumeId}
             jobTitle={jobTitle}
             attempts={attempts}
+            quota={quota}
           />
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   VoiceMisconfiguredError,
   VoiceUnavailableError,
 } from "@/lib/error/errors";
+import type { InterviewTierId } from "@/lib/plans";
 
 /**
  * The only module that talks to ElevenLabs at runtime. Four calls: issue a
@@ -47,15 +48,26 @@ function readConfig() {
   return {
     apiKey: process.env.ELEVENLABS_API_KEY?.trim() || undefined,
     agentId: process.env.ELEVENLABS_AGENT_ID?.trim() || undefined,
+    trialAgentId: process.env.ELEVENLABS_TRIAL_AGENT_ID?.trim() || undefined,
     webhookSecret: process.env.ELEVENLABS_WEBHOOK_SECRET?.trim() || undefined,
   };
 }
 
-/** A WebRTC conversation token for the configured agent, server-side only. */
-export async function issueConversationToken(): Promise<ConversationSession> {
-  const { apiKey, agentId } = readConfig();
+/**
+ * A WebRTC conversation token for one of the agents, server-side only. The
+ * full agent is `ELEVENLABS_AGENT_ID`; the five-minute trial agent is
+ * `ELEVENLABS_TRIAL_AGENT_ID`, and a trial with that unset is refused
+ * rather than run on the full agent's twelve minutes.
+ */
+export async function issueConversationToken(tier: InterviewTierId = "FULL"): Promise<ConversationSession> {
+  const { apiKey, agentId: fullAgentId, trialAgentId } = readConfig();
   if (!apiKey) throw new VoiceMisconfiguredError("ELEVENLABS_API_KEY is not set");
-  if (!agentId) throw new VoiceMisconfiguredError("ELEVENLABS_AGENT_ID is not set");
+  const agentId = tier === "TRIAL" ? trialAgentId : fullAgentId;
+  if (!agentId) {
+    throw new VoiceMisconfiguredError(
+      tier === "TRIAL" ? "ELEVENLABS_TRIAL_AGENT_ID is not set" : "ELEVENLABS_AGENT_ID is not set",
+    );
+  }
 
   const client = new ElevenLabsClient({
     apiKey,

@@ -10,13 +10,15 @@ import {
   type PostCallTranscription,
 } from "@/lib/elevenlabs/postCall";
 import { handleError } from "@/lib/error/handleError";
+import { refundUsage } from "./usage";
 
 /**
  * Data access for the post-call webhook, and nothing else. There is no
  * session: the caller is ElevenLabs, authenticated by the signature the route
  * verified before calling this. Rows are found by the conversation id the
  * server itself issued, never by anything that names a user, and the only
- * write is the one the payload describes.
+ * write is the one the payload describes, plus the refund of the usage unit
+ * when the interview ends without a candidate ever speaking.
  */
 
 const postCallSelect = {
@@ -27,6 +29,7 @@ const postCallSelect = {
   transcript: true,
   issuedContext: true,
   startCount: true,
+  usageEventId: true,
 } satisfies Prisma.InterviewSelect;
 
 export type StoreTranscriptResult =
@@ -88,6 +91,12 @@ export async function storeConversationTranscript({
     });
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
+
+    // FAILED here means the starts ran out without a single candidate turn:
+    // the unit the first token reserved goes back.
+    if (outcome.status === "FAILED" && row.usageEventId) {
+      await refundUsage(row.usageEventId, outcome.failureReason ?? "NO_CANDIDATE_TURNS");
+    }
     return { outcome: "stored", interviewId: row.id, status: outcome.status };
   } catch (error) {
     handleError(error, "Failed to store conversation transcript");
@@ -123,6 +132,7 @@ export async function fetchInterviewForReconcile(interviewId: string) {
         startedAt: true,
         endedAt: true,
         startCount: true,
+        usageEventId: true,
       },
     });
   } catch (error) {
@@ -160,14 +170,19 @@ export async function claimReconcile(params: {
 
 /**
  * The platform has no record of the latest session: the attempt is lost, but
- * not the interview. The row stays startable with the start already counted,
- * and the reason tells the feedback page what to say. Guarded on the
+ * not the interview while starts remain. The row stays startable with the
+ * start already counted, and the reason tells the feedback page what to say.
+ * With no start left the interview is FAILED and the usage unit reserved on
+ * its first token goes back: nothing was ever heard. Guarded on the
  * conversation id so a webhook that lands in between is not overwritten.
  */
 export async function markSessionLost(params: {
   interviewId: string;
   conversationId: string;
   reason: string;
+  /** No start left: the interview ends here. */
+  exhausted: boolean;
+  usageEventId: string | null;
 }): Promise<boolean> {
   try {
     const result = await prisma.interview.updateMany({
@@ -177,8 +192,11 @@ export async function markSessionLost(params: {
         conversationId: params.conversationId,
         transcriptSource: null,
       },
-      data: { failureReason: params.reason },
+      data: { failureReason: params.reason, ...(params.exhausted ? { status: "FAILED" } : {}) },
     });
+    if (result.count === 1 && params.exhausted && params.usageEventId) {
+      await refundUsage(params.usageEventId, params.reason);
+    }
     return result.count === 1;
   } catch (error) {
     handleError(error, "Failed to mark interview session as lost");

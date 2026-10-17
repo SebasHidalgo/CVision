@@ -3,11 +3,10 @@ import "server-only";
 import { Prisma, type InterviewStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
-import { InterviewAttemptLimitError } from "@/lib/error/errors";
 import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
-import { UNCOUNTED_ATTEMPT_STATUSES } from "@/lib/interviewLimits";
+import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import {
   feedbackInclude,
@@ -41,8 +40,6 @@ export type CreateInterviewData = {
   role: string;
   techstack: string[];
   resumeId: string;
-  /** The provisional cap on counted attempts per analysis. */
-  maxAttempts: number;
 };
 
 export type CreateInterviewResult = {
@@ -58,13 +55,14 @@ const CREATE_ATTEMPTS = 3;
 
 /**
  * Starts the next rehearsal of an analysis, or hands back the one that is
- * still live. One live attempt (SCHEDULED or IN_PROGRESS) at a time, no more
- * counted attempts than the cap, and attempt numbers that never collide: the
- * checks and the numbered insert run in one serializable transaction, so two
- * submits racing past the action's read (two tabs, or the two CTAs on the
- * detail page) cannot both create. The loser's transaction fails to
- * serialize, or hits the unique on (analysis, attempt), and the retry finds
- * the winner, or the cap.
+ * still live. One live attempt (SCHEDULED or IN_PROGRESS) at a time, and
+ * attempt numbers that never collide: the check and the numbered insert run
+ * in one serializable transaction, so two submits racing past the action's
+ * read (two tabs, or the two CTAs on the detail page) cannot both create.
+ * The loser's transaction fails to serialize, or hits the unique on
+ * (analysis, attempt), and the retry finds the winner. How many interviews
+ * a user may run is the usage ledger's business, reserved at the first
+ * token, not here.
  */
 export async function createInterview(
   data: CreateInterviewData
@@ -85,16 +83,6 @@ export async function createInterview(
               select: { id: true, attemptNumber: true },
             });
             if (live) return { id: live.id, attemptNumber: live.attemptNumber, created: false };
-
-            // Lost sessions and silent attempts (FAILED, EXPIRED) are not
-            // rehearsals the candidate got; they do not use up the cap.
-            const used = await tx.interview.count({
-              where: {
-                resumeAnalysisId: data.resumeId,
-                status: { notIn: [...UNCOUNTED_ATTEMPT_STATUSES] as InterviewStatus[] },
-              },
-            });
-            if (used >= data.maxAttempts) throw new InterviewAttemptLimitError();
 
             const last = await tx.interview.aggregate({
               where: { resumeAnalysisId: data.resumeId },
@@ -167,6 +155,11 @@ export type ReserveInterviewSessionData = {
   conversationId: string;
   startedAt: Date;
   maxStarts: number;
+  /**
+   * The usage unit and the agent tier, on the first token only. A reconnect
+   * passes nothing here and keeps what the first token set.
+   */
+  reservation?: { usageEventId: string; tier: InterviewTierId };
 };
 
 /**
@@ -189,9 +182,12 @@ export async function reserveInterviewSession(
         userId,
         status: { in: [...STARTABLE_STATUSES] },
         startCount: { lt: data.maxStarts },
+        // The first token sets the unit and the tier; a later one must not.
+        ...(data.reservation ? { usageEventId: null } : {}),
       },
       data: {
         status: "IN_PROGRESS",
+        ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier } : {}),
         issuedContext: data.issuedContext,
         conversationId: data.conversationId,
         issuedConversationIds: { push: data.conversationId },

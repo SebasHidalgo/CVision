@@ -22,22 +22,40 @@ export type ErrorCode =
   // Interview state at session start.
   | "INTERVIEW_NOT_STARTABLE"
   | "INTERVIEW_START_LIMIT"
-  | "INTERVIEW_ATTEMPT_LIMIT"
   | "INTERVIEW_CONTEXT_MISSING"
   // Deleting an analysis while a rehearsal of it is live or being scored.
   | "ANALYSIS_BUSY"
+  // Plans and limits (lib/plans.ts).
+  | "ANALYSIS_QUOTA_EXCEEDED"
+  | "INTERVIEW_QUOTA_EXCEEDED"
+  | "RATE_LIMITED"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
   | "UNKNOWN";
 
+/**
+ * Structured facts a few codes carry to the client beside the code: never
+ * free text. The copy is still chosen client-side from the code; these
+ * fill its blanks (when the quota resets, how long to wait, which plan).
+ */
+export type ErrorMeta = {
+  /** ISO date when the period's quota comes back; absent for a lifetime quota. */
+  resetsAt?: string;
+  /** Seconds until a rate-limited request may be retried. */
+  retryAfter?: number;
+  plan?: "FREE" | "PRO";
+};
+
 export class AppError extends Error {
   readonly code: ErrorCode;
+  readonly meta?: ErrorMeta;
 
-  constructor(code: ErrorCode, message: string, options?: ErrorOptions) {
+  constructor(code: ErrorCode, message: string, options?: ErrorOptions & { meta?: ErrorMeta }) {
     super(message, options);
     this.name = new.target.name;
     this.code = code;
+    if (options?.meta) this.meta = options.meta;
   }
 }
 
@@ -173,17 +191,34 @@ export class InterviewStartLimitError extends AppError {
   }
 }
 
-/** The analysis has used every rehearsal the provisional cap allows. */
-export class InterviewAttemptLimitError extends AppError {
-  constructor(message = "Interview attempt limit reached for this analysis") {
-    super("INTERVIEW_ATTEMPT_LIMIT", message);
-  }
-}
-
 /** A rehearsal of the analysis is in a call or being scored: it cannot vanish under it. */
 export class AnalysisBusyError extends AppError {
   constructor(message = "An interview of this analysis is in progress") {
     super("ANALYSIS_BUSY", message);
+  }
+}
+
+/** The period's analyses are used up; `meta.resetsAt` says when they come back. */
+export class AnalysisQuotaExceededError extends AppError {
+  constructor(meta: ErrorMeta, message = "Analysis quota exceeded for the period") {
+    super("ANALYSIS_QUOTA_EXCEEDED", message, { meta });
+  }
+}
+
+/**
+ * No interview may be reserved: the period's full interviews are used, or
+ * the free trial already was (then `meta.plan` is FREE and there is no reset).
+ */
+export class InterviewQuotaExceededError extends AppError {
+  constructor(meta: ErrorMeta, message = "Interview quota exceeded") {
+    super("INTERVIEW_QUOTA_EXCEEDED", message, { meta });
+  }
+}
+
+/** Too many requests of one kind in the window; `meta.retryAfter` is in seconds. */
+export class RateLimitedError extends AppError {
+  constructor(retryAfter: number, message = "Rate limit exceeded") {
+    super("RATE_LIMITED", message, { meta: { retryAfter } });
   }
 }
 

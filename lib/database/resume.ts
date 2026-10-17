@@ -9,6 +9,8 @@ import type { ResumeAnalysis } from "@/types/resume";
 import { mapDbResume, resumeInclude } from "./mappers";
 
 export type CreateResumeData = {
+  /** Minted by the action before the usage unit is reserved, so the ledger can name the analysis. */
+  id: string;
   companyName: string;
   jobTitle: string;
   jobDescription: string;
@@ -27,6 +29,7 @@ export async function createResume(data: CreateResumeData): Promise<string> {
 
     const created = await prisma.resumeAnalysis.create({
       data: {
+        id: data.id,
         companyName: data.companyName,
         jobTitle: data.jobTitle,
         jobDescription: data.jobDescription,

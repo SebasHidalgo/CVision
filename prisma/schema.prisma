@@ -8,18 +8,74 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Which limits apply (lib/plans.ts). FREE for everyone until billing (M6);
+/// PRO by hand with `npm run user:set-plan`.
+enum Plan {
+  FREE
+  PRO
+}
+
 /// One row per Clerk account that has touched the app. The id is Clerk's and
 /// nothing else is stored until billing needs it. Written by the Clerk
 /// webhook (user.created) and, since the webhook may be late or unregistered,
 /// by `ensureUser` before any row keyed by `userId` is inserted. Deleting it
-/// cascades to every analysis and interview of the account.
+/// cascades to every analysis, interview and usage event of the account.
 model User {
   id        String   @id
+  plan      Plan     @default(FREE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  analyses   ResumeAnalysis[]
-  interviews Interview[]
+  analyses    ResumeAnalysis[]
+  interviews  Interview[]
+  usageEvents UsageEvent[]
+}
+
+/// What a usage event paid for. INTERVIEW_TRIAL is the one free interview of
+/// a FREE account; INTERVIEW a PRO account's monthly one.
+enum UsageKind {
+  ANALYSIS
+  INTERVIEW
+  INTERVIEW_TRIAL
+}
+
+/// The usage ledger. A quota check counts the non-refunded events of a kind
+/// in the current period; the check and the insert share one serializable
+/// transaction (`reserveUsage`), so two parallel requests cannot both take
+/// the last unit. A refund keeps the row and dates it, so the ledger stays
+/// an audit trail.
+model UsageEvent {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         UsageKind
+  /// The analysis or interview the unit was spent on.
+  refId        String
+  createdAt    DateTime  @default(now())
+  refundedAt   DateTime?
+  /// Why it was given back: the error code or the interview's failure reason.
+  refundReason String?
+
+  @@index([userId, kind, createdAt])
+}
+
+/// Fixed-window rate limiting in Postgres: one row per user, action and
+/// window, incremented atomically by an upsert. Old windows of a key are
+/// deleted on the key's next hit, so the table never grows past the live
+/// windows.
+model RateLimitCounter {
+  /// `{userId}:{action}`.
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+}
+
+/// Which agent an interview was issued on, and so how long it may run.
+enum InterviewTier {
+  TRIAL
+  FULL
 }
 
 model ResumeAnalysis {
@@ -121,6 +177,13 @@ model Interview {
   /// Sessions issued for this interview. Capped by the session endpoint:
   /// every start is a paid call.
   startCount      Int       @default(0)
+  /// The usage event reserved on the first token, never on creation and
+  /// never on a reconnect. Null until then; refunded if the interview ends
+  /// without a candidate turn.
+  usageEventId    String?   @unique
+  /// Set with the first token: which agent, and so which duration, this
+  /// interview runs on. Reconnects reuse it; the feedback is judged against it.
+  tier            InterviewTier?
   /// When the reconcile fallback last asked the platform about the latest
   /// session. A conditional update on it throttles the fallback to one
   /// platform call per minute per interview, however many tabs poll.

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { fetchResumeById } from "@/lib/database/resume";
+import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
 import AnalysisHeader from "./components/AnalysisHeader";
@@ -32,6 +33,9 @@ export default async function ResumeAnalysisDetailScreen({
     score: scores[dimension.id],
   }));
 
+  // What the interview control may offer: the trial, a Pro interview, or why not.
+  const quota = interviewQuotaView(await currentUsageSummary());
+
   return (
     <article className="wrap py-10 lg:py-14">
       <AnalysisHeader
@@ -43,6 +47,7 @@ export default async function ResumeAnalysisDetailScreen({
         summary={feedback.overall.summaryText}
         resumeId={analysis.id}
         attempts={analysis.interviews}
+        quota={quota}
       />
 
       <PriorityFixes fixes={feedback.overall.prioritizedFixes} />
@@ -60,6 +65,7 @@ export default async function ResumeAnalysisDetailScreen({
             resumeId={analysis.id}
             jobTitle={analysis.jobTitle}
             attempts={analysis.interviews}
+            quota={quota}
           >
             <InterviewAttempts attempts={analysis.interviews} />
           </InterviewCta>

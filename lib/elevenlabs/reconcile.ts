@@ -7,7 +7,7 @@ import {
   storeConversationTranscript,
   type StoreTranscriptResult,
 } from "@/lib/database/interviewTranscript";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
+import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { fetchConversation } from "@/lib/elevenlabs/client";
 import { isStranded, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
 
@@ -64,8 +64,17 @@ export async function reconcileStrandedInterview(
   }
 
   if (fetched.kind === "not-found") {
-    await markSessionLost({ interviewId, conversationId: row.conversationId, reason: SESSION_LOST });
-    console.warn(`${LOG} interview=${interviewId} conversation not found on the platform: attempt marked lost`);
+    const exhausted = row.startCount >= MAX_INTERVIEW_STARTS;
+    await markSessionLost({
+      interviewId,
+      conversationId: row.conversationId,
+      reason: SESSION_LOST,
+      exhausted,
+      usageEventId: row.usageEventId,
+    });
+    console.warn(
+      `${LOG} interview=${interviewId} conversation not found on the platform: attempt marked lost${exhausted ? ", no start left, interview failed" : ""}`,
+    );
     return { kind: "lost" };
   }
 

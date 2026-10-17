@@ -1,13 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { createInterview, markInterviewEnded } from "./interview";
+import { createInterview, markInterviewEnded, reserveInterviewSession } from "./interview";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 
 /** A transaction client whose calls the tests script. */
 const tx = {
-  interview: { findFirst: vi.fn(), count: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
+  interview: { findFirst: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
   default: { $transaction: vi.fn(), interview: { updateMany: vi.fn() } },
@@ -15,7 +15,7 @@ vi.mock("@/lib/prisma", () => ({
 
 const RESUME_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const INTERVIEW_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
-const data = { role: "Backend Engineer", techstack: ["Go"], resumeId: RESUME_ID, maxAttempts: 3 };
+const data = { role: "Backend Engineer", techstack: ["Go"], resumeId: RESUME_ID };
 
 const raceError = (code: "P2034" | "P2002") =>
   new Prisma.PrismaClientKnownRequestError("raced", { code, clientVersion: "test" });
@@ -24,7 +24,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
   tx.interview.findFirst.mockResolvedValue(null);
-  tx.interview.count.mockResolvedValue(2);
   tx.interview.aggregate.mockResolvedValue({ _max: { attemptNumber: 2 } });
   tx.interview.create.mockImplementation(async ({ data: input }: { data: { attemptNumber: number } }) => ({
     id: "interview_new",
@@ -48,10 +47,12 @@ describe("createInterview", () => {
     );
   });
 
-  it("starts at 1 for an analysis with no attempts", async () => {
-    tx.interview.count.mockResolvedValue(0);
+  it("starts at 1 for an analysis with no attempts, and puts no cap on how many there are", async () => {
     tx.interview.aggregate.mockResolvedValue({ _max: { attemptNumber: null } });
     expect((await createInterview(data)).attemptNumber).toBe(1);
+
+    tx.interview.aggregate.mockResolvedValue({ _max: { attemptNumber: 9 } });
+    expect((await createInterview(data)).attemptNumber).toBe(10);
   });
 
   it("returns the live attempt instead of creating, checking it inside the transaction", async () => {
@@ -66,18 +67,6 @@ describe("createInterview", () => {
       }),
     );
     expect(tx.interview.create).not.toHaveBeenCalled();
-  });
-
-  it("refuses at the cap inside the transaction, counting every state but FAILED and EXPIRED", async () => {
-    tx.interview.count.mockResolvedValue(3);
-
-    await expect(createInterview(data)).rejects.toMatchObject({ code: "INTERVIEW_ATTEMPT_LIMIT" });
-    expect(tx.interview.count).toHaveBeenCalledWith({
-      where: { resumeAnalysisId: RESUME_ID, status: { notIn: ["FAILED", "EXPIRED"] } },
-    });
-    expect(tx.interview.create).not.toHaveBeenCalled();
-    // Not a race: no retry.
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it.each(["P2034", "P2002"] as const)("on a %s race, tries again and finds the winner live", async (code) => {
@@ -105,6 +94,55 @@ describe("createInterview", () => {
 
     await expect(createInterview(data)).rejects.toMatchObject({ code: "UNKNOWN" });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("reserveInterviewSession", () => {
+  const base = {
+    interviewId: INTERVIEW_ID,
+    issuedContext: { interview_id: INTERVIEW_ID },
+    conversationId: "conv_2",
+    startedAt: new Date("2026-10-16T12:00:00Z"),
+    maxStarts: 3,
+  };
+
+  it("clears every leftover of the previous session, the reconcile throttle included", async () => {
+    vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
+
+    expect(await reserveInterviewSession(base)).toBe(true);
+
+    expect(prisma.interview.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: INTERVIEW_ID, userId: "user_1", startCount: { lt: 3 } }),
+        data: expect.objectContaining({
+          status: "IN_PROGRESS",
+          conversationId: "conv_2",
+          endedAt: null,
+          durationSeconds: null,
+          failureReason: null,
+          transcriptSource: null,
+          reconcileCheckedAt: null,
+        }),
+      }),
+    );
+    // A reconnect touches neither the unit nor the tier.
+    const { data, where } = vi.mocked(prisma.interview.updateMany).mock.calls[0][0] as { data: Record<string, unknown>; where: Record<string, unknown> };
+    expect(data).not.toHaveProperty("usageEventId");
+    expect(data).not.toHaveProperty("tier");
+    expect(where).not.toHaveProperty("usageEventId");
+  });
+
+  it("on the first token, sets the unit and the tier only on a row that has none", async () => {
+    vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
+
+    await reserveInterviewSession({ ...base, reservation: { usageEventId: "evt_1", tier: "TRIAL" } });
+
+    expect(prisma.interview.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ usageEventId: null }),
+        data: expect.objectContaining({ usageEventId: "evt_1", tier: "TRIAL" }),
+      }),
+    );
   });
 });
 

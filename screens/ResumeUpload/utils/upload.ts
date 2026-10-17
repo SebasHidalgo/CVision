@@ -1,4 +1,4 @@
-import type { ErrorCode } from "@/lib/error/errors";
+import type { ErrorCode, ErrorMeta } from "@/lib/error/errors";
 import type { ResumeDetails } from "@/lib/schemas/resumeSchema";
 import { RESUME_OBJECT_CACHE_CONTROL } from "@/lib/supabase/resumeKey";
 import type { ActionResult } from "@/types/action";
@@ -8,7 +8,7 @@ export type UploadStage = "uploading" | "analyzing";
 
 export type UploadFlowResult =
   | { ok: true; resumeId: string }
-  | { ok: false; code: ErrorCode; stage: UploadStage };
+  | { ok: false; code: ErrorCode; stage: UploadStage; meta?: ErrorMeta };
 
 export type PutOutcome = {
   status: number;
@@ -83,7 +83,7 @@ export async function runResumeUpload({
   } catch {
     return { ok: false, code: "REQUEST_FAILED", stage: "uploading" };
   }
-  if (!upload.ok) return { ok: false, code: upload.code, stage: "uploading" };
+  if (!upload.ok) return { ok: false, code: upload.code, stage: "uploading", ...(upload.meta ? { meta: upload.meta } : {}) };
 
   let put: PutOutcome;
   try {
@@ -103,7 +103,9 @@ export async function runResumeUpload({
   } catch {
     return { ok: false, code: "REQUEST_FAILED", stage: "analyzing" };
   }
-  if (!analysis.ok) return { ok: false, code: analysis.code, stage: "analyzing" };
+  if (!analysis.ok) {
+    return { ok: false, code: analysis.code, stage: "analyzing", ...(analysis.meta ? { meta: analysis.meta } : {}) };
+  }
 
   return { ok: true, resumeId: analysis.data.resumeId };
 }

@@ -11,6 +11,7 @@ import { GET } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ fetchInterviewStatus: vi.fn() }));
+vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/elevenlabs/reconcile", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/elevenlabs/reconcile")>();
   return { ...actual, reconcileStrandedInterview: vi.fn() };
@@ -61,6 +62,21 @@ describe("GET /api/interview/[id]/status", () => {
       status: 200,
       body: { ok: true, data: { status: "IN_PROGRESS", hasFeedback: false, startCount: 1, failureReason: null } },
     });
+  });
+
+  it("has a generous per-minute ceiling: a runaway loop gets 429 with Retry-After, a normal poll never does", async () => {
+    const { assertRateLimit } = await import("@/lib/database/rateLimit");
+    const { RateLimitedError } = await import("@/lib/error/errors");
+    expect((await get()).status).toBe(200);
+    expect(assertRateLimit).toHaveBeenCalledWith("user_1", "status");
+
+    vi.mocked(assertRateLimit).mockRejectedValueOnce(new RateLimitedError(17));
+    const response = await GET(new Request(`http://localhost/api/interview/${INTERVIEW_ID}/status`), {
+      params: Promise.resolve({ id: INTERVIEW_ID }),
+    });
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("17");
+    expect(await response.json()).toEqual({ ok: false, code: "RATE_LIMITED", meta: { retryAfter: 17 } });
   });
 
   it("answers 401 without a session and 404 for a foreign or missing interview", async () => {
