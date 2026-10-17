@@ -8,7 +8,7 @@ import { deleteUserRows } from "@/lib/database/user";
 import { deleteConversation } from "@/lib/elevenlabs/client";
 import { AnalysisBusyError, VoiceUnavailableError } from "@/lib/error/errors";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
-import { deleteAccountCascade, deleteAnalysisCascade } from "./deletion";
+import { deleteAccountCascade, deleteAnalysisCascade, PLATFORM_DELETE_CONCURRENCY } from "./deletion";
 
 vi.mock("@/lib/database/deletion", () => ({
   deleteAnalysisRows: vi.fn(),
@@ -91,6 +91,36 @@ describe("deleteAnalysisCascade", () => {
     });
     expect(deleteAnalysisRows).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("conversation=conv_1"), expect.anything());
+  });
+});
+
+describe("platform deletes run in parallel, a few at a time", () => {
+  it("keeps at most the concurrency limit in flight, settles every id, and logs each failure by id", async () => {
+    const ids = Array.from({ length: 10 }, (_, i) => `conv_${i}`);
+    vi.mocked(deleteAnalysisRows).mockResolvedValue({ deleted: true, resumeKey: KEY, conversationIds: ids });
+
+    let inFlight = 0;
+    let peak = 0;
+    vi.mocked(deleteConversation).mockImplementation(async (id) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      if (id === "conv_3") throw new VoiceUnavailableError();
+      return id === "conv_7" ? "not-found" : "deleted";
+    });
+
+    const outcome = await deleteAnalysisCascade({ analysisId: ANALYSIS_ID, userId: "user_1" });
+
+    expect(PLATFORM_DELETE_CONCURRENCY).toBe(4);
+    expect(peak).toBe(4);
+    expect(deleteConversation).toHaveBeenCalledTimes(10);
+    if (outcome.kind !== "deleted") throw new Error("expected deleted");
+    expect(outcome.conversations.map((c) => c.id)).toEqual(ids);
+    expect(outcome.conversations.find((c) => c.id === "conv_3")?.outcome).toBe("failed");
+    expect(outcome.conversations.find((c) => c.id === "conv_7")?.outcome).toBe("not-found");
+    expect(outcome.conversations.filter((c) => c.outcome === "deleted")).toHaveLength(8);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("conversation=conv_3"), expect.anything());
   });
 });
 

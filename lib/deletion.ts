@@ -101,15 +101,27 @@ export async function deleteAccountCascade(userId: string): Promise<AccountDelet
   return { analyses: analysisIds.length, leftoverObjects, leftoverObjectsRemoved, conversationsFailed, userRowRemoved };
 }
 
+/** Platform deletes in flight at once: enough to make an account deletion quick, few enough to stay polite. */
+export const PLATFORM_DELETE_CONCURRENCY = 4;
+
 async function cleanUpConversations(ids: string[]): Promise<ConversationCleanup[]> {
+  const unique = [...new Set(ids)];
   const out: ConversationCleanup[] = [];
-  for (const id of [...new Set(ids)]) {
-    try {
-      out.push({ id, outcome: await deleteConversation(id) });
-    } catch (error) {
-      console.error(`${LOG} conversation=${id} not deleted on the platform:`, error instanceof Error ? error.name : error);
+  for (let at = 0; at < unique.length; at += PLATFORM_DELETE_CONCURRENCY) {
+    const batch = unique.slice(at, at + PLATFORM_DELETE_CONCURRENCY);
+    const settled = await Promise.allSettled(batch.map((id) => deleteConversation(id)));
+    settled.forEach((result, i) => {
+      const id = batch[i];
+      if (result.status === "fulfilled") {
+        out.push({ id, outcome: result.value });
+        return;
+      }
+      console.error(
+        `${LOG} conversation=${id} not deleted on the platform:`,
+        result.reason instanceof Error ? result.reason.name : result.reason,
+      );
       out.push({ id, outcome: "failed" });
-    }
+    });
   }
   return out;
 }

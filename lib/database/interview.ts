@@ -203,6 +203,8 @@ export async function reserveInterviewSession(
         contextMismatch: false,
         endedAt: null,
         durationSeconds: null,
+        // The previous session's throttle must not delay this one's first check.
+        reconcileCheckedAt: null,
       },
     });
 

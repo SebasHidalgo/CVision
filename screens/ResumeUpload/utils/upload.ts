@@ -1,5 +1,6 @@
 import type { ErrorCode } from "@/lib/error/errors";
 import type { ResumeDetails } from "@/lib/schemas/resumeSchema";
+import { RESUME_OBJECT_CACHE_CONTROL } from "@/lib/supabase/resumeKey";
 import type { ActionResult } from "@/types/action";
 import type { ResumeUpload } from "../actions/createResumeUploadAction";
 
@@ -32,14 +33,15 @@ export type UploadFlowDeps = {
 };
 
 /**
- * The browser's PUT to the signed URL: the file, its type, nothing else. No
- * Supabase key travels; the token in the URL is the authorization. A
- * failure here is reported by its code and never reaches the analysis.
+ * The browser's PUT to the signed URL: the file, its type and the cache
+ * policy the object is stored with, nothing else. No Supabase key travels;
+ * the token in the URL is the authorization. A failure here is reported by
+ * its code and never reaches the analysis.
  */
 export async function putResumeFile(url: string, file: File): Promise<PutOutcome> {
   const response = await fetch(url, {
     method: "PUT",
-    headers: { "content-type": "application/pdf" },
+    headers: { "content-type": "application/pdf", "cache-control": RESUME_OBJECT_CACHE_CONTROL },
     body: file,
   });
   if (response.ok) return { status: response.status, code: null };

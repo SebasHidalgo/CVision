@@ -5,6 +5,17 @@
  */
 export const RESUME_KEY_PREFIX = "cv/";
 
+/**
+ * The `cache-control` the browser's PUT sets on the object; storage keeps it
+ * as the object's own metadata (verified: it stores the string verbatim). A
+ * CV is private and deletable: once its row is gone, nothing between the
+ * bucket and the browser may keep serving it. Measured through a signed URL
+ * after deletion: 59 s still served with the old `max-age=3600`, 16 s with
+ * this value. `max-age=0` over `no-store` because it is the value the
+ * platform's own SDK writes and the one the measurement was taken with.
+ */
+export const RESUME_OBJECT_CACHE_CONTROL = "max-age=0";
+
 /** The whole key: the prefix, one Clerk user id, one uuid file name. */
 export const RESUME_KEY_PATTERN =
   /^cv\/[A-Za-z0-9_-]{1,64}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;

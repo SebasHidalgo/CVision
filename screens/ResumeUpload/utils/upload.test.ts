@@ -96,6 +96,8 @@ describe("putResumeFile", () => {
     expect(init.body).toBe(file);
     const headers = new Headers(init.headers);
     expect(headers.get("content-type")).toBe("application/pdf");
+    // Stored with the object: a deleted CV must not be served from a cache.
+    expect(headers.get("cache-control")).toBe("max-age=0");
     expect(headers.get("authorization")).toBeNull();
     expect(headers.get("apikey")).toBeNull();
   });
