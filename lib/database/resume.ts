@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
+import type { GuardStats } from "@/lib/ai/schemas";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { mapDbResume, resumeInclude } from "./mappers";
@@ -17,6 +18,8 @@ export type CreateResumeData = {
   /** The object's key in the private bucket, `cv/{userId}/{uuid}.pdf`. */
   resumeKey: string;
   feedback: ResumeAnalysisFeedback;
+  /** What the guardrail did to the model's answer, for `npm run report:guards`. */
+  guardStats: GuardStats;
 };
 
 // Prisma types Json columns as a recursive union that a concrete object is not
@@ -35,6 +38,7 @@ export async function createResume(data: CreateResumeData): Promise<string> {
         jobDescription: data.jobDescription,
         resumeKey: data.resumeKey,
         userId,
+        guardStats: toJson(data.guardStats),
         feedback: {
           create: {
             overall: toJson(data.feedback.overall),

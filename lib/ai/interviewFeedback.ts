@@ -19,6 +19,7 @@ import { requirementGaps } from "@/lib/ai/prompts/interviewer.agent";
 import {
   computeTotalScore,
   feedbackSchema,
+  toGuardStats,
   type AiFeedback,
   type InterviewFeedbackReport,
   type InterviewStats,
@@ -285,6 +286,7 @@ export async function generateInterviewFeedback(
     interviewId,
     totalScore: scored.report.totalScore,
     report: scored.report,
+    guardStats: toGuardStats(scored.guard),
   });
   if (!feedbackId) {
     // The guarded write hit no row: the interview was deleted (an analysis

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
+import { toGuardStats } from "@/lib/ai/schemas";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume } from "@/lib/database/resume";
 import { refundUsage, reserveUsage, type Reservation } from "@/lib/database/usage";
@@ -79,7 +80,7 @@ export async function analyzeResumeAction(
     // Rejects unreadable and text-less PDFs with their own codes.
     const resumeText = await extractTextFromPDFBytes(bytes);
 
-    const { feedback } = await analyzeResume({
+    const { feedback, guard } = await analyzeResume({
       jobTitle,
       jobDescription,
       resumeText,
@@ -92,6 +93,7 @@ export async function analyzeResumeAction(
       jobDescription,
       resumeKey,
       feedback,
+      guardStats: toGuardStats(guard),
     });
 
     downloadedKey = null;

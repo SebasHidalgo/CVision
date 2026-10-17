@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { AiMisconfiguredError } from "@/lib/error/errors";
-import { generateJson } from "./client";
+import { AiMisconfiguredError, AiRateLimitedError } from "@/lib/error/errors";
+import { generateJson, rateLimitDetails } from "./client";
 import { installFakeProvider, reply } from "./client.stub";
 
 /*
@@ -107,5 +107,63 @@ describe("Google provider: request shape", () => {
 
     const overall = (requests[0].schema?.properties as Record<string, { properties: Record<string, unknown> }>).overall;
     expect(overall.properties.qualityScore).toMatchObject({ type: "number" });
+  });
+});
+
+describe("Google provider: a 429 is logged with its quota, never its message", () => {
+  const QUOTA_FAILURE = {
+    "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+    violations: [
+      {
+        quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+        quotaId: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier",
+        quotaDimensions: { location: "global", model: "gemini-3.5-flash-lite" },
+        quotaValue: "15",
+      },
+    ],
+  };
+  const RETRY_INFO = { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "34s" };
+
+  it("writes one structured line naming the quota and the suggested wait, and fails as rate-limited", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    installFakeProvider(() => reply.error(429, [QUOTA_FAILURE, { "@type": "type.googleapis.com/google.rpc.Help" }, RETRY_INFO]));
+
+    const error = await failureOf(generateJson({ prompt: "p", schema }));
+
+    expect(error).toBeInstanceOf(AiRateLimitedError);
+    const line = warn.mock.calls.map((call) => String(call[0])).find((text) => text.includes("rate limited"));
+    expect(line).toBe(
+      "[CVision][ai] rate limited: http=429 status=RESOURCE_EXHAUSTED model=gemini-3.5-flash-lite quotaMetric=generativelanguage.googleapis.com/generate_content_free_tier_requests quotaId=GenerateRequestsPerMinutePerProjectPerModel-FreeTier quotaValue=15 retryDelay=34s retryAfter=?",
+    );
+    expect(line).not.toContain("provider failed with status");
+  });
+
+  it("still logs the line, with unknowns, when the body carries no details", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    installFakeProvider(() => reply.error(429));
+
+    await failureOf(generateJson({ prompt: "p", schema }));
+
+    const line = warn.mock.calls.map((call) => String(call[0])).find((text) => text.includes("rate limited"));
+    expect(line).toContain("quotaId=? quotaValue=? retryDelay=? retryAfter=?");
+  });
+
+  it("reads the Retry-After header and tolerates a body that is not Google's shape", () => {
+    expect(rateLimitDetails({ error: { status: "RESOURCE_EXHAUSTED", details: [RETRY_INFO] } }, { "retry-after": "30" })).toEqual({
+      status: "RESOURCE_EXHAUSTED",
+      quotaMetric: "?",
+      quotaId: "?",
+      quotaValue: "?",
+      retryDelay: "34s",
+      retryAfter: "30",
+    });
+    expect(rateLimitDetails("not json", undefined)).toEqual({
+      status: "?",
+      quotaMetric: "?",
+      quotaId: "?",
+      quotaValue: "?",
+      retryDelay: "?",
+      retryAfter: "?",
+    });
   });
 });

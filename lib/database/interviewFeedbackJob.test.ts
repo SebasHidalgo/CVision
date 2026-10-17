@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const report = {} as InterviewFeedbackReport;
+const guardStats = { counts: { "quote-dropped": 1 }, interventions: [{ check: "evidence-grounding", action: "quote-dropped", path: "notableAnswers[0].quote", value: "x" }] };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,17 +35,20 @@ describe("the generator's writes when the interview was deleted under it", () =>
   it("completeInterviewFeedback writes nothing and answers null when the guarded update hits no row", async () => {
     tx.interview.updateMany.mockResolvedValue({ count: 0 });
 
-    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report })).toBeNull();
+    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report, guardStats })).toBeNull();
     expect(tx.interviewFeedback.upsert).not.toHaveBeenCalled();
   });
 
-  it("completeInterviewFeedback stores the feedback inside the same transaction when the claim still holds", async () => {
-    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report })).toBe("fb_1");
+  it("completeInterviewFeedback stores the feedback and the guard stats inside the same transaction when the claim still holds", async () => {
+    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report, guardStats })).toBe("fb_1");
     expect(tx.interview.updateMany).toHaveBeenCalledWith({
       where: { id: INTERVIEW_ID, status: "GENERATING" },
       data: { status: "COMPLETED", failureReason: null },
     });
     expect(tx.interviewFeedback.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.interviewFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { totalScore: 60, report, guardStats } }),
+    );
   });
 
   it("claimInterviewForFeedback answers null when the row vanished between the claim and the read", async () => {

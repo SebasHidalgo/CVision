@@ -3,7 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
-import type { InterviewFeedbackReport } from "@/lib/ai/schemas";
+import type { GuardStats, InterviewFeedbackReport } from "@/lib/ai/schemas";
 
 /**
  * Data access for feedback generation. No session: the generator runs from
@@ -117,6 +117,8 @@ export async function completeInterviewFeedback(params: {
   interviewId: string;
   totalScore: number;
   report: InterviewFeedbackReport;
+  /** What the guardrail did to the model's answer, for `npm run report:guards`. */
+  guardStats: GuardStats;
 }): Promise<string | null> {
   try {
     return await prisma.$transaction(async (tx) => {
@@ -129,6 +131,7 @@ export async function completeInterviewFeedback(params: {
       const data = {
         totalScore: params.totalScore,
         report: params.report as Prisma.InputJsonValue,
+        guardStats: params.guardStats as Prisma.InputJsonValue,
       };
       const feedback = await tx.interviewFeedback.upsert({
         where: { interviewId: params.interviewId },

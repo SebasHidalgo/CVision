@@ -58,7 +58,11 @@ beforeEach(() => {
   vi.mocked(analyzeResume).mockResolvedValue({
     feedback: {} as never,
     resumeText: { chars: 10, charsSent: 10, truncated: false },
-    guard: {} as never,
+    guard: {
+      violations: [{ check: "evidence-grounding", path: "skills.matchedSkills[0].evidence", value: "x" }] as never,
+      interventions: [{ check: "evidence-grounding", action: "quote-dropped", path: "skills.matchedSkills[0].evidence", value: "x" }],
+      counts: { "quote-dropped": 1, "quote-normalized": 0, "number-placeheld": 0, "bullet-dropped": 0, recorded: 0 },
+    },
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -73,6 +77,11 @@ describe("analyzeResumeAction: the key and the unit", () => {
     expect(reserveUsage).toHaveBeenCalledWith("user_1", "ANALYSIS", result.data.resumeId);
     expect(vi.mocked(reserveUsage).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(downloadObject).mock.invocationCallOrder[0]);
     expect(createResume).toHaveBeenCalledWith(expect.objectContaining({ id: result.data.resumeId, resumeKey: OWN_KEY }));
+    // The guardrail's counts and edits are stored with the row; the violations list is not.
+    const stored = vi.mocked(createResume).mock.calls[0][0].guardStats;
+    expect(stored.counts["quote-dropped"]).toBe(1);
+    expect(stored.interventions).toHaveLength(1);
+    expect(stored).not.toHaveProperty("violations");
     expect(refundUsage).not.toHaveBeenCalled();
     expect(removeObject).not.toHaveBeenCalled();
   });

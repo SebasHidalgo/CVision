@@ -33,7 +33,7 @@ export type ProviderReply =
   | { kind: "answer"; content: string; delayMs?: number }
   | { kind: "hang" }
   | { kind: "refuse" }
-  | { kind: "error"; status: number }
+  | { kind: "error"; status: number; details?: unknown[] }
   | { kind: "blocked-prompt" }
   | { kind: "blocked-answer"; partial?: string }
   | { kind: "truncated"; content: string };
@@ -54,8 +54,8 @@ export const reply = {
   hang: (): ProviderReply => ({ kind: "hang" }),
   /** Nothing is listening: the connection is refused. */
   refuse: (): ProviderReply => ({ kind: "refuse" }),
-  /** The provider answers with an HTTP error status. */
-  error: (status: number): ProviderReply => ({ kind: "error", status }),
+  /** The provider answers with an HTTP error status, optionally with Google's `error.details` list. */
+  error: (status: number, details?: unknown[]): ProviderReply => ({ kind: "error", status, details }),
   /** The provider's safety filter rejects the prompt before generating. */
   blockedPrompt: (): ProviderReply => ({ kind: "blocked-prompt" }),
   /** The safety filter stops the answer mid-way, with or without partial text. */
@@ -161,6 +161,7 @@ async function respond(
             code: providerReply.status,
             message: `provider failed with status ${providerReply.status}`,
             status: googleStatusFor(providerReply.status),
+            ...(providerReply.details ? { details: providerReply.details } : {}),
           },
         },
         providerReply.status,

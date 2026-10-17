@@ -89,6 +89,10 @@ model ResumeAnalysis {
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
+  /// What the analysis guardrail did to the model's answer: intervention
+  /// counts and the edits themselves (`guardStatsSchema`). Read by
+  /// `npm run report:guards`; null on rows from before it was recorded.
+  guardStats     Json?
 
   feedback   ResumeFeedback?
   /// Every rehearsal of this analysis, numbered by `attemptNumber`.
@@ -220,4 +224,7 @@ model InterviewFeedback {
   /// the shape can move with the prompt; a row that fails the schema reads
   /// as no feedback.
   report      Json?
+  /// What the feedback guardrail did to the model's answer (`guardStatsSchema`);
+  /// read by `npm run report:guards`, null on rows from before it was recorded.
+  guardStats  Json?
 }

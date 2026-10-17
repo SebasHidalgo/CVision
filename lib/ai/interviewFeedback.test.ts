@@ -99,7 +99,15 @@ describe("generateInterviewFeedback: the happy path", () => {
         interviewStats: expect.objectContaining({ candidateTurns: 2, totalTurns: 4, short: true, durationSeconds: 60 }),
         gapFollowThrough: [expect.objectContaining({ outcome: "dodged", quote: "I have only seen GraphQL in demos" })],
       }),
+      // What the guardrail did travels with the row: the counts per action
+      // and the edits (here only "recorded" ones: the synthetic comments name
+      // terms the transcript does not), never the violations list.
+      guardStats: {
+        counts: expect.objectContaining({ "quote-dropped": 0, "quote-normalized": 0, "item-dropped": 0 }),
+        interventions: expect.arrayContaining([expect.objectContaining({ action: "recorded", check: "fabricated-term" })]),
+      },
     });
+    expect(vi.mocked(completeInterviewFeedback).mock.calls[0][0].guardStats).not.toHaveProperty("violations");
     expect(failInterviewFeedback).not.toHaveBeenCalled();
     expect(releaseInterviewFeedback).not.toHaveBeenCalled();
   });

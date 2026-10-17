@@ -173,6 +173,36 @@ export const interviewStatsSchema = z.object({
 
 export type InterviewStats = z.infer<typeof interviewStatsSchema>;
 
+/**
+ * What is stored beside an analysis or an interview feedback about its
+ * guardrail: the intervention counts per action and the edits themselves
+ * (check, action, path, the text it acted on). The violations found before
+ * editing are not stored; the eval harness is where those are measured.
+ * `value` carries CV or transcript text and is never printed by the report.
+ */
+export const guardStatsSchema = z.object({
+  counts: z.record(z.string(), z.number().int().min(0)),
+  interventions: z.array(
+    z.object({
+      check: z.string(),
+      action: z.string(),
+      path: z.string(),
+      value: z.string(),
+      replacement: z.string().optional(),
+    }),
+  ),
+});
+
+export type GuardStats = z.infer<typeof guardStatsSchema>;
+
+/** The stored subset of a guard report, from either guardrail. */
+export function toGuardStats(report: {
+  counts: Record<string, number>;
+  interventions: GuardStats["interventions"];
+}): GuardStats {
+  return { counts: report.counts, interventions: report.interventions };
+}
+
 /** What gets persisted: the model's answer plus what the code derived. */
 export const interviewFeedbackReportSchema = feedbackSchema.extend({
   totalScore: scoreSchema,

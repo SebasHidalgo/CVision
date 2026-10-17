@@ -12,6 +12,7 @@
     "db:status": "prisma migrate status",
     "db:check-rls": "tsx --env-file-if-exists=.env scripts/db/check-rls.ts",
     "user:set-plan": "tsx --env-file-if-exists=.env scripts/db/set-plan.ts",
+    "report:guards": "tsx --env-file-if-exists=.env scripts/db/report-guards.ts",
     "eval": "tsx --conditions=react-server --env-file-if-exists=.env scripts/eval/run.ts",
     "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts",
     "storage:bucket": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/bucket-private.ts",

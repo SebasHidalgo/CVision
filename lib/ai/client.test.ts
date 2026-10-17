@@ -424,14 +424,20 @@ describe("generateJson: provider failures are told apart", () => {
     expect(everythingIn(error)).not.toContain(RESPONSE_MARKER);
   });
 
-  it.each(cases)("logs only the metadata line when $when", async ({ answer }) => {
+  it.each(cases)("logs only the metadata line when $when", async ({ answer, code }) => {
     const lines = captureConsole();
     installFakeProvider(() => answer);
 
     await failureOf(generateJson({ prompt: PROMPT_MARKER, schema: simpleSchema }));
 
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(AI_LOG_LINE);
+    // A 429 earns one more line, the quota it hit; nothing else does.
+    const rateLimited = code === "AI_RATE_LIMITED" ? 1 : 0;
+    expect(lines).toHaveLength(1 + rateLimited);
+    if (rateLimited) {
+      expect(lines[0]).toMatch(/^\[CVision\]\[ai\] rate limited: http=429 /);
+      expect(lines[0]).not.toContain(PROMPT_MARKER);
+    }
+    expect(lines[rateLimited]).toMatch(AI_LOG_LINE);
   });
 
   it("has user-facing copy for every code it can throw", () => {
