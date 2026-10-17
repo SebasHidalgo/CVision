@@ -87,6 +87,45 @@ Deleting one analysis is a control on its page: it takes the CV, the
 analysis, every rehearsal and its feedback, and is refused while a rehearsal
 is in a call or being scored.
 
+## Plans, quotas and rate limits
+
+Every account has a plan (`User.plan`), and every number the app enforces
+or shows lives in `lib/plans.ts`:
+
+| | Free | Pro |
+|---|---|---|
+| Analyses | 3 a month, counted down on the upload page | 50 a month as a fair-use cap; the UI never shows the number, only the refusal when it is hit |
+| Voice interviews | one 5-minute trial, once per account, on its own agent | 4 a month, 12 minutes each |
+| Period | calendar month, UTC | calendar month, UTC, until billing replaces it with the billing period |
+
+Billing is not built yet: every account is Free until it is set by hand.
+
+```bash
+npm run user:set-plan -- <clerkUserId> pro
+```
+
+Usage is a ledger (`UsageEvent`). An analysis reserves its unit before the
+CV is downloaded and the model is called, and gets it back on any failure
+that is not the user's own file (the model down or rate-limited, storage,
+an object that never arrived): a file that is not a PDF, has no text, is
+unreadable or too large keeps the unit. An interview reserves on its first
+session token, which is the moment it costs, and gets the unit back if the
+token is not issued, if the call produces no candidate turns, or if the
+session is lost with no reconnects left. Refunds mark the event; nothing is
+deleted.
+
+On top of the quotas, hourly rate limits per user (the same for both
+plans): 10 analyses, 20 upload URLs, 6 interview starts, 3 interview
+creations, and 30 status polls a minute. A refusal answers
+`RATE_LIMITED` with `Retry-After`. Webhooks are not limited.
+
+Both guardrails record what they did beside the row they guarded
+(`guardStats`); `npm run report:guards [-- --from YYYY-MM-DD --to
+YYYY-MM-DD]` tallies a range by action and by check, counts only. A Gemini
+429 writes one structured log line (`[CVision][ai] rate limited:` with the
+quota id, metric, value and the suggested wait) before it reaches the user
+as "The analysis service is busy".
+
 ## File storage
 
 CVs live in one private Supabase Storage bucket, `files-bucket`, under
@@ -97,15 +136,17 @@ The upload never passes through a server function:
 
 1. `createResumeUploadAction` mints a key under the caller's prefix and a
    single-use signed upload URL.
-2. The browser PUTs the PDF to that URL with the file and its type, nothing
-   else. The bucket refuses anything that is not `application/pdf` or is
-   over the limit in `lib/uploadLimits.ts`.
+2. The browser PUTs the PDF to that URL with the file, its type and
+   `cache-control: max-age=0` (stored with the object, so a deleted CV
+   stops being served from the CDN within seconds rather than an hour),
+   nothing else. The bucket refuses anything that is not `application/pdf`
+   or is over the limit in `lib/uploadLimits.ts`.
 3. `analyzeResumeAction` receives the key, checks it is the caller's,
    downloads the object, checks the PDF header and the size, parses the
    text and runs the analysis as before.
 
-The CV drawer reads through a signed URL minted when the analysis page
-renders, valid for ten minutes.
+The CV drawer reads through a signed URL minted when the drawer opens,
+valid for ten minutes.
 
 `npm run storage:bucket` applies the bucket settings from code (private,
 PDF only, size cap) and verifies them: the old public URL must answer 400
@@ -127,7 +168,12 @@ deploy, then as a Vercel cron.
 `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run db:status` (no
 pending migration), `npm run db:check-rls`, `npm run storage:gc` (dry run,
 nothing unexpected), `npm run eval -- canary <label>` (the model has not
-drifted).
+drifted). Then, for the limits: email verification required at sign-up in
+Clerk (Dashboard → Configure → User & authentication → Email address →
+"Verify at sign-up"; without it a throwaway account is a free 5-minute
+interview each), and `npm run agent:sync` run against the production
+webhook so **both** agents exist, with `ELEVENLABS_AGENT_ID` and
+`ELEVENLABS_TRIAL_AGENT_ID` in the production environment.
 
 ## Voice interview: local development
 
@@ -140,7 +186,8 @@ webhook never arrives, the server fetches the conversation itself once the
 call must be over, so a lost delivery costs time, not the interview.)
 
 1. Put the key in `.env` (see `.env.template`): `ELEVENLABS_API_KEY`. Leave
-   `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET` empty the first time.
+   `ELEVENLABS_AGENT_ID`, `ELEVENLABS_TRIAL_AGENT_ID` and
+   `ELEVENLABS_WEBHOOK_SECRET` empty the first time.
 
 2. Start the tunnel to the dev server's port. Use ngrok's free static domain
    (one per account, reserved once in the ngrok dashboard under Domains), so
@@ -155,19 +202,20 @@ call must be over, so a lost delivery costs time, not the interview.)
    means re-running the sync below with `--replace-webhook`, which deletes
    and recreates the webhook and prints a new secret to put in `.env`.
 
-3. Push the agent (defined in `lib/elevenlabs/agentConfig.ts`) and create the
-   post-call webhook, once:
+3. Push the two agents (the 12-minute interviewer and the 5-minute trial,
+   both defined in `lib/elevenlabs/agentConfig.ts`) and create the post-call
+   webhook they share, once:
 
    ```bash
    npm run agent:sync -- --webhook-url https://<tunnel-host>/api/webhooks/elevenlabs
    ```
 
-   It prints the agent id and, when it creates the webhook, the webhook
-   secret. Put both in `.env` as `ELEVENLABS_AGENT_ID` and
-   `ELEVENLABS_WEBHOOK_SECRET`, then restart the dev server so it reads
-   them. Re-run the same command after any change to `agentConfig.ts` or the
-   interviewer prompt: the dashboard mirrors the code, not the other way
-   round. With a changed tunnel URL:
+   It prints each agent's id and, when it creates the webhook, the webhook
+   secret. Put them in `.env` as `ELEVENLABS_AGENT_ID`,
+   `ELEVENLABS_TRIAL_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET`, then restart
+   the dev server so it reads them. Re-run the same command after any change
+   to `agentConfig.ts` or the interviewer prompt: the dashboard mirrors the
+   code, not the other way round. With a changed tunnel URL:
 
    ```bash
    npm run agent:sync -- --webhook-url https://<new-host>/api/webhooks/elevenlabs --replace-webhook
@@ -185,5 +233,8 @@ call must be over, so a lost delivery costs time, not the interview.)
    free tier shows an interstitial page the first time a browser opens the
    URL; it does not affect the webhook.
 
-5. To check the agent as the platform holds it (limits, auth, webhook, the
-   `end_call` tool), run the sync again: it prints the effective settings.
+5. To check the agents as the platform holds them (limits, auth, webhook,
+   the `end_call` tool), run the sync again: it prints the effective
+   settings of both and every field in which they differ, and flags any
+   difference that is not one of the intended ones (name, tags, duration,
+   daily cap, placeholders).
