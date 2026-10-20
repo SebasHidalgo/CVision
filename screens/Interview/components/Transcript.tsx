@@ -4,25 +4,24 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-export type TranscriptMessage = {
-  role: "user" | "system" | "assistant";
-  content: string;
+/** One finished line of the call, in the roles the platform uses. */
+export type TranscriptLine = {
+  role: "agent" | "user";
+  text: string;
 };
 
 type TranscriptProps = {
-  messages: TranscriptMessage[];
-  userName: string;
+  lines: TranscriptLine[];
   live: boolean;
   className?: string;
 };
 
-/** The conversation as a script: speaker in the margin, line beside it. */
-export default function Transcript({
-  messages,
-  userName,
-  live,
-  className,
-}: TranscriptProps) {
+/**
+ * The conversation as a script, for the candidate's benefit during the call.
+ * A convenience only: the transcript that is scored arrives by webhook, and
+ * nothing shown here is ever sent anywhere.
+ */
+export default function Transcript({ lines, live, className }: TranscriptProps) {
   const logRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
 
@@ -30,23 +29,23 @@ export default function Transcript({
   // the whole room down to the transcript.
   useEffect(() => {
     const log = logRef.current;
-    if (!log || messages.length === 0) return;
+    if (!log || lines.length === 0) return;
     log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
-  }, [messages.length, reduce]);
+  }, [lines.length, reduce]);
 
   return (
     <section
-      aria-label="Transcript"
+      aria-label="Live transcript"
       className={cn("flex min-h-0 flex-col", className)}
     >
       <header className="flex items-baseline justify-between border-b border-line pb-3">
         <h2 className="eyebrow">Transcript</h2>
         <span className="eyebrow tabular">
-          {messages.length === 0
+          {lines.length === 0
             ? live
               ? "Listening"
               : "Empty"
-            : `${messages.length} ${messages.length === 1 ? "line" : "lines"}`}
+            : `${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
         </span>
       </header>
 
@@ -57,16 +56,16 @@ export default function Transcript({
         aria-relevant="additions"
         className="min-h-0 flex-1 overflow-y-auto py-5 [scrollbar-width:thin]"
       >
-        {messages.length === 0 ? (
+        {lines.length === 0 ? (
           <p className="max-w-xs text-sm leading-relaxed text-ink-3">
             {live
               ? "Every finished sentence lands here as it is said."
-              : "Once the call starts, the conversation is written down here in real time."}
+              : "Once the call starts, the conversation is written down here as it happens."}
           </p>
         ) : (
           <ol className="space-y-5">
-            {messages.map((message, i) => {
-              const mine = message.role === "user";
+            {lines.map((line, i) => {
+              const mine = line.role === "user";
               return (
                 <motion.li
                   key={i}
@@ -81,7 +80,7 @@ export default function Transcript({
                       mine ? "text-ink" : "text-signal",
                     )}
                   >
-                    {mine ? userName : "Interviewer"}
+                    {mine ? "You" : "Interviewer"}
                   </span>
                   <p
                     className={cn(
@@ -89,7 +88,7 @@ export default function Transcript({
                       mine ? "text-ink-2" : "text-ink",
                     )}
                   >
-                    {message.content}
+                    {line.text}
                   </p>
                 </motion.li>
               );

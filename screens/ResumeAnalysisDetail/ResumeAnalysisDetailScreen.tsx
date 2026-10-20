@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { fetchResumeById } from "@/lib/database/resume";
+import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
 import AnalysisHeader from "./components/AnalysisHeader";
+import DeleteAnalysis from "./components/DeleteAnalysis";
 import DimensionNav from "./components/DimensionNav";
 import DimensionSections from "./components/DimensionSections";
+import InterviewAttempts from "./components/InterviewAttempts";
 import InterviewCta from "./components/InterviewCta";
 import PriorityFixes from "./components/PriorityFixes";
 import { DIMENSIONS, dimensionScores } from "./utils/dimensions";
@@ -30,6 +33,9 @@ export default async function ResumeAnalysisDetailScreen({
     score: scores[dimension.id],
   }));
 
+  // What the interview control may offer: the trial, a Pro interview, or why not.
+  const quota = interviewQuotaView(await currentUsageSummary());
+
   return (
     <article className="wrap py-10 lg:py-14">
       <AnalysisHeader
@@ -39,9 +45,9 @@ export default async function ResumeAnalysisDetailScreen({
         fit={deriveFitVerdict(feedback)}
         qualityScore={feedback.overall.qualityScore}
         summary={feedback.overall.summaryText}
-        resumeUrl={analysis.resumeUrl}
         resumeId={analysis.id}
-        interview={analysis.interview}
+        attempts={analysis.interviews}
+        quota={quota}
       />
 
       <PriorityFixes fixes={feedback.overall.prioritizedFixes} />
@@ -58,7 +64,15 @@ export default async function ResumeAnalysisDetailScreen({
             variant="full"
             resumeId={analysis.id}
             jobTitle={analysis.jobTitle}
-            interview={analysis.interview}
+            attempts={analysis.interviews}
+            quota={quota}
+          >
+            <InterviewAttempts attempts={analysis.interviews} />
+          </InterviewCta>
+          <DeleteAnalysis
+            resumeId={analysis.id}
+            jobTitle={analysis.jobTitle}
+            companyName={analysis.companyName}
           />
         </div>
       </div>

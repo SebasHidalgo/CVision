@@ -1,13 +1,21 @@
 import InterviewFeedbackScreen from "@/screens/InterviewFeedback/InterviewFeedbackScreen";
 
+// Bounds the lazy feedback generation this page can start (after() while
+// pending, or inline from the retry action): a 45 s model call plus writes.
+// A literal, as Next requires.
+export const maxDuration = 60;
+
 type InterviewFeedbackPageParams = Promise<{ id: string }>;
+type InterviewFeedbackPageSearch = Promise<{ ended?: string | string[] }>;
 
 export default async function InterviewFeedbackPage({
   params,
+  searchParams,
 }: {
   params: InterviewFeedbackPageParams;
+  searchParams: InterviewFeedbackPageSearch;
 }) {
-  const { id } = await params;
+  const [{ id }, { ended }] = await Promise.all([params, searchParams]);
 
-  return <InterviewFeedbackScreen interviewId={id} />;
+  return <InterviewFeedbackScreen interviewId={id} justEnded={ended === "1"} />;
 }

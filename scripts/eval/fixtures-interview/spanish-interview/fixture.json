@@ -1,0 +1,32 @@
+{
+  "purpose": "A Spanish-language interview. Quotes must come back verbatim with accents and ñ intact; the prose is written in English; the two gaps are judged on what was said: dimensional modeling is addressed with a real example, Power BI only partly (the candidate used Tableau).",
+  "candidateName": "Camila",
+  "language": "es",
+  "durationSeconds": 420,
+  "context": {
+    "role": "Analista de Datos",
+    "company": "Grupo Andino",
+    "jobDescription": "Grupo Andino busca un Analista de Datos para el equipo de operaciones. Requisitos: dominio de SQL sobre bases relacionales; Python para limpieza y análisis de datos; experiencia construyendo tableros en Power BI; conocimientos de modelado dimensional (hechos y dimensiones). Deseable: experiencia en logística o retail.",
+    "analysisSummary": "El currículum cumple SQL y Python con evidencia concreta. No aparece Power BI: los tableros fueron en Tableau. El modelado dimensional se menciona en un curso, sin un proyecto que lo demuestre.",
+    "requirements": [
+      { "requirement": "Dominio de SQL sobre bases relacionales", "kind": "required", "status": "met", "evidence": "Consultas SQL complejas sobre PostgreSQL para reportes de ventas", "note": "" },
+      { "requirement": "Python para limpieza y análisis de datos", "kind": "required", "status": "met", "evidence": "Pipelines de limpieza en Python con pandas", "note": "" },
+      { "requirement": "Experiencia construyendo tableros en Power BI", "kind": "required", "status": "missing", "evidence": "", "note": "Los tableros del currículum son en Tableau, no en Power BI." },
+      { "requirement": "Conocimientos de modelado dimensional (hechos y dimensiones)", "kind": "required", "status": "partial", "evidence": "Curso de modelado dimensional (2024)", "note": "Un curso, ningún modelo construido." }
+    ]
+  },
+  "expect": {
+    "gapOutcomes": [
+      { "matching": "modelado|dimensional", "outcome": ["addressed", "partially"], "why": "Describe un modelo estrella que construyó, con tabla de hechos y dimensiones, y una decisión concreta." },
+      { "matching": "power bi", "outcome": ["partially", "dodged"], "why": "Nunca usó Power BI; habla de Tableau y de que aprendería." }
+    ],
+    "maxViolations": [
+      { "check": "evidence-grounding", "max": 0, "why": "Las citas tienen tildes y eñes; tienen que volver tal cual." },
+      { "check": "fabricated-number", "max": 0 },
+      { "check": "fabricated-term", "max": 0 }
+    ],
+    "mustNotMatch": [
+      { "in": "finalAssessment", "pattern": "[áéíóúñ¿¡]", "why": "The prose is written in English; only the quotes stay in Spanish." }
+    ]
+  }
+}

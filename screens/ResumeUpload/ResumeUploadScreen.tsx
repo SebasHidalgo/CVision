@@ -1,4 +1,5 @@
 import PageIntro from "@/components/layout/PageIntro";
+import { analysisQuotaView, currentUsageSummary } from "@/lib/database/usage";
 import UploadForm from "./components/UploadForm";
 
 const NOTES = [
@@ -19,7 +20,11 @@ const NOTES = [
   },
 ];
 
-export default function ResumeUploadScreen() {
+export default async function ResumeUploadScreen() {
+  // What the form may promise: the Free allowance is shown, Pro's fair-use
+  // cap only once it is hit. At zero the form does not let a file be picked.
+  const quota = analysisQuotaView(await currentUsageSummary());
+
   return (
     <div className="wrap py-12 lg:py-16">
       <PageIntro
@@ -49,7 +54,7 @@ export default function ResumeUploadScreen() {
         </aside>
 
         <div className="lg:col-span-8">
-          <UploadForm />
+          <UploadForm quota={quota} />
         </div>
       </div>
     </div>

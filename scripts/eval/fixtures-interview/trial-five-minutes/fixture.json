@@ -1,0 +1,36 @@
+{
+  "purpose": "A five-minute trial interview that ran its planned length: two gaps, both probed and answered with a concrete situation, the candidate's own part and a result, then a close before the hard stop. The debrief must not call it short (the planned length is five minutes, not twelve), both gap rows come back addressed, and the scores sit in the upper half.",
+  "candidateName": "Marco",
+  "language": "en",
+  "plannedSeconds": 300,
+  "durationSeconds": 262,
+  "context": {
+    "role": "Frontend Engineer",
+    "company": "Brightline Travel",
+    "jobDescription": "Brightline Travel is hiring a Frontend Engineer for the booking site. You will build in React and TypeScript on Next.js with the App Router, and own quality with automated end-to-end tests. Required: 3+ years with React; TypeScript; Next.js App Router in production; end-to-end testing with Playwright. Nice to have: performance work on Core Web Vitals.",
+    "analysisSummary": "React and TypeScript are met with years of storefront work. Next.js is only partly covered: the resume shows a migration to Next.js but nothing names the App Router or server components. End-to-end testing with Playwright is missing; only Jest and React Testing Library appear.",
+    "requirements": [
+      { "requirement": "3+ years with React", "kind": "required", "status": "met", "evidence": "React engineer on the storefront team since 2021", "note": "" },
+      { "requirement": "TypeScript", "kind": "required", "status": "met", "evidence": "TypeScript across the storefront since 2022", "note": "" },
+      { "requirement": "Next.js App Router in production", "kind": "required", "status": "partial", "evidence": "Migrated the marketing pages to Next.js", "note": "The Pages Router is implied; nothing says App Router or server components." },
+      { "requirement": "End-to-end testing with Playwright", "kind": "required", "status": "missing", "evidence": "", "note": "Only Jest and React Testing Library appear." }
+    ]
+  },
+  "expect": {
+    "gapOutcomes": [
+      { "matching": "app router|next\\.js", "outcome": ["addressed"], "why": "Owned the move of a page to the App Router, split server and client components, fixed a caching bug, gives a figure." },
+      { "matching": "playwright|end-to-end", "outcome": ["addressed"], "why": "Set up Playwright, sixty specs, runs on every pull request, a checkout test that stubs the payment iframe." }
+    ],
+    "mustNotMatch": [
+      { "in": "finalAssessment", "pattern": "\\bshort\\b|cut short|too brief|low.confidence|not enough time|limited time", "why": "A five-minute trial that ran its planned length is not a short interview." }
+    ],
+    "maxViolations": [
+      { "check": "evidence-grounding", "max": 0, "why": "Every quote must be a verbatim span of a candidate turn." },
+      { "check": "fabricated-number", "max": 0, "why": "No number the candidate or the posting did not say." },
+      { "check": "fabricated-term", "max": 0, "why": "No technology the candidate or the posting did not name." }
+    ],
+    "scores": [
+      { "category": "total", "min": 60, "why": "Concrete, specific answers on both probes are the 70-84 band or better by the anchors." }
+    ]
+  }
+}

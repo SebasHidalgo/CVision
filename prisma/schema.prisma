@@ -8,17 +8,95 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Which limits apply (lib/plans.ts). FREE for everyone until billing (M6);
+/// PRO by hand with `npm run user:set-plan`.
+enum Plan {
+  FREE
+  PRO
+}
+
+/// One row per Clerk account that has touched the app. The id is Clerk's and
+/// nothing else is stored until billing needs it. Written by the Clerk
+/// webhook (user.created) and, since the webhook may be late or unregistered,
+/// by `ensureUser` before any row keyed by `userId` is inserted. Deleting it
+/// cascades to every analysis, interview and usage event of the account.
+model User {
+  id        String   @id
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analyses    ResumeAnalysis[]
+  interviews  Interview[]
+  usageEvents UsageEvent[]
+}
+
+/// What a usage event paid for. INTERVIEW_TRIAL is the one free interview of
+/// a FREE account; INTERVIEW a PRO account's monthly one.
+enum UsageKind {
+  ANALYSIS
+  INTERVIEW
+  INTERVIEW_TRIAL
+}
+
+/// The usage ledger. A quota check counts the non-refunded events of a kind
+/// in the current period; the check and the insert share one serializable
+/// transaction (`reserveUsage`), so two parallel requests cannot both take
+/// the last unit. A refund keeps the row and dates it, so the ledger stays
+/// an audit trail.
+model UsageEvent {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         UsageKind
+  /// The analysis or interview the unit was spent on.
+  refId        String
+  createdAt    DateTime  @default(now())
+  refundedAt   DateTime?
+  /// Why it was given back: the error code or the interview's failure reason.
+  refundReason String?
+
+  @@index([userId, kind, createdAt])
+}
+
+/// Fixed-window rate limiting in Postgres: one row per user, action and
+/// window, incremented atomically by an upsert. Old windows of a key are
+/// deleted on the key's next hit, so the table never grows past the live
+/// windows.
+model RateLimitCounter {
+  /// `{userId}:{action}`.
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+}
+
+/// Which agent an interview was issued on, and so how long it may run.
+enum InterviewTier {
+  TRIAL
+  FULL
+}
+
 model ResumeAnalysis {
   id             String   @id @default(uuid())
   companyName    String
   jobTitle       String
   jobDescription String
-  resumeUrl      String
+  /// Storage key of the CV, `cv/{userId}/{uuid}.pdf`, in the private bucket.
+  /// Never a URL: reads are signed on demand, for minutes.
+  resumeKey      String
   userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
+  /// What the analysis guardrail did to the model's answer: intervention
+  /// counts and the edits themselves (`guardStatsSchema`). Read by
+  /// `npm run report:guards`; null on rows from before it was recorded.
+  guardStats     Json?
 
-  feedback  ResumeFeedback?
-  Interview Interview?
+  feedback   ResumeFeedback?
+  /// Every rehearsal of this analysis, numbered by `attemptNumber`.
+  interviews Interview[]
 
   @@index([userId, createdAt])
 }
@@ -26,7 +104,7 @@ model ResumeAnalysis {
 model ResumeFeedback {
   id                         String         @id @default(uuid())
   resumeId                   String         @unique
-  resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id])
+  resume                     ResumeAnalysis @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   overall                    Json
   atsCompatibility           Json
   experienceAndImpact        Json
@@ -36,30 +114,117 @@ model ResumeFeedback {
   jobFit                     Json
 }
 
+/// Lifecycle of a voice interview.
+///
+///   SCHEDULED        created, never started
+///   IN_PROGRESS      a session was issued; no scoreable transcript yet. Still
+///                    startable (a dropped call, or an attempt where the
+///                    candidate never spoke), bounded by `startCount`
+///   FEEDBACK_PENDING the transcript arrived with candidate turns; feedback
+///                    generation has not run, or failed once and may retry
+///   GENERATING       a generator claimed the row; a claim older than
+///                    FEEDBACK_CLAIM_STALE_MS can be taken over
+///   COMPLETED        feedback stored
+///   FAILED           attempts exhausted without a scoreable transcript, or
+///                    feedback generation gave up (see `failureReason`)
+///   EXPIRED          reserved for a never-started interview past its window
+enum InterviewStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FEEDBACK_PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
 model Interview {
-  id           String   @id @default(uuid())
+  id           String          @id @default(uuid())
   role         String
   techstack    String[]
   userId       String
-  finalized    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  recordingUrl String?
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       InterviewStatus @default(SCHEDULED)
+  createdAt    DateTime        @default(now())
 
-  resumeAnalysisId String?         @unique
-  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id])
+  /// The conversation the stored transcript came from, or, before one is
+  /// stored, the latest issued session. Unique so one conversation can only
+  /// ever land on one interview; also the id the reconcile path fetches.
+  conversationId String? @unique
+  /// Every conversation id the session endpoint has issued for this
+  /// interview. The webhook and the reconcile path match a delivery on
+  /// membership here, so a second session issued while a call is still live
+  /// cannot orphan the first call's transcript.
+  issuedConversationIds String[] @default([])
+  /// Transcript turns, verbatim from the post-call webhook.
+  transcript     Json?
+  /// Where the transcript came from. Only "elevenlabs" (the signed webhook)
+  /// is written since M3-C; rows scored from the old browser-supplied
+  /// transcript carry "browser".
+  transcriptSource String?
+  /// The dynamic variables the server issued for the latest session. What the
+  /// browser passes to the agent is compared against this.
+  issuedContext  Json?
+  /// True when the post-call payload's initiation data differed from
+  /// `issuedContext`: the browser tampered with its own session.
+  contextMismatch Boolean @default(false)
+  /// Why the latest step produced nothing: NO_CANDIDATE_TURNS,
+  /// SESSION_LOST, CONTEXT_MISSING, TRANSCRIPT_INVALID or FEEDBACK_FAILED.
+  failureReason   String?
+
+  startedAt       DateTime?
+  /// First written by the room's end-of-call report (a hint that shortens
+  /// the reconcile window), then overwritten by the platform's value when the
+  /// transcript arrives. Cleared when a new session is issued.
+  endedAt         DateTime?
+  durationSeconds Int?
+  /// Sessions issued for this interview. Capped by the session endpoint:
+  /// every start is a paid call.
+  startCount      Int       @default(0)
+  /// The usage event reserved on the first token, never on creation and
+  /// never on a reconnect. Null until then; refunded if the interview ends
+  /// without a candidate turn.
+  usageEventId    String?   @unique
+  /// Set with the first token: which agent, and so which duration, this
+  /// interview runs on. Reconnects reuse it; the feedback is judged against it.
+  tier            InterviewTier?
+  /// When the reconcile fallback last asked the platform about the latest
+  /// session. A conditional update on it throttles the fallback to one
+  /// platform call per minute per interview, however many tabs poll.
+  reconcileCheckedAt DateTime?
+  /// Feedback generation claims so far; the generator gives up after two.
+  feedbackAttempts  Int       @default(0)
+  /// When the current GENERATING claim was taken, to detect a dead worker.
+  feedbackStartedAt DateTime?
+
+  resumeAnalysisId String?
+  /// Deleting an analysis deletes its rehearsals and their feedback with it:
+  /// the feedback is judged against that analysis and means nothing without
+  /// it. The deletion routine refuses while a rehearsal is live.
+  resumeAnalysis   ResumeAnalysis? @relation(fields: [resumeAnalysisId], references: [id], onDelete: Cascade)
+  /// 1 for the first rehearsal of an analysis, 2 for the next. Unique per
+  /// analysis, so two creates racing for the same number cannot both land.
+  attemptNumber    Int             @default(1)
 
   InterviewFeedback InterviewFeedback?
 
+  @@unique([resumeAnalysisId, attemptNumber])
   @@index([userId, createdAt])
 }
 
 model InterviewFeedback {
-  id                  String    @id @default(uuid())
-  interviewId         String    @unique
-  interview           Interview @relation(fields: [interviewId], references: [id])
-  totalScore          Int
-  categoryScores      Json
-  strengths           String[]
-  areasForImprovement String[]
-  finalAssessment     String
+  id          String    @id @default(uuid())
+  interviewId String    @unique
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  /// Mean of the category scores, kept as a column for lists.
+  totalScore  Int
+  /// The whole feedback, validated by `interviewFeedbackReportSchema` on read:
+  /// gap follow-through, notable answers, category scores, anchored
+  /// strengths and areas, computed interview stats, final assessment. Json so
+  /// the shape can move with the prompt; a row that fails the schema reads
+  /// as no feedback.
+  report      Json?
+  /// What the feedback guardrail did to the model's answer (`guardStatsSchema`);
+  /// read by `npm run report:guards`, null on rows from before it was recorded.
+  guardStats  Json?
 }

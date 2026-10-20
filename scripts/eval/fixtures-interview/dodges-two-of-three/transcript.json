@@ -1,0 +1,20 @@
+[
+  { "role": "agent", "message": "Hi Luis, thanks for joining. I'll be interviewing you for the Backend Engineer role at Northwind Freight. We have about 12 minutes. To start, tell me briefly about your background and what drew you to this role.", "time_in_call_secs": 0 },
+  { "role": "user", "message": "Thanks. I've been a backend developer for about four years, mostly Node and TypeScript with Postgres. I'm looking for a place with more scale, and logistics seemed interesting.", "time_in_call_secs": 13 },
+  { "role": "agent", "message": "Tell me about a time you deployed or operated a service on Kubernetes yourself.", "time_in_call_secs": 32 },
+  { "role": "user", "message": "I'm familiar with Kubernetes, yeah. I've read the docs quite a bit and watched a few conference talks on it, so I understand pods and deployments and how the scheduling works. At my current job the ops team handles the actual cluster, so I haven't had to do the deployment side myself, but I'm comfortable with the concepts and I pick things up fast.", "time_in_call_secs": 38 },
+  { "role": "agent", "message": "Is there a specific service you've seen through from a Dockerfile to running in a cluster?", "time_in_call_secs": 76 },
+  { "role": "user", "message": "Not end to end, no. I write the Dockerfiles and the compose setup for local development, and then ops takes it from there. I'd definitely like to own more of that.", "time_in_call_secs": 81 },
+  { "role": "agent", "message": "Have you been part of an on-call rotation? Tell me about an incident you handled.", "time_in_call_secs": 104 },
+  { "role": "user", "message": "I think I'd handle on-call well. I'm pretty calm under pressure, I don't panic when things break, and I'm good at communicating with the team when something is going on. We've had outages at work and I've helped look into them when I was around, so I know what it feels like.", "time_in_call_secs": 110 },
+  { "role": "agent", "message": "Can you walk me through one of those outages, what the cause was and what you did?", "time_in_call_secs": 146 },
+  { "role": "user", "message": "Um, the details are a bit fuzzy, it was a while ago. There was one where the API was slow and I think it ended up being a database thing. I helped by checking the logs and keeping people updated in the channel. Someone else found the fix in the end.", "time_in_call_secs": 152 },
+  { "role": "agent", "message": "The posting lists GraphQL as a plus. What's your experience designing a GraphQL API?", "time_in_call_secs": 190 },
+  { "role": "user", "message": "That one I've actually done. Our mobile team was stitching together five REST calls for the order screen, so I built a GraphQL layer on top of the existing services. The decision I'd highlight is that I kept mutations one to one with the REST endpoints so the gateway never owned business logic, and I used DataLoader for the per-order lookups so the screen went from five round trips to one. It cut the screen load roughly in half on mobile.", "time_in_call_secs": 198 },
+  { "role": "agent", "message": "Tell me about a PostgreSQL query you tuned and how you found it.", "time_in_call_secs": 256 },
+  { "role": "user", "message": "The reporting job was slow, so I ran EXPLAIN on the main query and found a full scan on orders. I added an index on customer id and created date and it went from about forty minutes to nine. I tested it on a copy of production first.", "time_in_call_secs": 264 },
+  { "role": "agent", "message": "Last one. Tell me about a time you disagreed with a technical decision on your team.", "time_in_call_secs": 300 },
+  { "role": "user", "message": "I usually go with the team's decision, to be honest. I'll share my opinion in the discussion but once it's decided I don't fight it. I think that's healthier than arguing.", "time_in_call_secs": 306 },
+  { "role": "agent", "message": "Thank you, Luis. That's where we'll stop. Your feedback will follow shortly.", "time_in_call_secs": 336 },
+  { "role": "user", "message": "Thanks a lot.", "time_in_call_secs": 340 }
+]

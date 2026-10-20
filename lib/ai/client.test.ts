@@ -15,7 +15,6 @@ import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 import { generateJson } from "./client";
 import { installFakeProvider, reply, type ProviderReply } from "./client.stub";
 import { feedbackSchema } from "./schemas";
-import { extractTechstackFromDescription } from "./techstack";
 
 /*
  * Contract of `generateJson`, independent of the provider behind it. The
@@ -111,8 +110,7 @@ describe("generateJson: answers that satisfy the schema", () => {
 
 describe("generateJson: structured output", () => {
   // resumeFeedbackSchema and feedbackSchema are exported and used by Server
-  // Actions. The techstack schema is private to lib/ai/techstack.ts, so it is
-  // observed through the function that uses it.
+  // Actions; the inline one below stands for any small ad hoc schema.
   it.each<{ name: string; schema: z.ZodType; property: string }>([
     { name: "resume analysis", schema: resumeFeedbackSchema, property: "atsCompatibility" },
     { name: "interview feedback", schema: feedbackSchema, property: "categoryScores" },
@@ -129,15 +127,15 @@ describe("generateJson: structured output", () => {
     },
   );
 
-  it("sends the techstack schema as JSON Schema, not plain JSON mode", async () => {
+  it("sends an inline object schema as JSON Schema, not plain JSON mode", async () => {
+    const schema = z.object({ techstack: z.array(z.string()) });
     const { requests } = installFakeProvider(() =>
       reply.json({ techstack: ["Go", "Kafka"] }),
     );
 
-    await expect(extractTechstackFromDescription("Go and Kafka")).resolves.toEqual([
-      "Go",
-      "Kafka",
-    ]);
+    await expect(generateJson({ prompt: "p", schema })).resolves.toEqual({
+      techstack: ["Go", "Kafka"],
+    });
     expect(requests[0].schema?.properties).toHaveProperty("techstack");
   });
 
@@ -426,14 +424,20 @@ describe("generateJson: provider failures are told apart", () => {
     expect(everythingIn(error)).not.toContain(RESPONSE_MARKER);
   });
 
-  it.each(cases)("logs only the metadata line when $when", async ({ answer }) => {
+  it.each(cases)("logs only the metadata line when $when", async ({ answer, code }) => {
     const lines = captureConsole();
     installFakeProvider(() => answer);
 
     await failureOf(generateJson({ prompt: PROMPT_MARKER, schema: simpleSchema }));
 
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(AI_LOG_LINE);
+    // A 429 earns one more line, the quota it hit; nothing else does.
+    const rateLimited = code === "AI_RATE_LIMITED" ? 1 : 0;
+    expect(lines).toHaveLength(1 + rateLimited);
+    if (rateLimited) {
+      expect(lines[0]).toMatch(/^\[CVision\]\[ai\] rate limited: http=429 /);
+      expect(lines[0]).not.toContain(PROMPT_MARKER);
+    }
+    expect(lines[rateLimited]).toMatch(AI_LOG_LINE);
   });
 
   it("has user-facing copy for every code it can throw", () => {

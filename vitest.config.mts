@@ -5,6 +5,9 @@ import { configDefaults, defineConfig } from "vitest/config";
 const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  // tsconfig keeps `jsx: preserve` for Next; the component render tests
+  // (.test.tsx) need the transformer to emit the automatic runtime instead.
+  oxc: { jsx: { runtime: "automatic", importSource: "react" } },
   resolve: {
     alias: [
       { find: /^@\//, replacement: `${root}/` },
@@ -19,7 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: [...configDefaults.exclude, ".next/**"],
     setupFiles: ["./vitest.setup.ts"],
     unstubGlobals: true,

@@ -1,6 +1,7 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import VerdictReadout from "@/components/score/VerdictReadout";
+import type { InterviewQuotaView } from "@/lib/plans";
 import type { FitVerdict } from "@/lib/schemas/resumeSchema";
 import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -15,9 +16,9 @@ type AnalysisHeaderProps = {
   fit: FitVerdict;
   qualityScore: number;
   summary: string;
-  resumeUrl: string;
   resumeId: string;
-  interview: ResumeAnalysis["interview"];
+  attempts: ResumeAnalysis["interviews"];
+  quota: InterviewQuotaView;
 };
 
 /**
@@ -34,9 +35,9 @@ export default function AnalysisHeader({
   fit,
   qualityScore,
   summary,
-  resumeUrl,
   resumeId,
-  interview,
+  attempts,
+  quota,
 }: AnalysisHeaderProps) {
   return (
     <header className="border-b border-line pb-10 lg:pb-12">
@@ -76,12 +77,13 @@ export default function AnalysisHeader({
       <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:items-start">
         <p className="lede lg:col-span-8">{summary}</p>
         <div className="flex flex-wrap gap-3 lg:col-span-4 lg:justify-end">
-          <ResumeDrawer resumeUrl={resumeUrl} title={`${jobTitle} · ${companyName}`} />
+          <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />
           <InterviewCta
             variant="compact"
             resumeId={resumeId}
             jobTitle={jobTitle}
-            interview={interview}
+            attempts={attempts}
+            quota={quota}
           />
         </div>
       </div>

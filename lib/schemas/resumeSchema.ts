@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
 import type { ScoreTone } from "@/lib/score";
+import { RESUME_KEY_PATTERN } from "@/lib/supabase/resumeKey";
 import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 
 export const MAX_COMPANY_NAME_CHARS = 100;
@@ -14,11 +15,8 @@ const fileSchema = z.custom<File>(
   { message: "A file is required" },
 );
 
-/**
- * Shared by the upload form (zodResolver) and the server action. The client
- * check is UX; the server one is the actual guard.
- */
-export const createResumeInputSchema = z.object({
+/** The posting's text fields, shared by the form and the action. */
+const resumeDetailsSchema = z.object({
   companyName: z
     .string()
     .trim()
@@ -34,6 +32,16 @@ export const createResumeInputSchema = z.object({
     .trim()
     .min(1, "Job description is required")
     .max(MAX_JOB_DESCRIPTION_CHARS, "Job description is too long"),
+});
+
+export type ResumeDetails = z.infer<typeof resumeDetailsSchema>;
+
+/**
+ * The upload form (zodResolver): the fields plus the file as the browser
+ * holds it. The file check here is UX; the server re-checks the bytes it
+ * downloads from storage.
+ */
+export const createResumeInputSchema = resumeDetailsSchema.extend({
   resume: fileSchema
     .refine(
       (file) => file.type === "application/pdf",
@@ -44,6 +52,20 @@ export const createResumeInputSchema = z.object({
 });
 
 export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;
+
+/**
+ * What `analyzeResumeAction` receives once the file is in storage: the same
+ * fields and the object's key. Shape only; whose key it is, the action
+ * checks against the session.
+ */
+export const analyzeResumeInputSchema = resumeDetailsSchema.extend({
+  resumeKey: z.string().regex(RESUME_KEY_PATTERN, "Not a resume key"),
+});
+
+export type AnalyzeResumeInput = z.infer<typeof analyzeResumeInputSchema>;
+
+/** An analysis named by id, for actions that act on one the caller owns. */
+export const resumeIdInputSchema = z.object({ resumeId: z.uuid() });
 
 // Numbers or numeric strings only; an absent score is a violation, not a 0.
 const scoreSchema = aiScoreSchema();

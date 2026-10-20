@@ -18,8 +18,10 @@ export function InterviewSection() {
           </h2>
           <p className="lede mt-6 max-w-lg">
             A voice interviewer built from the same job post asks what a hiring
-            manager would ask. You answer out loud. When you hang up, you get a
-            transcript, a recording, and a score on five things.
+            manager would ask, and digs into the gaps your analysis found. You
+            answer out loud, on your laptop or your phone. When you end the
+            call, you get a score on five things, how each gap went in your own
+            words, and the transcript.
           </p>
 
           <ol className="mt-10 grid gap-x-8 gap-y-3 sm:grid-cols-2">

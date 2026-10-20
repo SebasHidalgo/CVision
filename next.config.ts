@@ -4,8 +4,8 @@ import { MAX_ACTION_BODY_BYTES } from "@/lib/uploadLimits";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Derived from the CV limit and kept under Vercel's 4.5 MB request cap;
-      // raising it past that cap would only move the 413 to the platform.
+      // No action carries a file: the CV goes to storage over a signed URL
+      // and the analysis action receives its key and the posting's text.
       bodySizeLimit: MAX_ACTION_BODY_BYTES,
     },
   },

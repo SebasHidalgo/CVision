@@ -4,16 +4,22 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
+import type { GuardStats } from "@/lib/ai/schemas";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { mapDbResume, resumeInclude } from "./mappers";
 
 export type CreateResumeData = {
+  /** Minted by the action before the usage unit is reserved, so the ledger can name the analysis. */
+  id: string;
   companyName: string;
   jobTitle: string;
   jobDescription: string;
-  resumeUrl: string;
+  /** The object's key in the private bucket, `cv/{userId}/{uuid}.pdf`. */
+  resumeKey: string;
   feedback: ResumeAnalysisFeedback;
+  /** What the guardrail did to the model's answer, for `npm run report:guards`. */
+  guardStats: GuardStats;
 };
 
 // Prisma types Json columns as a recursive union that a concrete object is not
@@ -26,11 +32,13 @@ export async function createResume(data: CreateResumeData): Promise<string> {
 
     const created = await prisma.resumeAnalysis.create({
       data: {
+        id: data.id,
         companyName: data.companyName,
         jobTitle: data.jobTitle,
         jobDescription: data.jobDescription,
-        resumeUrl: data.resumeUrl,
+        resumeKey: data.resumeKey,
         userId,
+        guardStats: toJson(data.guardStats),
         feedback: {
           create: {
             overall: toJson(data.feedback.overall),
@@ -68,6 +76,22 @@ export async function fetchAllResumes(): Promise<ResumeAnalysis[]> {
     return dbResumes.map(mapDbResume);
   } catch (error) {
     handleError(error, "Failed to retrieve all resume analysis records");
+  }
+}
+
+/** The CV's storage key of one of the caller's analyses; `null` when missing or not theirs. */
+export async function fetchResumeKey(id: string): Promise<string | null> {
+  try {
+    const userId = await requireUserId();
+
+    const row = await prisma.resumeAnalysis.findFirst({
+      where: { id, userId },
+      select: { resumeKey: true },
+    });
+
+    return row?.resumeKey ?? null;
+  } catch (error) {
+    handleError(error, "Failed to retrieve resume key");
   }
 }
 

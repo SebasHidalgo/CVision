@@ -272,7 +272,7 @@ async function callGoogle<T>(
     meta.output = result.usage.outputTokens;
     meta.modelVersion = readModelVersion(result.response?.body);
   } catch (error) {
-    throw toAppError(error, timeoutMs);
+    throw toAppError(error, timeoutMs, config.model);
   } finally {
     clearTimeout(timer);
   }
@@ -299,11 +299,11 @@ function validate<T>(candidate: unknown, schema: z.ZodType<T>): T {
  * as `cause`: `APICallError` carries the request body (the prompt) and
  * `NoObjectGeneratedError` carries the model's text.
  */
-function toAppError(error: unknown, timeoutMs: number): AppError {
+function toAppError(error: unknown, timeoutMs: number, model: string): AppError {
   if (isAbortError(error)) {
     return new AiUnavailableError(`Gemini timed out after ${timeoutMs}ms`);
   }
-  if (APICallError.isInstance(error)) return fromApiCallError(error);
+  if (APICallError.isInstance(error)) return fromApiCallError(error, model);
   if (NoObjectGeneratedError.isInstance(error)) return fromNoObject(error);
   if (LoadAPIKeyError.isInstance(error)) {
     return new AiMisconfiguredError("Google API key could not be loaded");
@@ -314,7 +314,7 @@ function toAppError(error: unknown, timeoutMs: number): AppError {
   );
 }
 
-function fromApiCallError(error: APICallError): AppError {
+function fromApiCallError(error: APICallError, model: string): AppError {
   const status = error.statusCode;
 
   if (status === undefined) {
@@ -328,6 +328,14 @@ function fromApiCallError(error: APICallError): AppError {
     return new AiMisconfiguredError(`Gemini rejected the API key (${where})`);
   }
   if (status === 429) {
+    // One structured line per 429, so a log search tells which quota (per
+    // minute, per day, tokens) is the one being hit and how long the
+    // provider asked to wait. Identifiers and durations only: the body's
+    // free-text message is never logged.
+    const details = rateLimitDetails(error.data, error.responseHeaders);
+    console.warn(
+      `[CVision][ai] rate limited: http=429 status=${details.status} model=${model} quotaMetric=${details.quotaMetric} quotaId=${details.quotaId} quotaValue=${details.quotaValue} retryDelay=${details.retryDelay} retryAfter=${details.retryAfter}`,
+    );
     return new AiRateLimitedError(`Gemini rate limit or quota hit (${where})`);
   }
   if (status >= 200 && status < 300) {
@@ -365,6 +373,49 @@ function fromNoObject(error: NoObjectGeneratedError): AppError {
 function googleStatus(data: unknown): string {
   const status = (data as { error?: { status?: unknown } } | null)?.error?.status;
   return typeof status === "string" ? ` ${status}` : "";
+}
+
+export type RateLimitDetails = {
+  status: string;
+  quotaMetric: string;
+  quotaId: string;
+  quotaValue: string;
+  retryDelay: string;
+  retryAfter: string;
+};
+
+type GoogleErrorDetail = {
+  "@type"?: unknown;
+  violations?: Array<{ quotaMetric?: unknown; quotaId?: unknown; quotaValue?: unknown }>;
+  retryDelay?: unknown;
+};
+
+/**
+ * The identifiers a Gemini 429 carries in `error.details`: the quota that
+ * was exhausted (`google.rpc.QuotaFailure`, first violation) and the wait
+ * the provider suggests (`google.rpc.RetryInfo`), plus the Retry-After
+ * header when there is one. "?" where the body has nothing. Pure, so a
+ * test can hand it a captured body.
+ */
+export function rateLimitDetails(
+  data: unknown,
+  headers: Record<string, string> | undefined,
+): RateLimitDetails {
+  const body = (data as { error?: { status?: unknown; details?: unknown } } | null)?.error;
+  const details = Array.isArray(body?.details) ? (body.details as GoogleErrorDetail[]) : [];
+  const typed = (suffix: string) =>
+    details.find((detail) => typeof detail["@type"] === "string" && detail["@type"].endsWith(suffix));
+  const violation = typed("google.rpc.QuotaFailure")?.violations?.[0];
+  const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : "?");
+
+  return {
+    status: text(body?.status),
+    quotaMetric: text(violation?.quotaMetric),
+    quotaId: text(violation?.quotaId),
+    quotaValue: text(violation?.quotaValue),
+    retryDelay: text(typed("google.rpc.RetryInfo")?.retryDelay),
+    retryAfter: text(headers?.["retry-after"]),
+  };
 }
 
 /**

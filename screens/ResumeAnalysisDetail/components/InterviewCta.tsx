@@ -3,31 +3,58 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, Loader2, Mic } from "lucide-react";
+import { ArrowRight, Loader2, Mic, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
+import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
+import { INTERVIEW_TIERS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
 type InterviewCtaProps = {
   resumeId: string;
   jobTitle: string;
-  interview: ResumeAnalysis["interview"];
+  attempts: ResumeAnalysis["interviews"];
+  quota: InterviewQuotaView;
   /** "compact" sits in the header; "full" closes the report. */
   variant: "compact" | "full";
+  /** The full variant's list of attempts, rendered by the server. */
+  children?: React.ReactNode;
 };
 
+const TRIAL_MINUTES = Math.round(INTERVIEW_TIERS.TRIAL.seconds / 60);
+const FULL_MINUTES = Math.round(INTERVIEW_TIERS.FULL.seconds / 60);
+
 /**
- * One analysis owns at most one interview, so the action changes with state:
- * create it, open the room, or read the feedback.
+ * What the control offers, decided from the plan and the ledger: the live
+ * attempt when there is one; otherwise the free trial, a Pro interview, or
+ * the reason there is none. Pro's number of interviews is announced; nothing
+ * here ever says how many analyses Pro gets.
  */
+export type InterviewOffer =
+  | { kind: "live" }
+  | { kind: "trial" }
+  | { kind: "pro"; left: number; limit: number }
+  | { kind: "pro-exhausted"; resetsAt: string }
+  | { kind: "needs-pro" };
+
+export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
+  if (hasLive) return { kind: "live" };
+  if (quota.plan === "PRO") {
+    return quota.left > 0 ? { kind: "pro", left: quota.left, limit: quota.limit } : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
+  }
+  return quota.trialAvailable ? { kind: "trial" } : { kind: "needs-pro" };
+}
+
 export default function InterviewCta({
   resumeId,
   jobTitle,
-  interview,
+  attempts,
+  quota,
   variant,
+  children,
 }: InterviewCtaProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
@@ -45,7 +72,9 @@ export default function InterviewCta({
         return;
       }
 
-      toast.error(actionErrorCopy(result.code));
+      toast.error(actionErrorCopy(result.code, result.meta));
+      // A quota refusal means the page's view is stale: re-read it.
+      if (result.code === "INTERVIEW_QUOTA_EXCEEDED") router.refresh();
     } catch {
       // Rejected rather than returned: network drop, platform 413/504, or a
       // stale deployment.
@@ -55,28 +84,16 @@ export default function InterviewCta({
     setIsCreating(false);
   };
 
-  const target = interview
-    ? interview.finalized
-      ? { href: `/interview/${interview.id}/feedback`, label: "Read interview feedback" }
-      : { href: `/interview/${interview.id}`, label: "Open the interview room" }
-    : null;
+  const live = liveAttempt(attempts);
+  const rehearsed = attempts.length > 0;
+  const offer = interviewOffer(quota, live !== null);
 
   const compactClasses = "h-11 gap-2 px-5";
   const fullClasses = "group h-12 gap-2 px-7 text-base";
+  const buttonClasses = variant === "compact" ? compactClasses : fullClasses;
 
-  const control = target ? (
-    <Button asChild className={variant === "compact" ? compactClasses : fullClasses}>
-      <Link href={target.href}>
-        {target.label}
-        <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
-      </Link>
-    </Button>
-  ) : (
-    <Button
-      onClick={handleCreate}
-      disabled={isCreating}
-      className={variant === "compact" ? compactClasses : fullClasses}
-    >
+  const startButton = (label: string, icon: React.ReactNode) => (
+    <Button onClick={handleCreate} disabled={isCreating} className={buttonClasses}>
       {isCreating ? (
         <>
           <Loader2 className="size-4 animate-spin" />
@@ -84,14 +101,72 @@ export default function InterviewCta({
         </>
       ) : (
         <>
-          <Mic className="size-4" />
-          Rehearse the interview
+          {icon}
+          {label}
         </>
       )}
     </Button>
   );
 
+  const control = live ? (
+    <Button asChild className={buttonClasses}>
+      <Link href={interviewDestination(live).href}>
+        {interviewDestination(live).label}
+        <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
+      </Link>
+    </Button>
+  ) : offer.kind === "trial" ? (
+    startButton(`Try a ${TRIAL_MINUTES}-minute interview, free`, <Mic className="size-4" />)
+  ) : offer.kind === "pro" ? (
+    startButton(
+      rehearsed ? "Rehearse again" : "Rehearse the interview",
+      rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
+    )
+  ) : offer.kind === "pro-exhausted" ? (
+    <p className="flex h-11 items-center text-sm font-medium text-ink">
+      {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
+    </p>
+  ) : (
+    <p className="flex h-11 items-center text-sm font-medium text-ink">
+      {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
+    </p>
+  );
+
+  // The line under the control: what the plan allows, never Pro's analyses.
+  const note =
+    offer.kind === "trial"
+      ? `${TRIAL_MINUTES} minutes with the interviewer, on us · needs a microphone · works on a phone`
+      : offer.kind === "pro"
+        ? `${offer.left} of ${offer.limit} interviews left this month · up to ${FULL_MINUTES} minutes · needs a microphone`
+        : null;
+
   if (variant === "compact") return control;
+
+  const heading =
+    offer.kind === "live"
+      ? "Your interview is ready."
+      : offer.kind === "trial"
+        ? `Try the ${jobTitle} interview out loud.`
+        : offer.kind === "needs-pro"
+          ? "Rehearse this interview out loud, with Pro."
+          : offer.kind === "pro-exhausted"
+            ? "This month's interviews are used."
+            : rehearsed
+              ? "Rehearse it again."
+              : `Rehearse the ${jobTitle} interview out loud.`;
+
+  const lede =
+    offer.kind === "live"
+      ? "An attempt is waiting in the room. Finish it, and the feedback lands here."
+      : offer.kind === "trial"
+        ? `A voice interviewer built from this exact posting asks about the gaps your analysis found, you answer out loud, and you get scored on what you said. Your free trial runs ${TRIAL_MINUTES} minutes.`
+        : offer.kind === "needs-pro"
+          ? "You used the free trial. Pro interviews run twelve minutes, four a month, each scored against this posting and the gaps your analysis found."
+          : offer.kind === "pro-exhausted"
+            ? `Every rehearsal is scored against the same posting and the same gaps. The next ones come back ${resetDateCopy(offer.resetsAt)}.`
+            : rehearsed
+              ? "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed."
+              : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript.";
 
   return (
     <section
@@ -102,23 +177,16 @@ export default function InterviewCta({
       <div className="mt-5 grid gap-8 md:grid-cols-12 md:items-end">
         <div className="md:col-span-8">
           <h2 id="interview-cta-title" className="display-md text-ink">
-            {target?.href.endsWith("/feedback")
-              ? "You already rehearsed this one."
-              : `Rehearse the ${jobTitle} interview out loud.`}
+            {heading}
           </h2>
-          <p className="lede mt-4 max-w-xl">
-            {target?.href.endsWith("/feedback")
-              ? "Your transcript, recording and scores are waiting in the feedback report."
-              : "A voice interviewer built from this exact posting asks the questions, you answer, and you get scored on five things when you hang up."}
-          </p>
+          <p className="lede mt-4 max-w-xl">{lede}</p>
         </div>
         <div className="flex flex-col items-start gap-3 md:col-span-4 md:items-end">
           {control}
-          {!target && (
-            <p className="eyebrow">Needs a microphone · takes a few seconds to set up</p>
-          )}
+          {note && <p className="eyebrow">{note}</p>}
         </div>
       </div>
+      {children && <div className="mt-10">{children}</div>}
     </section>
   );
 }

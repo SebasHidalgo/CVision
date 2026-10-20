@@ -68,11 +68,12 @@ const emptyCounts = (): InterventionCounts => ({
 });
 
 /**
- * The span of the CV that a quote differs from only in case or punctuation.
- * Walks word-aligned windows rather than comparing word counts, because
- * `loosen` splits on punctuation and "Node.js" is one word but two loose ones.
+ * The span of the source text that a quote differs from only in case or
+ * punctuation. Walks word-aligned windows rather than comparing word counts,
+ * because `loosen` splits on punctuation and "Node.js" is one word but two
+ * loose ones. Shared with the interview guardrail.
  */
-function cvSpanFor(cvText: string, quote: string): string | null {
+export function spanFor(cvText: string, quote: string): string | null {
   const target = loosen(quote);
   if (!target) return null;
 
@@ -137,7 +138,7 @@ export function guardAnalysis(
     if (violation.check !== "evidence-grounding") continue;
 
     if (violation.kind === "case-or-punctuation") {
-      const span = cvSpanFor(cvText, violation.value);
+      const span = spanFor(cvText, violation.value);
       // Typography, not invention: rewrite it the way the CV has it. Counted
       // separately so the rate stays visible without inflating the violations.
       if (span) {

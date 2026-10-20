@@ -7,7 +7,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
+import type { AnalysisQuotaView } from "@/lib/plans";
 import {
   createResumeInputSchema,
   MAX_COMPANY_NAME_CHARS,
@@ -16,13 +17,30 @@ import {
   type CreateResumeInput,
 } from "@/lib/schemas/resumeSchema";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
+import { createResumeUploadAction } from "@/screens/ResumeUpload/actions/createResumeUploadAction";
+import { runResumeUpload, type UploadStage } from "@/screens/ResumeUpload/utils/upload";
 import AnalysisInProgress from "./AnalysisInProgress";
 import Field from "./Field";
 import FileUploader from "./FileUploader";
 
-export default function UploadForm() {
+type UploadFormProps = {
+  quota: AnalysisQuotaView;
+};
+
+/** The one line the form says about the allowance, or nothing. */
+export function quotaLine(quota: AnalysisQuotaView): string | null {
+  if (quota.left === 0) {
+    return actionErrorCopy("ANALYSIS_QUOTA_EXCEEDED", { plan: quota.plan, resetsAt: quota.resetsAt });
+  }
+  if (!quota.announce) return null;
+  const noun = quota.left === 1 ? "analysis" : "analyses";
+  return `${quota.left} of ${quota.limit} ${noun} left this month · resets ${resetDateCopy(quota.resetsAt)}`;
+}
+
+export default function UploadForm({ quota }: UploadFormProps) {
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [stage, setStage] = useState<UploadStage | null>(null);
+  const exhausted = quota.left === 0;
 
   const {
     register,
@@ -32,7 +50,7 @@ export default function UploadForm() {
     watch,
     formState: { errors },
   } = useForm<CreateResumeInput>({
-    // Same schema the server action validates with.
+    // Same fields the server action validates with, plus the file.
     resolver: zodResolver(createResumeInputSchema),
     defaultValues: {
       companyName: "",
@@ -53,35 +71,34 @@ export default function UploadForm() {
   };
 
   const onSubmit = async (data: CreateResumeInput) => {
-    setIsProcessing(true);
+    const { resume, ...details } = data;
 
-    try {
-      const body = new FormData();
-      body.append("companyName", data.companyName);
-      body.append("jobTitle", data.jobTitle);
-      body.append("jobDescription", data.jobDescription);
-      body.append("resume", data.resume);
+    // The file goes straight to storage; the action only ever sees its key.
+    const result = await runResumeUpload({
+      file: resume,
+      details,
+      createUpload: createResumeUploadAction,
+      analyze: analyzeResumeAction,
+      onStage: setStage,
+    });
 
-      const result = await analyzeResumeAction(body);
-
-      if (result.ok) {
-        // Stay on the progress screen: resetting now would bring back a
-        // submittable form until the report loads, inviting a double submit.
-        router.push(`/resume/analysis/${result.data.resumeId}`);
-        return;
-      }
-
-      toast.error(actionErrorCopy(result.code));
-    } catch {
-      // Rejected rather than returned: network drop, platform 413/504, or a
-      // stale deployment.
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+    if (result.ok) {
+      // Stay on the progress screen: resetting now would bring back a
+      // submittable form until the report loads, inviting a double submit.
+      router.push(`/resume/analysis/${result.resumeId}`);
+      return;
     }
 
-    setIsProcessing(false);
+    // Every failure is retryable from the form, with the file still selected.
+    toast.error(actionErrorCopy(result.code, result.meta));
+    setStage(null);
+    // A quota refusal means the page's count is stale: re-read it.
+    if (result.code === "ANALYSIS_QUOTA_EXCEEDED") router.refresh();
   };
 
-  if (isProcessing) return <AnalysisInProgress />;
+  if (stage) return <AnalysisInProgress stage={stage} fileSize={resumeFile?.size ?? 0} />;
+
+  const line = quotaLine(quota);
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -137,13 +154,16 @@ export default function UploadForm() {
             file={resumeFile ?? null}
             onFileSelect={handleFileSelect}
             invalid={Boolean(errors.resume)}
+            disabled={exhausted}
           />
         </div>
       </Field>
 
       <div className="flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="eyebrow">Runs while you wait · takes seconds</p>
-        <Button type="submit" size="lg" className="group h-12 px-7 text-base">
+        <p role={exhausted ? "status" : undefined} className={exhausted ? "text-sm font-medium text-ink" : "eyebrow"}>
+          {line ?? "Runs while you wait · takes seconds"}
+        </p>
+        <Button type="submit" size="lg" disabled={exhausted} className="group h-12 px-7 text-base">
           Run the analysis
           <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
         </Button>

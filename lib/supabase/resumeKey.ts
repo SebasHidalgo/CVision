@@ -1,0 +1,38 @@
+/**
+ * Storage keys for CVs: `cv/{userId}/{uuid}.pdf`. Import-free so the schema,
+ * the client and the server share one definition of what a key looks like
+ * and whose it is.
+ */
+export const RESUME_KEY_PREFIX = "cv/";
+
+/**
+ * The `cache-control` the browser's PUT sets on the object; storage keeps it
+ * as the object's own metadata (verified: it stores the string verbatim). A
+ * CV is private and deletable: once its row is gone, nothing between the
+ * bucket and the browser may keep serving it. Measured through a signed URL
+ * after deletion: 59 s still served with the old `max-age=3600`, 16 s with
+ * this value. `max-age=0` over `no-store` because it is the value the
+ * platform's own SDK writes and the one the measurement was taken with.
+ */
+export const RESUME_OBJECT_CACHE_CONTROL = "max-age=0";
+
+/** The whole key: the prefix, one Clerk user id, one uuid file name. */
+export const RESUME_KEY_PATTERN =
+  /^cv\/[A-Za-z0-9_-]{1,64}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;
+
+export function buildResumeKey(userId: string): string {
+  return `${RESUME_KEY_PREFIX}${userId}/${crypto.randomUUID()}.pdf`;
+}
+
+export function isResumeKey(key: string): boolean {
+  return RESUME_KEY_PATTERN.test(key);
+}
+
+/**
+ * Whether a key names an object of this user. Shape and ownership together:
+ * a key that is not under `cv/{userId}/` is treated as not existing, the
+ * same answer a foreign row gets from the data layer.
+ */
+export function isResumeKeyOf(key: string, userId: string): boolean {
+  return isResumeKey(key) && key.startsWith(`${RESUME_KEY_PREFIX}${userId}/`);
+}

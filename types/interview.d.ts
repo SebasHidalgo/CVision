@@ -1,17 +1,27 @@
-export type {
-  CreateInterviewInput,
-  SubmitInterviewFeedbackInput,
-} from "@/lib/schemas/interviewSchema";
+import type { InterviewStatus } from "@prisma/client";
+import type { InterviewFeedbackReport } from "@/lib/ai/schemas";
+
+export type { CreateInterviewInput } from "@/lib/schemas/interviewSchema";
+export type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 
 export type Interview = {
   id: string;
   role: string;
   techstack: string[];
   userId: string;
-  finalized: boolean;
+  status: InterviewStatus;
   createdAt: Date;
-  recordingUrl: string | null;
   resumeAnalysisId: string | null;
+  /** 1 for the first rehearsal of its analysis, 2 for the next. */
+  attemptNumber: number;
+  /** Latest issued voice session, and how many have been issued. */
+  conversationId: string | null;
+  startCount: number;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  durationSeconds: number | null;
+  /** Why the latest step produced nothing; see `FEEDBACK_FAILURE_REASONS`. */
+  failureReason: string | null;
 };
 
 export type InterviewFeedback = {
@@ -20,14 +30,7 @@ export type InterviewFeedback = {
   /** From the interview: what the report is about and when it happened. */
   role: string;
   createdAt: string;
-  recordingUrl: string | null;
   totalScore: number;
-  categoryScores: Array<{
-    name: string;
-    score: number;
-    comment: string;
-  }>;
-  strengths: string[];
-  areasForImprovement: string[];
-  finalAssessment: string;
+  /** The validated report: gap follow-through, notable answers, scores, stats, prose. */
+  report: InterviewFeedbackReport;
 };

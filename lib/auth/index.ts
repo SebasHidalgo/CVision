@@ -21,3 +21,13 @@ export async function requireUserId(): Promise<string> {
   if (!userId) throw new UnauthorizedError();
   return userId;
 }
+
+/**
+ * Profile details for server code that cannot redirect (Route Handlers).
+ * Costs a Clerk API call, unlike `requireUserId`, which reads the session.
+ */
+export async function getUserProfile(): Promise<{ firstName: string | null }> {
+  const user = await currentUser();
+  if (!user) throw new UnauthorizedError();
+  return { firstName: user.firstName };
+}

@@ -15,6 +15,8 @@ export function toActionError(
 
   console.error(`[CVision] ${context}:`, error);
 
-  if (error instanceof AppError) return { ok: false, code: error.code };
+  if (error instanceof AppError) {
+    return error.meta ? { ok: false, code: error.code, meta: error.meta } : { ok: false, code: error.code };
+  }
   return { ok: false, code: "UNKNOWN" };
 }
