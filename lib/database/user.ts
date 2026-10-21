@@ -44,6 +44,16 @@ export async function upsertUserById(userId: string): Promise<void> {
   }
 }
 
+/** Webhook only, no session: whether an account with this id exists (billing events name users by id). */
+export async function userExists(userId: string): Promise<boolean> {
+  try {
+    const row = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    return row !== null;
+  } catch (error) {
+    handleError(error, `Failed to look up the user row (user=${userId})`);
+  }
+}
+
 /**
  * Webhook only, no session. Removes the account's row; the foreign keys
  * cascade to its analyses, feedback, interviews and interview feedback.

@@ -8,14 +8,16 @@ import {
   type SubscriptionNotification,
   type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
-import type {
-  AdjustmentAction,
-  ParsedBillingEvent,
-  ProviderSubscription,
-  ProviderSubscriptionStatus,
+import {
+  WebhookRejectedError,
+  type AdjustmentAction,
+  type ParsedBillingEvent,
+  type ProviderSubscription,
+  type ProviderSubscriptionStatus,
 } from "@/lib/billing/types";
 import { BillingMisconfiguredError } from "@/lib/error/errors";
 import { readPaddleConfig } from "./client";
+import { userIdFromCustomData } from "./customData";
 import { priceKeyOf } from "./prices";
 
 /**
@@ -24,16 +26,11 @@ import { priceKeyOf } from "./prices";
  * than five seconds (hard-coded there; Paddle's own recommendation). A
  * missing secret is an operator error; a bad or missing signature is a
  * rejected delivery. Nothing of the payload survives past this file except
- * ids, statuses and times.
+ * ids, statuses and times. The user id in the custom data counts only
+ * when it carries the server's own signature (see customData.ts).
  */
 
-/** Thrown when a delivery fails verification. Never reaches a user. */
-export class WebhookRejectedError extends Error {
-  constructor(message = "Webhook signature rejected") {
-    super(message);
-    this.name = "WebhookRejectedError";
-  }
-}
+export { WebhookRejectedError };
 
 export const PADDLE_SIGNATURE_HEADER = "paddle-signature";
 
@@ -76,7 +73,7 @@ export function translate(event: EventEntity): ParsedBillingEvent {
       transactionId: data.id,
       providerCustomerId: data.customerId,
       providerSubscriptionId: data.subscriptionId,
-      userIdHint: userIdFrom(data.customData),
+      userIdHint: userIdFromCustomData(data.customData),
       items: data.items.map((item) => ({ priceKey: priceKeyOf(item.price?.id), quantity: item.quantity })),
     };
   }
@@ -117,7 +114,7 @@ export function toProviderSubscription(data: PaddleSubscriptionLike): ProviderSu
     scheduledChangeAt: dateOrNull(data.scheduledChange?.effectiveAt),
     canceledAt: dateOrNull(data.canceledAt),
     providerUpdatedAt: new Date(data.updatedAt),
-    userIdHint: userIdFrom(data.customData),
+    userIdHint: userIdFromCustomData(data.customData),
   };
 }
 
@@ -126,11 +123,6 @@ function adjustmentAction(action: string): AdjustmentAction {
   if (action === "chargeback" || action === "chargeback_warning") return "chargeback";
   if (action === "credit") return "credit";
   return "other";
-}
-
-function userIdFrom(customData: Record<string, unknown> | null | undefined): string | null {
-  const value = customData?.userId;
-  return typeof value === "string" && value !== "" ? value : null;
 }
 
 function dateOrNull(value: string | null | undefined): Date | null {

@@ -68,6 +68,14 @@ export type ParsedBillingEvent = {
   | { kind: "ignored" }
 );
 
+/** Thrown by the adapter when a delivery fails verification: the route answers 400. Never reaches a user. */
+export class WebhookRejectedError extends Error {
+  constructor(message = "Webhook signature rejected") {
+    super(message);
+    this.name = "WebhookRejectedError";
+  }
+}
+
 /** What the browser needs to open the provider's checkout for a transaction the server created. */
 export type CheckoutSession = { transactionId: string };
 

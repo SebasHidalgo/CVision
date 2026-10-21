@@ -1,11 +1,20 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// The landing page, plus webhook routes one by one, never a whole prefix. A
-// webhook authenticates its caller itself (HMAC signature on the raw body).
-// This is defense in depth: every Server Action, Route Handler and data-layer
-// call checks the session again.
-const isPublicRoute = createRouteMatcher(["/", "/api/webhooks/elevenlabs", "/api/webhooks/clerk"]);
+// The landing page, the public pages, plus webhook routes one by one, never
+// a whole prefix. A webhook authenticates its caller itself (a signature on
+// the raw body). This is defense in depth: every Server Action, Route
+// Handler and data-layer call checks the session again.
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/pricing",
+  "/terms",
+  "/privacy",
+  "/refunds",
+  "/api/webhooks/elevenlabs",
+  "/api/webhooks/clerk",
+  "/api/webhooks/paddle",
+]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 

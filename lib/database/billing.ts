@@ -129,6 +129,41 @@ export async function applySubscriptionSnapshot(userId: string, snapshot: Provid
   }
 }
 
+/**
+ * Takes the right to ask the provider about this subscription now: one
+ * conditional update that succeeds only when the last pull is older than
+ * the interval (or there was none), so many pages reading one stale plan
+ * produce one API call.
+ */
+export async function claimSubscriptionReconcile(
+  providerSubscriptionId: string,
+  now: Date,
+  minIntervalMs: number,
+): Promise<boolean> {
+  try {
+    const result = await prisma.subscription.updateMany({
+      where: {
+        providerSubscriptionId,
+        OR: [{ reconcileCheckedAt: null }, { reconcileCheckedAt: { lt: new Date(now.getTime() - minIntervalMs) } }],
+      },
+      data: { reconcileCheckedAt: now },
+    });
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, `Failed to claim the subscription reconcile (subscription=${providerSubscriptionId})`);
+  }
+}
+
+/** Every user with a customer at the provider, for the reconcile script. */
+export async function listBillingCustomerUserIds(): Promise<string[]> {
+  try {
+    const rows = await prisma.billingCustomer.findMany({ select: { userId: true } });
+    return rows.map((row) => row.userId);
+  } catch (error) {
+    handleError(error, "Failed to list the billing customers");
+  }
+}
+
 /** The user of a mirrored subscription, for events that name only the subscription. */
 export async function findUserIdByProviderSubscription(providerSubscriptionId: string): Promise<string | null> {
   try {

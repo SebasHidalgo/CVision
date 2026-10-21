@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { signUserId } from "./customData";
 import { verifyAndParsePaddleWebhook, WebhookRejectedError } from "./webhook";
 import { signPaddleWebhook } from "./webhookSignature";
 
 const SECRET = "pdl_ntfset_test_secret_0123456789";
+const API_KEY = "pdl_sdbx_apikey_test0000000000000000";
 const PRO_PRICE = "pri_pro_test";
 const PACK_PRICE = "pri_pack_test";
+/** The custom data the server attaches at checkout: the user id and its signature. */
+const signedUser = (userId: string) => ({ userId, sig: signUserId(userId, API_KEY) });
 
 beforeEach(() => {
   vi.stubEnv("PADDLE_ENV", "sandbox");
-  vi.stubEnv("PADDLE_API_KEY", "pdl_sdbx_apikey_test0000000000000000");
+  vi.stubEnv("PADDLE_API_KEY", API_KEY);
   vi.stubEnv("PADDLE_WEBHOOK_SECRET", SECRET);
   vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE);
   vi.stubEnv("PADDLE_PRICE_INTERVIEW_PACK", PACK_PRICE);
@@ -68,7 +72,7 @@ const subscriptionData = (overrides: Record<string, unknown> = {}) => ({
       product: null,
     },
   ],
-  custom_data: { userId: "user_1" },
+  custom_data: signedUser("user_1"),
   import_meta: null,
   ...overrides,
 });
@@ -148,6 +152,9 @@ describe("translation", () => {
     const paused = await parse("subscription.paused", subscriptionData({ scheduled_change: { action: "resume", effective_at: "2026-12-01T00:00:00Z", resume_at: "2026-12-01T00:00:00Z" } }));
     expect(paused.kind === "subscription" && paused.subscription).toMatchObject({ cancelAtPeriodEnd: false, scheduledChangeAt: new Date("2026-12-01T00:00:00Z") });
 
+    const unsigned = await parse("subscription.updated", subscriptionData({ custom_data: { userId: "user_victim" } }));
+    expect(unsigned.kind === "subscription" && unsigned.subscription.userIdHint).toBeNull();
+
     const canceled = await parse(
       "subscription.canceled",
       subscriptionData({ status: "canceled", canceled_at: "2026-11-20T10:00:00Z", current_billing_period: null, custom_data: null, items: [{ ...subscriptionData().items[0], price: price("pri_someone_elses", true) }] }),
@@ -169,7 +176,7 @@ describe("translation", () => {
       customer_id: "ctm_01",
       address_id: "add_01",
       business_id: null,
-      custom_data: { userId: "user_1" },
+      custom_data: signedUser("user_1"),
       currency_code: "USD",
       origin: "web",
       subscription_id: null,

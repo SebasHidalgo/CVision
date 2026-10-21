@@ -4,6 +4,7 @@ import type { Subscription } from "@paddle/paddle-node-sdk";
 import type { BillingProviderAdapter, ProviderSubscription } from "@/lib/billing/types";
 import { syncPaddleCatalog } from "./catalog";
 import { paddleCall, paddleClient, paddleErrorCode } from "./client";
+import { customDataFor } from "./customData";
 import { priceIdFor } from "./prices";
 import { toProviderSubscription, verifyAndParsePaddleWebhook, type PaddleSubscriptionLike } from "./webhook";
 
@@ -25,8 +26,8 @@ export const paddleAdapter: BillingProviderAdapter = {
     const transaction = await paddleCall("transaction create", () =>
       paddle.transactions.create({
         items: [{ priceId, quantity: 1 }],
-        // The server names the user; the first webhook event reads it back.
-        customData: { userId },
+        // The server names the user, signed; the first webhook event reads it back.
+        customData: customDataFor(userId),
         // Without a customer the transaction is a draft and the checkout
         // collects the email; with one, Paddle prefills and reuses it.
         ...(providerCustomerId ? { customerId: providerCustomerId } : {}),
