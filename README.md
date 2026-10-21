@@ -92,9 +92,13 @@ feedback; both bill the model once per fixture (`npm run eval -- help`).
 
 Every row belongs to a `User` row keyed by the Clerk user id. The actions
 that insert rows create it on the way (`ensureUser`), and Clerk's webhook
-keeps it in step: `user.created` writes it, `user.deleted` removes the
-account's analyses, rehearsals, feedback, CVs in the bucket and
-conversations on the voice platform, then the row.
+keeps it in step: `user.created` writes it, `user.deleted` cancels the
+account's Paddle subscriptions (immediately, before anything else; a failure
+is logged loudly with the user id and does not stop the deletion), then
+removes the account's analyses, rehearsals, feedback, CVs in the bucket and
+conversations on the voice platform, then the row. Paddle keeps the
+customer, the transactions and the canceled subscription for its own
+records.
 
 Register the endpoint once per Clerk instance, in the Clerk dashboard under
 Webhooks → Add Endpoint:
@@ -117,19 +121,25 @@ is in a call or being scored.
 
 ## Plans, quotas and rate limits
 
-Every account has a plan (`User.plan`), and every number the app enforces
-or shows lives in `lib/plans.ts`:
+Every number the app enforces or shows lives in `lib/plans.ts`, and the
+prices in `lib/billing/catalog.ts`:
 
-| | Free | Pro |
+| | Free | Pro ($15 a month) |
 |---|---|---|
-| Analyses | 3 a month, counted down on the upload page | 50 a month as a fair-use cap; the UI never shows the number, only the refusal when it is hit |
-| Voice interviews | one 5-minute trial, once per account, on its own agent | 4 a month, 12 minutes each |
-| Period | calendar month, UTC | calendar month, UTC, until billing replaces it with the billing period |
+| Analyses | 3 a month, counted down on the upload page | 50 a month as a fair-use cap; sold as unlimited, the UI never shows the number, only the refusal when it is hit |
+| Voice interviews | one 5-minute trial, once, for an account that never had voice | 4 per billing period, 12 minutes each, then pack credits |
+| Interview pack | — | $9 one-time, 5 credits, Pro only; never expire, frozen (kept) while Pro is not active |
+| History | the last 3 analyses; older ones are hidden, never deleted | everything |
+| Period | calendar month, UTC | the subscription's billing period (calendar month for a comped Pro) |
 
-Billing is not built yet: every account is Free until it is set by hand.
+The plan is derived, never stored: a subscription whose status grants
+access (`active`, `trialing`, `past_due`; not `paused` or `canceled`; a
+scheduled cancellation keeps Pro until it takes effect), else a manual comp,
+else Free. The comp is for the owner's own account and testers:
 
 ```bash
-npm run user:set-plan -- <clerkUserId> pro
+npm run user:set-plan -- <clerkUserId> pro    # sets User.compPlan; never overrides or cancels a subscription
+npm run user:set-plan -- <clerkUserId> free   # clears it
 ```
 
 Usage is a ledger (`UsageEvent`). An analysis reserves its unit before the
@@ -162,6 +172,62 @@ counts per action and per check. A Gemini 429 writes one structured log
 line (`[CVision][ai] rate limited:` with the quota id, metric, value and
 the suggested wait) before it reaches the user as "The analysis service is
 busy".
+
+## Billing (Paddle)
+
+Payments go through Paddle Billing as merchant of record, behind
+`lib/billing/` (the app's own contract) and `lib/billing/paddle/` (the only
+code that imports the Paddle SDK). Everything in this repo runs against the
+**sandbox**; production is the deploy phase.
+
+1. Create a sandbox account at `https://sandbox-vendors.paddle.com/signup`
+   (separate from the live one). Under Developer tools → Authentication,
+   create an API key with write access to products, prices, customers,
+   transactions, subscriptions **and notification settings** (without the
+   last one `billing:sync` cannot create the webhook destination; it fails
+   with `forbidden` and you create the destination by hand, below), and a
+   client-side token.
+2. In `.env`: `PADDLE_ENV=sandbox`, `PADDLE_API_KEY=pdl_sdbx_…`,
+   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_…`. `PADDLE_ENV` has no default;
+   the key and the token must belong to the environment it names.
+3. Push the catalog as code and the webhook destination, with the tunnel
+   from the voice section running:
+
+   ```bash
+   npm run billing:sync -- --webhook-url https://<tunnel-host>/api/webhooks/paddle
+   ```
+
+   Idempotent: products and prices are found by their key and created or
+   updated to match `lib/billing/catalog.ts`; the destination is found by
+   its description ("CVision") and updated in place. It prints
+   `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_INTERVIEW_PACK` and
+   `PADDLE_WEBHOOK_SECRET` to paste into `.env`, then restart the dev
+   server. If the key cannot create destinations, create one in Paddle →
+   Developer tools → Notifications with that URL, the eleven events listed
+   in `SUBSCRIBED_EVENTS` (`lib/billing/paddle/catalog.ts`) and traffic
+   source "all" (so the simulator reaches it too), and copy its secret.
+4. Open the app through the tunnel URL and buy from `/pricing` with a
+   sandbox test card: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002`
+   is declined, `4000 0027 6000 3184` succeeds once and then fails (for
+   dunning), any future expiry and any CVC. Real cards do not work in the
+   sandbox.
+
+The sandbox retries a failed webhook delivery only twice within about two
+minutes (production, for two days), and the SDK rejects a signature older
+than five seconds. If a delivery is lost, the subscription mirror repairs
+itself the next time the plan is read while stale (once per ten minutes
+per subscription), or by hand:
+
+```bash
+npm run billing:reconcile                 # every user with a Paddle customer
+npm run billing:reconcile -- <clerkUserId>
+```
+
+There is no time travel in the sandbox. To end a subscription at once, use
+"Manage subscription" (the portal) and cancel, or `PATCH /subscriptions/{id}`
+with `scheduled_change: null` to undo a scheduled cancellation; refunds made
+from the Paddle dashboard are approved automatically every ten minutes in
+the sandbox and arrive as `adjustment.updated`.
 
 ## File storage
 
@@ -210,7 +276,15 @@ Clerk (Dashboard → Configure → User & authentication → Email address →
 "Verify at sign-up"; without it a throwaway account is a free 5-minute
 interview each), and `npm run agent:sync` run against the production
 webhook so **both** agents exist, with `ELEVENLABS_AGENT_ID` and
-`ELEVENLABS_TRIAL_AGENT_ID` in the production environment.
+`ELEVENLABS_TRIAL_AGENT_ID` in the production environment. For billing: a
+production Paddle account, its domain review passed (it needs `/terms`,
+`/privacy` and `/refunds` with real text, not the drafts; replace
+`LEGAL_ENTITY_NAME` and `LEGAL_CONTACT_EMAIL` in `lib/legal.ts`), a
+production API key with notification-settings write access, `npm run
+billing:sync -- --webhook-url https://<domain>/api/webhooks/paddle
+--production` run with `PADDLE_ENV=production`, which must exist **only** in
+the deployed environment, and the price ids, the webhook secret, the live
+API key and the `live_` client token in Vercel's env.
 
 ## Voice interview: local development
 
