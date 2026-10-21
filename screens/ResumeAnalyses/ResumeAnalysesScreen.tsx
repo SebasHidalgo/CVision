@@ -1,13 +1,15 @@
+import { HistoryLine } from "@/components/billing/HistoryNotice";
 import EmptyState from "@/components/layout/EmptyState";
 import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
-import { fetchAllResumes } from "@/lib/database/resume";
+import { fetchVisibleResumes } from "@/lib/database/resume";
 import { formatDate, ordinal } from "@/lib/format";
 import { describeTally, deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { FIT_LABEL, TONE_CLASS } from "@/lib/score";
 
 export default async function ResumeAnalysesScreen() {
-  const analyses = await fetchAllResumes();
+  // Within the plan's history: Free sees its last three, Pro everything.
+  const { analyses, hidden } = await fetchVisibleResumes();
 
   // Rows whose stored feedback no longer matches the schema come back with
   // null feedback and have no verdict to derive.
@@ -44,7 +46,7 @@ export default async function ResumeAnalysesScreen() {
         }
       />
 
-      {analyses.length === 0 ? (
+      {analyses.length === 0 && hidden === 0 ? (
         <EmptyState
           title="Nothing measured yet."
           body="Paste a job post, upload your CV, and this page becomes the record of how each application stacks up."
@@ -86,6 +88,7 @@ export default async function ResumeAnalysesScreen() {
           })}
         </ol>
       )}
+      <HistoryLine hidden={hidden} what="analyses" />
     </div>
   );
 }

@@ -15,7 +15,7 @@ describe("actionErrorCopy for the limits", () => {
     expect(actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })).toBe("Voice interviews are part of Pro.");
     expect(actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED")).toBe("Voice interviews are part of Pro.");
     expect(actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: "2026-11-01T00:00:00.000Z" })).toBe(
-      "You've used this month's interviews. They reset Nov 1.",
+      "You've used this period's interviews. They reset Nov 1.",
     );
   });
 

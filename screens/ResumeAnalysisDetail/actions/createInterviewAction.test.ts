@@ -47,10 +47,15 @@ const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["statu
 
 const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
   plan: "FREE",
+  source: "free",
   analyses: { used: 1, limit: 3, left: 2, announce: true },
   interviews: { used: 0, limit: 0, left: 0 },
+  credits: { balance: 0, usable: false },
   trial: { available: true, used: false },
+  period: { start: new Date("2026-10-01T00:00:00Z"), end: new Date("2026-11-01T00:00:00Z") },
   resetsAt: new Date("2026-11-01T00:00:00Z"),
+  subscription: null,
+  everSubscribed: false,
   ...overrides,
 });
 
@@ -197,5 +202,15 @@ describe("createInterviewAction: the plan's unit is checked, not reserved", () =
       code: "INTERVIEW_QUOTA_EXCEEDED",
       meta: { plan: "PRO", resetsAt: "2026-11-01T00:00:00.000Z" },
     });
+  });
+
+  it("creates for a Pro account at zero with pack credits, and not for a Free account holding frozen credits", async () => {
+    vi.mocked(usageSummary).mockResolvedValue(
+      summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, credits: { balance: 2, usable: true }, trial: { available: false, used: false } }),
+    );
+    expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
+
+    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 2, usable: false }, trial: { available: false, used: true } }));
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: false, code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
   });
 });

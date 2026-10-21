@@ -84,7 +84,7 @@ export function actionErrorCopy(code: ErrorCode, meta?: ErrorMeta): string {
   if (code === "INTERVIEW_QUOTA_EXCEEDED") {
     if (meta?.plan === "PRO") {
       const reset = meta.resetsAt ? ` They reset ${resetDateCopy(meta.resetsAt)}.` : "";
-      return `You've used this month's interviews.${reset}`;
+      return `You've used this period's interviews.${reset}`;
     }
     return COPY.INTERVIEW_QUOTA_EXCEEDED;
   }

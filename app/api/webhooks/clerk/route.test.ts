@@ -13,6 +13,8 @@ const deleted = (userRowRemoved: boolean) => ({
   leftoverObjects: 0,
   leftoverObjectsRemoved: true,
   conversationsFailed: 0,
+  subscriptionsCanceled: 0,
+  subscriptionsFailed: 0,
   userRowRemoved,
 });
 

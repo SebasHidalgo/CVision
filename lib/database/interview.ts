@@ -15,6 +15,7 @@ import {
   mapDbInterview,
   mapDbInterviewFeedback,
 } from "./mappers";
+import { isVisible, visibleAnalysisIds } from "./visibility";
 
 /**
  * The room needs the posting; the session endpoint also needs the parts of
@@ -115,36 +116,52 @@ export async function createInterview(
   }
 }
 
-export async function fetchAllInterviews(): Promise<Interview[]> {
+export type VisibleInterviews = {
+  /** The caller's interviews whose analysis the plan shows, newest first. */
+  interviews: Interview[];
+  /** Interviews of analyses hidden by the plan's history rule. */
+  hidden: number;
+};
+
+/** The caller's interviews within the plan's history (an interview follows its analysis), and how many are hidden. */
+export async function fetchVisibleInterviews(): Promise<VisibleInterviews> {
   try {
     const userId = await requireUserId();
     // A list is a read of every interview: the sweep for abandoned ones runs first.
     await expireAbandonedInterviews(userId);
 
-    const rows = await prisma.interview.findMany({
-      where: { userId },
-      omit: interviewOmit,
-      orderBy: { createdAt: "desc" },
-    });
+    const [rows, visible] = await Promise.all([
+      prisma.interview.findMany({
+        where: { userId },
+        omit: interviewOmit,
+        orderBy: { createdAt: "desc" },
+      }),
+      visibleAnalysisIds(userId),
+    ]);
+    const shown = rows.filter((row) => isVisible(visible, row.resumeAnalysisId));
 
-    return rows.map(mapDbInterview);
+    return { interviews: shown.map(mapDbInterview), hidden: rows.length - shown.length };
   } catch (error) {
-    handleError(error, "Failed to retrieve all interview records");
+    handleError(error, "Failed to retrieve the interview records");
   }
 }
 
-/** `null` when it doesn't exist or belongs to another user. */
+/** `null` when it doesn't exist, belongs to another user, or its analysis is hidden by the plan. */
 export async function fetchInterviewById(
   interviewId: string
 ): Promise<InterviewWithResume | null> {
   try {
     const userId = await requireUserId();
 
-    return await prisma.interview.findFirst({
+    const row = await prisma.interview.findFirst({
       where: { id: interviewId, userId },
       include: interviewDetailInclude,
       omit: interviewOmit,
     });
+    if (!row) return null;
+
+    const visible = await visibleAnalysisIds(userId);
+    return isVisible(visible, row.resumeAnalysisId) ? row : null;
   } catch (error) {
     handleError(error, "Failed to retrieve interview record");
   }

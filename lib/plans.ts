@@ -27,10 +27,16 @@ export type PlanLimits = {
   announceAnalyses: boolean;
   /** Full interviews per period. */
   interviewsPerMonth: number;
-  /** Trial interviews in the account's lifetime. */
+  /** Trial interviews in the account's lifetime, for an account that never had voice. */
   trialInterviews: number;
   /** Which agent an interview of this plan runs on. */
   interviewTier: InterviewTierId;
+  /**
+   * How many of the most recent analyses the plan shows; null for all.
+   * Older ones are hidden, never deleted: the lists leave them out and
+   * their pages answer with an upgrade notice, and Pro reveals them.
+   */
+  historyLimit: number | null;
 };
 
 export const PLANS: Record<PlanId, PlanLimits> = {
@@ -40,6 +46,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     interviewsPerMonth: 0,
     trialInterviews: 1,
     interviewTier: "TRIAL",
+    historyLimit: 3,
   },
   PRO: {
     analysesPerMonth: 50,
@@ -47,6 +54,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     interviewsPerMonth: 4,
     trialInterviews: 0,
     interviewTier: "FULL",
+    historyLimit: null,
   },
 };
 
@@ -113,13 +121,20 @@ export type InterviewQuotaView = {
   trialAvailable: boolean;
   left: number;
   limit: number;
+  /** Pack credits held; usable only while Pro is active, kept otherwise. */
+  credits: number;
+  creditsUsable: boolean;
   /** ISO date of the next reset. */
   resetsAt: string;
 };
 
 export type QuotaPeriod = { start: Date; end: Date };
 
-/** The calendar month of `now`, in UTC: [start, end). */
+/**
+ * The calendar month of `now`, in UTC: [start, end). The period of every
+ * Free and comped account; a subscribed Pro's period is its billing period
+ * (`quotaPeriodFor` in lib/billing/access.ts).
+ */
 export function quotaPeriod(now: Date): QuotaPeriod {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));

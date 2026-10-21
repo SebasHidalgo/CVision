@@ -42,8 +42,12 @@ export async function createInterviewAction(
     const live = liveAttempt(resume.interviews);
     if (live) return { ok: true, data: { interviewId: live.id } };
 
+    // The period's interviews, then the pack credits (usable only while Pro); Free, its one trial.
     const usage = await usageSummary(userId);
-    const hasUnit = usage.plan === "FREE" ? usage.trial.available : usage.interviews.left > 0;
+    const hasUnit =
+      usage.plan === "FREE"
+        ? usage.trial.available
+        : usage.interviews.left > 0 || (usage.credits.usable && usage.credits.balance > 0);
     if (!hasUnit) {
       throw new InterviewQuotaExceededError({
         plan: usage.plan,

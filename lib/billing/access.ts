@@ -1,4 +1,4 @@
-import type { PlanId } from "@/lib/plans";
+import { quotaPeriod, type PlanId, type QuotaPeriod } from "@/lib/plans";
 
 /**
  * Which plan a user has, derived. `User.plan` is not stored any more: the
@@ -92,4 +92,22 @@ export function standingFrom(
 
 function byPeriodEndDesc(a: SubscriptionStanding, b: SubscriptionStanding): number {
   return (b.currentPeriodEnd?.getTime() ?? 0) - (a.currentPeriodEnd?.getTime() ?? 0);
+}
+
+/**
+ * The quota period of a standing: the billing period for a Pro that comes
+ * from a subscription, the UTC calendar month for everyone else. A mirror
+ * whose period has ended but was not renewed yet (the renewal's event is
+ * late or lost) does not open a fresh allowance: until the reconcile reads
+ * the new period, the window runs from the old start to now, so nothing
+ * done since the start stops counting. The end of such a window is now,
+ * which the copy shows as "resets today".
+ */
+export function quotaPeriodFor(standing: PlanStanding, now: Date): QuotaPeriod {
+  const subscription = standing.source === "subscription" ? standing.subscription : null;
+  const start = subscription?.currentPeriodStart ?? null;
+  const end = subscription?.currentPeriodEnd ?? null;
+  if (!start || !end || end.getTime() <= start.getTime()) return quotaPeriod(now);
+  if (now.getTime() >= end.getTime()) return { start, end: new Date(now.getTime() + 1) };
+  return { start, end };
 }

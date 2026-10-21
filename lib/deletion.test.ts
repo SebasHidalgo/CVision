@@ -5,6 +5,7 @@ import {
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
 import { deleteUserRows } from "@/lib/database/user";
+import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/elevenlabs/client";
 import { AnalysisBusyError, VoiceUnavailableError } from "@/lib/error/errors";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
@@ -16,6 +17,7 @@ vi.mock("@/lib/database/deletion", () => ({
   collectDetachedConversationIds: vi.fn(async () => []),
 }));
 vi.mock("@/lib/database/user", () => ({ deleteUserRows: vi.fn(async () => true) }));
+vi.mock("@/lib/billing", () => ({ cancelSubscriptionNow: vi.fn(async () => ({ canceled: [], failed: [] })) }));
 vi.mock("@/lib/elevenlabs/client", () => ({ deleteConversation: vi.fn(async () => "deleted") }));
 vi.mock("@/lib/supabase/server", () => ({
   removeObject: vi.fn(async () => true),
@@ -33,6 +35,7 @@ beforeEach(() => {
   vi.mocked(removeObject).mockResolvedValue(true);
   vi.mocked(listObjects).mockResolvedValue([]);
   vi.mocked(deleteUserRows).mockResolvedValue(true);
+  vi.mocked(cancelSubscriptionNow).mockResolvedValue({ canceled: [], failed: [] });
   for (const method of ["info", "warn", "error"] as const) {
     vi.spyOn(console, method).mockImplementation(() => {});
   }
@@ -153,12 +156,38 @@ describe("deleteAccountCascade", () => {
       leftoverObjects: 2,
       leftoverObjectsRemoved: true,
       conversationsFailed: 0,
+      subscriptionsCanceled: 0,
+      subscriptionsFailed: 0,
       userRowRemoved: true,
     });
     // The user row goes last.
     expect(vi.mocked(deleteUserRows).mock.invocationCallOrder[0]).toBeGreaterThan(
       vi.mocked(removeObjects).mock.invocationCallOrder[0],
     );
+  });
+
+  it("cancels the billing subscriptions at the provider before any row goes, and counts them", async () => {
+    vi.mocked(listAnalysisIdsOfUser).mockResolvedValue(["a1"]);
+    vi.mocked(cancelSubscriptionNow).mockResolvedValue({ canceled: ["sub_01"], failed: [] });
+
+    const summary = await deleteAccountCascade("user_1");
+
+    expect(cancelSubscriptionNow).toHaveBeenCalledWith("user_1");
+    expect(vi.mocked(cancelSubscriptionNow).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(deleteAnalysisRows).mock.invocationCallOrder[0]);
+    expect(vi.mocked(cancelSubscriptionNow).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(deleteUserRows).mock.invocationCallOrder[0]);
+    expect(summary).toMatchObject({ subscriptionsCanceled: 1, subscriptionsFailed: 0, userRowRemoved: true });
+  });
+
+  it("deletes the account even when the provider will not cancel, and says so loudly with the user id", async () => {
+    vi.mocked(listAnalysisIdsOfUser).mockResolvedValue([]);
+    vi.mocked(cancelSubscriptionNow).mockResolvedValue({ canceled: [], failed: ["sub_01"] });
+
+    expect(await deleteAccountCascade("user_1")).toMatchObject({ subscriptionsCanceled: 0, subscriptionsFailed: 1, userRowRemoved: true });
+    expect(console.error).toHaveBeenCalledWith(expect.stringMatching(/user=user_1 ACCOUNT DELETED WITH A SUBSCRIPTION POSSIBLY STILL BILLING/));
+
+    vi.mocked(cancelSubscriptionNow).mockRejectedValue(new Error("db down"));
+    expect(await deleteAccountCascade("user_1")).toMatchObject({ subscriptionsFailed: -1, userRowRemoved: true });
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("user=user_1 could not read or cancel"), expect.anything());
   });
 
   it("is idempotent for an account already gone", async () => {
@@ -170,6 +199,8 @@ describe("deleteAccountCascade", () => {
       leftoverObjects: 0,
       leftoverObjectsRemoved: true,
       conversationsFailed: 0,
+      subscriptionsCanceled: 0,
+      subscriptionsFailed: 0,
       userRowRemoved: false,
     });
   });

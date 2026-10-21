@@ -9,6 +9,7 @@ import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { recordGuardStatsDaily } from "./guardStats";
 import { mapDbResume, resumeInclude } from "./mappers";
+import { isVisible, visibleAnalysisIds } from "./visibility";
 
 export type CreateResumeData = {
   /** Minted by the action before the usage unit is reserved, so the ledger can name the analysis. */
@@ -72,20 +73,31 @@ export async function createResume(data: CreateResumeData, now = new Date()): Pr
 }
 
 
-/** Analyses belonging to the current session user. */
-export async function fetchAllResumes(): Promise<ResumeAnalysis[]> {
+export type VisibleResumes = {
+  /** The analyses the plan shows, newest first. */
+  analyses: ResumeAnalysis[];
+  /** Older ones the plan hides (Free's history rule); zero for Pro. */
+  hidden: number;
+};
+
+/** The caller's analyses within the plan's history, and how many are hidden beyond it. */
+export async function fetchVisibleResumes(): Promise<VisibleResumes> {
   try {
     const userId = await requireUserId();
 
-    const dbResumes = await prisma.resumeAnalysis.findMany({
-      where: { userId },
-      include: resumeInclude,
-      orderBy: { createdAt: "desc" },
-    });
+    const [dbResumes, visible] = await Promise.all([
+      prisma.resumeAnalysis.findMany({
+        where: { userId },
+        include: resumeInclude,
+        orderBy: { createdAt: "desc" },
+      }),
+      visibleAnalysisIds(userId),
+    ]);
+    const shown = dbResumes.filter((row) => isVisible(visible, row.id));
 
-    return dbResumes.map(mapDbResume);
+    return { analyses: shown.map(mapDbResume), hidden: dbResumes.length - shown.length };
   } catch (error) {
-    handleError(error, "Failed to retrieve all resume analysis records");
+    handleError(error, "Failed to retrieve the resume analysis records");
   }
 }
 
@@ -105,14 +117,20 @@ export async function fetchResumeKey(id: string): Promise<string | null> {
   }
 }
 
+export type ResumeAccess =
+  /** Not there, or another user's: the two are not told apart. */
+  | { kind: "missing" }
+  /** The caller's, but beyond the plan's history: the page shows an upgrade notice. */
+  | { kind: "hidden" }
+  | { kind: "visible"; analysis: ResumeAnalysis };
+
 /**
  * Ownership lives in the `where` clause, so it can't be skipped and there is no
- * gap between reading and checking. `null` covers both "missing" and "not
- * yours": telling them apart would leak the existence of other users' ids.
+ * gap between reading and checking. "missing" covers both "not there" and
+ * "not yours": telling them apart would leak the existence of other users'
+ * ids. "hidden" is the caller's own analysis beyond the plan's history.
  */
-export async function fetchResumeById(
-  id: string
-): Promise<ResumeAnalysis | null> {
+export async function fetchResumeAccess(id: string): Promise<ResumeAccess> {
   try {
     const userId = await requireUserId();
 
@@ -120,9 +138,19 @@ export async function fetchResumeById(
       where: { id, userId },
       include: resumeInclude,
     });
+    if (!dbResume) return { kind: "missing" };
 
-    return dbResume ? mapDbResume(dbResume) : null;
+    const visible = await visibleAnalysisIds(userId);
+    if (!isVisible(visible, dbResume.id)) return { kind: "hidden" };
+
+    return { kind: "visible", analysis: mapDbResume(dbResume) };
   } catch (error) {
     handleError(error, "Failed to retrieve resume analysis record");
   }
+}
+
+/** The analysis when the caller may see it; `null` when missing, another user's, or hidden by the plan. */
+export async function fetchResumeById(id: string): Promise<ResumeAnalysis | null> {
+  const access = await fetchResumeAccess(id);
+  return access.kind === "visible" ? access.analysis : null;
 }

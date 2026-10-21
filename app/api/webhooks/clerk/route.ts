@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         // platform; nothing refused, the account is gone. Idempotent.
         const summary = await deleteAccountCascade(event.data.id);
         console.info(
-          `${LOG} user.deleted ${who} analyses=${summary.analyses} userRow=${summary.userRowRemoved ? "removed" : "already gone"}`,
+          `${LOG} user.deleted ${who} subscriptionsCanceled=${summary.subscriptionsCanceled} subscriptionsFailed=${summary.subscriptionsFailed} analyses=${summary.analyses} userRow=${summary.userRowRemoved ? "removed" : "already gone"}`,
         );
         break;
       }

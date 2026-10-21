@@ -25,8 +25,8 @@ const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: 
   createdAt: "2026-10-01T00:00:00.000Z",
 });
 
-const free = (trialAvailable: boolean): InterviewQuotaView => ({ plan: "FREE", trialAvailable, left: 0, limit: 0, resetsAt: RESETS });
-const pro = (left: number): InterviewQuotaView => ({ plan: "PRO", trialAvailable: false, left, limit: 4, resetsAt: RESETS });
+const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({ plan: "FREE", trialAvailable, left: 0, limit: 0, credits, creditsUsable: false, resetsAt: RESETS });
+const pro = (left: number, credits = 0): InterviewQuotaView => ({ plan: "PRO", trialAvailable: false, left, limit: 4, credits, creditsUsable: true, resetsAt: RESETS });
 
 function mount(quota: InterviewQuotaView, attempts: InterviewAttempt[] = [], variant: "compact" | "full" = "full") {
   return render(
@@ -41,8 +41,11 @@ describe("interviewOffer", () => {
     expect(interviewOffer(free(true), true)).toEqual({ kind: "live" });
     expect(interviewOffer(free(true), false)).toEqual({ kind: "trial" });
     expect(interviewOffer(free(false), false)).toEqual({ kind: "needs-pro" });
-    expect(interviewOffer(pro(3), false)).toEqual({ kind: "pro", left: 3, limit: 4 });
+    expect(interviewOffer(pro(3), false)).toEqual({ kind: "pro", left: 3, limit: 4, credits: 0 });
     expect(interviewOffer(pro(0), false)).toEqual({ kind: "pro-exhausted", resetsAt: RESETS });
+    // Credits keep the button after the period's interviews are used; frozen ones (Free) do not.
+    expect(interviewOffer(pro(0, 5), false)).toEqual({ kind: "pro", left: 0, limit: 4, credits: 5 });
+    expect(interviewOffer(free(false, 5), false)).toEqual({ kind: "needs-pro" });
   });
 });
 
@@ -61,20 +64,24 @@ describe("InterviewCta by plan", () => {
     expect(screen.getAllByText("Voice interviews are part of Pro.").length).toBeGreaterThan(0);
   });
 
-  it("tells a Pro account how many interviews are left this month, and never how many analyses it gets", () => {
+  it("tells a Pro account how many interviews are left this period, the credits when it has any, and never how many analyses it gets", () => {
     const { container } = mount(pro(3), [attempt("i1", "COMPLETED", 1)]);
 
     expect(screen.getByRole("button", { name: /rehearse again/i })).toBeTruthy();
-    expect(screen.getByText(/3 of 4 interviews left this month/)).toBeTruthy();
+    expect(screen.getByText(/3 of 4 interviews left this period · up to 12 minutes/)).toBeTruthy();
     expect(container.textContent).not.toMatch(/50/);
     expect(container.textContent).not.toMatch(/analys/i);
+
+    cleanup();
+    mount(pro(3, 5));
+    expect(screen.getByText(/3 of 4 interviews left this period · 5 credits/)).toBeTruthy();
   });
 
   it("at zero, tells a Pro account when the interviews come back, with no button", () => {
     mount(pro(0));
 
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getAllByText(/You've used this month's interviews\. They reset Nov 1\./).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/You've used this period's interviews\. They reset Nov 1\./).length).toBeGreaterThan(0);
   });
 
   it("links to the live attempt before anything else, whatever the plan says", () => {

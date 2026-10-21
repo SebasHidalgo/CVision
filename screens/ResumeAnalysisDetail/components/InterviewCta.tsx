@@ -36,16 +36,26 @@ const FULL_MINUTES = Math.round(INTERVIEW_TIERS.FULL.seconds / 60);
 export type InterviewOffer =
   | { kind: "live" }
   | { kind: "trial" }
-  | { kind: "pro"; left: number; limit: number }
+  /** The period's interviews, then the pack credits: a button while either is left. */
+  | { kind: "pro"; left: number; limit: number; credits: number }
   | { kind: "pro-exhausted"; resetsAt: string }
   | { kind: "needs-pro" };
 
 export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
   if (hasLive) return { kind: "live" };
   if (quota.plan === "PRO") {
-    return quota.left > 0 ? { kind: "pro", left: quota.left, limit: quota.limit } : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
+    const credits = quota.creditsUsable ? quota.credits : 0;
+    return quota.left > 0 || credits > 0
+      ? { kind: "pro", left: quota.left, limit: quota.limit, credits }
+      : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
   }
   return quota.trialAvailable ? { kind: "trial" } : { kind: "needs-pro" };
+}
+
+/** "3 of 4 interviews left this period · 5 credits": the period's allowance, then the credits when there are any. */
+export function proAllowanceLine(offer: Extract<InterviewOffer, { kind: "pro" }>): string {
+  const credits = offer.credits > 0 ? ` · ${offer.credits} credit${offer.credits === 1 ? "" : "s"}` : "";
+  return `${offer.left} of ${offer.limit} interviews left this period${credits}`;
 }
 
 export default function InterviewCta({
@@ -137,7 +147,7 @@ export default function InterviewCta({
     offer.kind === "trial"
       ? `${TRIAL_MINUTES} minutes with the interviewer, on us · needs a microphone · works on a phone`
       : offer.kind === "pro"
-        ? `${offer.left} of ${offer.limit} interviews left this month · up to ${FULL_MINUTES} minutes · needs a microphone`
+        ? `${proAllowanceLine(offer)} · up to ${FULL_MINUTES} minutes · needs a microphone`
         : null;
 
   if (variant === "compact") return control;
@@ -150,7 +160,7 @@ export default function InterviewCta({
         : offer.kind === "needs-pro"
           ? "Rehearse this interview out loud, with Pro."
           : offer.kind === "pro-exhausted"
-            ? "This month's interviews are used."
+            ? "This period's interviews are used."
             : rehearsed
               ? "Rehearse it again."
               : `Rehearse the ${jobTitle} interview out loud.`;

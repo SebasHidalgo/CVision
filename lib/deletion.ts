@@ -6,6 +6,7 @@ import {
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
 import { deleteUserRows } from "@/lib/database/user";
+import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/elevenlabs/client";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
 
@@ -59,17 +60,39 @@ export type AccountDeletion = {
   leftoverObjects: number;
   leftoverObjectsRemoved: boolean;
   conversationsFailed: number;
+  /** Provider subscriptions canceled (or already canceled) before the rows went, and those the provider refused. */
+  subscriptionsCanceled: number;
+  subscriptionsFailed: number;
   userRowRemoved: boolean;
 };
 
 /**
- * Everything of one account, for `user.deleted`: each analysis through the
- * cascade above, the conversations of interviews that had no analysis, any
- * object left under `cv/{userId}/`, then the user row (whose foreign keys
- * take whatever is left). Idempotent: an account already gone yields zeros
- * and `userRowRemoved: false`.
+ * Everything of one account, for `user.deleted`: the billing subscriptions
+ * first (a subscription that keeps billing a deleted user is the worst
+ * outcome, so this runs before the rows that remember it are gone, and a
+ * failure is loud with the user id but does not stop the deletion), then
+ * each analysis through the cascade above, the conversations of interviews
+ * that had no analysis, any object left under `cv/{userId}/`, then the user
+ * row (whose foreign keys take whatever is left, the billing rows
+ * included). Idempotent: an account already gone yields zeros and
+ * `userRowRemoved: false`. The provider keeps the customer, the
+ * transactions and the canceled subscription for its own records.
  */
 export async function deleteAccountCascade(userId: string): Promise<AccountDeletion> {
+  let subscriptionsCanceled = 0;
+  let subscriptionsFailed = 0;
+  try {
+    const billing = await cancelSubscriptionNow(userId);
+    subscriptionsCanceled = billing.canceled.length;
+    subscriptionsFailed = billing.failed.length;
+  } catch (error) {
+    subscriptionsFailed = -1;
+    console.error(`${LOG} user=${userId} could not read or cancel the subscriptions at the provider; check them by hand:`, error);
+  }
+  if (subscriptionsFailed !== 0) {
+    console.error(`${LOG} user=${userId} ACCOUNT DELETED WITH A SUBSCRIPTION POSSIBLY STILL BILLING (failed=${subscriptionsFailed})`);
+  }
+
   const analysisIds = await listAnalysisIdsOfUser(userId);
   let conversationsFailed = 0;
   for (const analysisId of analysisIds) {
@@ -96,9 +119,17 @@ export async function deleteAccountCascade(userId: string): Promise<AccountDelet
   const userRowRemoved = await deleteUserRows(userId);
 
   console.info(
-    `${LOG} user=${userId} account deleted: analyses=${analysisIds.length} leftoverObjects=${leftoverObjects} conversationsFailed=${conversationsFailed} userRow=${userRowRemoved ? "removed" : "already gone"}`,
+    `${LOG} user=${userId} account deleted: subscriptionsCanceled=${subscriptionsCanceled} subscriptionsFailed=${subscriptionsFailed} analyses=${analysisIds.length} leftoverObjects=${leftoverObjects} conversationsFailed=${conversationsFailed} userRow=${userRowRemoved ? "removed" : "already gone"}`,
   );
-  return { analyses: analysisIds.length, leftoverObjects, leftoverObjectsRemoved, conversationsFailed, userRowRemoved };
+  return {
+    analyses: analysisIds.length,
+    leftoverObjects,
+    leftoverObjectsRemoved,
+    conversationsFailed,
+    subscriptionsCanceled,
+    subscriptionsFailed,
+    userRowRemoved,
+  };
 }
 
 /** Platform deletes in flight at once: enough to make an account deletion quick, few enough to stay polite. */

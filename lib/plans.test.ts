@@ -9,6 +9,7 @@ describe("the plans", () => {
       interviewsPerMonth: 0,
       trialInterviews: 1,
       interviewTier: "TRIAL",
+      historyLimit: 3,
     });
     expect(PLANS.PRO).toEqual({
       analysesPerMonth: 50,
@@ -16,6 +17,7 @@ describe("the plans", () => {
       interviewsPerMonth: 4,
       trialInterviews: 0,
       interviewTier: "FULL",
+      historyLimit: null,
     });
     expect(INTERVIEW_TIERS.TRIAL.seconds).toBe(300);
     expect(INTERVIEW_TIERS.FULL.seconds).toBe(720);
