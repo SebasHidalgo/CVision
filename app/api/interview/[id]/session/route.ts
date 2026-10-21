@@ -4,6 +4,7 @@ import {
   fetchInterviewById,
   reserveInterviewSession,
 } from "@/lib/database/interview";
+import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview, type InterviewReservation } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
@@ -49,6 +50,10 @@ export async function POST(
     await assertRateLimit(userId, "interviewStart");
     const { id } = await params;
 
+    // A read of an interview is also the sweep for abandoned ones; one
+    // expired here answers INTERVIEW_NOT_STARTABLE below.
+    await expireAbandonedInterviews(userId);
+
     // Owner-scoped: a foreign id is indistinguishable from a missing one.
     const interview = await fetchInterviewById(id);
     if (!interview) throw new NotFoundError("Interview not found");
@@ -93,11 +98,13 @@ export async function POST(
 
     const session = await issueConversationToken(tier);
 
+    const issuedAt = new Date();
     const reserved = await reserveInterviewSession({
       interviewId: interview.id,
       issuedContext: dynamicVariables,
       conversationId: session.conversationId,
-      startedAt: interview.startedAt ?? new Date(),
+      startedAt: interview.startedAt ?? issuedAt,
+      issuedAt,
       maxStarts: MAX_INTERVIEW_STARTS,
       ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier } } : {}),
     });

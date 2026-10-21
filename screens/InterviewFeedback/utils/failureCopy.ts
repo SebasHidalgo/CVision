@@ -33,7 +33,7 @@ const COPY: Record<string, FailureCopy> = {
 
 const EXPIRED: FailureCopy = {
   title: "This interview expired.",
-  body: "It was never started and its window has passed. Rehearse again from the analysis.",
+  body: "More than two hours passed since its last connection without the interviewer hearing an answer, so it was closed and the interview went back to your plan. Rehearse again from the analysis.",
   canRetryFeedback: false,
 };
 

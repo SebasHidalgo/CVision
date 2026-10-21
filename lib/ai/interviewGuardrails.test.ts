@@ -97,6 +97,60 @@ describe("checkInterviewFeedback", () => {
     expect(coverage.map((v) => v.note)).toEqual(["second row for gap 1", "no row for gap 2", "row for no listed gap"]);
   });
 
+  it("names a drifted gap name once, with the issued text, when the rows are the gaps by position", () => {
+    // Two gaps, two rows, the second row's text drifted past the loose match.
+    const violations = checkInterviewFeedback(
+      input(
+        feedback({
+          gapFollowThrough: [
+            { requirement: "GraphQL schema design", outcome: "dodged", quote: "", note: "" },
+            { requirement: "IaC tooling", outcome: "dodged", quote: "", note: "" },
+          ],
+        }),
+      ),
+    );
+    const coverage = violations.filter((v) => v.check === "gap-coverage");
+    expect(coverage).toEqual([
+      {
+        check: "gap-coverage",
+        path: "gapFollowThrough[1].requirement",
+        value: "IaC tooling",
+        note: "name differs from gap 2; repaired by position",
+        replacement: "Terraform",
+      },
+    ]);
+  });
+
+  it("does not repair by position when the counts differ or the positions do not line up", () => {
+    // Three rows for two gaps: the counts differ.
+    const extra = checkInterviewFeedback(
+      input(
+        feedback({
+          gapFollowThrough: [
+            { requirement: "GraphQL schema design", outcome: "dodged", quote: "", note: "" },
+            { requirement: "IaC tooling", outcome: "dodged", quote: "", note: "" },
+            { requirement: "Kubernetes", outcome: "not_raised", quote: "", note: "" },
+          ],
+        }),
+      ),
+    ).filter((v) => v.check === "gap-coverage");
+    expect(extra.map((v) => v.note)).toEqual(["no row for gap 2", "row for no listed gap", "row for no listed gap"]);
+    expect(extra.every((v) => v.replacement === undefined)).toBe(true);
+
+    // Two rows for two gaps, but the drifted row sits where the matched gap is.
+    const swapped = checkInterviewFeedback(
+      input(
+        feedback({
+          gapFollowThrough: [
+            { requirement: "IaC tooling", outcome: "dodged", quote: "", note: "" },
+            { requirement: "GraphQL schema design", outcome: "dodged", quote: "", note: "" },
+          ],
+        }),
+      ),
+    ).filter((v) => v.check === "gap-coverage");
+    expect(swapped.map((v) => v.note)).toEqual(["no row for gap 2", "row for no listed gap"]);
+  });
+
   it("lets a rounding of a measured stat through, and a quantity word in prose", () => {
     const stats = {
       totalTurns: 9,
@@ -158,6 +212,35 @@ describe("checkInterviewFeedback", () => {
 });
 
 describe("guardInterviewFeedback", () => {
+  it("restores a drifted gap name from the issued text and records it as one repair", () => {
+    const { feedback: cleaned, guard } = guardInterviewFeedback(
+      input(
+        feedback({
+          gapFollowThrough: [
+            { requirement: "GraphQL schema design", outcome: "dodged", quote: "I have seen GraphQL around, mostly in demos.", note: "Demos only." },
+            { requirement: "IaC tooling", outcome: "dodged", quote: "Not Terraform, no", note: "Named Docker instead." },
+          ],
+        }),
+      ),
+    );
+
+    expect(cleaned.gapFollowThrough.map((row) => row.requirement)).toEqual(["GraphQL schema design", "Terraform"]);
+    // The row's verdict and evidence are the model's; only the name was restored.
+    expect(cleaned.gapFollowThrough[1]).toMatchObject({ outcome: "dodged", quote: "Not Terraform, no" });
+    expect(guard.interventions).toEqual([
+      {
+        check: "gap-coverage",
+        action: "gap-name-repaired",
+        path: "gapFollowThrough[1].requirement",
+        value: "IaC tooling",
+        replacement: "Terraform",
+      },
+    ]);
+    expect(guard.counts["gap-name-repaired"]).toBe(1);
+    expect(guard.counts.recorded).toBe(0);
+    expect(guard.violations.filter((v) => v.check === "gap-coverage")).toHaveLength(1);
+  });
+
   it("drops an unfound quote, normalizes a case-only one, and keeps the rows", () => {
     const { feedback: cleaned, guard } = guardInterviewFeedback(
       input(
@@ -173,7 +256,7 @@ describe("guardInterviewFeedback", () => {
     expect(cleaned.gapFollowThrough[0].quote).toBe("");
     expect(cleaned.gapFollowThrough[0].outcome).toBe("dodged");
     expect(cleaned.gapFollowThrough[1].quote).toBe("Not Terraform, no");
-    expect(guard.counts).toEqual({ "quote-dropped": 1, "quote-normalized": 1, "item-dropped": 0, recorded: 0 });
+    expect(guard.counts).toEqual({ "quote-dropped": 1, "quote-normalized": 1, "item-dropped": 0, "gap-name-repaired": 0, recorded: 0 });
     // The measurement is untouched by the edit.
     expect(guard.violations).toHaveLength(2);
   });

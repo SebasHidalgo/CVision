@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
+import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { isStranded } from "@/lib/elevenlabs/postCall";
@@ -35,6 +36,9 @@ export async function GET(
     // Polled every 3 to 10 s by design: this ceiling only stops a runaway loop.
     await assertRateLimit(userId, "status");
     const { id } = await params;
+
+    // A read of an interview is also the sweep for abandoned ones.
+    await expireAbandonedInterviews(userId);
 
     let row = await fetchInterviewStatus(id);
     if (!row) throw new NotFoundError("Interview not found");

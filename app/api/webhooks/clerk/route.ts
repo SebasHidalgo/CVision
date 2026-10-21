@@ -29,34 +29,39 @@ export async function POST(request: NextRequest) {
     return new Response(null, { status: 400 });
   }
 
+  // Svix's delivery id, so a failure line can be matched to a delivery in
+  // the Clerk dashboard; the user id is the other handle, where there is one.
+  const deliveryId = request.headers.get("svix-id") ?? "?";
+  const userId = (event.data as { id?: unknown }).id;
+  const who = `delivery=${deliveryId} user=${typeof userId === "string" ? userId : "?"}`;
+
   try {
     switch (event.type) {
       case "user.created": {
         await upsertUserById(event.data.id);
-        console.info(`${LOG} user.created user=${event.data.id}`);
+        console.info(`${LOG} user.created ${who}`);
         break;
       }
       case "user.deleted": {
-        const userId = event.data.id;
-        if (!userId) {
-          console.warn(`${LOG} user.deleted without an id, acknowledged`);
+        if (!event.data.id) {
+          console.warn(`${LOG} user.deleted without an id, acknowledged ${who}`);
           break;
         }
         // Rows, the CVs in the bucket and the conversations on the voice
         // platform; nothing refused, the account is gone. Idempotent.
-        const summary = await deleteAccountCascade(userId);
+        const summary = await deleteAccountCascade(event.data.id);
         console.info(
-          `${LOG} user.deleted user=${userId} analyses=${summary.analyses} userRow=${summary.userRowRemoved ? "removed" : "already gone"}`,
+          `${LOG} user.deleted ${who} analyses=${summary.analyses} userRow=${summary.userRowRemoved ? "removed" : "already gone"}`,
         );
         break;
       }
       default:
-        console.info(`${LOG} ignored event type=${event.type}`);
+        console.info(`${LOG} ignored event type=${event.type} ${who}`);
     }
     return Response.json({ ok: true });
   } catch (error) {
     // A failed write is worth a retry from Clerk.
-    console.error(`${LOG} failed to handle ${event.type}:`, error);
+    console.error(`${LOG} failed to handle ${event.type} ${who}:`, error);
     return new Response(null, { status: 500 });
   }
 }

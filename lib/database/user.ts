@@ -40,7 +40,7 @@ export async function upsertUserById(userId: string): Promise<void> {
       update: {},
     });
   } catch (error) {
-    handleError(error, "Failed to upsert the user row");
+    handleError(error, `Failed to upsert the user row (user=${userId})`);
   }
 }
 
@@ -54,6 +54,6 @@ export async function deleteUserRows(userId: string): Promise<boolean> {
     const result = await prisma.user.deleteMany({ where: { id: userId } });
     return result.count === 1;
   } catch (error) {
-    handleError(error, "Failed to delete the user rows");
+    handleError(error, `Failed to delete the user rows (user=${userId})`);
   }
 }

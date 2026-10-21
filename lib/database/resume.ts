@@ -7,6 +7,7 @@ import { handleError } from "@/lib/error/handleError";
 import type { GuardStats } from "@/lib/ai/schemas";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
+import { recordGuardStatsDaily } from "./guardStats";
 import { mapDbResume, resumeInclude } from "./mappers";
 
 export type CreateResumeData = {
@@ -26,36 +27,45 @@ export type CreateResumeData = {
 // assignable to. One documented cast instead of one per field.
 const toJson = (value: unknown) => value as Prisma.InputJsonValue;
 
-export async function createResume(data: CreateResumeData): Promise<string> {
+/**
+ * Stores the analysis, its feedback and, in the same transaction, the day's
+ * anonymous guardrail tallies, so the two cannot drift apart. Database
+ * writes only inside the transaction: nothing external is awaited there.
+ */
+export async function createResume(data: CreateResumeData, now = new Date()): Promise<string> {
   try {
     const userId = await requireUserId();
 
-    const created = await prisma.resumeAnalysis.create({
-      data: {
-        id: data.id,
-        companyName: data.companyName,
-        jobTitle: data.jobTitle,
-        jobDescription: data.jobDescription,
-        resumeKey: data.resumeKey,
-        userId,
-        guardStats: toJson(data.guardStats),
-        feedback: {
-          create: {
-            overall: toJson(data.feedback.overall),
-            atsCompatibility: toJson(data.feedback.atsCompatibility),
-            experienceAndImpact: toJson(data.feedback.experienceAndImpact),
-            educationAndCertifications: toJson(
-              data.feedback.educationAndCertifications
-            ),
-            skills: toJson(data.feedback.skills),
-            toneAndClarity: toJson(data.feedback.toneAndClarity),
-            jobFit: toJson(data.feedback.jobFit),
+    return await prisma.$transaction(async (tx) => {
+      const created = await tx.resumeAnalysis.create({
+        data: {
+          id: data.id,
+          companyName: data.companyName,
+          jobTitle: data.jobTitle,
+          jobDescription: data.jobDescription,
+          resumeKey: data.resumeKey,
+          userId,
+          createdAt: now,
+          guardStats: toJson(data.guardStats),
+          feedback: {
+            create: {
+              overall: toJson(data.feedback.overall),
+              atsCompatibility: toJson(data.feedback.atsCompatibility),
+              experienceAndImpact: toJson(data.feedback.experienceAndImpact),
+              educationAndCertifications: toJson(
+                data.feedback.educationAndCertifications
+              ),
+              skills: toJson(data.feedback.skills),
+              toneAndClarity: toJson(data.feedback.toneAndClarity),
+              jobFit: toJson(data.feedback.jobFit),
+            },
           },
         },
-      },
+        select: { id: true },
+      });
+      await recordGuardStatsDaily(tx, "ANALYSIS", now, data.guardStats);
+      return created.id;
     });
-
-    return created.id;
   } catch (error) {
     handleError(error, "Failed to create a resume analysis record");
   }

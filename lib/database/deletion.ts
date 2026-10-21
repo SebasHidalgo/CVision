@@ -78,7 +78,7 @@ export async function deleteAnalysisRows(params: {
     }
     throw new Error("unreachable");
   } catch (error) {
-    handleError(error, "Failed to delete the analysis rows");
+    handleError(error, `Failed to delete the analysis rows (analysis=${params.analysisId}, user=${params.userId})`);
   }
 }
 
@@ -88,7 +88,7 @@ export async function listAnalysisIdsOfUser(userId: string): Promise<string[]> {
     const rows = await prisma.resumeAnalysis.findMany({ where: { userId }, select: { id: true } });
     return rows.map((row) => row.id);
   } catch (error) {
-    handleError(error, "Failed to list the analyses of the user");
+    handleError(error, `Failed to list the analyses of the user (user=${userId})`);
   }
 }
 
@@ -105,6 +105,6 @@ export async function collectDetachedConversationIds(userId: string): Promise<st
     });
     return rows.flatMap((row) => row.issuedConversationIds);
   } catch (error) {
-    handleError(error, "Failed to collect the detached conversation ids");
+    handleError(error, `Failed to collect the detached conversation ids (user=${userId})`);
   }
 }

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
 import type { GuardStats, InterviewFeedbackReport } from "@/lib/ai/schemas";
+import { recordGuardStatsDaily } from "./guardStats";
 
 /**
  * Data access for feedback generation. No session: the generator runs from
@@ -108,18 +109,22 @@ export async function failInterviewFeedback(params: {
 }
 
 /**
- * Stores the feedback and completes the interview in one transaction,
- * guarded on the claim: if the row is no longer GENERATING (a stale-claim
- * takeover finished first), nothing is written and the caller learns it
- * from null.
+ * Stores the feedback, completes the interview and adds the day's anonymous
+ * guardrail tallies in one transaction, guarded on the claim: if the row is
+ * no longer GENERATING (a stale-claim takeover finished first), nothing is
+ * written and the caller learns it from null. Database writes only inside
+ * the transaction; the model call happened before it.
  */
-export async function completeInterviewFeedback(params: {
-  interviewId: string;
-  totalScore: number;
-  report: InterviewFeedbackReport;
-  /** What the guardrail did to the model's answer, for `npm run report:guards`. */
-  guardStats: GuardStats;
-}): Promise<string | null> {
+export async function completeInterviewFeedback(
+  params: {
+    interviewId: string;
+    totalScore: number;
+    report: InterviewFeedbackReport;
+    /** What the guardrail did to the model's answer; its tallies go to the daily aggregate. */
+    guardStats: GuardStats;
+  },
+  now = new Date(),
+): Promise<string | null> {
   try {
     return await prisma.$transaction(async (tx) => {
       const completed = await tx.interview.updateMany({
@@ -132,12 +137,14 @@ export async function completeInterviewFeedback(params: {
         totalScore: params.totalScore,
         report: params.report as Prisma.InputJsonValue,
         guardStats: params.guardStats as Prisma.InputJsonValue,
+        createdAt: now,
       };
       const feedback = await tx.interviewFeedback.upsert({
         where: { interviewId: params.interviewId },
         create: { interviewId: params.interviewId, ...data },
         update: data,
       });
+      await recordGuardStatsDaily(tx, "INTERVIEW", now, params.guardStats);
       return feedback.id;
     });
   } catch (error) {

@@ -8,6 +8,7 @@ const row = (report: unknown): DbInterviewFeedback => ({
   totalScore: 65,
   report: report as DbInterviewFeedback["report"],
   guardStats: null,
+  createdAt: new Date("2026-10-11T10:20:00Z"),
   interview: { role: "Backend Engineer", createdAt: new Date("2026-10-11T10:00:00Z") },
 });
 

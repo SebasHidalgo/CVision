@@ -12,7 +12,6 @@ import {
   RateLimitedError,
 } from "@/lib/error/errors";
 import { extractTextFromPDFBytes } from "@/lib/pdfParse";
-import { ANALYSIS_CONSUMING_FAILURE_CODES } from "@/lib/plans";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 import { analyzeResumeAction } from "./analyzeResumeAction";
@@ -30,6 +29,7 @@ vi.mock("@/lib/ai/resumeAnalysis", () => ({ analyzeResume: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => "resume_1") }));
 
 const OWN_KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
+const OTHER_OWN_KEY = "cv/user_1/22222222-2222-4333-8444-555555555555.pdf";
 const FOREIGN_KEY = "cv/user_2/11111111-2222-4333-8444-555555555555.pdf";
 
 const input = (resumeKey = OWN_KEY) => ({
@@ -45,6 +45,9 @@ function pdfBytes(size = 2048): Uint8Array {
   bytes.set([0x25, 0x50, 0x44, 0x46, 0x2d]);
   return bytes;
 }
+
+const quotaRefusal = () =>
+  new AnalysisQuotaExceededError({ plan: "FREE", resetsAt: "2026-11-01T00:00:00.000Z" });
 
 beforeEach(() => {
   // clearAllMocks drops call history, not implementations set by a test.
@@ -86,14 +89,16 @@ describe("analyzeResumeAction: the key and the unit", () => {
     expect(removeObject).not.toHaveBeenCalled();
   });
 
-  it("treats another user's key as not found: no reservation, no download, nothing deleted", async () => {
+  it("treats another user's key as not found: no rate limit taken, no reservation, no download, nothing deleted", async () => {
     expect(await analyzeResumeAction(input(FOREIGN_KEY))).toEqual({ ok: false, code: "NOT_FOUND" });
+    expect(assertRateLimit).not.toHaveBeenCalled();
     expect(reserveUsage).not.toHaveBeenCalled();
     expect(downloadObject).not.toHaveBeenCalled();
+    expect(removeObject).not.toHaveBeenCalled();
   });
 
-  it("refuses at the quota with the reset date, before any download", async () => {
-    vi.mocked(reserveUsage).mockRejectedValue(new AnalysisQuotaExceededError({ plan: "FREE", resetsAt: "2026-11-01T00:00:00.000Z" }));
+  it("refuses at the quota with the reset date, before any download, and removes the upload", async () => {
+    vi.mocked(reserveUsage).mockRejectedValue(quotaRefusal());
 
     expect(await analyzeResumeAction(input())).toEqual({
       ok: false,
@@ -102,22 +107,48 @@ describe("analyzeResumeAction: the key and the unit", () => {
     });
     expect(downloadObject).not.toHaveBeenCalled();
     expect(refundUsage).not.toHaveBeenCalled();
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
   });
 
-  it("answers RATE_LIMITED before the quota", async () => {
+  it("two tabs at the last analysis: the winner keeps its object, the loser's is removed", async () => {
+    // Both tabs got an upload URL (the URL action checks the quota without
+    // reserving) and both PUT their file; the ledger decides here.
+    vi.mocked(reserveUsage).mockResolvedValueOnce({ eventId: "evt_1" }).mockRejectedValueOnce(quotaRefusal());
+
+    const [winner, loser] = await Promise.all([
+      analyzeResumeAction(input(OWN_KEY)),
+      analyzeResumeAction(input(OTHER_OWN_KEY)),
+    ]);
+
+    expect(winner.ok).toBe(true);
+    expect(loser).toMatchObject({ ok: false, code: "ANALYSIS_QUOTA_EXCEEDED" });
+    expect(removeObject).toHaveBeenCalledTimes(1);
+    expect(removeObject).toHaveBeenCalledWith(OTHER_OWN_KEY);
+    expect(createResume).toHaveBeenCalledTimes(1);
+    expect(createResume).toHaveBeenCalledWith(expect.objectContaining({ resumeKey: OWN_KEY }));
+  });
+
+  it("answers RATE_LIMITED before the quota, and removes the caller's own upload", async () => {
     vi.mocked(assertRateLimit).mockRejectedValue(new RateLimitedError(30));
 
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "RATE_LIMITED", meta: { retryAfter: 30 } });
     expect(reserveUsage).not.toHaveBeenCalled();
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
+  });
+
+  it("removes the upload when the rest of the form is invalid, and nothing when no key was named", async () => {
+    expect(await analyzeResumeAction({ ...input(), jobDescription: "" })).toEqual({ ok: false, code: "INVALID_INPUT" });
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
+    expect(reserveUsage).not.toHaveBeenCalled();
+
+    vi.mocked(removeObject).mockClear();
+    expect(await analyzeResumeAction({ companyName: "x" })).toEqual({ ok: false, code: "INVALID_INPUT" });
+    expect(removeObject).not.toHaveBeenCalled();
   });
 });
 
-describe("analyzeResumeAction: what is refunded", () => {
-  it("names the user's-file codes that keep the unit spent", () => {
-    expect([...ANALYSIS_CONSUMING_FAILURE_CODES].sort()).toEqual(["FILE_TOO_LARGE", "NOT_A_PDF", "PDF_NO_TEXT", "PDF_UNREADABLE"]);
-  });
-
-  it("keeps the unit for a file that is not a PDF, has no text, is unreadable or is too large, and deletes the object", async () => {
+describe("analyzeResumeAction: every failure refunds", () => {
+  it("gives the unit back for a file that is not a PDF, has no text, is unreadable or is too large, and deletes the object", async () => {
     vi.mocked(downloadObject).mockResolvedValueOnce(new TextEncoder().encode("PK\u0003\u0004 a docx renamed"));
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "NOT_A_PDF" });
 
@@ -131,8 +162,15 @@ describe("analyzeResumeAction: what is refunded", () => {
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "FILE_TOO_LARGE" });
 
     expect(reserveUsage).toHaveBeenCalledTimes(4);
-    expect(refundUsage).not.toHaveBeenCalled();
+    expect(vi.mocked(refundUsage).mock.calls.map(([, reason]) => reason)).toEqual([
+      "NOT_A_PDF",
+      "PDF_NO_TEXT",
+      "PDF_UNREADABLE",
+      "FILE_TOO_LARGE",
+    ]);
     expect(removeObject).toHaveBeenCalledTimes(4);
+    // None of these reached the model.
+    expect(analyzeResume).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -145,6 +183,7 @@ describe("analyzeResumeAction: what is refunded", () => {
 
     expect(await analyzeResumeAction(input())).toMatchObject({ ok: false, code });
     expect(refundUsage).toHaveBeenCalledWith("evt_1", code);
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
   });
 
   it("still returns the failure when the refund itself fails", async () => {

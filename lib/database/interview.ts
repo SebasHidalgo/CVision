@@ -8,6 +8,7 @@ import { z } from "zod";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
+import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   feedbackInclude,
   interviewOmit,
@@ -117,6 +118,8 @@ export async function createInterview(
 export async function fetchAllInterviews(): Promise<Interview[]> {
   try {
     const userId = await requireUserId();
+    // A list is a read of every interview: the sweep for abandoned ones runs first.
+    await expireAbandonedInterviews(userId);
 
     const rows = await prisma.interview.findMany({
       where: { userId },
@@ -153,7 +156,10 @@ export type ReserveInterviewSessionData = {
   issuedContext: Record<string, string>;
   /** The conversation id ElevenLabs minted with the token. */
   conversationId: string;
+  /** The first session's time, kept across reconnects. */
   startedAt: Date;
+  /** This session's time: what the abandoned-interview sweep measures from. */
+  issuedAt: Date;
   maxStarts: number;
   /**
    * The usage unit and the agent tier, on the first token only. A reconnect
@@ -192,6 +198,7 @@ export async function reserveInterviewSession(
         conversationId: data.conversationId,
         issuedConversationIds: { push: data.conversationId },
         startedAt: data.startedAt,
+        lastSessionAt: data.issuedAt,
         startCount: { increment: 1 },
         transcript: Prisma.DbNull,
         transcriptSource: null,

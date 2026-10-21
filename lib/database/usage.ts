@@ -18,6 +18,7 @@ import {
   type InterviewTierId,
   type PlanId,
 } from "@/lib/plans";
+import { expireAbandonedInterviews } from "./interviewExpiry";
 
 /**
  * The usage ledger. No session here: the callers are the actions (which
@@ -26,7 +27,9 @@ import {
  * read and write is scoped by the user id it was given.
  *
  * Two primitives and nothing else touches the table: `reserveUsage` (check
- * and insert in one serializable transaction) and `refundUsage`.
+ * and insert in one serializable transaction) and `refundUsage`. The
+ * expiry module imports the second and this file imports the expiry: a
+ * deliberate cycle of call-time bindings (see interviewExpiry.ts).
  */
 
 const RACE_CODES = new Set(["P2034"]);
@@ -159,9 +162,15 @@ export type UsageSummary = {
   resetsAt: Date;
 };
 
-/** The user's standing against every quota, for the pages that show it and the actions that pre-check it. */
+/**
+ * The user's standing against every quota, for the pages that show it and
+ * the actions that pre-check it. Reading a quota is also the sweep for
+ * abandoned interviews, so a reservation nobody came back to is given back
+ * before it is counted.
+ */
 export async function usageSummary(userId: string, now = new Date()): Promise<UsageSummary> {
   try {
+    await expireAbandonedInterviews(userId, now);
     const plan = await fetchPlan(userId);
     const limits = PLANS[plan];
     const period = quotaPeriod(now);

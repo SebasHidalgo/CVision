@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { createInterview, markInterviewEnded, reserveInterviewSession } from "./interview";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 
 /** A transaction client whose calls the tests script. */
 const tx = {
@@ -103,10 +104,11 @@ describe("reserveInterviewSession", () => {
     issuedContext: { interview_id: INTERVIEW_ID },
     conversationId: "conv_2",
     startedAt: new Date("2026-10-16T12:00:00Z"),
+    issuedAt: new Date("2026-10-16T12:05:00Z"),
     maxStarts: 3,
   };
 
-  it("clears every leftover of the previous session, the reconcile throttle included", async () => {
+  it("clears every leftover of the previous session, the reconcile throttle included, and dates this session", async () => {
     vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
 
     expect(await reserveInterviewSession(base)).toBe(true);
@@ -117,6 +119,9 @@ describe("reserveInterviewSession", () => {
         data: expect.objectContaining({
           status: "IN_PROGRESS",
           conversationId: "conv_2",
+          // The first session's time stays; the latest one is what the abandoned sweep reads.
+          startedAt: new Date("2026-10-16T12:00:00Z"),
+          lastSessionAt: new Date("2026-10-16T12:05:00Z"),
           endedAt: null,
           durationSeconds: null,
           failureReason: null,

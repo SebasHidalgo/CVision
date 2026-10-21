@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { PLANS } from "@/lib/plans";
+import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   analysisQuotaView,
   interviewQuotaView,
@@ -13,6 +14,7 @@ import {
 } from "./usage";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 
 const tx = {
   user: { findUnique: vi.fn() },
@@ -155,13 +157,18 @@ describe("refundUsage", () => {
 });
 
 describe("usageSummary and its views", () => {
-  it("reports what is left per quota, the trial's state and the reset date", async () => {
+  it("reports what is left per quota, the trial's state and the reset date, after sweeping abandoned interviews", async () => {
     vi.mocked(prisma.usageEvent.count)
       .mockResolvedValueOnce(2) // analyses this month
       .mockResolvedValueOnce(0) // interviews this month
       .mockResolvedValueOnce(0); // trials ever
 
     const summary = await usageSummary("user_1", NOW);
+
+    expect(expireAbandonedInterviews).toHaveBeenCalledWith("user_1", NOW);
+    expect(vi.mocked(expireAbandonedInterviews).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(prisma.usageEvent.count).mock.invocationCallOrder[0],
+    );
 
     expect(summary).toEqual({
       plan: "FREE",

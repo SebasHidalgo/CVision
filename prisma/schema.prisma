@@ -173,6 +173,10 @@ model Interview {
   failureReason   String?
 
   startedAt       DateTime?
+  /// When the latest session was issued (`startedAt` keeps the first). An
+  /// IN_PROGRESS interview with starts left and no session for
+  /// INTERVIEW_ABANDON_MS is expired lazily and its unit given back.
+  lastSessionAt   DateTime?
   /// First written by the room's end-of-call report (a hint that shortens
   /// the reconcile window), then overwritten by the platform's value when the
   /// transcript arrives. Cleared when a new session is issued.
@@ -225,6 +229,32 @@ model InterviewFeedback {
   /// as no feedback.
   report      Json?
   /// What the feedback guardrail did to the model's answer (`guardStatsSchema`);
-  /// read by `npm run report:guards`, null on rows from before it was recorded.
+  /// null on rows from before it was recorded. The report reads the daily
+  /// aggregate below, not this.
   guardStats  Json?
+  /// When the feedback was stored; rows from before the column were dated
+  /// from their interview's end (or creation) by the migration.
+  createdAt   DateTime  @default(now())
+}
+
+/// Which guardrail a daily tally belongs to.
+enum GuardKind {
+  ANALYSIS
+  INTERVIEW
+}
+
+/// Anonymous daily tallies of what the two guardrails did, incremented in
+/// the same transaction that stores a row's `guardStats` and never deleted:
+/// the per-row stats go with their account, the quality signal stays. Each
+/// (check, action) pair counts interventions; the pair ("rows", "recorded")
+/// counts rows that stored stats and ("rows", "fired") the rows where
+/// anything fired. Read by `npm run report:guards`. No user id, by design.
+model GuardStatDaily {
+  date   DateTime  @db.Date
+  kind   GuardKind
+  check  String
+  action String
+  count  Int       @default(0)
+
+  @@id([date, kind, check, action])
 }

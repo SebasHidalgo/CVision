@@ -49,6 +49,34 @@ On Windows, run `npm run db:migrate`, `npm run db:deploy` and
 the Prisma query engine open, and regenerating the client fails with
 `EPERM` when it tries to replace the engine file.
 
+## Database connections
+
+`DATABASE_URL` points at Supabase's transaction pooler (Supavisor, port
+6543) and carries three parameters that Prisma reads:
+
+| Parameter | Local | Vercel | Why |
+|---|---|---|---|
+| `pgbouncer=true` | yes | yes | the transaction pooler cannot hold prepared statements |
+| `connection_limit` | 5 | 3 | Prisma's own pool, per Node process (see below) |
+| `pool_timeout` | 20 | 15 | seconds a query waits for a pooled connection before failing with `P2024` |
+
+Why the numbers differ. Locally one long-lived dev server serves every
+page, the status polls of every open tab, the `after()` feedback generator
+and the webhooks at once; with `connection_limit=1` (the value Supabase's
+Prisma guide suggests for serverless) they all queued behind a single
+connection, and a `user.deleted` delivery once waited the full 10 s for one
+and failed with `P2024`, with Clerk's retry completing it. Nothing holds a
+connection across external I/O (every `$transaction` in the app is
+database-only: the usage reservation, the interview creation, the analysis
+deletion, the analysis write and the feedback completion), so the queue was
+pure concurrency, and five connections for one process is nowhere near the
+pooler's limits. On Vercel a Fluid Compute instance also handles several
+requests at once, but many instances run in parallel and all of them draw
+on Supavisor's pool, so each gets fewer. Both values are small against the
+pooler's capacity (200 client connections on the smallest compute); raise
+them only with a measurement in hand. The example in `.env.template`
+carries the local values.
+
 Besides Clerk and the database, `.env` needs `NEXT_PUBLIC_SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API → the
 `service_role` key marked secret). The service role is read on the server
@@ -105,26 +133,35 @@ npm run user:set-plan -- <clerkUserId> pro
 ```
 
 Usage is a ledger (`UsageEvent`). An analysis reserves its unit before the
-CV is downloaded and the model is called, and gets it back on any failure
-that is not the user's own file (the model down or rate-limited, storage,
-an object that never arrived): a file that is not a PDF, has no text, is
-unreadable or too large keeps the unit. An interview reserves on its first
-session token, which is the moment it costs, and gets the unit back if the
-token is not issued, if the call produces no candidate turns, or if the
-session is lost with no reconnects left. Refunds mark the event; nothing is
-deleted.
+CV is downloaded and the model is called, and only a stored analysis keeps
+it: every failure gives the unit back, the user's own file included (a
+scan, a renamed file, a damaged PDF never reach the model, so they cost
+nothing; the hourly limit below is what bounds abuse). Once the key is
+known to be the caller's, a refused analysis also removes the uploaded
+object, so a losing tab at the last analysis of the month leaves nothing in
+the bucket. An interview reserves on its first session token, which is the
+moment it costs, and gets the unit back if the token is not issued, if the
+call produces no candidate turns, if the session is lost with no reconnects
+left, or if nobody comes back to it: an interview still in progress with
+starts left and no session issued for two hours is expired, with the unit
+refunded, the next time its owner's interviews or quotas are read (no
+cron). Refunds mark the event; nothing is deleted.
 
 On top of the quotas, hourly rate limits per user (the same for both
 plans): 10 analyses, 20 upload URLs, 6 interview starts, 3 interview
-creations, and 30 status polls a minute. A refusal answers
+creations, and 60 status polls a minute. A refusal answers
 `RATE_LIMITED` with `Retry-After`. Webhooks are not limited.
 
 Both guardrails record what they did beside the row they guarded
-(`guardStats`); `npm run report:guards [-- --from YYYY-MM-DD --to
-YYYY-MM-DD]` tallies a range by action and by check, counts only. A Gemini
-429 writes one structured log line (`[CVision][ai] rate limited:` with the
-quota id, metric, value and the suggested wait) before it reaches the user
-as "The analysis service is busy".
+(`guardStats`) and, in the same transaction, add it to an anonymous daily
+aggregate (`GuardStatDaily`: day, guardrail, check, action, count; no user,
+no text). The per-row stats go when their account goes; the aggregate
+stays, and it is what `npm run report:guards [-- --from YYYY-MM-DD --to
+YYYY-MM-DD]` reads: rows with stats, rows where something fired, and the
+counts per action and per check. A Gemini 429 writes one structured log
+line (`[CVision][ai] rate limited:` with the quota id, metric, value and
+the suggested wait) before it reaches the user as "The analysis service is
+busy".
 
 ## File storage
 

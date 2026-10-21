@@ -1,4 +1,3 @@
-import type { ErrorCode } from "@/lib/error/errors";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
 /**
@@ -72,31 +71,19 @@ export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;
 /**
  * Hourly, per user, the same for both plans. A brake on loops and abuse,
  * not a product limit: the quotas above are those. The status endpoint is
- * polled every 3 to 10 seconds by design, so its ceiling is per minute and
- * generous, there only to stop a runaway loop.
+ * polled every 3 to 10 seconds by design, and two tabs of the same page
+ * poll independently, so its ceiling is per minute and generous, there only
+ * to stop a runaway loop.
  */
 export const RATE_LIMITS = {
   analysis: { limit: 10, windowMs: 60 * 60_000 },
   uploadUrl: { limit: 20, windowMs: 60 * 60_000 },
   interviewStart: { limit: 6, windowMs: 60 * 60_000 },
   interviewCreate: { limit: 3, windowMs: 60 * 60_000 },
-  status: { limit: 30, windowMs: 60_000 },
+  status: { limit: 60, windowMs: 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;
-
-/**
- * Analysis failures that are the user's own file: the unit stays spent.
- * Everything else (the model, storage, the network, an object that never
- * arrived, anything unknown) gives the unit back, because the user got
- * nothing and the fault was not theirs.
- */
-export const ANALYSIS_CONSUMING_FAILURE_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
-  "NOT_A_PDF",
-  "PDF_NO_TEXT",
-  "FILE_TOO_LARGE",
-  "PDF_UNREADABLE",
-]);
 
 /** What the new-analysis page shows: the Free allowance, or nothing until Pro's fair-use cap is hit. */
 export type AnalysisQuotaView = {

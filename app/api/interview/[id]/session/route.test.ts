@@ -5,6 +5,7 @@ import {
   reserveInterviewSession,
   type InterviewWithResume,
 } from "@/lib/database/interview";
+import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview } from "@/lib/database/usage";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
@@ -19,6 +20,7 @@ vi.mock("@/lib/database/interview", () => ({
 }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({ reserveInterview: vi.fn(), refundUsage: vi.fn(async () => true) }));
+vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESUME_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
@@ -55,6 +57,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     contextMismatch: false,
     failureReason: null,
     startedAt: null,
+    lastSessionAt: null,
     endedAt: null,
     durationSeconds: null,
     startCount: 0,
@@ -219,9 +222,12 @@ describe("POST /api/interview/[id]/session: happy path", () => {
       issuedContext: result.data.dynamicVariables,
       conversationId: "conv_1",
       startedAt: expect.any(Date),
+      issuedAt: expect.any(Date),
       maxStarts: MAX_INTERVIEW_STARTS,
       reservation: { usageEventId: "evt_1", tier: "FULL" },
     });
+    // The abandoned-interview sweep ran for this user before the row was read.
+    expect(expireAbandonedInterviews).toHaveBeenCalledWith("user_1");
     expect(refundUsage).not.toHaveBeenCalled();
     expect(assertRateLimit).toHaveBeenCalledWith("user_1", "interviewStart");
   });

@@ -40,12 +40,16 @@ export type InterviewCheckViolation = {
   value: string;
   kind?: GroundingKind;
   note?: string;
+  /** For a gap row whose name drifted from the issued text: the text to restore. */
+  replacement?: string;
 };
 
 export type InterviewInterventionAction =
   | "quote-dropped"
   | "quote-normalized"
   | "item-dropped"
+  /** A gap row's requirement text restored from the issued gap, matched by position. */
+  | "gap-name-repaired"
   | "recorded";
 
 export type InterviewIntervention = {
@@ -88,6 +92,7 @@ const emptyCounts = (): InterviewInterventionCounts => ({
   "quote-dropped": 0,
   "quote-normalized": 0,
   "item-dropped": 0,
+  "gap-name-repaired": 0,
   recorded: 0,
 });
 
@@ -155,20 +160,29 @@ function namesGap(rowRequirement: string, gap: string): boolean {
 /**
  * One row per gap, no more, no fewer. Rows are matched to gaps by text; a
  * gap with no row, a row for no gap, and a gap with two rows are each
- * reported. Recorded, never corrected: adding a row would be a judgement the
+ * reported. Recorded, not corrected: adding a row would be a judgement the
  * model did not make, and removing one would hide what it said.
+ *
+ * One exception, repaired. The prompt asks for one row per gap in the
+ * issued order, and the model sometimes copies a gap's text with a drift
+ * (a typo fixed, a word dropped; seen in Spanish with "Conociamentos"), which
+ * would otherwise count as a missing row and a stray row at once. When the
+ * counts match and every unmatched gap sits at the index of an unmatched
+ * row, the rows are the gaps by position: the violation names the drift
+ * once and carries the issued text, which the guard restores.
  */
 function checkGapCoverage(gaps: Requirement[], feedback: AiFeedback): InterviewCheckViolation[] {
   const violations: InterviewCheckViolation[] = [];
   const rows = feedback.gapFollowThrough;
   const matchedRows = new Set<number>();
+  const gapsWithoutRow: number[] = [];
 
   gaps.forEach((gap, g) => {
     const matches = rows
       .map((row, i) => ({ row, i }))
       .filter(({ row, i }) => !matchedRows.has(i) && namesGap(row.requirement, gap.requirement));
     if (matches.length === 0) {
-      violations.push({ check: "gap-coverage", path: `gapFollowThrough`, value: gap.requirement, note: `no row for gap ${g + 1}` });
+      gapsWithoutRow.push(g);
       return;
     }
     matchedRows.add(matches[0].i);
@@ -178,11 +192,32 @@ function checkGapCoverage(gaps: Requirement[], feedback: AiFeedback): InterviewC
     }
   });
 
-  rows.forEach((row, i) => {
-    if (!matchedRows.has(i)) {
-      violations.push({ check: "gap-coverage", path: `gapFollowThrough[${i}]`, value: row.requirement, note: "row for no listed gap" });
+  const rowsWithoutGap = rows.map((_, i) => i).filter((i) => !matchedRows.has(i));
+  const repairable =
+    rows.length === gaps.length &&
+    gapsWithoutRow.length > 0 &&
+    gapsWithoutRow.length === rowsWithoutGap.length &&
+    gapsWithoutRow.every((g) => rowsWithoutGap.includes(g));
+
+  if (repairable) {
+    for (const g of gapsWithoutRow) {
+      violations.push({
+        check: "gap-coverage",
+        path: `gapFollowThrough[${g}].requirement`,
+        value: rows[g].requirement,
+        note: `name differs from gap ${g + 1}; repaired by position`,
+        replacement: gaps[g].requirement,
+      });
     }
-  });
+    return violations;
+  }
+
+  for (const g of gapsWithoutRow) {
+    violations.push({ check: "gap-coverage", path: `gapFollowThrough`, value: gaps[g].requirement, note: `no row for gap ${g + 1}` });
+  }
+  for (const i of rowsWithoutGap) {
+    violations.push({ check: "gap-coverage", path: `gapFollowThrough[${i}]`, value: rows[i].requirement, note: "row for no listed gap" });
+  }
 
   return violations;
 }
@@ -363,6 +398,21 @@ export function guardInterviewFeedback(input: InterviewCheckInput): {
         record({ check: violation.check, action: "item-dropped", path: violation.path, value: violation.value });
         break;
       }
+      case "gap-coverage": {
+        if (violation.replacement === undefined) {
+          record({ check: violation.check, action: "recorded", path: violation.path, value: violation.value });
+          break;
+        }
+        writeRequirement(cleaned, violation.path, violation.replacement);
+        record({
+          check: violation.check,
+          action: "gap-name-repaired",
+          path: violation.path,
+          value: violation.value,
+          replacement: violation.replacement,
+        });
+        break;
+      }
       default:
         record({ check: violation.check, action: "recorded", path: violation.path, value: violation.value });
     }
@@ -379,6 +429,12 @@ function writeQuote(feedback: AiFeedback, path: string, value: string) {
   if (index < 0) return;
   if (path.startsWith("gapFollowThrough")) feedback.gapFollowThrough[index].quote = value;
   else if (path.startsWith("notableAnswers")) feedback.notableAnswers[index].quote = value;
+}
+
+function writeRequirement(feedback: AiFeedback, path: string, value: string) {
+  const index = Number(/\[(\d+)\]/.exec(path)?.[1] ?? -1);
+  if (index < 0 || !feedback.gapFollowThrough[index]) return;
+  feedback.gapFollowThrough[index].requirement = value;
 }
 
 /** Blanked rather than spliced so sibling paths stay valid; swept afterwards. */
