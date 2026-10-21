@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POLL_CEILING_MS } from "../utils/pollDelay";
+import { POLL_CEILING_MS } from "@/lib/pollDelay";
 import StatusPoller from "./StatusPoller";
 
 const refresh = vi.fn();

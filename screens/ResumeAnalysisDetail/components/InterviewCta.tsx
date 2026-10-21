@@ -9,7 +9,7 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
-import { INTERVIEW_TIERS, type InterviewQuotaView } from "@/lib/plans";
+import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -133,9 +133,14 @@ export default function InterviewCta({
       rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
     )
   ) : offer.kind === "pro-exhausted" ? (
-    <p className="flex h-11 items-center text-sm font-medium text-ink">
-      {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
-    </p>
+    <div className="flex flex-col items-start gap-2 md:items-end">
+      <p className="text-sm font-medium text-ink">
+        {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
+      </p>
+      <Link href="/account/billing" className="link-rule text-sm text-ink-2">
+        Get {INTERVIEW_PACK_CREDITS} more interviews
+      </Link>
+    </div>
   ) : (
     <p className="flex h-11 items-center text-sm font-medium text-ink">
       {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}

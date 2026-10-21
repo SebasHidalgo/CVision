@@ -17,11 +17,12 @@ export function InterviewSection() {
             Rehearse the interview before the real one.
           </h2>
           <p className="lede mt-6 max-w-lg">
-            A voice interviewer built from the same job post asks what a hiring
-            manager would ask, and digs into the gaps your analysis found. You
-            answer out loud, on your laptop or your phone. When you end the
-            call, you get a score on five things, how each gap went in your own
-            words, and the transcript.
+            An AI voice interviewer built from the same job post asks the
+            questions that posting invites, and digs into the gaps your
+            analysis found. You answer out loud, on your laptop or your phone.
+            When you end the call, you get a score on five things, how each
+            gap went in your own words, and the transcript. It is practice,
+            for you: nobody else hears it.
           </p>
 
           <ol className="mt-10 grid gap-x-8 gap-y-3 sm:grid-cols-2">

@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma, type SubscriptionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { requireUserId } from "@/lib/auth";
 import { standingFrom, type PlanStanding, type SubscriptionStanding } from "@/lib/billing/access";
 import type { ProviderSubscription } from "@/lib/billing/types";
 import { handleError } from "@/lib/error/handleError";
@@ -36,6 +37,12 @@ export async function findBillingCustomer(userId: string): Promise<{ providerCus
   } catch (error) {
     handleError(error, `Failed to read the billing customer (user=${userId})`);
   }
+}
+
+/** Whether the caller has a customer at the provider (has checked out at least once). Identity from the session. */
+export async function currentHasBillingAccount(): Promise<boolean> {
+  const userId = await requireUserId();
+  return (await findBillingCustomer(userId)) !== null;
 }
 
 export async function findUserIdByProviderCustomer(providerCustomerId: string): Promise<string | null> {

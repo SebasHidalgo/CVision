@@ -22,7 +22,7 @@ const DIMENSIONS = [
   },
   {
     name: "Tone & clarity",
-    body: "Readability, tense, jargon, and how fast a recruiter gets the point.",
+    body: "Readability, tense, jargon, and how fast a reader gets the point.",
   },
   {
     name: "Job fit",

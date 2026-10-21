@@ -55,10 +55,10 @@ export function HeroSection() {
 
           <Reveal delay={0.16}>
             <p className="lede mt-7 max-w-xl">
-              Paste the posting, upload your CV, and get read the way a
-              demanding recruiter would read you: what matches, what&apos;s
-              missing, and what to fix first. Then rehearse the interview out
-              loud.
+              Paste the posting, upload your CV, and get a frank read of your
+              own application: what matches, what&apos;s missing, and what to
+              fix first. Then practice the interview out loud with an AI
+              interviewer.
             </p>
           </Reveal>
 

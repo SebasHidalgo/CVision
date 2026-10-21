@@ -9,8 +9,9 @@ import type { PriceKey } from "./types";
  *
  * The wording describes CVision as what it is: a self-assessment and
  * practice tool a job seeker uses on their own CV and their own interview
- * answers, with an AI voice interviewer. Never a screening, evaluation or
- * hiring tool, never coaching, never a person.
+ * answers, with an AI voice interviewer. Never a tool run on other people,
+ * never a service by a person, never a person's voice (see the wording test
+ * in screens/Home).
  */
 
 export const CATALOG_CURRENCY = "USD" as const;

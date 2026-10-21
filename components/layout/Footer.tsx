@@ -3,6 +3,12 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
 
+const LEGAL = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/refunds", label: "Refunds" },
+];
+
 export function Footer() {
   return (
     <footer className="border-t border-line">
@@ -15,15 +21,21 @@ export function Footer() {
         </div>
 
         <nav aria-label="Footer" className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
-          <a href="#how" className="link-rule text-ink-2">
+          <Link href="/#how" className="link-rule text-ink-2">
             How it works
-          </a>
+          </Link>
+          <Link href="/pricing" className="link-rule text-ink-2">
+            Pricing
+          </Link>
           <SignedIn>
             <Link href="/resume/analyses" className="link-rule text-ink-2">
               Analyses
             </Link>
             <Link href="/interviews" className="link-rule text-ink-2">
               Interviews
+            </Link>
+            <Link href="/account/billing" className="link-rule text-ink-2">
+              Plan &amp; billing
             </Link>
           </SignedIn>
           <SignedOut>
@@ -33,6 +45,11 @@ export function Footer() {
               </button>
             </SignInCta>
           </SignedOut>
+          {LEGAL.map((page) => (
+            <Link key={page.href} href={page.href} className="link-rule text-ink-2">
+              {page.label}
+            </Link>
+          ))}
           <span className="eyebrow self-center">© 2026 CVision</span>
         </nav>
       </div>
