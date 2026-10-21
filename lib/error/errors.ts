@@ -29,6 +29,12 @@ export type ErrorCode =
   | "ANALYSIS_QUOTA_EXCEEDED"
   | "INTERVIEW_QUOTA_EXCEEDED"
   | "RATE_LIMITED"
+  // Billing (lib/billing): the provider, and what may be bought.
+  | "BILLING_UNAVAILABLE"
+  | "BILLING_MISCONFIGURED"
+  | "ALREADY_SUBSCRIBED"
+  | "PACK_REQUIRES_PRO"
+  | "NO_BILLING_ACCOUNT"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -226,5 +232,40 @@ export class RateLimitedError extends AppError {
 export class InterviewContextMissingError extends AppError {
   constructor(message = "Interview has no analysis context") {
     super("INTERVIEW_CONTEXT_MISSING", message);
+  }
+}
+
+/** The billing provider did not answer, timed out, or failed on its side: try again shortly. */
+export class BillingUnavailableError extends AppError {
+  constructor(message = "Billing provider unavailable", options?: ErrorOptions) {
+    super("BILLING_UNAVAILABLE", message, options);
+  }
+}
+
+/** Missing key, wrong environment, unknown price, rejected request: an operator problem. */
+export class BillingMisconfiguredError extends AppError {
+  constructor(message = "Billing misconfigured", options?: ErrorOptions) {
+    super("BILLING_MISCONFIGURED", message, options);
+  }
+}
+
+/** A Pro subscription already exists for the account; the portal is where it is managed. */
+export class AlreadySubscribedError extends AppError {
+  constructor(message = "Already subscribed") {
+    super("ALREADY_SUBSCRIBED", message);
+  }
+}
+
+/** The interview pack is sold to active Pro accounts only. */
+export class PackRequiresProError extends AppError {
+  constructor(message = "Interview packs require an active Pro subscription") {
+    super("PACK_REQUIRES_PRO", message);
+  }
+}
+
+/** Nothing to manage: the account never checked out, so it has no customer record at the provider. */
+export class NoBillingAccountError extends AppError {
+  constructor(message = "No billing account for this user") {
+    super("NO_BILLING_ACCOUNT", message);
   }
 }

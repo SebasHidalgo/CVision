@@ -69,6 +69,14 @@ export const INTERVIEW_TIERS: Record<InterviewTierId, InterviewTier> = {
 export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;
 
 /**
+ * The interview pack: a one-time purchase, Pro only, this many credits. A
+ * credit is one full interview once the period's are used; credits never
+ * expire and are frozen (kept, unusable) while Pro is not active. The price
+ * is in lib/billing/catalog.ts beside the subscription's.
+ */
+export const INTERVIEW_PACK_CREDITS = 5;
+
+/**
  * Hourly, per user, the same for both plans. A brake on loops and abuse,
  * not a product limit: the quotas above are those. The status endpoint is
  * polled every 3 to 10 seconds by design, and two tabs of the same page
@@ -81,6 +89,9 @@ export const RATE_LIMITS = {
   interviewStart: { limit: 6, windowMs: 60 * 60_000 },
   interviewCreate: { limit: 3, windowMs: 60 * 60_000 },
   status: { limit: 60, windowMs: 60_000 },
+  /** Checkouts and portal links: each is a provider call that creates a record there. */
+  checkout: { limit: 10, windowMs: 60 * 60_000 },
+  portal: { limit: 10, windowMs: 60 * 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;

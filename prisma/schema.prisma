@@ -8,55 +8,146 @@ generator client {
   provider = "prisma-client-js"
 }
 
-/// Which limits apply (lib/plans.ts). FREE for everyone until billing (M6);
-/// PRO by hand with `npm run user:set-plan`.
+/// The plans (lib/plans.ts). Stored only as a manual comp on `User.compPlan`;
+/// the plan a user actually has is derived (lib/billing/access.ts).
 enum Plan {
   FREE
   PRO
 }
 
 /// One row per Clerk account that has touched the app. The id is Clerk's and
-/// nothing else is stored until billing needs it. Written by the Clerk
-/// webhook (user.created) and, since the webhook may be late or unregistered,
-/// by `ensureUser` before any row keyed by `userId` is inserted. Deleting it
-/// cascades to every analysis, interview and usage event of the account.
+/// nothing else about the person is stored. Written by the Clerk webhook
+/// (user.created) and, since the webhook may be late or unregistered, by
+/// `ensureUser` before any row keyed by `userId` is inserted. Deleting it
+/// cascades to every analysis, interview, usage event and billing row of
+/// the account.
 model User {
   id        String   @id
-  plan      Plan     @default(FREE)
+  /// A plan granted by hand (`npm run user:set-plan`), outside billing: PRO
+  /// for the owner and anyone comped. Null for everyone else. The plan in
+  /// force is derived: an access-granting subscription, else this, else FREE.
+  compPlan  Plan?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  analyses    ResumeAnalysis[]
-  interviews  Interview[]
-  usageEvents UsageEvent[]
+  analyses        ResumeAnalysis[]
+  interviews      Interview[]
+  usageEvents     UsageEvent[]
+  billingCustomer BillingCustomer?
+  subscriptions   Subscription[]
 }
 
-/// What a usage event paid for. INTERVIEW_TRIAL is the one free interview of
-/// a FREE account; INTERVIEW a PRO account's monthly one.
+/// What a usage event paid for, or granted.
+///
+///   ANALYSIS                one analysis
+///   INTERVIEW               a Pro account's interview of the period
+///   INTERVIEW_TRIAL         the one free interview of an account that never had voice
+///   INTERVIEW_CREDIT        a Pro interview paid with a pack credit, once the period's are used
+///   INTERVIEW_CREDIT_GRANT  a pack purchase: `units` credits, `refId` the transaction
+///   INTERVIEW_CREDIT_REVOKE a refund or chargeback of a pack: the credits that were
+///                           still unused, `refId` the adjustment
 enum UsageKind {
   ANALYSIS
   INTERVIEW
   INTERVIEW_TRIAL
+  INTERVIEW_CREDIT
+  INTERVIEW_CREDIT_GRANT
+  INTERVIEW_CREDIT_REVOKE
 }
 
 /// The usage ledger. A quota check counts the non-refunded events of a kind
 /// in the current period; the check and the insert share one serializable
 /// transaction (`reserveUsage`), so two parallel requests cannot both take
 /// the last unit. A refund keeps the row and dates it, so the ledger stays
-/// an audit trail.
+/// an audit trail. Credits are the same ledger: the balance is the grants
+/// minus the revokes minus the non-refunded consumption, never a column.
 model UsageEvent {
   id           String    @id @default(uuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind         UsageKind
-  /// The analysis or interview the unit was spent on.
+  /// The analysis or interview the unit was spent on; the transaction of a
+  /// grant; the adjustment of a revoke. Unique per kind, which is what makes
+  /// a replayed grant or revoke a no-op.
   refId        String
+  /// Always 1 for consumption; the credits of a grant or a revoke.
+  units        Int       @default(1)
   createdAt    DateTime  @default(now())
   refundedAt   DateTime?
   /// Why it was given back: the error code or the interview's failure reason.
   refundReason String?
 
+  @@unique([kind, refId])
   @@index([userId, kind, createdAt])
+}
+
+/// The user's customer record at the billing provider, created from the
+/// first event that names both (checkout collects the email; nothing about
+/// the person is stored here). One customer per user and one user per
+/// customer; the provider is implied by `lib/billing`.
+model BillingCustomer {
+  userId             String   @id
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerCustomerId String   @unique
+  createdAt          DateTime @default(now())
+}
+
+/// The provider's subscription statuses, as they arrive. Which of them grant
+/// Pro is decided in lib/billing/access.ts, not here.
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  PAUSED
+  CANCELED
+}
+
+/// A mirror of one provider subscription, written only from provider data
+/// (webhook events, the reconcile, the answer to a cancel). Events arrive
+/// out of order and repeat, so a write applies only when the provider's
+/// `updated_at` is newer than `providerUpdatedAt`.
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerSubscriptionId String             @unique
+  status                 SubscriptionStatus
+  /// Our catalog key for what is subscribed ("pro_monthly"), or "unknown".
+  priceKey               String
+  /// The current billing period, Pro's quota period. Null while paused or canceled.
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  /// A cancellation scheduled for the end of the period: Pro stays until then.
+  cancelAtPeriodEnd      Boolean            @default(false)
+  /// When the scheduled change takes effect.
+  scheduledChangeAt      DateTime?
+  canceledAt             DateTime?
+  /// The provider's last-modified time of the subscription: the ordering key.
+  providerUpdatedAt      DateTime
+  /// When the lazy reconcile last asked the provider about this row; throttles it.
+  reconcileCheckedAt     DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+/// Every provider event the webhook accepted, by the provider's event id:
+/// the idempotency key and the audit trail. Type, ids and times only; no
+/// payload, no personal data. A claimed but unprocessed row (the handler
+/// crashed) may be claimed again after a while; a processed one never is.
+model BillingEvent {
+  providerEventId String    @id
+  type            String
+  occurredAt      DateTime
+  claimedAt       DateTime?
+  processedAt     DateTime?
+  /// The user the event was applied to, when it mapped to one. Not a foreign
+  /// key: the trail outlives the account.
+  userId          String?
+  receivedAt      DateTime  @default(now())
+
+  @@index([occurredAt])
 }
 
 /// Fixed-window rate limiting in Postgres: one row per user, action and

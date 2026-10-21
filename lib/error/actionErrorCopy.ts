@@ -47,6 +47,16 @@ const COPY: Record<ErrorCode, string> = {
     "Voice interviews are part of Pro.",
   RATE_LIMITED:
     "Too many requests in a short time. Wait a moment and try again.",
+  BILLING_UNAVAILABLE:
+    "Billing isn't responding right now. Nothing was charged. Give it a minute and try again.",
+  BILLING_MISCONFIGURED:
+    "Billing is misconfigured on our side. Nothing was charged. Retrying won't help — please check back later.",
+  ALREADY_SUBSCRIBED:
+    "You already have a Pro subscription. Manage it from your account page.",
+  PACK_REQUIRES_PRO:
+    "Interview packs are for Pro subscribers. Subscribe to Pro first.",
+  NO_BILLING_ACCOUNT:
+    "There's no billing account for you yet. It's created with your first purchase.",
   REQUEST_FAILED:
     "The request didn't go through. Check your connection and try again. If it keeps failing, reload the page.",
   UNKNOWN: "Something went wrong on our side. Please try again.",

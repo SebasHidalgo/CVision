@@ -18,21 +18,27 @@ import {
   type InterviewTierId,
   type PlanId,
 } from "@/lib/plans";
+import { resolvePlanStanding, resolvePlanStandingIn } from "./billing";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 
 /**
  * The usage ledger. No session here: the callers are the actions (which
- * resolved the session and pass their own id), the session endpoint, and
- * the post-call path (which has no session and refunds by event id). Every
- * read and write is scoped by the user id it was given.
+ * resolved the session and pass their own id), the session endpoint, the
+ * post-call path (which has no session and refunds by event id) and the
+ * billing webhook (credits). Every read and write is scoped by the user id
+ * it was given.
  *
- * Two primitives and nothing else touches the table: `reserveUsage` (check
- * and insert in one serializable transaction) and `refundUsage`. The
- * expiry module imports the second and this file imports the expiry: a
- * deliberate cycle of call-time bindings (see interviewExpiry.ts).
+ * The primitives, and nothing else touches the table: `reserveUsage` (check
+ * and insert in one serializable transaction), `refundUsage`, and for the
+ * credits `grantInterviewCredits`, `revokeUnusedInterviewCredits` and
+ * `interviewCreditBalance`. The plan is never read from a column: it is
+ * derived (lib/billing/access.ts) inside the same transaction as the
+ * count. The expiry module imports `refundUsage` and this file imports the
+ * expiry: a deliberate cycle of call-time bindings (see interviewExpiry.ts).
  */
 
 const RACE_CODES = new Set(["P2034"]);
+const UNIQUE_VIOLATION = "P2002";
 const RESERVE_ATTEMPTS = 3;
 
 export type Reservation = { eventId: string };
@@ -43,6 +49,7 @@ type Allowance = {
   period: { start: Date; end: Date } | null;
 };
 
+/** The kinds a reservation can be made of; grants and revokes are written by the webhook, never reserved. */
 function allowanceFor(plan: PlanId, kind: UsageKind, now: Date): Allowance {
   const limits = PLANS[plan];
   switch (kind) {
@@ -52,6 +59,10 @@ function allowanceFor(plan: PlanId, kind: UsageKind, now: Date): Allowance {
       return { limit: limits.interviewsPerMonth, period: quotaPeriod(now) };
     case "INTERVIEW_TRIAL":
       return { limit: limits.trialInterviews, period: null };
+    case "INTERVIEW_CREDIT":
+    case "INTERVIEW_CREDIT_GRANT":
+    case "INTERVIEW_CREDIT_REVOKE":
+      throw new Error(`${kind} is not reserved through reserveUsage`);
   }
 }
 
@@ -80,8 +91,7 @@ export async function reserveUsage(
       try {
         return await prisma.$transaction(
           async (tx) => {
-            const user = await tx.user.findUnique({ where: { id: userId }, select: { plan: true } });
-            const plan: PlanId = user?.plan ?? "FREE";
+            const { plan } = await resolvePlanStandingIn(tx, userId, now);
             const allowance = allowanceFor(plan, kind, now);
 
             const used = await tx.usageEvent.count({
@@ -144,12 +154,97 @@ export async function reserveInterview(userId: string, interviewId: string, now 
   return { eventId, kind, tier, seconds: INTERVIEW_TIERS[tier].seconds };
 }
 
-export async function fetchPlan(userId: string): Promise<PlanId> {
+/** The plan in force: an access-granting subscription, else the manual comp, else Free. */
+export async function fetchPlan(userId: string, now = new Date()): Promise<PlanId> {
+  return (await resolvePlanStanding(userId, now)).plan;
+}
+
+/** How many pack credits the user holds: grants minus revokes minus the non-refunded consumption. */
+export async function interviewCreditBalance(userId: string): Promise<number> {
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
-    return user?.plan ?? "FREE";
+    return await creditBalanceIn(prisma, userId);
   } catch (error) {
-    handleError(error, "Failed to read the user's plan");
+    handleError(error, `Failed to read the credit balance (user=${userId})`);
+  }
+}
+
+async function creditBalanceIn(db: Prisma.TransactionClient, userId: string): Promise<number> {
+  const [granted, revoked, used] = await Promise.all([
+    db.usageEvent.aggregate({ where: { userId, kind: "INTERVIEW_CREDIT_GRANT" }, _sum: { units: true } }),
+    db.usageEvent.aggregate({ where: { userId, kind: "INTERVIEW_CREDIT_REVOKE" }, _sum: { units: true } }),
+    db.usageEvent.count({ where: { userId, kind: "INTERVIEW_CREDIT", refundedAt: null } }),
+  ]);
+  return Math.max(0, (granted._sum.units ?? 0) - (revoked._sum.units ?? 0) - used);
+}
+
+/**
+ * Credits a pack purchase to the user, once: the transaction id is the
+ * grant's `refId`, unique per kind, so a replayed event changes nothing.
+ */
+export async function grantInterviewCredits(
+  userId: string,
+  { units, transactionId, now = new Date() }: { units: number; transactionId: string; now?: Date },
+): Promise<{ granted: boolean }> {
+  try {
+    await prisma.usageEvent.create({
+      data: { userId, kind: "INTERVIEW_CREDIT_GRANT", refId: transactionId, units, createdAt: now },
+    });
+    return { granted: true };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION) {
+      return { granted: false };
+    }
+    handleError(error, `Failed to grant interview credits (user=${userId}, transaction=${transactionId})`);
+  }
+}
+
+/**
+ * A refund or chargeback of a pack takes back what was not used: the
+ * smaller of the grant and the current balance, written as one revoke
+ * keyed by the adjustment id (so a repeated event revokes nothing twice,
+ * and a revoke of zero still leaves its mark). Consumption already made is
+ * not clawed back: those interviews happened. Serializable, like every
+ * read-then-write on this table.
+ */
+export async function revokeUnusedInterviewCredits(
+  userId: string,
+  { transactionId, adjustmentId, now = new Date() }: { transactionId: string; adjustmentId: string; now?: Date },
+): Promise<{ revoked: number; outcome: "revoked" | "already" | "no-grant" }> {
+  try {
+    for (let round = 0; round < RESERVE_ATTEMPTS; round += 1) {
+      try {
+        return await prisma.$transaction(
+          async (tx) => {
+            const already = await tx.usageEvent.findUnique({
+              where: { kind_refId: { kind: "INTERVIEW_CREDIT_REVOKE", refId: adjustmentId } },
+              select: { units: true },
+            });
+            if (already) return { revoked: already.units, outcome: "already" as const };
+
+            const grant = await tx.usageEvent.findUnique({
+              where: { kind_refId: { kind: "INTERVIEW_CREDIT_GRANT", refId: transactionId } },
+              select: { units: true, userId: true },
+            });
+            if (!grant || grant.userId !== userId) return { revoked: 0, outcome: "no-grant" as const };
+
+            const balance = await creditBalanceIn(tx, userId);
+            const units = Math.max(0, Math.min(grant.units, balance));
+            await tx.usageEvent.create({
+              data: { userId, kind: "INTERVIEW_CREDIT_REVOKE", refId: adjustmentId, units, createdAt: now },
+            });
+            return { revoked: units, outcome: "revoked" as const };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        const raced =
+          error instanceof Prisma.PrismaClientKnownRequestError && RACE_CODES.has(error.code);
+        if (!raced || round === RESERVE_ATTEMPTS - 1) throw error;
+      }
+    }
+    throw new Error("unreachable");
+  } catch (error) {
+    handleError(error, `Failed to revoke interview credits (user=${userId}, adjustment=${adjustmentId})`);
   }
 }
 
