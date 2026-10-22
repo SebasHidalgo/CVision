@@ -32,6 +32,7 @@ const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
     providerUpdatedAt: new Date("2026-10-20T00:00:00Z"),
   },
   everSubscribed: true,
+  hasBillingAccount: true,
   ...overrides,
 });
 

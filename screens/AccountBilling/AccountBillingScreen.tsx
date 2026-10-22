@@ -4,7 +4,6 @@ import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionBut
 import PageIntro from "@/components/layout/PageIntro";
 import { CATALOG } from "@/lib/billing/catalog";
 import type { CheckoutItem } from "@/lib/billing/types";
-import { currentHasBillingAccount } from "@/lib/database/billing";
 import { currentUsageSummary } from "@/lib/database/usage";
 import { formatLongDate } from "@/lib/format";
 import { INTERVIEW_PACK_CREDITS, PLANS } from "@/lib/plans";
@@ -23,8 +22,8 @@ type AccountBillingScreenProps = {
  * polls until it lands instead of claiming it already has.
  */
 export default async function AccountBillingScreen({ activating }: AccountBillingScreenProps) {
-  const [summary, hasBillingAccount] = await Promise.all([currentUsageSummary(), currentHasBillingAccount()]);
-  const { plan, source, subscription, credits, interviews } = summary;
+  const summary = await currentUsageSummary();
+  const { plan, source, subscription, credits, interviews, hasBillingAccount } = summary;
 
   // What the page still waits for, if anything: Pro that has not landed, or a pack whose credits have not.
   const waiting =

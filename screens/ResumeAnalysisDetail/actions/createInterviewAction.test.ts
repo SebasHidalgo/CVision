@@ -56,6 +56,7 @@ const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
   resetsAt: new Date("2026-11-01T00:00:00Z"),
   subscription: null,
   everSubscribed: false,
+  hasBillingAccount: false,
   ...overrides,
 });
 

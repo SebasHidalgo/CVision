@@ -238,11 +238,15 @@ function describeValue(value: unknown): string {
   return text.length > 70 ? `${text.slice(0, 69)}…` : text;
 }
 
-main().catch((error: unknown) => {
-  // The SDK error body can echo the request; the message and status are enough.
-  const status = (error as { statusCode?: unknown })?.statusCode;
-  console.error(
-    `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exit(1);
-});
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main().catch((error: unknown) => {
+    // The SDK error body can echo the request; the message and status are enough.
+    const status = (error as { statusCode?: unknown })?.statusCode;
+    console.error(
+      `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  });
+}

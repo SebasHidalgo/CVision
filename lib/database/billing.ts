@@ -2,7 +2,6 @@ import "server-only";
 
 import { Prisma, type SubscriptionStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth";
 import { standingFrom, type PlanStanding, type SubscriptionStanding } from "@/lib/billing/access";
 import type { ProviderSubscription } from "@/lib/billing/types";
 import { handleError } from "@/lib/error/handleError";
@@ -10,10 +9,14 @@ import { handleError } from "@/lib/error/handleError";
 /**
  * Data access for billing: the user-to-customer mapping, the mirror of the
  * provider's subscriptions, the event trail, and the plan derived from
- * them. No session: the callers are the webhook route (which authenticated
- * the delivery by its signature), the actions (which resolved the session
- * and pass their own id), the ledger and the reconcile. Every write is
- * scoped by the ids it was given; nothing here decides what a plan allows.
+ * them. No session, and no `lib/auth` import, on purpose: the callers are
+ * the webhook route (which authenticated the delivery by its signature),
+ * the actions (which resolved the session and pass their own id), the
+ * ledger, the reconcile and the billing scripts, which run under tsx's
+ * `react-server` condition where anything that reaches `next/navigation`
+ * (as `lib/auth` does through Clerk) cannot load. The session wrappers the
+ * screens use live in usage.ts. Every write is scoped by the ids it was
+ * given; nothing here decides what a plan allows.
  */
 
 const UNIQUE_VIOLATION = "P2002";
@@ -37,12 +40,6 @@ export async function findBillingCustomer(userId: string): Promise<{ providerCus
   } catch (error) {
     handleError(error, `Failed to read the billing customer (user=${userId})`);
   }
-}
-
-/** Whether the caller has a customer at the provider (has checked out at least once). Identity from the session. */
-export async function currentHasBillingAccount(): Promise<boolean> {
-  const userId = await requireUserId();
-  return (await findBillingCustomer(userId)) !== null;
 }
 
 export async function findUserIdByProviderCustomer(providerCustomerId: string): Promise<string | null> {

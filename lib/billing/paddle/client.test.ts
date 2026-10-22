@@ -4,6 +4,7 @@ import {
   PADDLE_CALL_TIMEOUT_MS,
   paddleCall,
   paddleClient,
+  paddleErrorCode,
   readPaddleConfig,
   readPaddleEnvironment,
   toBillingError,
@@ -93,6 +94,15 @@ describe("paddleCall and the error taxonomy", () => {
     const mapped = toBillingError(apiError("request_error", "price_not_found"), "x");
     expect(mapped.message).not.toContain("request body");
     expect(mapped.cause).toBeUndefined();
+  });
+
+  it("keeps the provider's code readable on a mapped failure, so callers can tell forbidden from the rest", async () => {
+    const mapped = await paddleCall("notification setting create", () => Promise.reject(apiError("request_error", "forbidden"))).catch((e) => e);
+    expect(mapped).toMatchObject({ code: "BILLING_MISCONFIGURED" });
+    expect(paddleErrorCode(mapped)).toBe("forbidden");
+    expect(paddleErrorCode(apiError("request_error", "subscription_is_canceled"))).toBe("subscription_is_canceled");
+    expect(paddleErrorCode(new Error("network"))).toBeNull();
+    expect(paddleErrorCode(null)).toBeNull();
   });
 
   it("bounds the wait: a call that never answers becomes BILLING_UNAVAILABLE", async () => {

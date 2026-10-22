@@ -96,13 +96,15 @@ export type CatalogSyncReport = {
   }[];
   webhook: {
     id: string;
-    action: "created" | "updated" | "unchanged" | "skipped";
+    /** "forbidden": the API key may not create or update destinations; `note` says what to do by hand. */
+    action: "created" | "updated" | "unchanged" | "skipped" | "forbidden";
     destination: string | null;
     events: string[];
     /** Returned by the provider on create and read; printed once by the script. */
     secret: string | null;
     trafficSource: string | null;
     active: boolean | null;
+    note?: string;
   };
 };
 

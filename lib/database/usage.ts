@@ -20,7 +20,7 @@ import {
   type PlanId,
   type QuotaPeriod,
 } from "@/lib/plans";
-import { resolvePlanStanding, resolvePlanStandingIn } from "./billing";
+import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn } from "./billing";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 
 /**
@@ -292,6 +292,8 @@ export type UsageSummary = {
   /** The subscription the standing rests on, or the latest one, for the account page. */
   subscription: PlanStanding["subscription"];
   everSubscribed: boolean;
+  /** Has a customer at the billing provider (checked out at least once): the portal exists for them. */
+  hasBillingAccount: boolean;
 };
 
 /**
@@ -321,12 +323,13 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
           ...(inPeriod ? { createdAt: { gte: period.start, lt: period.end } } : {}),
         },
       });
-    const [analyses, interviews, trials, fullEver, credits] = await Promise.all([
+    const [analyses, interviews, trials, fullEver, credits, customer] = await Promise.all([
       countOf(["ANALYSIS"], true),
       countOf(["INTERVIEW"], true),
       countOf(["INTERVIEW_TRIAL"], false),
       countOf(["INTERVIEW", "INTERVIEW_CREDIT"], false),
       creditBalanceIn(prisma, userId),
+      findBillingCustomer(userId),
     ]);
     const hadVoice = standing.everSubscribed || fullEver > 0;
 
@@ -353,6 +356,7 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
       resetsAt: period.end,
       subscription: standing.subscription,
       everSubscribed: standing.everSubscribed,
+      hasBillingAccount: customer !== null,
     };
   } catch (error) {
     handleError(error, "Failed to read the usage summary");

@@ -5,7 +5,7 @@ import { requireUserId } from "@/lib/auth";
 import type { PlanStanding, SubscriptionStanding } from "@/lib/billing/access";
 import { reconcileIfStale } from "@/lib/billing/reconcile";
 import { PLANS } from "@/lib/plans";
-import { resolvePlanStanding, resolvePlanStandingIn } from "./billing";
+import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn } from "./billing";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   analysisQuotaView,
@@ -22,7 +22,7 @@ import {
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 // The plan is derived (lib/billing/access.ts), read here through the billing data module.
-vi.mock("./billing", () => ({ resolvePlanStanding: vi.fn(), resolvePlanStandingIn: vi.fn() }));
+vi.mock("./billing", () => ({ resolvePlanStanding: vi.fn(), resolvePlanStandingIn: vi.fn(), findBillingCustomer: vi.fn(async () => null) }));
 vi.mock("@/lib/billing/reconcile", () => ({ reconcileIfStale: vi.fn(async () => false) }));
 
 const tx = {
@@ -350,6 +350,7 @@ describe("usageSummary and its views", () => {
       resetsAt: MONTH.lt,
       subscription: null,
       everSubscribed: false,
+      hasBillingAccount: false,
     });
     expect(analysisQuotaView(summary)).toEqual({ plan: "FREE", left: 1, limit: 3, announce: true, resetsAt: "2026-11-01T00:00:00.000Z" });
     expect(interviewQuotaView(summary)).toEqual({
@@ -365,6 +366,7 @@ describe("usageSummary and its views", () => {
 
   it("a subscribed Pro's counters run over the billing period, with the credits usable, and nothing announces analyses", async () => {
     setStanding(subscribed());
+    vi.mocked(findBillingCustomer).mockResolvedValueOnce({ providerCustomerId: "ctm_01" });
     counts(10, 1, 0, 1, 1);
     vi.mocked(prisma.usageEvent.aggregate).mockResolvedValueOnce({ _sum: { units: 5 } } as never).mockResolvedValueOnce({ _sum: { units: null } } as never);
 
@@ -377,6 +379,7 @@ describe("usageSummary and its views", () => {
     expect(summary.period).toEqual({ start: SUBSCRIPTION.currentPeriodStart, end: SUBSCRIPTION.currentPeriodEnd });
     expect(summary.resetsAt).toEqual(SUBSCRIPTION.currentPeriodEnd);
     expect(summary.subscription).toBe(SUBSCRIPTION);
+    expect(summary.hasBillingAccount).toBe(true);
     for (const call of vi.mocked(prisma.usageEvent.count).mock.calls.slice(0, 2)) {
       expect(call[0]).toMatchObject({ where: { refundedAt: null, createdAt: BILLING_PERIOD } });
     }

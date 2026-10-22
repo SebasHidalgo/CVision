@@ -1167,7 +1167,11 @@ async function loadFixtures(): Promise<Fixture[]> {
 
 
 
-main(process.argv.slice(2)).catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main(process.argv.slice(2)).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

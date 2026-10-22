@@ -84,6 +84,13 @@ only; the browser never holds a Supabase key of any kind. The Clerk webhook
 below needs `CLERK_WEBHOOK_SIGNING_SECRET`.
 
 Before handing in a change: `npx tsc --noEmit`, `npm test`, `npm run build`.
+`npm test` includes a smoke test of every `npm run` script that executes a
+TypeScript entry (`scripts/scripts.test.ts`): each entry is loaded under its
+own flags with `CVISION_SCRIPT_SMOKE=1` (which skips its `main()`) and the
+network blocked, so a script whose import graph reaches something that
+cannot load under `--conditions=react-server` (Next's client code, React,
+Clerk, and so `lib/auth`) fails the suite rather than the terminal. A new
+script needs that guard around its `main()` and its name in the test's list.
 `npm run eval` scores the real analysis over fixed fixtures and
 `npm run eval -- interview run <label>` does the same for the interview
 feedback; both bill the model once per fixture (`npm run eval -- help`).
@@ -199,13 +206,17 @@ code that imports the Paddle SDK). Everything in this repo runs against the
 
    Idempotent: products and prices are found by their key and created or
    updated to match `lib/billing/catalog.ts`; the destination is found by
-   its description ("CVision") and updated in place. It prints
-   `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_INTERVIEW_PACK` and
-   `PADDLE_WEBHOOK_SECRET` to paste into `.env`, then restart the dev
-   server. If the key cannot create destinations, create one in Paddle →
-   Developer tools → Notifications with that URL, the eleven events listed
-   in `SUBSCRIBED_EVENTS` (`lib/billing/paddle/catalog.ts`) and traffic
-   source "all" (so the simulator reaches it too), and copy its secret.
+   its description ("CVision") or, failing that, by its URL, so one made by
+   hand in the dashboard is recognised and kept under its own name, and its
+   events are completed in place. It prints `PADDLE_PRICE_PRO_MONTHLY`,
+   `PADDLE_PRICE_INTERVIEW_PACK` and `PADDLE_WEBHOOK_SECRET` to paste into
+   `.env`, then restart the dev server. If the key may not create or update
+   destinations, the sync says so (exit code 2) and lists what to do by
+   hand in Paddle → Developer tools → Notifications: that URL, the eleven
+   events in `SUBSCRIBED_EVENTS` (`lib/billing/paddle/catalog.ts`) and
+   traffic source "all" (so the simulator reaches it too); copy its secret.
+   Never keep two destinations for the route: every event would arrive
+   twice.
 4. Open the app through the tunnel URL and buy from `/pricing` with a
    sandbox test card: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002`
    is declined, `4000 0027 6000 3184` succeeds once and then fails (for

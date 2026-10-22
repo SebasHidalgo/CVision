@@ -92,17 +92,27 @@ export async function paddleCall<T>(what: string, run: () => Promise<T>): Promis
 export function toBillingError(error: unknown, what: string): AppError {
   if (error instanceof BillingUnavailableError || error instanceof BillingMisconfiguredError) return error;
   if (error instanceof ApiError) {
-    if (error.retryAfter !== null || error.type === "api_error") {
-      return new BillingUnavailableError(`Paddle ${what} failed (${error.code})`);
-    }
-    return new BillingMisconfiguredError(`Paddle rejected ${what} (${error.code})`);
+    const mapped =
+      error.retryAfter !== null || error.type === "api_error"
+        ? new BillingUnavailableError(`Paddle ${what} failed (${error.code})`)
+        : new BillingMisconfiguredError(`Paddle rejected ${what} (${error.code})`);
+    // The provider's code rides along (never its detail), so a caller can
+    // tell `forbidden` or an already-canceled subscription from the rest.
+    providerCodes.set(mapped, error.code);
+    return mapped;
   }
   return new BillingUnavailableError(
     `Paddle ${what} failed with ${error instanceof Error ? error.name : typeof error}`,
   );
 }
 
-/** The provider's error code, when the failure was one of its answers. */
+const providerCodes = new WeakMap<object, string>();
+
+/** The provider's error code behind a failure, raw or already mapped by `paddleCall`; null for anything else. */
 export function paddleErrorCode(error: unknown): string | null {
-  return error instanceof ApiError ? error.code : null;
+  if (error instanceof ApiError) return error.code;
+  return typeof error === "object" && error !== null ? (providerCodes.get(error) ?? null) : null;
 }
+
+/** Paddle's answer when the API key lacks the permission for the call. */
+export const PADDLE_FORBIDDEN = "forbidden";

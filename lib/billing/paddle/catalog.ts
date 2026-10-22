@@ -3,7 +3,7 @@ import "server-only";
 import type { IEventName, NotificationSettings, Price, Product } from "@paddle/paddle-node-sdk";
 import { CATALOG, CATALOG_CURRENCY, type CatalogProduct } from "@/lib/billing/catalog";
 import { CHECKOUT_ITEMS, type CatalogSyncReport, type PriceKey } from "@/lib/billing/types";
-import { paddleCall, paddleClient } from "./client";
+import { PADDLE_FORBIDDEN, paddleCall, paddleClient, paddleErrorCode } from "./client";
 
 /**
  * Pushes the catalog as code to Paddle, idempotently: products and prices
@@ -148,11 +148,26 @@ async function syncPrice(paddle: PaddleSdk, productId: string, wanted: CatalogPr
   };
 }
 
+/**
+ * The destination is recognised by its description or, failing that, by
+ * its URL: one the owner made by hand in the dashboard is ours as long as
+ * it points at our route, and is left under its own name. An API key that
+ * may not create or update destinations (Paddle answers `forbidden`) does
+ * not fail the sync: the report says so and what to do by hand.
+ */
 async function syncWebhook(paddle: PaddleSdk, webhookUrl: string | null): Promise<CatalogSyncReport["webhook"]> {
   const settings = await paddleCall("notification settings list", () => paddle.notificationSettings.list());
-  const found = settings.find((setting) => setting.description === WEBHOOK_DESCRIPTION) ?? null;
+  const found =
+    settings.find((setting) => setting.description === WEBHOOK_DESCRIPTION) ??
+    (webhookUrl ? settings.find((setting) => setting.destination === webhookUrl) : undefined) ??
+    settings.find((setting) => WEBHOOK_PATH.test(setting.destination)) ??
+    null;
 
-  const describe = (setting: NotificationSettings, action: CatalogSyncReport["webhook"]["action"]) => ({
+  const describe = (
+    setting: NotificationSettings,
+    action: CatalogSyncReport["webhook"]["action"],
+    note?: string,
+  ): CatalogSyncReport["webhook"] => ({
     id: setting.id,
     action,
     destination: setting.destination,
@@ -160,6 +175,7 @@ async function syncWebhook(paddle: PaddleSdk, webhookUrl: string | null): Promis
     secret: setting.endpointSecretKey || null,
     trafficSource: setting.trafficSource,
     active: setting.active,
+    ...(note ? { note } : {}),
   });
 
   if (!webhookUrl) {
@@ -169,40 +185,69 @@ async function syncWebhook(paddle: PaddleSdk, webhookUrl: string | null): Promis
   }
 
   if (!found) {
-    const created = await paddleCall("notification setting create", () =>
-      paddle.notificationSettings.create({
-        description: WEBHOOK_DESCRIPTION,
+    try {
+      const created = await paddleCall("notification setting create", () =>
+        paddle.notificationSettings.create({
+          description: WEBHOOK_DESCRIPTION,
+          destination: webhookUrl,
+          type: "url",
+          apiVersion: 1,
+          includeSensitiveFields: false,
+          // "all": the simulator's deliveries reach the route too.
+          trafficSource: "all",
+          subscribedEvents: SUBSCRIBED_EVENTS,
+        }),
+      );
+      return describe(created, "created");
+    } catch (error) {
+      if (paddleErrorCode(error) !== PADDLE_FORBIDDEN) throw error;
+      return {
+        id: "",
+        action: "forbidden",
         destination: webhookUrl,
-        type: "url",
-        apiVersion: 1,
-        includeSensitiveFields: false,
-        // "all": the simulator's deliveries reach the route too.
+        events: [...SUBSCRIBED_EVENTS],
+        secret: null,
+        trafficSource: null,
+        active: null,
+        note: forbiddenNote("create", [`destination ${webhookUrl}`, `events ${SUBSCRIBED_EVENTS.join(", ")}`, 'traffic source "all"']),
+      };
+    }
+  }
+
+  const currentEvents = new Set(found.subscribedEvents.map((event) => event.name));
+  const missingEvents = SUBSCRIBED_EVENTS.filter((name) => !currentEvents.has(name));
+  const differences = [
+    ...(found.destination === webhookUrl ? [] : [`destination is ${found.destination}, wanted ${webhookUrl}`]),
+    ...(found.active ? [] : ["it is inactive"]),
+    ...(missingEvents.length ? [`missing events ${missingEvents.join(", ")}`] : []),
+  ];
+  if (differences.length === 0) {
+    // "all" only matters for the simulator; a hand-made "platform" destination is not wrong.
+    const hint = found.trafficSource === "all" ? undefined : 'traffic source is not "all": the webhook simulator will not reach it (real deliveries do)';
+    return describe(found, "unchanged", hint);
+  }
+
+  try {
+    const updated = await paddleCall("notification setting update", () =>
+      paddle.notificationSettings.update(found.id, {
+        destination: webhookUrl,
+        active: true,
         trafficSource: "all",
         subscribedEvents: SUBSCRIBED_EVENTS,
       }),
     );
-    return describe(created, "created");
+    return describe(updated, "updated");
+  } catch (error) {
+    if (paddleErrorCode(error) !== PADDLE_FORBIDDEN) throw error;
+    return describe(found, "forbidden", forbiddenNote("update", differences));
   }
+}
 
-  const currentEvents = found.subscribedEvents.map((event) => event.name).sort();
-  const wantedEvents = [...SUBSCRIBED_EVENTS].sort();
-  const same =
-    found.destination === webhookUrl &&
-    found.active &&
-    found.trafficSource === "all" &&
-    currentEvents.length === wantedEvents.length &&
-    currentEvents.every((name, i) => name === wantedEvents[i]);
-  if (same) return describe(found, "unchanged");
+/** The route every destination of ours points at. */
+const WEBHOOK_PATH = new RegExp("/api/webhooks/paddle$");
 
-  const updated = await paddleCall("notification setting update", () =>
-    paddle.notificationSettings.update(found.id, {
-      destination: webhookUrl,
-      active: true,
-      trafficSource: "all",
-      subscribedEvents: SUBSCRIBED_EVENTS,
-    }),
-  );
-  return describe(updated, "updated");
+function forbiddenNote(verb: "create" | "update", items: string[]): string {
+  return `the API key may not ${verb} notification settings (Paddle answered "forbidden"). Either give the key write access to notification settings (Paddle > Developer tools > Authentication) and run the sync again, or ${verb} the destination by hand (Paddle > Developer tools > Notifications): ${items.join("; ")}.`;
 }
 
 /** Exported for the test of the decision, with the SDK stubbed. */

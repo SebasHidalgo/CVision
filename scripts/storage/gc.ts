@@ -82,9 +82,13 @@ function abbreviate(key: string): string {
   return key.replace(/^cv\/([^/]{8})[^/]*\//, "cv/$1…/");
 }
 
-main()
-  .catch((error) => {
-    console.error(error instanceof Error ? `${error.name}: ${error.message}` : error);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main()
+    .catch((error) => {
+      console.error(error instanceof Error ? `${error.name}: ${error.message}` : error);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

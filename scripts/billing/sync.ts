@@ -58,18 +58,26 @@ async function main() {
   console.log("\nWebhook destination:");
   if (webhook.action === "skipped") {
     console.log("  none exists and --webhook-url was not given: events will not be delivered.");
+  } else if (webhook.action === "forbidden" && !webhook.id) {
+    console.log(`  NOT CREATED. ${webhook.note}`);
   } else {
     console.log(`  ${webhook.id}  ${webhook.action}  -> ${webhook.destination}  (traffic ${webhook.trafficSource}, ${webhook.active ? "active" : "INACTIVE"})`);
     console.log(`  events: ${webhook.events.join(", ")}`);
+    if (webhook.note) console.log(`  note: ${webhook.note}`);
   }
 
   console.log("\nPut these in .env (the secret is the destination's; keep it out of the repo):");
   for (const price of report.prices) console.log(`${PRICE_ID_ENV[price.key]}=${price.priceId}`);
   if (webhook.secret) console.log(`PADDLE_WEBHOOK_SECRET=${webhook.secret}`);
   else if (webhook.action !== "skipped") console.log("PADDLE_WEBHOOK_SECRET=  (not returned on read; copy it from Paddle > Developer tools > Notifications)");
+  if (webhook.action === "forbidden") process.exitCode = 2;
 }
 
-main().catch((error: unknown) => {
-  console.error(`billing:sync failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
-  process.exit(1);
-});
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main().catch((error: unknown) => {
+    console.error(`billing:sync failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
+    process.exit(1);
+  });
+}

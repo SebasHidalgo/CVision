@@ -40,12 +40,16 @@ async function main() {
   }
 }
 
-main()
-  .catch((error: unknown) => {
-    console.error(`billing:reconcile failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    const { default: prisma } = await import("@/lib/prisma");
-    await prisma.$disconnect();
-  });
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main()
+    .catch((error: unknown) => {
+      console.error(`billing:reconcile failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      const { default: prisma } = await import("@/lib/prisma");
+      await prisma.$disconnect();
+    });
+}
