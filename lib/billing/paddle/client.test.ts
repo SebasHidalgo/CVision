@@ -5,6 +5,7 @@ import {
   paddleCall,
   paddleClient,
   paddleErrorCode,
+  paddlePermissionFor,
   readPaddleConfig,
   readPaddleEnvironment,
   toBillingError,
@@ -117,5 +118,29 @@ describe("paddleCall and the error taxonomy", () => {
     vi.useFakeTimers();
     expect(await paddleCall("x", async () => 42)).toBe(42);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("a forbidden answer", () => {
+  it("names the permission the call needs, from the call's label", () => {
+    expect(paddlePermissionFor("portal session")).toBe("customer_portal_session.write");
+    expect(paddlePermissionFor("transaction create")).toBe("transaction.write");
+    expect(paddlePermissionFor("transaction list")).toBe("transaction.read");
+    expect(paddlePermissionFor("subscription cancel")).toBe("subscription.write");
+    expect(paddlePermissionFor("subscription read")).toBe("subscription.read");
+    expect(paddlePermissionFor("notification setting create")).toBe("notification_setting.write");
+    expect(paddlePermissionFor("notification settings list")).toBe("notification_setting.read");
+    expect(paddlePermissionFor("price list pro_monthly")).toBe("price.read");
+    expect(paddlePermissionFor("product update pro_monthly")).toBe("product.write");
+    expect(paddlePermissionFor("something else")).toBeNull();
+  });
+
+  it("maps to BILLING_MISCONFIGURED with the missing permission in the message, and nothing of the provider's detail", () => {
+    const forbidden = new ApiError({ type: "request_error", code: "forbidden", detail: "You are not permitted to perform this request.", documentation_url: "", errors: null } as never, null);
+    const mapped = toBillingError(forbidden, "portal session");
+    expect(mapped.code).toBe("BILLING_MISCONFIGURED");
+    expect(mapped.message).toBe("Paddle rejected portal session (forbidden): the API key lacks customer_portal_session.write (Paddle > Developer tools > Authentication)");
+    expect(mapped.message).not.toContain("not permitted");
+    expect(paddleErrorCode(mapped)).toBe("forbidden");
   });
 });

@@ -57,6 +57,8 @@ const COPY: Record<ErrorCode, string> = {
     "Interview packs are for Pro subscribers. Subscribe to Pro first.",
   NO_BILLING_ACCOUNT:
     "There's no billing account for you yet. It's created with your first purchase.",
+  BILLING_PORTAL_UNAVAILABLE:
+    "Billing management is temporarily unavailable. Try again later.",
   REQUEST_FAILED:
     "The request didn't go through. Check your connection and try again. If it keeps failing, reload the page.",
   UNKNOWN: "Something went wrong on our side. Please try again.",

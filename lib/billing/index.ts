@@ -5,13 +5,14 @@ import {
   findBillingCustomer,
   listSubscriptionRows,
 } from "@/lib/database/billing";
-import { NoBillingAccountError } from "@/lib/error/errors";
+import { BillingPortalUnavailableError, NoBillingAccountError } from "@/lib/error/errors";
 import { paddleAdapter } from "./paddle/adapter";
 import type {
   BillingProviderAdapter,
   CatalogSyncReport,
   CheckoutItem,
   CheckoutSession,
+  DoctorCheck,
   ParsedBillingEvent,
   PortalSession,
   ProviderSubscription,
@@ -39,15 +40,29 @@ export async function createCheckout(userId: string, item: CheckoutItem): Promis
   });
 }
 
-/** A link into the provider's portal (payment method, invoices, cancel). */
+/**
+ * A link into the provider's portal (payment method, invoices, cancel). A
+ * provider failure here (down, or the key may not mint portal sessions) is
+ * nothing the user did: it surfaces as the portal being unavailable, with
+ * the provider's detail (the missing permission, named) in the log.
+ */
 export async function createPortalSession(userId: string): Promise<PortalSession> {
   const customer = await findBillingCustomer(userId);
   if (!customer) throw new NoBillingAccountError();
   const subscriptions = await listSubscriptionRows(userId);
-  return provider.createPortalSession({
-    providerCustomerId: customer.providerCustomerId,
-    providerSubscriptionIds: subscriptions.map((subscription) => subscription.providerSubscriptionId),
-  });
+  try {
+    return await provider.createPortalSession({
+      providerCustomerId: customer.providerCustomerId,
+      providerSubscriptionIds: subscriptions.map((subscription) => subscription.providerSubscriptionId),
+    });
+  } catch (error) {
+    throw new BillingPortalUnavailableError(error instanceof Error ? error.message : "Portal session failed", { cause: error });
+  }
+}
+
+/** The read-only checks of the provider account the app runs against, for `npm run billing:doctor`. */
+export function runBillingDoctor(options: { webhookUrl: string | null }): Promise<DoctorCheck[]> {
+  return provider.doctor(options);
 }
 
 export type CancelNowResult = {

@@ -110,12 +110,24 @@ export type CatalogSyncReport = {
   };
 };
 
+/** One line of `npm run billing:doctor`: a check of the provider account, read-only, with the exact fix when it fails. */
+export type DoctorCheck = {
+  name: string;
+  outcome: "pass" | "fail" | "skip";
+  /** What was found, in one line. Never a secret. */
+  detail: string;
+  /** What to do, when it failed or could not be checked. */
+  fix?: string;
+};
+
 /**
  * The contract one provider adapter fulfils. Provider ids in, provider ids
  * out: the user-to-customer mapping lives in the database, behind the
  * facade in `lib/billing/index.ts`.
  */
 export type BillingProviderAdapter = {
+  /** Read-only checks of the account, the key's permissions and the setup (`billing:doctor`). */
+  doctor(options: { webhookUrl: string | null }): Promise<DoctorCheck[]>;
   createTransaction(input: {
     priceKey: PriceKey;
     /** Attached to the transaction so the first event can name the user. */

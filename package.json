@@ -17,6 +17,7 @@
     "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts",
     "billing:sync": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/sync.ts",
     "billing:reconcile": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/reconcile.ts",
+    "billing:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/doctor.ts",
     "storage:bucket": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/bucket-private.ts",
     "storage:gc": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/gc.ts"
   },

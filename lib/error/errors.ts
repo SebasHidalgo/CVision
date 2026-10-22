@@ -35,6 +35,7 @@ export type ErrorCode =
   | "ALREADY_SUBSCRIBED"
   | "PACK_REQUIRES_PRO"
   | "NO_BILLING_ACCOUNT"
+  | "BILLING_PORTAL_UNAVAILABLE"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -267,5 +268,16 @@ export class PackRequiresProError extends AppError {
 export class NoBillingAccountError extends AppError {
   constructor(message = "No billing account for this user") {
     super("NO_BILLING_ACCOUNT", message);
+  }
+}
+
+/**
+ * The provider would not mint a portal link (down, timed out, or the API
+ * key lacks the permission): the user did nothing wrong and the copy says
+ * so; the detail is in the server log.
+ */
+export class BillingPortalUnavailableError extends AppError {
+  constructor(message = "Billing portal unavailable", options?: ErrorOptions) {
+    super("BILLING_PORTAL_UNAVAILABLE", message, options);
   }
 }

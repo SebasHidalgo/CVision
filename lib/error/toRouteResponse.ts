@@ -28,6 +28,7 @@ const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   AI_UNAVAILABLE: 503,
   AI_RATE_LIMITED: 429,
   BILLING_UNAVAILABLE: 503,
+  BILLING_PORTAL_UNAVAILABLE: 503,
 };
 
 export function routeOk<T>(data: T): NextResponse<ActionResult<T>> {

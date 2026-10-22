@@ -5,6 +5,7 @@ import type { BillingProviderAdapter, ProviderSubscription } from "@/lib/billing
 import { syncPaddleCatalog } from "./catalog";
 import { paddleCall, paddleClient, paddleErrorCode } from "./client";
 import { customDataFor } from "./customData";
+import { runPaddleDoctor } from "./doctor";
 import { priceIdFor } from "./prices";
 import { toProviderSubscription, verifyAndParsePaddleWebhook, type PaddleSubscriptionLike } from "./webhook";
 
@@ -74,6 +75,8 @@ export const paddleAdapter: BillingProviderAdapter = {
   verifyAndParseWebhook: verifyAndParsePaddleWebhook,
 
   syncCatalog: syncPaddleCatalog,
+
+  doctor: runPaddleDoctor,
 };
 
 /** The API entity has the same fields as the notification where it matters; only the item shape differs in name. */

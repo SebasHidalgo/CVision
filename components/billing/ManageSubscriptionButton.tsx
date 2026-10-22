@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import { cn } from "@/lib/utils";
@@ -15,38 +14,55 @@ type ManageSubscriptionButtonProps = {
 };
 
 /**
- * Opens the provider's portal in a new tab. The tab is opened before the
- * await, while the click is still the user's gesture, and receives the
- * URL after: a tab opened later would be blocked as a popup. The link is
- * minted per click because it expires.
+ * Opens the provider's portal, minted per click because the link expires.
+ * No tab is opened before the link exists: a tab that opens and closes on
+ * a failure is worse than no tab. The new tab is opened once the link is
+ * back; browsers allow that for a few seconds after the click, and if this
+ * one does not (the popup is blocked), the portal opens in this tab. A
+ * failure is shown here, under the button, in words that blame nobody.
  */
 export default function ManageSubscriptionButton({ label = "Manage subscription", className, variant = "outline" }: ManageSubscriptionButtonProps) {
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
   const handleClick = async () => {
     setBusy(true);
-    const popup = window.open("about:blank", "_blank");
+    setProblem(null);
     try {
       const result = await createPortalSessionAction();
       if (!result.ok) {
-        popup?.close();
-        toast.error(actionErrorCopy(result.code, result.meta));
-      } else if (popup) {
-        popup.location.href = result.data.url;
+        setProblem(actionErrorCopy(result.code, result.meta));
       } else {
-        window.location.href = result.data.url;
+        openPortal(result.data.url);
       }
     } catch {
-      popup?.close();
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+      setProblem(actionErrorCopy("REQUEST_FAILED"));
     }
     setBusy(false);
   };
 
   return (
-    <Button onClick={handleClick} disabled={busy} variant={variant} className={cn("gap-2", className)}>
-      {busy ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
-      {label}
-    </Button>
+    <div className="flex flex-col items-start gap-2">
+      <Button onClick={handleClick} disabled={busy} variant={variant} className={cn("gap-2", className)}>
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
+        {label}
+      </Button>
+      {problem && (
+        <p role="alert" className="text-sm text-ink-2">
+          {problem}
+        </p>
+      )}
+    </div>
   );
+}
+
+/** A new tab when the browser allows one this long after the click; this tab otherwise. */
+export function openPortal(url: string): "tab" | "here" {
+  const tab = window.open(url, "_blank");
+  if (tab) {
+    tab.opener = null;
+    return "tab";
+  }
+  window.location.assign(url);
+  return "here";
 }

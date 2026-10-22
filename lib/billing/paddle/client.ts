@@ -58,6 +58,31 @@ export function paddleClient(): Paddle {
   });
 }
 
+/** The API host of the environment, for the one endpoint the SDK does not wrap (the checkout settings). Never defaulted. */
+export function paddleBaseUrl(environment: PaddleEnvironmentName): string {
+  return environment === "sandbox" ? "https://sandbox-api.paddle.com" : "https://api.paddle.com";
+}
+
+/**
+ * The API key permission a call needs, from the call's label ("portal
+ * session", "transaction create", "price list"): what a `forbidden` answer
+ * is missing, named in the log so the fix is one dashboard tick, not a
+ * search. Null when the label names nothing known.
+ */
+export function paddlePermissionFor(what: string): string | null {
+  const words = what.toLowerCase().split(/\s+/);
+  const entity = words.includes("portal")
+    ? "customer_portal_session"
+    : words.includes("notification")
+      ? "notification_setting"
+      : words.includes("checkout")
+        ? "checkout_settings"
+        : ["product", "price", "transaction", "subscription", "customer", "adjustment"].find((name) => words.includes(name)) ?? null;
+  if (!entity) return null;
+  const writes = words.some((word) => ["create", "update", "cancel", "session", "revise"].includes(word));
+  return `${entity}.${writes ? "write" : "read"}`;
+}
+
 /** One SDK call; the SDK has no timeout of its own, so the wait is bounded here. */
 export const PADDLE_CALL_TIMEOUT_MS = 10_000;
 
@@ -92,10 +117,14 @@ export async function paddleCall<T>(what: string, run: () => Promise<T>): Promis
 export function toBillingError(error: unknown, what: string): AppError {
   if (error instanceof BillingUnavailableError || error instanceof BillingMisconfiguredError) return error;
   if (error instanceof ApiError) {
+    // A missing permission is named outright: the fix is a tick in the dashboard.
+    const permission = error.code === PADDLE_FORBIDDEN ? paddlePermissionFor(what) : null;
     const mapped =
       error.retryAfter !== null || error.type === "api_error"
         ? new BillingUnavailableError(`Paddle ${what} failed (${error.code})`)
-        : new BillingMisconfiguredError(`Paddle rejected ${what} (${error.code})`);
+        : new BillingMisconfiguredError(
+            `Paddle rejected ${what} (${error.code})${permission ? `: the API key lacks ${permission} (Paddle > Developer tools > Authentication)` : ""}`,
+          );
     // The provider's code rides along (never its detail), so a caller can
     // tell `forbidden` or an already-canceled subscription from the rest.
     providerCodes.set(mapped, error.code);
