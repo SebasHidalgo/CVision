@@ -126,6 +126,10 @@ model Subscription {
   providerUpdatedAt      DateTime
   /// When the lazy reconcile last asked the provider about this row; throttles it.
   reconcileCheckedAt     DateTime?
+  /// The provider's transaction that created this subscription (the checkout
+  /// the user paid), from the created event or the completed transaction:
+  /// how the account page knows that the checkout it waits for has landed.
+  transactionId          String?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 

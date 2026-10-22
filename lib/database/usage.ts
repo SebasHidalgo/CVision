@@ -20,7 +20,7 @@ import {
   type PlanId,
   type QuotaPeriod,
 } from "@/lib/plans";
-import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn } from "./billing";
+import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn, transactionApplied } from "./billing";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 
 /**
@@ -208,13 +208,23 @@ export async function interviewCreditBalance(userId: string): Promise<number> {
   }
 }
 
+/**
+ * One query: the units of every grant and revoke, and of every consumption
+ * not given back (a consumption is one unit), grouped by kind. Every round
+ * trip to the pooler costs hundreds of milliseconds from far away, and this
+ * runs inside the interview reservation and on every status poll.
+ */
 async function creditBalanceIn(db: Prisma.TransactionClient, userId: string): Promise<number> {
-  const [granted, revoked, used] = await Promise.all([
-    db.usageEvent.aggregate({ where: { userId, kind: "INTERVIEW_CREDIT_GRANT" }, _sum: { units: true } }),
-    db.usageEvent.aggregate({ where: { userId, kind: "INTERVIEW_CREDIT_REVOKE" }, _sum: { units: true } }),
-    db.usageEvent.count({ where: { userId, kind: "INTERVIEW_CREDIT", refundedAt: null } }),
-  ]);
-  return Math.max(0, (granted._sum.units ?? 0) - (revoked._sum.units ?? 0) - used);
+  const rows = await db.usageEvent.groupBy({
+    by: ["kind"],
+    where: {
+      userId,
+      OR: [{ kind: { in: ["INTERVIEW_CREDIT_GRANT", "INTERVIEW_CREDIT_REVOKE"] } }, { kind: "INTERVIEW_CREDIT", refundedAt: null }],
+    },
+    _sum: { units: true },
+  });
+  const units = (kind: UsageKind) => rows.find((row) => row.kind === kind)?._sum.units ?? 0;
+  return Math.max(0, units("INTERVIEW_CREDIT_GRANT") - units("INTERVIEW_CREDIT_REVOKE") - units("INTERVIEW_CREDIT"));
 }
 
 /**
@@ -378,6 +388,49 @@ export async function currentUsageSummary(now = new Date()): Promise<UsageSummar
 export async function currentPlan(): Promise<PlanId> {
   const userId = await requireUserId();
   return fetchPlan(userId);
+}
+
+/** Whether a checkout the caller paid has landed, for the account page's first render. Identity from the session. */
+export async function currentTransactionApplied(transactionId: string): Promise<boolean> {
+  const userId = await requireUserId();
+  return transactionApplied(userId, transactionId);
+}
+
+export type BillingStatus = {
+  plan: PlanId;
+  subscription: PlanStanding["subscription"];
+  /** The current quota period's end. */
+  periodEnd: Date;
+  credits: number;
+  /** Whether the named transaction was applied; null when none was named. */
+  transactionApplied: boolean | null;
+};
+
+/**
+ * What the account page polls after a checkout, every few seconds: the
+ * plan, the credits, and whether the transaction it waits for has been
+ * applied. Deliberately lean, and deliberately not `usageSummary`: no
+ * sweep of abandoned interviews, no lazy reconcile (so a poll never
+ * reaches the provider), and every read in one parallel wave, because a
+ * round trip to the pooler is the cost here, not the query.
+ */
+export async function billingStatus(userId: string, transactionId: string | null, now = new Date()): Promise<BillingStatus> {
+  try {
+    const [standing, credits, applied] = await Promise.all([
+      resolvePlanStanding(userId, now),
+      creditBalanceIn(prisma, userId),
+      transactionId ? transactionApplied(userId, transactionId) : Promise.resolve(null),
+    ]);
+    return {
+      plan: standing.plan,
+      subscription: standing.subscription,
+      periodEnd: quotaPeriodFor(standing, now).end,
+      credits,
+      transactionApplied: applied,
+    };
+  } catch (error) {
+    handleError(error, "Failed to read the billing status");
+  }
 }
 
 /** The two page-facing views of a summary, with dates as ISO strings for the client. */

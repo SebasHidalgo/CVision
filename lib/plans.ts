@@ -100,6 +100,8 @@ export const RATE_LIMITS = {
   /** Checkouts and portal links: each is a provider call that creates a record there. */
   checkout: { limit: 10, windowMs: 60 * 60_000 },
   portal: { limit: 10, windowMs: 60 * 60_000 },
+  /** "Check again" after a checkout whose confirmation is late: two provider reads per press. */
+  reconcile: { limit: 6, windowMs: 60 * 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;

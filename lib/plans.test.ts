@@ -30,6 +30,7 @@ describe("the plans", () => {
     expect(RATE_LIMITS.interviewCreate).toEqual({ limit: 3, windowMs: 3_600_000 });
     // Two tabs polling every 3 s make 40 a minute; the ceiling is above that.
     expect(RATE_LIMITS.status).toEqual({ limit: 60, windowMs: 60_000 });
+    expect(RATE_LIMITS.reconcile).toEqual({ limit: 6, windowMs: 3_600_000 });
   });
 });
 

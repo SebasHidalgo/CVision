@@ -51,6 +51,15 @@ export async function reconcileUserSubscriptions(userId: string, now = new Date(
 }
 
 /**
+ * Everything the provider knows about one user that a webhook may have
+ * failed to deliver, for the "Check again" action and the script. Today
+ * the subscriptions; the completed transactions join it next.
+ */
+export async function reconcileUserBilling(userId: string, now = new Date()): Promise<ReconcileResult> {
+  return reconcileUserSubscriptions(userId, now);
+}
+
+/**
  * Whether the mirror looks behind the provider: an access-granting row whose
  * period ended more than the grace ago (a renewal's event was lost, and the
  * user's period would never roll over), or a scheduled cancellation that

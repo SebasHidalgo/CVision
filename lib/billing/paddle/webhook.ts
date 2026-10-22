@@ -98,7 +98,11 @@ export function translate(event: EventEntity): ParsedBillingEvent {
 export type PaddleSubscriptionLike = Pick<
   SubscriptionNotification,
   "id" | "customerId" | "status" | "currentBillingPeriod" | "scheduledChange" | "canceledAt" | "updatedAt" | "customData"
-> & { items: Array<{ status: string; price: { id: string } | null }> };
+> & {
+  items: Array<{ status: string; price: { id: string } | null }>;
+  /** Only the created notification carries the transaction that opened the subscription. */
+  transactionId?: string | null;
+};
 
 export function toProviderSubscription(data: PaddleSubscriptionLike): ProviderSubscription {
   const priced = data.items.find((item) => item.status !== "inactive") ?? data.items[0];
@@ -115,6 +119,7 @@ export function toProviderSubscription(data: PaddleSubscriptionLike): ProviderSu
     canceledAt: dateOrNull(data.canceledAt),
     providerUpdatedAt: new Date(data.updatedAt),
     userIdHint: userIdFromCustomData(data.customData),
+    transactionId: typeof data.transactionId === "string" && data.transactionId ? data.transactionId : null,
   };
 }
 

@@ -21,12 +21,17 @@ beforeEach(() => {
 });
 
 describe("takeRateLimit", () => {
-  it("counts the hit in the fixed window of the action, keyed by user, and prunes the key's older windows", async () => {
+  it("counts the hit in the fixed window of the action, keyed by user, and prunes the key's older windows, in one statement", async () => {
     const decision = await takeRateLimit("user_1", "analysis", NOW);
 
     expect(decision).toEqual({ allowed: true, remaining: RATE_LIMITS.analysis.limit - 1 });
-    expect(paramsOf(vi.mocked(prisma.$executeRaw).mock.calls[0])).toEqual(["user_1:analysis", HOUR_START]);
-    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0])).toEqual(["user_1:analysis", HOUR_START]);
+    // The prune (key, window start) and the increment (key, window start) ride in the same statement: one round trip.
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0])).toEqual(["user_1:analysis", HOUR_START, "user_1:analysis", HOUR_START]);
+    const sql = (vi.mocked(prisma.$queryRaw).mock.calls[0][0] as unknown as TemplateStringsArray).join("?");
+    expect(sql).toMatch(/WITH pruned AS \(\s*DELETE FROM "RateLimitCounter"/);
+    expect(sql).toMatch(/INSERT INTO "RateLimitCounter"/);
   });
 
   it("refuses past the limit with the seconds left in the window", async () => {
@@ -50,11 +55,11 @@ describe("takeRateLimit", () => {
   it("rolls into a new window on the hour: a fresh window starts counting at one", async () => {
     const nextHour = new Date("2026-10-16T13:00:00Z");
     await takeRateLimit("user_1", "uploadUrl", nextHour);
-    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0])).toEqual(["user_1:uploadUrl", nextHour]);
+    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0])).toEqual(["user_1:uploadUrl", nextHour, "user_1:uploadUrl", nextHour]);
   });
 
   it("the status ceiling is a one-minute window", async () => {
     await takeRateLimit("user_1", "status", NOW);
-    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0])).toEqual(["user_1:status", new Date("2026-10-16T12:34:00Z")]);
+    expect(paramsOf(vi.mocked(prisma.$queryRaw).mock.calls[0]).slice(0, 2)).toEqual(["user_1:status", new Date("2026-10-16T12:34:00Z")]);
   });
 });

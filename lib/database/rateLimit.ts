@@ -30,10 +30,14 @@ export async function takeRateLimit(
     const key = `${userId}:${action}`;
     const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
 
-    await prisma.$executeRaw`
-      DELETE FROM "RateLimitCounter" WHERE "key" = ${key} AND "windowStart" < ${windowStart}`;
-
+    // One statement, one round trip: the prune of the key's older windows
+    // rides in a data-modifying CTE beside the increment. The two touch
+    // different rows (older windows, this window), so their isolation
+    // from each other within the statement changes nothing.
     const [row] = await prisma.$queryRaw<{ count: number }[]>`
+      WITH pruned AS (
+        DELETE FROM "RateLimitCounter" WHERE "key" = ${key} AND "windowStart" < ${windowStart}
+      )
       INSERT INTO "RateLimitCounter" ("key", "windowStart", "count")
       VALUES (${key}, ${windowStart}, 1)
       ON CONFLICT ("key", "windowStart")

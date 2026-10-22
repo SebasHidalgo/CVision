@@ -1,17 +1,19 @@
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
 import PageIntro from "@/components/layout/PageIntro";
+import { Button } from "@/components/ui/button";
+import type { Activation } from "@/lib/billing/activation";
 import { CATALOG } from "@/lib/billing/catalog";
-import type { CheckoutItem } from "@/lib/billing/types";
-import { currentUsageSummary } from "@/lib/database/usage";
+import { currentTransactionApplied, currentUsageSummary } from "@/lib/database/usage";
 import { formatLongDate } from "@/lib/format";
 import { INTERVIEW_PACK_CREDITS, PLANS } from "@/lib/plans";
 import BillingActivation from "./components/BillingActivation";
 
 type AccountBillingScreenProps = {
-  /** Set by the checkout button after a completed payment: the page waits for the webhook to land it. */
-  activating: CheckoutItem | null;
+  /** Set by the checkout button after a completed payment: the page waits for that transaction's webhook. */
+  activation: Activation | null;
 };
 
 /**
@@ -19,19 +21,15 @@ type AccountBillingScreenProps = {
  * cancellation, the interviews left, the credits, and the two things a
  * member can do (buy a pack, manage the subscription in the provider's
  * portal). After a checkout the change arrives by webhook, so the page
- * polls until it lands instead of claiming it already has.
+ * polls for that transaction until it lands instead of claiming it already
+ * has; while it waits, the checkout button is out of reach.
  */
-export default async function AccountBillingScreen({ activating }: AccountBillingScreenProps) {
-  const summary = await currentUsageSummary();
+export default async function AccountBillingScreen({ activation }: AccountBillingScreenProps) {
+  const [summary, applied] = await Promise.all([
+    currentUsageSummary(),
+    activation ? currentTransactionApplied(activation.transactionId) : Promise.resolve(false),
+  ]);
   const { plan, source, subscription, credits, interviews, hasBillingAccount } = summary;
-
-  // What the page still waits for, if anything: Pro that has not landed, or a pack whose credits have not.
-  const waiting =
-    activating === "pro_monthly" && plan !== "PRO"
-      ? "pro_monthly"
-      : activating === "interview_pack"
-        ? "interview_pack"
-        : null;
 
   const periodEnd = formatLongDate(summary.resetsAt);
   const cancelsAt = subscription?.cancelAtPeriodEnd && subscription.scheduledChangeAt ? formatLongDate(subscription.scheduledChangeAt) : null;
@@ -55,9 +53,9 @@ export default async function AccountBillingScreen({ activating }: AccountBillin
     <div className="wrap py-12 lg:py-16">
       <PageIntro eyebrow="Plan & billing" title={plan === "PRO" ? "You're on Pro." : "You're on Free."} lede={planLine} />
 
-      {waiting && (
+      {activation && (
         <div className="border-b border-line py-8">
-          <BillingActivation waitingFor={waiting} seen={{ plan, credits: credits.balance }} />
+          <BillingActivation activation={activation} applied={applied} />
         </div>
       )}
 
@@ -92,20 +90,15 @@ export default async function AccountBillingScreen({ activating }: AccountBillin
       </dl>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-10">
-        {plan === "PRO" ? (
-          <CheckoutButton
-            item="interview_pack"
-            label={`Buy ${INTERVIEW_PACK_CREDITS} more interviews · ${CATALOG.interview_pack.amountLabel}`}
-            afterCompleteHref="/account/billing?activating=interview_pack"
-            size="default"
-          />
+        {activation ? (
+          <Button disabled size="default" className="gap-2">
+            <Loader2 className="size-4 animate-spin" />
+            Confirming your payment…
+          </Button>
+        ) : plan === "PRO" ? (
+          <CheckoutButton item="interview_pack" label={`Buy ${INTERVIEW_PACK_CREDITS} more interviews · ${CATALOG.interview_pack.amountLabel}`} size="default" />
         ) : (
-          <CheckoutButton
-            item="pro_monthly"
-            label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`}
-            afterCompleteHref="/account/billing?activating=pro_monthly"
-            size="default"
-          />
+          <CheckoutButton item="pro_monthly" label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`} size="default" />
         )}
         {hasBillingAccount && <ManageSubscriptionButton />}
         <Link href="/pricing" className="link-rule px-2 text-sm text-ink-2">
@@ -115,7 +108,7 @@ export default async function AccountBillingScreen({ activating }: AccountBillin
 
       {hasBillingAccount && (
         <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-2">
-          &ldquo;Manage subscription&rdquo; opens Paddle, the merchant of record, in a new tab: payment method, invoices and cancellation live there.
+          &ldquo;Manage subscription&rdquo; opens Paddle, the merchant of record: payment method, invoices and cancellation live there.
           Cancelling keeps Pro until the end of the period you paid for.
         </p>
       )}

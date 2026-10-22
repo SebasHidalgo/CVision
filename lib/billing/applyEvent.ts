@@ -5,6 +5,7 @@ import {
   findUserIdByProviderCustomer,
   findUserIdByProviderSubscription,
   linkBillingCustomer,
+  markSubscriptionTransaction,
 } from "@/lib/database/billing";
 import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/database/usage";
 import { userExists } from "@/lib/database/user";
@@ -60,6 +61,9 @@ export async function applyBillingEvent(event: ParsedBillingEvent, now = new Dat
       });
       if (!userId) return { userId: null, action: `transaction ${event.transactionId}: no user, acknowledged` };
       if (event.providerCustomerId) await linkBillingCustomer(userId, event.providerCustomerId);
+      // A subscription payment: the mirror learns which checkout opened it
+      // (the account page waits on that), whichever of the two events came first.
+      if (event.providerSubscriptionId) await markSubscriptionTransaction(event.providerSubscriptionId, event.transactionId);
 
       const units = event.items
         .filter((item) => item.priceKey === "interview_pack")

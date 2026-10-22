@@ -8,14 +8,17 @@ import {
   claimBillingEvent,
   linkBillingCustomer,
   markBillingEventProcessed,
+  markSubscriptionTransaction,
   releaseBillingEvent,
   resolvePlanStanding,
+  transactionApplied,
 } from "./billing";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
     billingCustomer: { create: vi.fn(), findUnique: vi.fn() },
-    subscription: { create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+    subscription: { create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
+    usageEvent: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     billingEvent: { create: vi.fn(), updateMany: vi.fn() },
   },
@@ -37,6 +40,7 @@ const snapshot = (overrides: Partial<ProviderSubscription> = {}): ProviderSubscr
   canceledAt: null,
   providerUpdatedAt: new Date("2026-10-20T10:00:05Z"),
   userIdHint: "user_1",
+  transactionId: null,
   ...overrides,
 });
 
@@ -95,10 +99,51 @@ describe("applySubscriptionSnapshot", () => {
     expect(await applySubscriptionSnapshot("user_1", snapshot())).toBe("stale");
   });
 
+  it("keeps the transaction the created event names, and never blanks it from a later event", async () => {
+    vi.mocked(prisma.subscription.create).mockResolvedValueOnce({} as never);
+    await applySubscriptionSnapshot("user_1", snapshot({ transactionId: "txn_01" }));
+    expect(prisma.subscription.create).toHaveBeenCalledWith({ data: expect.objectContaining({ transactionId: "txn_01" }) });
+
+    vi.mocked(prisma.subscription.create).mockRejectedValueOnce(unique());
+    vi.mocked(prisma.subscription.updateMany).mockResolvedValueOnce({ count: 1 });
+    await applySubscriptionSnapshot("user_1", snapshot({ status: "canceled", providerUpdatedAt: new Date("2026-10-21T10:00:05Z") }));
+    const call = vi.mocked(prisma.subscription.updateMany).mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(call.data).not.toHaveProperty("transactionId");
+  });
+
   it("stores an unknown price as such", async () => {
     vi.mocked(prisma.subscription.create).mockResolvedValueOnce({} as never);
     await applySubscriptionSnapshot("user_1", snapshot({ priceKey: null }));
     expect(prisma.subscription.create).toHaveBeenCalledWith({ data: expect.objectContaining({ priceKey: "unknown" }) });
+  });
+});
+
+describe("the transaction behind a checkout", () => {
+  it("is named on the mirrored subscription once, from whichever event arrives first", async () => {
+    vi.mocked(prisma.subscription.updateMany).mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    expect(await markSubscriptionTransaction("sub_01", "txn_01")).toBe(true);
+    expect(prisma.subscription.updateMany).toHaveBeenCalledWith({
+      where: { providerSubscriptionId: "sub_01", transactionId: null },
+      data: { transactionId: "txn_01" },
+    });
+    expect(await markSubscriptionTransaction("sub_01", "txn_02")).toBe(false);
+  });
+
+  it("counts as applied when the pack grant keyed by it exists, or the subscription it opened is the user's", async () => {
+    vi.mocked(prisma.usageEvent.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findFirst).mockResolvedValue(null);
+    expect(await transactionApplied("user_1", "txn_01")).toBe(false);
+    expect(prisma.usageEvent.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user_1", kind: "INTERVIEW_CREDIT_GRANT", refId: "txn_01" },
+      select: { id: true },
+    });
+    expect(prisma.subscription.findFirst).toHaveBeenCalledWith({ where: { userId: "user_1", transactionId: "txn_01" }, select: { id: true } });
+
+    vi.mocked(prisma.usageEvent.findFirst).mockResolvedValueOnce({ id: "evt_grant" } as never);
+    expect(await transactionApplied("user_1", "txn_01")).toBe(true);
+
+    vi.mocked(prisma.subscription.findFirst).mockResolvedValueOnce({ id: "row_1" } as never);
+    expect(await transactionApplied("user_1", "txn_01")).toBe(true);
   });
 });
 

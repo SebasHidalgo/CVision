@@ -65,12 +65,7 @@ export default async function PricingScreen() {
                   </Button>
                 </SignInCta>
               ) : plan === "FREE" ? (
-                <CheckoutButton
-                  item="pro_monthly"
-                  label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`}
-                  afterCompleteHref="/account/billing?activating=pro_monthly"
-                  className="h-12 px-6 text-base"
-                />
+                <CheckoutButton item="pro_monthly" label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`} className="h-12 px-6 text-base" />
               ) : (
                 <div className="flex flex-col items-start gap-3">
                   <ManageSubscriptionButton />

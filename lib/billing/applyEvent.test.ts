@@ -4,6 +4,7 @@ import {
   findUserIdByProviderCustomer,
   findUserIdByProviderSubscription,
   linkBillingCustomer,
+  markSubscriptionTransaction,
 } from "@/lib/database/billing";
 import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/database/usage";
 import { userExists } from "@/lib/database/user";
@@ -16,6 +17,7 @@ vi.mock("@/lib/database/billing", () => ({
   findUserIdByProviderCustomer: vi.fn(async () => null),
   findUserIdByProviderSubscription: vi.fn(async () => null),
   linkBillingCustomer: vi.fn(async () => "linked"),
+  markSubscriptionTransaction: vi.fn(async () => true),
 }));
 vi.mock("@/lib/database/usage", () => ({
   grantInterviewCredits: vi.fn(async () => ({ granted: true })),
@@ -38,6 +40,7 @@ const subscription = (overrides: Partial<ProviderSubscription> = {}): ProviderSu
   canceledAt: null,
   providerUpdatedAt: NOW,
   userIdHint: "user_1",
+  transactionId: null,
   ...overrides,
 });
 
@@ -123,11 +126,16 @@ describe("completed transactions", () => {
     expect((await applyBillingEvent(transaction(), NOW)).action).toBe("transaction txn_01: credits already granted");
   });
 
-  it("grants nothing for a subscription payment, but still links the customer", async () => {
+  it("grants nothing for a subscription payment, but links the customer and names the transaction on the mirrored subscription", async () => {
     const outcome = await applyBillingEvent(transaction({ items: [{ priceKey: "pro_monthly", quantity: 1 }], providerSubscriptionId: "sub_01" }), NOW);
     expect(outcome.action).toBe("transaction txn_01 completed: nothing to grant");
     expect(grantInterviewCredits).not.toHaveBeenCalled();
     expect(linkBillingCustomer).toHaveBeenCalledWith("user_1", "ctm_01");
+    expect(markSubscriptionTransaction).toHaveBeenCalledWith("sub_01", "txn_01");
+
+    // A pack has no subscription: nothing to name.
+    await applyBillingEvent(transaction(), NOW);
+    expect(markSubscriptionTransaction).toHaveBeenCalledTimes(1);
   });
 });
 

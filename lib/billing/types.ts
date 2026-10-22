@@ -32,6 +32,8 @@ export type ProviderSubscription = {
   providerUpdatedAt: Date;
   /** The user id the server attached at checkout, when the provider echoes it back. */
   userIdHint: string | null;
+  /** The transaction that created the subscription, when the provider names it (its created event does). */
+  transactionId: string | null;
 };
 
 export type AdjustmentAction = "refund" | "chargeback" | "credit" | "other";

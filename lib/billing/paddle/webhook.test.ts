@@ -134,8 +134,16 @@ describe("translation", () => {
         canceledAt: null,
         providerUpdatedAt: new Date("2026-10-20T10:00:05Z"),
         userIdHint: "user_1",
+        transactionId: null,
       },
     });
+  });
+
+  it("keeps the transaction that opened the subscription when the event names it (only the created event does)", async () => {
+    const created = await parse("subscription.created", subscriptionData({ transaction_id: "txn_01" }));
+    expect(created.kind === "subscription" && created.subscription.transactionId).toBe("txn_01");
+    const updated = await parse("subscription.updated", subscriptionData());
+    expect(updated.kind === "subscription" && updated.subscription.transactionId).toBeNull();
   });
 
   it("reads a scheduled cancellation, a canceled subscription without a period, and an unknown price", async () => {
@@ -166,6 +174,7 @@ describe("translation", () => {
       currentPeriodEnd: null,
       priceKey: null,
       userIdHint: null,
+      transactionId: null,
     });
   });
 

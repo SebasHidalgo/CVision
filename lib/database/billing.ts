@@ -108,6 +108,8 @@ export async function applySubscriptionSnapshot(userId: string, snapshot: Provid
     scheduledChangeAt: snapshot.scheduledChangeAt,
     canceledAt: snapshot.canceledAt,
     providerUpdatedAt: snapshot.providerUpdatedAt,
+    // Only the created event names the transaction; a later event must not blank it.
+    ...(snapshot.transactionId ? { transactionId: snapshot.transactionId } : {}),
   };
   try {
     await prisma.subscription.create({
@@ -175,6 +177,42 @@ export async function findUserIdByProviderSubscription(providerSubscriptionId: s
     return row?.userId ?? null;
   } catch (error) {
     handleError(error, `Failed to look up the subscription (subscription=${providerSubscriptionId})`);
+  }
+}
+
+/**
+ * Names the transaction that opened a mirrored subscription, once: the
+ * completed transaction's event carries the subscription id, the created
+ * subscription's event carries the transaction id, and either may arrive
+ * first (or alone). A row that already knows its transaction is left as is.
+ */
+export async function markSubscriptionTransaction(providerSubscriptionId: string, transactionId: string): Promise<boolean> {
+  try {
+    const result = await prisma.subscription.updateMany({
+      where: { providerSubscriptionId, transactionId: null },
+      data: { transactionId },
+    });
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, `Failed to record the subscription's transaction (subscription=${providerSubscriptionId})`);
+  }
+}
+
+/**
+ * Whether a checkout the user paid has been applied: the pack's grant keyed
+ * by the transaction exists, or the subscription that transaction opened is
+ * mirrored for the user. What the account page waits for after a checkout,
+ * instead of comparing counts it rendered with.
+ */
+export async function transactionApplied(userId: string, transactionId: string): Promise<boolean> {
+  try {
+    const [grant, subscription] = await Promise.all([
+      prisma.usageEvent.findFirst({ where: { userId, kind: "INTERVIEW_CREDIT_GRANT", refId: transactionId }, select: { id: true } }),
+      prisma.subscription.findFirst({ where: { userId, transactionId }, select: { id: true } }),
+    ]);
+    return grant !== null || subscription !== null;
+  } catch (error) {
+    handleError(error, `Failed to check whether a transaction was applied (user=${userId}, transaction=${transactionId})`);
   }
 }
 

@@ -32,6 +32,7 @@ const remote = (overrides: Partial<ProviderSubscription> = {}): ProviderSubscrip
   canceledAt: null,
   providerUpdatedAt: new Date("2026-11-20T10:00:05Z"),
   userIdHint: "user_1",
+  transactionId: null,
   ...overrides,
 });
 
