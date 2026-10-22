@@ -39,17 +39,24 @@ export type InterviewOffer =
   /** The period's interviews, then the pack credits: a button while either is left. */
   | { kind: "pro"; left: number; limit: number; credits: number }
   | { kind: "pro-exhausted"; resetsAt: string }
+  /** A Free account holding pack credits: each one is a full interview, before any trial. */
+  | { kind: "credits"; credits: number }
   | { kind: "needs-pro" };
 
 export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
   if (hasLive) return { kind: "live" };
   if (quota.plan === "PRO") {
-    const credits = quota.creditsUsable ? quota.credits : 0;
-    return quota.left > 0 || credits > 0
-      ? { kind: "pro", left: quota.left, limit: quota.limit, credits }
+    return quota.left > 0 || quota.credits > 0
+      ? { kind: "pro", left: quota.left, limit: quota.limit, credits: quota.credits }
       : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
   }
+  if (quota.credits > 0) return { kind: "credits", credits: quota.credits };
   return quota.trialAvailable ? { kind: "trial" } : { kind: "needs-pro" };
+}
+
+/** "3 credits left": what a Free account with pack credits sees under the button. */
+export function creditsLine(credits: number): string {
+  return `${credits} credit${credits === 1 ? "" : "s"} left`;
 }
 
 /** "3 of 4 interviews left this period · 5 credits": the period's allowance, then the credits when there are any. */
@@ -127,7 +134,7 @@ export default function InterviewCta({
     </Button>
   ) : offer.kind === "trial" ? (
     startButton(`Try a ${TRIAL_MINUTES}-minute interview, free`, <Mic className="size-4" />)
-  ) : offer.kind === "pro" ? (
+  ) : offer.kind === "pro" || offer.kind === "credits" ? (
     startButton(
       rehearsed ? "Rehearse again" : "Rehearse the interview",
       rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
@@ -153,7 +160,9 @@ export default function InterviewCta({
       ? `${TRIAL_MINUTES} minutes with the interviewer, on us · needs a microphone · works on a phone`
       : offer.kind === "pro"
         ? `${proAllowanceLine(offer)} · up to ${FULL_MINUTES} minutes · needs a microphone`
-        : null;
+        : offer.kind === "credits"
+          ? `${creditsLine(offer.credits)} · up to ${FULL_MINUTES} minutes · needs a microphone`
+          : null;
 
   if (variant === "compact") return control;
 

@@ -25,8 +25,8 @@ const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: 
   createdAt: "2026-10-01T00:00:00.000Z",
 });
 
-const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({ plan: "FREE", trialAvailable, left: 0, limit: 0, credits, creditsUsable: false, resetsAt: RESETS });
-const pro = (left: number, credits = 0): InterviewQuotaView => ({ plan: "PRO", trialAvailable: false, left, limit: 4, credits, creditsUsable: true, resetsAt: RESETS });
+const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({ plan: "FREE", trialAvailable, left: 0, limit: 0, credits, resetsAt: RESETS });
+const pro = (left: number, credits = 0): InterviewQuotaView => ({ plan: "PRO", trialAvailable: false, left, limit: 4, credits, resetsAt: RESETS });
 
 function mount(quota: InterviewQuotaView, attempts: InterviewAttempt[] = [], variant: "compact" | "full" = "full") {
   return render(
@@ -43,9 +43,10 @@ describe("interviewOffer", () => {
     expect(interviewOffer(free(false), false)).toEqual({ kind: "needs-pro" });
     expect(interviewOffer(pro(3), false)).toEqual({ kind: "pro", left: 3, limit: 4, credits: 0 });
     expect(interviewOffer(pro(0), false)).toEqual({ kind: "pro-exhausted", resetsAt: RESETS });
-    // Credits keep the button after the period's interviews are used; frozen ones (Free) do not.
+    // Credits keep the button after the period's interviews are used, and give a Free account one too, before its trial.
     expect(interviewOffer(pro(0, 5), false)).toEqual({ kind: "pro", left: 0, limit: 4, credits: 5 });
-    expect(interviewOffer(free(false, 5), false)).toEqual({ kind: "needs-pro" });
+    expect(interviewOffer(free(false, 5), false)).toEqual({ kind: "credits", credits: 5 });
+    expect(interviewOffer(free(true, 1), false)).toEqual({ kind: "credits", credits: 1 });
   });
 });
 
@@ -75,6 +76,20 @@ describe("InterviewCta by plan", () => {
     cleanup();
     mount(pro(3, 5));
     expect(screen.getByText(/3 of 4 interviews left this period · 5 credits/)).toBeTruthy();
+  });
+
+  it("offers a Free account with pack credits the full interview, counting its credits, with no mention of Pro's number", () => {
+    const { container } = mount(free(false, 3), [attempt("i1", "COMPLETED", 1)]);
+
+    expect(screen.getByRole("button", { name: /rehearse again/i })).toBeTruthy();
+    expect(screen.getByText(/3 credits left · up to 12 minutes · needs a microphone/)).toBeTruthy();
+    expect(container.textContent).not.toMatch(/part of Pro/);
+    expect(container.textContent).not.toMatch(/of 4 interviews/);
+
+    cleanup();
+    mount(free(false, 1));
+    expect(screen.getByRole("button", { name: /rehearse the interview/i })).toBeTruthy();
+    expect(screen.getByText(/1 credit left/)).toBeTruthy();
   });
 
   it("at zero, tells a Pro account when the interviews come back, with no button", () => {

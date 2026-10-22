@@ -17,7 +17,7 @@ const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
   source: "free",
   analyses: { used: 1, limit: 3, left: 2, announce: true },
   interviews: { used: 0, limit: 0, left: 0 },
-  credits: { balance: 0, usable: false },
+  credits: { balance: 0 },
   trial: { available: true, used: false },
   period: { start: new Date("2026-10-01T00:00:00Z"), end: new Date("2026-11-01T00:00:00Z") },
   resetsAt: new Date("2026-11-01T00:00:00Z"),

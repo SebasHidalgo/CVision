@@ -66,17 +66,25 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
             {plan === "PRO" ? interviews.left : 0}
             <span className="eyebrow ml-2">of {plan === "PRO" ? interviews.limit : 0}</span>
           </dd>
-          <p className="mt-2 text-sm text-ink-2">{plan === "PRO" ? `Resets ${periodEnd}.` : summary.trial.available ? "One free 5-minute practice interview." : "Voice interviews are part of Pro."}</p>
+          <p className="mt-2 text-sm text-ink-2">
+            {plan === "PRO"
+              ? `Resets ${periodEnd}.`
+              : summary.trial.available
+                ? "One free 5-minute practice interview."
+                : credits.balance > 0
+                  ? `Your credits cover full interviews; Pro adds ${PLANS.PRO.interviewsPerMonth} a month.`
+                  : "Voice interviews are part of Pro."}
+          </p>
         </div>
         <div>
           <dt className="eyebrow">Interview credits</dt>
           <dd className="figure mt-3 text-5xl text-ink">{credits.balance}</dd>
           <p className="mt-2 text-sm text-ink-2">
             {credits.balance === 0
-              ? "From packs; used after the period's interviews."
-              : credits.usable
+              ? `From packs of ${INTERVIEW_PACK_CREDITS}; each one a full interview.`
+              : plan === "PRO"
                 ? "Used after the period's interviews. They never expire."
-                : "Kept for you; usable again when Pro is active."}
+                : "Each one is a full 12-minute interview, on any plan. They never expire."}
           </p>
         </div>
         <div>

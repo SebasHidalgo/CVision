@@ -61,5 +61,10 @@ describe("the catalog sync's decisions", () => {
     }
     expect(CATALOG.pro_monthly.amountMinor).toBe("1500");
     expect(CATALOG.interview_pack.amountMinor).toBe("900");
+    // The pack: four interviews for the same nine dollars, said in the name and the description, and the grant size beside them.
+    expect(CATALOG.interview_pack.credits).toBe(4);
+    expect(CATALOG.interview_pack.name).toContain("4 interviews");
+    expect(CATALOG.interview_pack.description).toContain("4 voice interviews, up to 12 minutes each");
+    expect(CATALOG.pro_monthly.credits).toBeUndefined();
   });
 });

@@ -157,10 +157,11 @@ async function hadVoiceIn(tx: Prisma.TransactionClient, userId: string, standing
 /**
  * The interview unit for the user, in one serializable transaction: a Pro
  * takes one of the period's interviews, and when those are used, one pack
- * credit; a Free account takes its one lifetime trial, which exists only
- * for an account that never had voice (never subscribed, never ran a full
- * interview). Credits are frozen without Pro: a Free account with credits
- * is refused like any Free account. The kind decides the agent.
+ * credit; a Free account takes a pack credit if it holds any (a full
+ * interview on the main agent: paid-for credits are usable on any plan),
+ * else its one lifetime trial, which exists only for an account that never
+ * had voice (never subscribed, never ran a full interview). The kind
+ * decides the agent.
  */
 export async function reserveInterview(userId: string, interviewId: string, now = new Date()): Promise<InterviewReservation> {
   try {
@@ -183,6 +184,8 @@ export async function reserveInterview(userId: string, interviewId: string, now 
         if ((await creditBalanceIn(tx, userId)) > 0) return take("INTERVIEW_CREDIT", "FULL");
         throw new InterviewQuotaExceededError({ plan: "PRO", resetsAt: period.end.toISOString() });
       }
+
+      if ((await creditBalanceIn(tx, userId)) > 0) return take("INTERVIEW_CREDIT", "FULL");
 
       const trials = await tx.usageEvent.count({ where: { userId, kind: "INTERVIEW_TRIAL", refundedAt: null } });
       const available = trials < PLANS.FREE.trialInterviews && !(await hadVoiceIn(tx, userId, standing));
@@ -292,8 +295,8 @@ export type UsageSummary = {
   source: PlanStanding["source"];
   analyses: { used: number; limit: number; left: number; announce: boolean };
   interviews: { used: number; limit: number; left: number };
-  /** Pack credits held, and whether the plan lets them be spent (Pro only; kept, not lost, otherwise). */
-  credits: { balance: number; usable: boolean };
+  /** Pack credits held: each one a full interview, on any plan, after a Pro's period interviews. */
+  credits: { balance: number };
   trial: { available: boolean; used: boolean };
   /** The current quota period: the billing period of a subscribed Pro, the UTC month otherwise. */
   period: QuotaPeriod;
@@ -357,7 +360,7 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
         limit: limits.interviewsPerMonth,
         left: Math.max(0, limits.interviewsPerMonth - interviews),
       },
-      credits: { balance: credits, usable: plan === "PRO" },
+      credits: { balance: credits },
       trial: {
         used: trials > 0,
         available: plan === "FREE" && trials < limits.trialInterviews && !hadVoice,
@@ -451,7 +454,6 @@ export function interviewQuotaView(summary: UsageSummary): InterviewQuotaView {
     left: summary.interviews.left,
     limit: summary.interviews.limit,
     credits: summary.credits.balance,
-    creditsUsable: summary.credits.usable,
     resetsAt: summary.resetsAt.toISOString(),
   };
 }

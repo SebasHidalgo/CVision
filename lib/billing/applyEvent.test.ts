@@ -10,6 +10,7 @@ import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/datab
 import { userExists } from "@/lib/database/user";
 import { INTERVIEW_PACK_CREDITS } from "@/lib/plans";
 import { applyBillingEvent } from "./applyEvent";
+import { CATALOG } from "./catalog";
 import type { ParsedBillingEvent, ProviderSubscription } from "./types";
 
 vi.mock("@/lib/database/billing", () => ({
@@ -124,6 +125,15 @@ describe("completed transactions", () => {
 
     vi.mocked(grantInterviewCredits).mockResolvedValueOnce({ granted: false });
     expect((await applyBillingEvent(transaction(), NOW)).action).toBe("transaction txn_01: credits already granted");
+  });
+
+  it("reads the units from the catalog's entry for the price at the time of the event: a pack is four, anything else grants nothing", async () => {
+    expect(CATALOG.interview_pack.credits).toBe(4);
+    await applyBillingEvent(transaction({ items: [{ priceKey: "interview_pack", quantity: 2 }] }), NOW);
+    expect(grantInterviewCredits).toHaveBeenLastCalledWith("user_1", { units: 8, transactionId: "txn_01", now: NOW });
+
+    const outcome = await applyBillingEvent(transaction({ items: [{ priceKey: null, quantity: 1 }, { priceKey: "pro_monthly", quantity: 1 }] }), NOW);
+    expect(outcome.action).toBe("transaction txn_01 completed: nothing to grant");
   });
 
   it("grants nothing for a subscription payment, but links the customer and names the transaction on the mirrored subscription", async () => {

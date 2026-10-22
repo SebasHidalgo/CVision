@@ -34,7 +34,7 @@ export async function createCheckoutAction(input: unknown): Promise<ActionResult
       if (open) throw new AlreadySubscribedError();
     } else {
       const standing = await resolvePlanStanding(userId);
-      // Comped Pro counts: the credits are usable while Pro is active, whatever grants it.
+      // Buying needs Pro in force (a comp counts); using the credits does not.
       if (standing.plan !== "PRO") throw new PackRequiresProError();
     }
 

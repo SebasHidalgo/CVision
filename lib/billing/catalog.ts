@@ -27,6 +27,13 @@ export type CatalogProduct = {
   interval: "month" | null;
   /** The amount in major units, for the page. */
   amountLabel: string;
+  /**
+   * Interview credits one unit of this price grants, for a pack. Read at
+   * the time a completed transaction's event is applied and stored on the
+   * grant, so a change here sells the new size from then on and touches no
+   * grant already made.
+   */
+  credits?: number;
 };
 
 export const CATALOG: Record<PriceKey, CatalogProduct> = {
@@ -41,11 +48,12 @@ export const CATALOG: Record<PriceKey, CatalogProduct> = {
   },
   interview_pack: {
     key: "interview_pack",
-    name: "CVision interview pack",
-    description: `One-time pack of ${INTERVIEW_PACK_CREDITS} extra practice interviews with the AI voice interviewer, for CVision Pro subscribers. The credits do not expire while Pro is active.`,
+    name: `CVision interview pack (${INTERVIEW_PACK_CREDITS} interviews)`,
+    description: `One-time pack of ${INTERVIEW_PACK_CREDITS} voice interviews, up to 12 minutes each, with the AI voice interviewer: extra practice for CVision Pro subscribers. The credits never expire and stay usable after the subscription ends.`,
     amountMinor: "900",
     interval: null,
     amountLabel: "$9",
+    credits: INTERVIEW_PACK_CREDITS,
   },
 };
 

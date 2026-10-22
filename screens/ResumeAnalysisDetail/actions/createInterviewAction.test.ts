@@ -50,7 +50,7 @@ const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
   source: "free",
   analyses: { used: 1, limit: 3, left: 2, announce: true },
   interviews: { used: 0, limit: 0, left: 0 },
-  credits: { balance: 0, usable: false },
+  credits: { balance: 0 },
   trial: { available: true, used: false },
   period: { start: new Date("2026-10-01T00:00:00Z"), end: new Date("2026-11-01T00:00:00Z") },
   resetsAt: new Date("2026-11-01T00:00:00Z"),
@@ -205,13 +205,17 @@ describe("createInterviewAction: the plan's unit is checked, not reserved", () =
     });
   });
 
-  it("creates for a Pro account at zero with pack credits, and not for a Free account holding frozen credits", async () => {
+  it("creates for a Pro account at zero with pack credits, and for a Free account holding credits, but not for one with neither credits nor trial", async () => {
     vi.mocked(usageSummary).mockResolvedValue(
-      summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, credits: { balance: 2, usable: true }, trial: { available: false, used: false } }),
+      summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, credits: { balance: 2 }, trial: { available: false, used: false } }),
     );
     expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
 
-    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 2, usable: false }, trial: { available: false, used: true } }));
+    // Pro ended, credits kept: still a full interview.
+    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 2 }, trial: { available: false, used: true }, everSubscribed: true }));
+    expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
+
+    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 0 }, trial: { available: false, used: true } }));
     expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: false, code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
   });
 });

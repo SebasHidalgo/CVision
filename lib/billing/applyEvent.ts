@@ -9,7 +9,7 @@ import {
 } from "@/lib/database/billing";
 import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/database/usage";
 import { userExists } from "@/lib/database/user";
-import { INTERVIEW_PACK_CREDITS } from "@/lib/plans";
+import { CATALOG } from "./catalog";
 import type { ParsedBillingEvent } from "./types";
 
 /**
@@ -65,9 +65,10 @@ export async function applyBillingEvent(event: ParsedBillingEvent, now = new Dat
       // (the account page waits on that), whichever of the two events came first.
       if (event.providerSubscriptionId) await markSubscriptionTransaction(event.providerSubscriptionId, event.transactionId);
 
-      const units = event.items
-        .filter((item) => item.priceKey === "interview_pack")
-        .reduce((sum, item) => sum + item.quantity * INTERVIEW_PACK_CREDITS, 0);
+      // The units come from the catalog as it stands when the event is
+      // applied, and are stored on the grant: a pack sold at another size
+      // keeps the size it was sold at.
+      const units = event.items.reduce((sum, item) => sum + item.quantity * (item.priceKey ? (CATALOG[item.priceKey].credits ?? 0) : 0), 0);
       if (units === 0) return { userId, action: `transaction ${event.transactionId} completed: nothing to grant` };
 
       const { granted } = await grantInterviewCredits(userId, { units, transactionId: event.transactionId, now });

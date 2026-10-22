@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatResetDate, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
+import { formatResetDate, INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
 
 describe("the plans", () => {
   it("are the owner's numbers", () => {
@@ -31,6 +31,7 @@ describe("the plans", () => {
     // Two tabs polling every 3 s make 40 a minute; the ceiling is above that.
     expect(RATE_LIMITS.status).toEqual({ limit: 60, windowMs: 60_000 });
     expect(RATE_LIMITS.reconcile).toEqual({ limit: 6, windowMs: 3_600_000 });
+    expect(INTERVIEW_PACK_CREDITS).toBe(4);
   });
 });
 

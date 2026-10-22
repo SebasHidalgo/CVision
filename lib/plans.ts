@@ -77,12 +77,15 @@ export const INTERVIEW_TIERS: Record<InterviewTierId, InterviewTier> = {
 export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;
 
 /**
- * The interview pack: a one-time purchase, Pro only, this many credits. A
- * credit is one full interview once the period's are used; credits never
- * expire and are frozen (kept, unusable) while Pro is not active. The price
- * is in lib/billing/catalog.ts beside the subscription's.
+ * The interview pack: a one-time purchase, sold to active Pro accounts,
+ * this many credits. A credit is one full interview: for a Pro, once the
+ * period's are used; for an account whose Pro ended, at any time. Paid-for
+ * credits never expire and are never frozen (the owner's decision after
+ * the first live test: unusable paid credits are a refund magnet). A grant
+ * stores the units it gave, so packs sold at an earlier size keep theirs.
+ * The price is in lib/billing/catalog.ts beside the subscription's.
  */
-export const INTERVIEW_PACK_CREDITS = 5;
+export const INTERVIEW_PACK_CREDITS = 4;
 
 /**
  * Hourly, per user, the same for both plans. A brake on loops and abuse,
@@ -123,9 +126,8 @@ export type InterviewQuotaView = {
   trialAvailable: boolean;
   left: number;
   limit: number;
-  /** Pack credits held; usable only while Pro is active, kept otherwise. */
+  /** Pack credits held: each one a full interview, on any plan. */
   credits: number;
-  creditsUsable: boolean;
   /** ISO date of the next reset. */
   resetsAt: string;
 };
