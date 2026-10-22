@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { INTERVIEW_ABANDON_MS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { INTERVIEW_ABANDON_MS } from "@/lib/interviewLimits";
 import { ABANDONED, expireAbandonedInterviews } from "./interviewExpiry";
 import { refundUsage } from "./usage";
 
@@ -22,14 +22,14 @@ beforeEach(() => {
 });
 
 describe("expireAbandonedInterviews", () => {
-  it("looks for the caller's IN_PROGRESS interviews with starts left and no session in two hours", async () => {
+  it("looks for the caller's IN_PROGRESS interviews with no session in two hours, whether or not they have starts left", async () => {
     expect(await expireAbandonedInterviews("user_1", NOW)).toBe(0);
 
+    // No start-count bound: one with its three starts used up and no transcript is waiting on nothing.
     expect(prisma.interview.findMany).toHaveBeenCalledWith({
       where: {
         userId: "user_1",
         status: "IN_PROGRESS",
-        startCount: { lt: MAX_INTERVIEW_STARTS },
         lastSessionAt: { lt: CUTOFF },
       },
       select: { id: true, usageEventId: true },

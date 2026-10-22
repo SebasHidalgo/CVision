@@ -16,6 +16,7 @@ import type {
   ParsedBillingEvent,
   PortalSession,
   ProviderSubscription,
+  ProviderTransaction,
 } from "./types";
 
 /**
@@ -112,4 +113,9 @@ export function syncCatalog(options: { webhookUrl: string | null }): Promise<Cat
 /** The provider's view of a customer's subscriptions, for the reconcile. */
 export function listProviderSubscriptions(providerCustomerId: string): Promise<ProviderSubscription[]> {
   return provider.listSubscriptions(providerCustomerId);
+}
+
+/** The customer's completed transactions at the provider, for the reconcile of a pack whose event was lost. */
+export function listProviderTransactions(providerCustomerId: string): Promise<ProviderTransaction[]> {
+  return provider.listCompletedTransactions(providerCustomerId);
 }

@@ -7,7 +7,8 @@ import {
   linkBillingCustomer,
   markSubscriptionTransaction,
 } from "@/lib/database/billing";
-import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/database/usage";
+import { grantInterviewCredits } from "@/lib/database/credits";
+import { revokeUnusedInterviewCredits } from "@/lib/database/usage";
 import { userExists } from "@/lib/database/user";
 import { CATALOG } from "./catalog";
 import type { ParsedBillingEvent } from "./types";
@@ -41,26 +42,29 @@ export async function applyBillingEvent(event: ParsedBillingEvent, now = new Dat
 
     case "subscription": {
       const { subscription } = event;
+      const what = `subscription ${subscription.providerSubscriptionId}`;
       const userId = await resolveUser({
         providerCustomerId: subscription.providerCustomerId,
         userIdHint: subscription.userIdHint,
         providerSubscriptionId: subscription.providerSubscriptionId,
       });
-      if (!userId) return { userId: null, action: `subscription ${subscription.providerSubscriptionId}: no user, acknowledged` };
+      if (!userId) return { userId: null, action: `${what}: no user, acknowledged` };
 
-      await linkBillingCustomer(userId, subscription.providerCustomerId);
+      if ((await linkBillingCustomer(userId, subscription.providerCustomerId)) === "no-user") return gone(userId, what);
       const outcome = await applySubscriptionSnapshot(userId, subscription);
-      return { userId, action: `subscription ${subscription.providerSubscriptionId} ${subscription.status}: ${outcome}` };
+      if (outcome === "no-user") return gone(userId, what);
+      return { userId, action: `${what} ${subscription.status}: ${outcome}` };
     }
 
     case "transaction-completed": {
+      const what = `transaction ${event.transactionId}`;
       const userId = await resolveUser({
         providerCustomerId: event.providerCustomerId,
         userIdHint: event.userIdHint,
         providerSubscriptionId: event.providerSubscriptionId,
       });
-      if (!userId) return { userId: null, action: `transaction ${event.transactionId}: no user, acknowledged` };
-      if (event.providerCustomerId) await linkBillingCustomer(userId, event.providerCustomerId);
+      if (!userId) return { userId: null, action: `${what}: no user, acknowledged` };
+      if (event.providerCustomerId && (await linkBillingCustomer(userId, event.providerCustomerId)) === "no-user") return gone(userId, what);
       // A subscription payment: the mirror learns which checkout opened it
       // (the account page waits on that), whichever of the two events came first.
       if (event.providerSubscriptionId) await markSubscriptionTransaction(event.providerSubscriptionId, event.transactionId);
@@ -69,14 +73,13 @@ export async function applyBillingEvent(event: ParsedBillingEvent, now = new Dat
       // applied, and are stored on the grant: a pack sold at another size
       // keeps the size it was sold at.
       const units = event.items.reduce((sum, item) => sum + item.quantity * (item.priceKey ? (CATALOG[item.priceKey].credits ?? 0) : 0), 0);
-      if (units === 0) return { userId, action: `transaction ${event.transactionId} completed: nothing to grant` };
+      if (units === 0) return { userId, action: `${what} completed: nothing to grant` };
 
-      const { granted } = await grantInterviewCredits(userId, { units, transactionId: event.transactionId, now });
+      const outcome = await grantInterviewCredits(userId, { units, transactionId: event.transactionId, now });
+      if (!outcome.granted && outcome.reason === "no-user") return gone(userId, what);
       return {
         userId,
-        action: granted
-          ? `transaction ${event.transactionId}: ${units} credit(s) granted`
-          : `transaction ${event.transactionId}: credits already granted`,
+        action: outcome.granted ? `${what}: ${units} credit(s) granted` : `${what}: credits already granted`,
       };
     }
 
@@ -116,6 +119,24 @@ export async function applyBillingEvent(event: ParsedBillingEvent, now = new Dat
   }
 }
 
+/**
+ * The user was found and then vanished under the write: the account's
+ * deletion cascaded (customer, subscriptions, ledger) while its provider's
+ * events were still arriving, which an immediate cancel at deletion makes
+ * routine. Logged once, acknowledged, nothing written.
+ */
+function gone(userId: string, what: string): ApplyOutcome {
+  console.info(`${LOG} user=${userId} no longer exists; ${what} acknowledged without writing`);
+  return { userId: null, action: `${what}: user deleted meanwhile, acknowledged` };
+}
+
+/**
+ * The customer mapping first (its row exists only while the user does:
+ * it cascades with the account), then the signed hint, for an account
+ * that exists, then the mirrored subscription (cascades too). An account
+ * deleted before the event arrives resolves to nothing here; one deleted
+ * while the event is applied is caught by the writes above.
+ */
 async function resolveUser(input: {
   providerCustomerId: string | null;
   userIdHint: string | null;

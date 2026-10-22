@@ -135,7 +135,7 @@ prices in `lib/billing/catalog.ts`:
 |---|---|---|
 | Analyses | 3 a month, counted down on the upload page | 50 a month as a fair-use cap; sold as unlimited, the UI never shows the number, only the refusal when it is hit |
 | Voice interviews | one 5-minute trial, once, for an account that never had voice | 4 per billing period, 12 minutes each, then pack credits |
-| Interview pack | — | $9 one-time, 5 credits, Pro only; never expire, frozen (kept) while Pro is not active |
+| Interview pack | — | $9 one-time, 4 credits, bought while Pro is in force; each credit is a full 12-minute interview, usable on any plan, never expires |
 | History | the last 3 analyses; older ones are hidden, never deleted | everything |
 | Period | calendar month, UTC | the subscription's billing period (calendar month for a comped Pro) |
 
@@ -189,15 +189,33 @@ code that imports the Paddle SDK). Everything in this repo runs against the
 
 1. Create a sandbox account at `https://sandbox-vendors.paddle.com/signup`
    (separate from the live one). Under Developer tools → Authentication,
-   create an API key with write access to products, prices, customers,
-   transactions, subscriptions **and notification settings** (without the
-   last one `billing:sync` cannot create the webhook destination; it fails
-   with `forbidden` and you create the destination by hand, below), and a
-   client-side token.
+   create an API key with every permission CVision uses, and a client-side
+   token. The permissions, by what needs them:
+
+   | Permission | Needed by |
+   |---|---|
+   | `product.read`, `product.write`, `price.read`, `price.write` | `billing:sync` (the catalog as code) |
+   | `transaction.read`, `transaction.write` | every checkout (the server creates the transaction); the reconcile lists the completed ones |
+   | `subscription.read`, `subscription.write` | the reconcile; cancelling at account deletion |
+   | `customer.read` | the reconcile and the doctor |
+   | `customer_portal_session.write` | "Manage subscription" (without it the portal answers `forbidden`) |
+   | `notification_setting.read`, `notification_setting.write` | `billing:sync` (the webhook destination) |
+   | `checkout_settings.read` | `billing:doctor` (verifies the default payment link) |
+
+   A missing permission surfaces as `forbidden`, and the server log names
+   the one the call needed. An existing key's permissions are edited from
+   the same page (open the key, tick, save).
 2. In `.env`: `PADDLE_ENV=sandbox`, `PADDLE_API_KEY=pdl_sdbx_…`,
    `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_…`. `PADDLE_ENV` has no default;
    the key and the token must belong to the environment it names.
-3. Push the catalog as code and the webhook destination, with the tunnel
+3. Set the **default payment link** (Paddle → Checkout → Checkout
+   settings → Default payment link). Paddle refuses to create any
+   transaction without it (`transaction_default_checkout_url_not_set`),
+   so every checkout fails until it is set. In the sandbox any https URL of
+   yours works, the tunnel's `/pricing` included; in production only a
+   domain approved under Checkout → Website approval, so the production
+   link can be set only after the domain review.
+4. Push the catalog as code and the webhook destination, with the tunnel
    from the voice section running:
 
    ```bash
@@ -217,22 +235,45 @@ code that imports the Paddle SDK). Everything in this repo runs against the
    traffic source "all" (so the simulator reaches it too); copy its secret.
    Never keep two destinations for the route: every event would arrive
    twice.
-4. Open the app through the tunnel URL and buy from `/pricing` with a
+5. Open the app through the tunnel URL and buy from `/pricing` with a
    sandbox test card: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002`
    is declined, `4000 0027 6000 3184` succeeds once and then fails (for
    dunning), any future expiry and any CVC. Real cards do not work in the
    sandbox.
 
+Before every billing test, and before going live, check the account:
+
+```bash
+npm run billing:doctor -- --webhook-url https://<tunnel-host>/api/webhooks/paddle
+```
+
+Read-only. One line per check, PASS, FAIL or SKIP, each failure with the
+exact fix: the environment and both tokens; every read permission (by a
+list of one item); the portal permission (by minting a session that
+stores nothing); the default payment link (through the checkout settings
+endpoint, which needs `checkout_settings.read`); the webhook destination,
+its events, its traffic source and whether `PADDLE_WEBHOOK_SECRET` is
+that destination's secret; and the price ids in `.env` against the
+catalog. The write permissions that only a real write could prove are
+listed as such. Exit code 1 when anything fails.
+
 The sandbox retries a failed webhook delivery only twice within about two
 minutes (production, for two days), and the SDK rejects a signature older
 than five seconds. If a delivery is lost, the subscription mirror repairs
 itself the next time the plan is read while stale (once per ten minutes
-per subscription), or by hand:
+per subscription), and the account page offers "Check again" when a
+checkout's confirmation is late, which pulls the same records for the
+signed-in user. By hand:
 
 ```bash
 npm run billing:reconcile                 # every user with a Paddle customer
 npm run billing:reconcile -- <clerkUserId>
 ```
+
+Both pull the subscriptions through the mirror and the completed
+transactions through the same grant the webhook makes, so a pack that was
+paid but whose event never arrived is credited then, once, by its
+transaction id.
 
 There is no time travel in the sandbox. To end a subscription at once, use
 "Manage subscription" (the portal) and cancel, or `PATCH /subscriptions/{id}`
@@ -290,12 +331,16 @@ webhook so **both** agents exist, with `ELEVENLABS_AGENT_ID` and
 `ELEVENLABS_TRIAL_AGENT_ID` in the production environment. For billing: a
 production Paddle account, its domain review passed (it needs `/terms`,
 `/privacy` and `/refunds` with real text, not the drafts; replace
-`LEGAL_ENTITY_NAME` and `LEGAL_CONTACT_EMAIL` in `lib/legal.ts`), a
-production API key with notification-settings write access, `npm run
-billing:sync -- --webhook-url https://<domain>/api/webhooks/paddle
---production` run with `PADDLE_ENV=production`, which must exist **only** in
-the deployed environment, and the price ids, the webhook secret, the live
-API key and the `live_` client token in Vercel's env.
+`LEGAL_ENTITY_NAME` and `LEGAL_CONTACT_EMAIL` in `lib/legal.ts`), the
+production **default payment link** set once the domain is approved, a
+production API key with every permission in the table above (the portal's
+included), `npm run billing:sync -- --webhook-url
+https://<domain>/api/webhooks/paddle --production` run with
+`PADDLE_ENV=production`, which must exist **only** in the deployed
+environment, the price ids, the webhook secret, the live API key and the
+`live_` client token in Vercel's env, and `npm run billing:doctor --
+--webhook-url https://<domain>/api/webhooks/paddle --production` passing
+against production before the first real checkout.
 
 ## Voice interview: local development
 

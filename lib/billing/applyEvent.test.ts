@@ -6,7 +6,8 @@ import {
   linkBillingCustomer,
   markSubscriptionTransaction,
 } from "@/lib/database/billing";
-import { grantInterviewCredits, revokeUnusedInterviewCredits } from "@/lib/database/usage";
+import { grantInterviewCredits } from "@/lib/database/credits";
+import { revokeUnusedInterviewCredits } from "@/lib/database/usage";
 import { userExists } from "@/lib/database/user";
 import { INTERVIEW_PACK_CREDITS } from "@/lib/plans";
 import { applyBillingEvent } from "./applyEvent";
@@ -20,8 +21,8 @@ vi.mock("@/lib/database/billing", () => ({
   linkBillingCustomer: vi.fn(async () => "linked"),
   markSubscriptionTransaction: vi.fn(async () => true),
 }));
+vi.mock("@/lib/database/credits", () => ({ grantInterviewCredits: vi.fn(async () => ({ granted: true })) }));
 vi.mock("@/lib/database/usage", () => ({
-  grantInterviewCredits: vi.fn(async () => ({ granted: true })),
   revokeUnusedInterviewCredits: vi.fn(async () => ({ revoked: 3, outcome: "revoked" })),
 }));
 vi.mock("@/lib/database/user", () => ({ userExists: vi.fn(async () => true) }));
@@ -79,7 +80,10 @@ beforeEach(() => {
   vi.mocked(applySubscriptionSnapshot).mockResolvedValue("created");
   vi.mocked(grantInterviewCredits).mockResolvedValue({ granted: true });
   vi.mocked(revokeUnusedInterviewCredits).mockResolvedValue({ revoked: 3, outcome: "revoked" });
+  vi.mocked(linkBillingCustomer).mockResolvedValue("linked");
+  vi.mocked(markSubscriptionTransaction).mockResolvedValue(true);
   vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
 });
 
 describe("finding the user", () => {
@@ -102,6 +106,43 @@ describe("finding the user", () => {
     expect(applySubscriptionSnapshot).not.toHaveBeenCalled();
     expect(linkBillingCustomer).not.toHaveBeenCalled();
   });
+
+  it("the live test's sequence: the account is deleted, then its updated and canceled events arrive, in either order, and each is acknowledged with no write and no conflict", async () => {
+    // After the deletion the customer mapping, the subscription row and the user row are all gone (the cascade).
+    vi.mocked(findUserIdByProviderCustomer).mockResolvedValue(null);
+    vi.mocked(findUserIdByProviderSubscription).mockResolvedValue(null);
+    vi.mocked(userExists).mockResolvedValue(false);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const updated: ParsedBillingEvent = { ...base, eventId: "evt_upd", type: "subscription.updated", kind: "subscription", subscription: subscription({ status: "canceled", canceledAt: NOW }) };
+    const canceled: ParsedBillingEvent = { ...base, eventId: "evt_can", type: "subscription.canceled", kind: "subscription", subscription: subscription({ status: "canceled", canceledAt: NOW }) };
+    for (const order of [[updated, canceled], [canceled, updated]]) {
+      for (const event of order) {
+        expect(await applyBillingEvent(event, NOW)).toEqual({ userId: null, action: "subscription sub_01: no user, acknowledged" });
+      }
+    }
+    expect(linkBillingCustomer).not.toHaveBeenCalled();
+    expect(applySubscriptionSnapshot).not.toHaveBeenCalled();
+    expect(markSubscriptionTransaction).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining("conflict"));
+  });
+
+  it("the race: the user is found, then vanishes under the write; the event is acknowledged once, with no 500", async () => {
+    vi.mocked(findUserIdByProviderCustomer).mockResolvedValue("user_1");
+    const event: ParsedBillingEvent = { ...base, type: "subscription.canceled", kind: "subscription", subscription: subscription({ status: "canceled" }) };
+
+    vi.mocked(linkBillingCustomer).mockResolvedValueOnce("no-user");
+    expect(await applyBillingEvent(event, NOW)).toEqual({ userId: null, action: "subscription sub_01: user deleted meanwhile, acknowledged" });
+    expect(applySubscriptionSnapshot).not.toHaveBeenCalled();
+
+    vi.mocked(applySubscriptionSnapshot).mockResolvedValueOnce("no-user");
+    expect(await applyBillingEvent(event, NOW)).toEqual({ userId: null, action: "subscription sub_01: user deleted meanwhile, acknowledged" });
+
+    vi.mocked(grantInterviewCredits).mockResolvedValueOnce({ granted: false, reason: "no-user" });
+    expect(await applyBillingEvent(transaction(), NOW)).toEqual({ userId: null, action: "transaction txn_01: user deleted meanwhile, acknowledged" });
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("user=user_1 no longer exists"));
+  });
 });
 
 describe("subscription events", () => {
@@ -123,7 +164,7 @@ describe("completed transactions", () => {
     expect(await applyBillingEvent(transaction(), NOW)).toEqual({ userId: "user_1", action: `transaction txn_01: ${INTERVIEW_PACK_CREDITS} credit(s) granted` });
     expect(grantInterviewCredits).toHaveBeenCalledWith("user_1", { units: INTERVIEW_PACK_CREDITS, transactionId: "txn_01", now: NOW });
 
-    vi.mocked(grantInterviewCredits).mockResolvedValueOnce({ granted: false });
+    vi.mocked(grantInterviewCredits).mockResolvedValueOnce({ granted: false, reason: "already" });
     expect((await applyBillingEvent(transaction(), NOW)).action).toBe("transaction txn_01: credits already granted");
   });
 

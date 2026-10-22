@@ -21,6 +21,7 @@ import {
   type QuotaPeriod,
 } from "@/lib/plans";
 import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn, transactionApplied } from "./billing";
+import { creditBalanceIn } from "./credits";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 
 /**
@@ -33,17 +34,16 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
  * The primitives, and nothing else touches the table: `reserveUsage`
  * (analyses: check and insert in one serializable transaction),
  * `reserveInterview` (the plan's interview, a credit, or the trial, same
- * discipline), `refundUsage`, and for the credits `grantInterviewCredits`,
- * `revokeUnusedInterviewCredits` and `interviewCreditBalance`. The plan is
- * never read from a column: it is derived (lib/billing/access.ts) inside
- * the same transaction as the count, and its period is the billing period
- * for a subscribed Pro. The expiry module imports `refundUsage` and this
- * file imports the expiry: a deliberate cycle of call-time bindings (see
- * interviewExpiry.ts).
+ * discipline), `refundUsage`, `revokeUnusedInterviewCredits`, and in
+ * credits.ts (no `lib/auth` in its graph, for the reconcile script) the
+ * credit balance and the grant. The plan is never read from a column: it
+ * is derived (lib/billing/access.ts) inside the same transaction as the
+ * count, and its period is the billing period for a subscribed Pro. The
+ * expiry module imports `refundUsage` and this file imports the expiry: a
+ * deliberate cycle of call-time bindings (see interviewExpiry.ts).
  */
 
 const RACE_CODES = new Set(["P2034"]);
-const UNIQUE_VIOLATION = "P2002";
 const RESERVE_ATTEMPTS = 3;
 
 export type Reservation = { eventId: string };
@@ -200,55 +200,6 @@ export async function reserveInterview(userId: string, interviewId: string, now 
 /** The plan in force: an access-granting subscription, else the manual comp, else Free. */
 export async function fetchPlan(userId: string, now = new Date()): Promise<PlanId> {
   return (await resolvePlanStanding(userId, now)).plan;
-}
-
-/** How many pack credits the user holds: grants minus revokes minus the non-refunded consumption. */
-export async function interviewCreditBalance(userId: string): Promise<number> {
-  try {
-    return await creditBalanceIn(prisma, userId);
-  } catch (error) {
-    handleError(error, `Failed to read the credit balance (user=${userId})`);
-  }
-}
-
-/**
- * One query: the units of every grant and revoke, and of every consumption
- * not given back (a consumption is one unit), grouped by kind. Every round
- * trip to the pooler costs hundreds of milliseconds from far away, and this
- * runs inside the interview reservation and on every status poll.
- */
-async function creditBalanceIn(db: Prisma.TransactionClient, userId: string): Promise<number> {
-  const rows = await db.usageEvent.groupBy({
-    by: ["kind"],
-    where: {
-      userId,
-      OR: [{ kind: { in: ["INTERVIEW_CREDIT_GRANT", "INTERVIEW_CREDIT_REVOKE"] } }, { kind: "INTERVIEW_CREDIT", refundedAt: null }],
-    },
-    _sum: { units: true },
-  });
-  const units = (kind: UsageKind) => rows.find((row) => row.kind === kind)?._sum.units ?? 0;
-  return Math.max(0, units("INTERVIEW_CREDIT_GRANT") - units("INTERVIEW_CREDIT_REVOKE") - units("INTERVIEW_CREDIT"));
-}
-
-/**
- * Credits a pack purchase to the user, once: the transaction id is the
- * grant's `refId`, unique per kind, so a replayed event changes nothing.
- */
-export async function grantInterviewCredits(
-  userId: string,
-  { units, transactionId, now = new Date() }: { units: number; transactionId: string; now?: Date },
-): Promise<{ granted: boolean }> {
-  try {
-    await prisma.usageEvent.create({
-      data: { userId, kind: "INTERVIEW_CREDIT_GRANT", refId: transactionId, units, createdAt: now },
-    });
-    return { granted: true };
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION) {
-      return { granted: false };
-    }
-    handleError(error, `Failed to grant interview credits (user=${userId}, transaction=${transactionId})`);
-  }
 }
 
 /**

@@ -2,7 +2,7 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
-import { INTERVIEW_ABANDON_MS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { INTERVIEW_ABANDON_MS } from "@/lib/interviewLimits";
 import { refundUsage } from "./usage";
 
 /**
@@ -20,13 +20,16 @@ import { refundUsage } from "./usage";
 export const ABANDONED = "ABANDONED";
 
 /**
- * An IN_PROGRESS interview with starts left whose latest session is older
- * than INTERVIEW_ABANDON_MS never connected, or never produced an answer,
- * and nobody is coming back to it: a trial whose tab was closed on the
- * microphone prompt, a Pro reservation the same way. It becomes EXPIRED and
- * the unit its first token took goes back. One guarded update per row, so
- * a session issued in between (the user did come back) wins. Returns how
- * many expired.
+ * An IN_PROGRESS interview whose latest session is older than
+ * INTERVIEW_ABANDON_MS never connected, never produced an answer, or lost
+ * its transcript for good, and nobody is coming back to it: a trial whose
+ * tab was closed on the microphone prompt, a Pro reservation the same way,
+ * or one with its three starts used up and no transcript, waiting on a
+ * platform reconcile that will never say more (the calls end at twelve
+ * minutes and their webhook arrives within one; two hours is far past
+ * both). It becomes EXPIRED and the unit its first token took goes back.
+ * One guarded update per row, so a session issued in between (the user
+ * did come back) wins. Returns how many expired.
  */
 export async function expireAbandonedInterviews(userId: string, now = new Date()): Promise<number> {
   try {
@@ -35,7 +38,6 @@ export async function expireAbandonedInterviews(userId: string, now = new Date()
       where: {
         userId,
         status: "IN_PROGRESS",
-        startCount: { lt: MAX_INTERVIEW_STARTS },
         lastSessionAt: { lt: cutoff },
       },
       select: { id: true, usageEventId: true },

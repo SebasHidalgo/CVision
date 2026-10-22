@@ -138,7 +138,17 @@ describe("POST /api/interview/[id]/session: checks before the paid call", () => 
     expect(reserveInterviewSession).not.toHaveBeenCalled();
   });
 
-  it.each(["COMPLETED", "FEEDBACK_PENDING", "FAILED", "EXPIRED"] as const)(
+  it("answers 409 INTERVIEW_EXPIRED for an expired interview, so the room says it was closed and not charged", async () => {
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "EXPIRED", startCount: 3, failureReason: "ABANDONED" }));
+    const calls = stubElevenLabs(tokenResponse);
+
+    expect(await post()).toEqual({ status: 409, body: { ok: false, code: "INTERVIEW_EXPIRED" } });
+    expect(calls).toHaveLength(0);
+    expect(reserveInterview).not.toHaveBeenCalled();
+    expect(reserveInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it.each(["COMPLETED", "FEEDBACK_PENDING", "FAILED"] as const)(
     "answers 409 for a %s interview",
     async (status) => {
       vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status, startCount: 1 }));

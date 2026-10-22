@@ -1,17 +1,19 @@
 /**
- * Repairs the mirror of the provider's subscriptions from the provider's
- * own list, for when a webhook was lost (the sandbox retries a failed
- * delivery only twice, within two minutes).
+ * Repairs what a lost webhook left behind, from the provider's own records
+ * (the sandbox retries a failed delivery only twice, within two minutes):
+ * the mirror of the subscriptions, and the credits of any completed pack
+ * transaction that was never granted.
  *
  *   npm run billing:reconcile                 every user with a customer at the provider
  *   npm run billing:reconcile -- <clerkUserId>   one user
  *
- * Goes through the same mirror write as the webhook, ordered by the
- * provider's time, so it never rolls a row back. Prints, per user, how many
- * subscriptions the provider lists and what changed, then the plan that
- * results. Reads the provider through lib/billing; never prints a secret.
+ * Goes through the same mirror write and the same grant as the webhook
+ * (ordered by the provider's time; keyed by the transaction id), so it
+ * never rolls a row back and never grants twice. Prints, per user, what the
+ * provider lists and what changed, then the plan that results. Reads the
+ * provider through lib/billing; never prints a secret.
  */
-import { reconcileUserSubscriptions } from "@/lib/billing/reconcile";
+import { reconcileUserBilling } from "@/lib/billing/reconcile";
 import { listBillingCustomerUserIds, resolvePlanStanding } from "@/lib/database/billing";
 
 async function main() {
@@ -23,7 +25,7 @@ async function main() {
   }
 
   for (const userId of userIds) {
-    const result = await reconcileUserSubscriptions(userId);
+    const result = await reconcileUserBilling(userId);
     if (!result.customer) {
       console.log(`${userId}: no customer at the provider`);
       continue;
@@ -32,6 +34,7 @@ async function main() {
     const subscription = standing.subscription;
     console.log(
       `${userId}: ${result.subscriptions} subscription(s) at the provider; created ${result.outcomes.created}, applied ${result.outcomes.applied}, unchanged ${result.outcomes.stale}` +
+        `; ${result.transactions} completed transaction(s), ${result.granted} pack grant(s) repaired` +
         ` -> plan ${standing.plan} (${standing.source})` +
         (subscription
           ? `, ${subscription.providerSubscriptionId} ${subscription.status}${subscription.currentPeriodEnd ? ` until ${subscription.currentPeriodEnd.toISOString()}` : ""}${subscription.cancelAtPeriodEnd ? " (cancels at period end)" : ""}`

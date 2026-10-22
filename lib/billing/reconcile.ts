@@ -6,8 +6,10 @@ import {
   findBillingCustomer,
   type SnapshotOutcome,
 } from "@/lib/database/billing";
+import { grantInterviewCredits } from "@/lib/database/credits";
 import { ACCESS_BY_STATUS, type PlanStanding, type SubscriptionStanding } from "./access";
-import { listProviderSubscriptions } from "./index";
+import { CATALOG } from "./catalog";
+import { listProviderSubscriptions, listProviderTransactions } from "./index";
 
 /**
  * The repair for a lost webhook: the provider's list of the customer's
@@ -33,7 +35,7 @@ export type ReconcileResult = {
 };
 
 export async function reconcileUserSubscriptions(userId: string, now = new Date()): Promise<ReconcileResult> {
-  const result: ReconcileResult = { customer: false, subscriptions: 0, outcomes: { created: 0, applied: 0, stale: 0 } };
+  const result: ReconcileResult = { customer: false, subscriptions: 0, outcomes: { created: 0, applied: 0, stale: 0, "no-user": 0 } };
   const customer = await findBillingCustomer(userId);
   if (!customer) return result;
   result.customer = true;
@@ -50,13 +52,42 @@ export async function reconcileUserSubscriptions(userId: string, now = new Date(
   return result;
 }
 
+export type BillingReconcileResult = ReconcileResult & {
+  /** Completed transactions the provider lists for the customer. */
+  transactions: number;
+  /** Pack grants that were missing and were written now: paid and not delivered, repaired. */
+  granted: number;
+};
+
 /**
  * Everything the provider knows about one user that a webhook may have
- * failed to deliver, for the "Check again" action and the script. Today
- * the subscriptions; the completed transactions join it next.
+ * failed to deliver, for the "Check again" action and the script: the
+ * subscriptions through the mirror, and every completed transaction with
+ * a pack in it through the same grant the webhook makes, keyed by the
+ * transaction id, so a pack already credited is left alone and a pack
+ * whose event was lost is credited now. The units come from the catalog
+ * as it stands, like the webhook's. Paid and not delivered is the worst
+ * failure billing has; this is its repair.
  */
-export async function reconcileUserBilling(userId: string, now = new Date()): Promise<ReconcileResult> {
-  return reconcileUserSubscriptions(userId, now);
+export async function reconcileUserBilling(userId: string, now = new Date()): Promise<BillingReconcileResult> {
+  const subscriptions = await reconcileUserSubscriptions(userId, now);
+  const result: BillingReconcileResult = { ...subscriptions, transactions: 0, granted: 0 };
+  if (!subscriptions.customer) return result;
+
+  const customer = await findBillingCustomer(userId);
+  if (!customer) return result;
+  const transactions = await listProviderTransactions(customer.providerCustomerId);
+  result.transactions = transactions.length;
+  for (const transaction of transactions) {
+    const units = transaction.items.reduce((sum, item) => sum + item.quantity * (item.priceKey ? (CATALOG[item.priceKey].credits ?? 0) : 0), 0);
+    if (units === 0) continue;
+    const outcome = await grantInterviewCredits(userId, { units, transactionId: transaction.transactionId, now });
+    if (outcome.granted) {
+      result.granted += 1;
+      console.warn(`${LOG} reconcile user=${userId} transaction=${transaction.transactionId}: ${units} credit(s) granted now (the completed event never arrived)`);
+    }
+  }
+  return result;
 }
 
 /**

@@ -12,6 +12,7 @@ import { issueConversationToken } from "@/lib/elevenlabs/client";
 import { STARTABLE_STATUSES } from "@/lib/elevenlabs/postCall";
 import {
   InterviewContextMissingError,
+  InterviewExpiredError,
   InterviewNotStartableError,
   InterviewStartLimitError,
   NotFoundError,
@@ -58,6 +59,10 @@ export async function POST(
     const interview = await fetchInterviewById(id);
     if (!interview) throw new NotFoundError("Interview not found");
 
+    // Expired (two hours without a session, possibly by the sweep just
+    // above): closed and not charged, which is what the room should say,
+    // not that feedback is on its way.
+    if (interview.status === "EXPIRED") throw new InterviewExpiredError();
     if (!STARTABLE_STATUSES.has(interview.status)) {
       throw new InterviewNotStartableError(`Interview is ${interview.status}`);
     }

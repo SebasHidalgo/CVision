@@ -1,12 +1,12 @@
 import "server-only";
 
 import type { Subscription } from "@paddle/paddle-node-sdk";
-import type { BillingProviderAdapter, ProviderSubscription } from "@/lib/billing/types";
+import type { BillingProviderAdapter, ProviderSubscription, ProviderTransaction } from "@/lib/billing/types";
 import { syncPaddleCatalog } from "./catalog";
 import { paddleCall, paddleClient, paddleErrorCode } from "./client";
 import { customDataFor } from "./customData";
 import { runPaddleDoctor } from "./doctor";
-import { priceIdFor } from "./prices";
+import { priceIdFor, priceKeyOf } from "./prices";
 import { toProviderSubscription, verifyAndParsePaddleWebhook, type PaddleSubscriptionLike } from "./webhook";
 
 /**
@@ -68,6 +68,22 @@ export const paddleAdapter: BillingProviderAdapter = {
     await paddleCall("subscription list", async () => {
       const page = paddle.subscriptions.list({ customerId: [providerCustomerId], perPage: SUBSCRIPTIONS_PER_PAGE });
       for await (const subscription of page) out.push(toProviderSubscription(asLike(subscription)));
+    });
+    return out;
+  },
+
+  async listCompletedTransactions(providerCustomerId) {
+    const paddle = paddleClient();
+    const out: ProviderTransaction[] = [];
+    await paddleCall("transaction list", async () => {
+      const page = paddle.transactions.list({ customerId: [providerCustomerId], status: ["completed"], perPage: SUBSCRIPTIONS_PER_PAGE });
+      for await (const transaction of page) {
+        out.push({
+          transactionId: transaction.id,
+          providerSubscriptionId: transaction.subscriptionId,
+          items: transaction.items.map((item) => ({ priceKey: priceKeyOf(item.price?.id), quantity: item.quantity })),
+        });
+      }
     });
     return out;
   },

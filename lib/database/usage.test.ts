@@ -10,8 +10,6 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   analysisQuotaView,
   billingStatus,
-  grantInterviewCredits,
-  interviewCreditBalance,
   interviewQuotaView,
   refundUsage,
   reserveInterview,
@@ -284,34 +282,7 @@ describe("reserveInterview: Pro", () => {
   });
 });
 
-describe("the credits", () => {
-  it("grants a pack once: the transaction id is the grant's key, and a replay grants nothing", async () => {
-    vi.mocked(prisma.usageEvent.create).mockResolvedValueOnce({} as never);
-    expect(await grantInterviewCredits("user_1", { units: 5, transactionId: "txn_1", now: NOW })).toEqual({ granted: true });
-    expect(prisma.usageEvent.create).toHaveBeenCalledWith({
-      data: { userId: "user_1", kind: "INTERVIEW_CREDIT_GRANT", refId: "txn_1", units: 5, createdAt: NOW },
-    });
-
-    vi.mocked(prisma.usageEvent.create).mockRejectedValueOnce(
-      new Prisma.PrismaClientKnownRequestError("unique", { code: "P2002", clientVersion: "test" }),
-    );
-    expect(await grantInterviewCredits("user_1", { units: 5, transactionId: "txn_1", now: NOW })).toEqual({ granted: false });
-  });
-
-  it("the balance is grants minus revokes minus non-refunded consumption, never below zero, read in one query", async () => {
-    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce(ledger(10, 4, 3));
-    expect(await interviewCreditBalance("user_1")).toBe(3);
-    expect(prisma.usageEvent.groupBy).toHaveBeenCalledTimes(1);
-    expect(prisma.usageEvent.count).not.toHaveBeenCalled();
-
-    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce(ledger(5, 2, 5));
-    expect(await interviewCreditBalance("user_1")).toBe(0);
-
-    // A kind with no rows is simply absent from the answer.
-    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce([{ kind: "INTERVIEW_CREDIT_GRANT", _sum: { units: 4 } }] as never);
-    expect(await interviewCreditBalance("user_1")).toBe(4);
-  });
-
+describe("the credits (the grant and the balance live in credits.ts, tested there)", () => {
   it("a refund revokes only the unused part of the pack, keyed by the adjustment, serializably", async () => {
     // Grant of 5, two used: three come back.
     tx.usageEvent.findUnique

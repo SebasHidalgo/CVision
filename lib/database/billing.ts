@@ -20,6 +20,8 @@ import { handleError } from "@/lib/error/handleError";
  */
 
 const UNIQUE_VIOLATION = "P2002";
+/** The user's row is gone: an account deleted while its provider's events were still arriving. */
+const FOREIGN_KEY_VIOLATION = "P2003";
 
 const standingSelect = {
   id: true,
@@ -56,26 +58,37 @@ export type LinkOutcome =
   /** The same pair already existed. */
   | "already"
   /** The customer is another user's, or the user already has another customer: left as it was, logged. */
-  | "conflict";
+  | "conflict"
+  /** The user's row no longer exists (the account was deleted meanwhile): nothing to link. */
+  | "no-user";
 
 /**
  * Records that a provider customer is this user's, from the first event
  * that names both. One customer per user and one user per customer; a
  * pair that contradicts an existing one is refused and logged, never
  * remapped, because remapping would move a subscription between accounts.
+ * A conflict is only ever reported against a row that exists: when the
+ * pair is gone (the account's deletion cascaded between the write and the
+ * read, as the first live test showed), the answer is that there is no
+ * user, not a conflict.
  */
 export async function linkBillingCustomer(userId: string, providerCustomerId: string): Promise<LinkOutcome> {
   try {
     await prisma.billingCustomer.create({ data: { userId, providerCustomerId } });
     return "linked";
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === FOREIGN_KEY_VIOLATION) return "no-user";
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION)) {
       handleError(error, `Failed to link the billing customer (user=${userId}, customer=${providerCustomerId})`);
     }
-    const existing = await prisma.billingCustomer.findUnique({ where: { userId }, select: { providerCustomerId: true } });
-    if (existing?.providerCustomerId === providerCustomerId) return "already";
+    const [ofUser, ofCustomer] = await Promise.all([
+      prisma.billingCustomer.findUnique({ where: { userId }, select: { providerCustomerId: true } }),
+      prisma.billingCustomer.findUnique({ where: { providerCustomerId }, select: { userId: true } }),
+    ]);
+    if (ofUser?.providerCustomerId === providerCustomerId) return "already";
+    if (!ofUser && !ofCustomer) return "no-user";
     console.error(
-      `[CVision][billing] customer link conflict: user=${userId} customer=${providerCustomerId} (user has ${existing?.providerCustomerId ?? "none"}; the customer may belong to another user)`,
+      `[CVision][billing] customer link conflict: user=${userId} customer=${providerCustomerId} (the user has ${ofUser?.providerCustomerId ?? "no customer"}; the customer belongs to ${ofCustomer ? `user=${ofCustomer.userId}` : "no user"})`,
     );
     return "conflict";
   }
@@ -89,14 +102,20 @@ export async function listSubscriptionRows(userId: string): Promise<Subscription
   }
 }
 
-export type SnapshotOutcome = "created" | "applied" | "stale";
+export type SnapshotOutcome =
+  | "created"
+  | "applied"
+  | "stale"
+  /** The user's row no longer exists: the account was deleted while the event was in flight. Nothing written. */
+  | "no-user";
 
 /**
  * Mirrors one provider subscription for the user. Events arrive out of
  * order and repeat, so an existing row changes only when the snapshot's
  * `providerUpdatedAt` is newer than the row's; the same instant is a
  * repeat. The row's user never changes: ownership was decided by the first
- * event and a later one cannot move the subscription.
+ * event and a later one cannot move the subscription. A user whose row is
+ * gone gets no row (the foreign key refuses it) and the caller acknowledges.
  */
 export async function applySubscriptionSnapshot(userId: string, snapshot: ProviderSubscription): Promise<SnapshotOutcome> {
   const data = {
@@ -117,6 +136,7 @@ export async function applySubscriptionSnapshot(userId: string, snapshot: Provid
     });
     return "created";
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === FOREIGN_KEY_VIOLATION) return "no-user";
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION)) {
       handleError(error, `Failed to mirror the subscription (user=${userId}, subscription=${snapshot.providerSubscriptionId})`);
     }

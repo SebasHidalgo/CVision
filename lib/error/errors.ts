@@ -21,6 +21,7 @@ export type ErrorCode =
   | "VOICE_MISCONFIGURED"
   // Interview state at session start.
   | "INTERVIEW_NOT_STARTABLE"
+  | "INTERVIEW_EXPIRED"
   | "INTERVIEW_START_LIMIT"
   | "INTERVIEW_CONTEXT_MISSING"
   // Deleting an analysis while a rehearsal of it is live or being scored.
@@ -185,6 +186,13 @@ export class VoiceMisconfiguredError extends AppError {
 }
 
 /** The interview is past the point where a session can be issued. */
+/** The interview expired (two hours without a session) before this start: closed, and its unit given back. */
+export class InterviewExpiredError extends AppError {
+  constructor(message = "Interview expired") {
+    super("INTERVIEW_EXPIRED", message);
+  }
+}
+
 export class InterviewNotStartableError extends AppError {
   constructor(message = "Interview cannot be started in its current state") {
     super("INTERVIEW_NOT_STARTABLE", message);

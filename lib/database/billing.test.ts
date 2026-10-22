@@ -58,11 +58,27 @@ describe("linkBillingCustomer", () => {
     vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce({ providerCustomerId: "ctm_01" } as never);
     expect(await linkBillingCustomer("user_1", "ctm_01")).toBe("already");
 
-    vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce({ providerCustomerId: "ctm_other" } as never);
+    // The user has another customer.
+    vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce({ providerCustomerId: "ctm_other" } as never).mockResolvedValueOnce(null);
     expect(await linkBillingCustomer("user_1", "ctm_01")).toBe("conflict");
-    vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce(null);
+    // The customer belongs to another existing user: the message names that user.
+    vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce(null).mockResolvedValueOnce({ userId: "user_other" } as never);
     expect(await linkBillingCustomer("user_2", "ctm_01")).toBe("conflict");
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("user=user_2 customer=ctm_01"));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("belongs to user=user_other"));
+  });
+
+  it("answers no-user, never conflict, when the account vanished under the write (the live test's deletion race)", async () => {
+    // The pair existed when the insert ran (unique violation), and was cascaded away by the time it was read back.
+    vi.mocked(prisma.billingCustomer.create).mockRejectedValueOnce(unique());
+    vi.mocked(prisma.billingCustomer.findUnique).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    expect(await linkBillingCustomer("user_gone", "ctm_01")).toBe("no-user");
+    expect(console.error).not.toHaveBeenCalled();
+
+    // Or the row was already gone when the insert ran: the foreign key refuses it.
+    vi.mocked(prisma.billingCustomer.create).mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("fk", { code: "P2003", clientVersion: "test" }));
+    expect(await linkBillingCustomer("user_gone", "ctm_01")).toBe("no-user");
+    expect(console.error).not.toHaveBeenCalled();
   });
 });
 
@@ -109,6 +125,13 @@ describe("applySubscriptionSnapshot", () => {
     await applySubscriptionSnapshot("user_1", snapshot({ status: "canceled", providerUpdatedAt: new Date("2026-10-21T10:00:05Z") }));
     const call = vi.mocked(prisma.subscription.updateMany).mock.calls[0][0] as { data: Record<string, unknown> };
     expect(call.data).not.toHaveProperty("transactionId");
+  });
+
+  it("answers no-user when the foreign key refuses the row: the account was deleted under the event", async () => {
+    vi.mocked(prisma.subscription.create).mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("fk", { code: "P2003", clientVersion: "test" }));
+    expect(await applySubscriptionSnapshot("user_gone", snapshot())).toBe("no-user");
+    expect(prisma.subscription.updateMany).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it("stores an unknown price as such", async () => {

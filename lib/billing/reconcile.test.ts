@@ -1,22 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applySubscriptionSnapshot, claimSubscriptionReconcile, findBillingCustomer } from "@/lib/database/billing";
+import { grantInterviewCredits } from "@/lib/database/credits";
 import type { PlanStanding, SubscriptionStanding } from "./access";
-import { listProviderSubscriptions } from "./index";
+import { listProviderSubscriptions, listProviderTransactions } from "./index";
 import {
   looksStale,
   RECONCILE_STALE_GRACE_MS,
   reconcileIfStale,
+  reconcileUserBilling,
   reconcileUserSubscriptions,
   SUBSCRIPTION_RECONCILE_MIN_INTERVAL_MS,
 } from "./reconcile";
-import type { ProviderSubscription } from "./types";
+import type { ProviderSubscription, ProviderTransaction } from "./types";
 
 vi.mock("@/lib/database/billing", () => ({
   applySubscriptionSnapshot: vi.fn(async () => "applied"),
   claimSubscriptionReconcile: vi.fn(async () => true),
   findBillingCustomer: vi.fn(async () => ({ providerCustomerId: "ctm_01" })),
 }));
-vi.mock("./index", () => ({ listProviderSubscriptions: vi.fn(async () => []) }));
+vi.mock("./index", () => ({ listProviderSubscriptions: vi.fn(async () => []), listProviderTransactions: vi.fn(async () => []) }));
+vi.mock("@/lib/database/credits", () => ({ grantInterviewCredits: vi.fn(async () => ({ granted: true })) }));
 
 const NOW = new Date("2026-11-21T12:00:00Z");
 
@@ -63,7 +66,10 @@ beforeEach(() => {
   vi.mocked(claimSubscriptionReconcile).mockResolvedValue(true);
   vi.mocked(applySubscriptionSnapshot).mockResolvedValue("applied");
   vi.mocked(listProviderSubscriptions).mockResolvedValue([]);
+  vi.mocked(listProviderTransactions).mockResolvedValue([]);
+  vi.mocked(grantInterviewCredits).mockResolvedValue({ granted: true });
   vi.spyOn(console, "info").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -75,7 +81,7 @@ describe("reconcileUserSubscriptions", () => {
     expect(await reconcileUserSubscriptions("user_1", NOW)).toEqual({
       customer: true,
       subscriptions: 2,
-      outcomes: { created: 0, applied: 1, stale: 1 },
+      outcomes: { created: 0, applied: 1, stale: 1, "no-user": 0 },
     });
     expect(listProviderSubscriptions).toHaveBeenCalledWith("ctm_01");
     expect(applySubscriptionSnapshot).toHaveBeenCalledWith("user_1", expect.objectContaining({ providerSubscriptionId: "sub_01" }));
@@ -83,8 +89,42 @@ describe("reconcileUserSubscriptions", () => {
 
   it("does nothing for a user who never checked out", async () => {
     vi.mocked(findBillingCustomer).mockResolvedValue(null);
-    expect(await reconcileUserSubscriptions("user_1", NOW)).toEqual({ customer: false, subscriptions: 0, outcomes: { created: 0, applied: 0, stale: 0 } });
+    expect(await reconcileUserSubscriptions("user_1", NOW)).toEqual({ customer: false, subscriptions: 0, outcomes: { created: 0, applied: 0, stale: 0, "no-user": 0 } });
     expect(listProviderSubscriptions).not.toHaveBeenCalled();
+  });
+});
+
+describe("reconcileUserBilling", () => {
+  const transaction = (overrides: Partial<ProviderTransaction> = {}): ProviderTransaction => ({
+    transactionId: "txn_pack",
+    providerSubscriptionId: null,
+    items: [{ priceKey: "interview_pack", quantity: 1 }],
+    ...overrides,
+  });
+
+  it("grants a completed pack whose event never arrived, with the catalog's units, keyed by the transaction; a pack already granted and a subscription payment change nothing", async () => {
+    vi.mocked(listProviderTransactions).mockResolvedValue([
+      transaction(),
+      transaction({ transactionId: "txn_seen" }),
+      transaction({ transactionId: "txn_pro", providerSubscriptionId: "sub_01", items: [{ priceKey: "pro_monthly", quantity: 1 }] }),
+      transaction({ transactionId: "txn_other", items: [{ priceKey: null, quantity: 1 }] }),
+    ]);
+    vi.mocked(grantInterviewCredits).mockResolvedValueOnce({ granted: true }).mockResolvedValueOnce({ granted: false, reason: "already" });
+
+    const result = await reconcileUserBilling("user_1", NOW);
+
+    expect(result).toMatchObject({ customer: true, transactions: 4, granted: 1 });
+    expect(listProviderTransactions).toHaveBeenCalledWith("ctm_01");
+    expect(grantInterviewCredits).toHaveBeenCalledTimes(2);
+    expect(grantInterviewCredits).toHaveBeenCalledWith("user_1", { units: 4, transactionId: "txn_pack", now: NOW });
+    expect(grantInterviewCredits).toHaveBeenCalledWith("user_1", { units: 4, transactionId: "txn_seen", now: NOW });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("transaction=txn_pack: 4 credit(s) granted now"));
+  });
+
+  it("reads no transactions for a user without a customer", async () => {
+    vi.mocked(findBillingCustomer).mockResolvedValue(null);
+    expect(await reconcileUserBilling("user_1", NOW)).toMatchObject({ customer: false, transactions: 0, granted: 0 });
+    expect(listProviderTransactions).not.toHaveBeenCalled();
   });
 });
 

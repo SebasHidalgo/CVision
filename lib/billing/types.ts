@@ -36,6 +36,13 @@ export type ProviderSubscription = {
   transactionId: string | null;
 };
 
+/** One completed transaction as the provider lists it, reduced to what a grant needs. */
+export type ProviderTransaction = {
+  transactionId: string;
+  providerSubscriptionId: string | null;
+  items: { priceKey: PriceKey | null; quantity: number }[];
+};
+
 export type AdjustmentAction = "refund" | "chargeback" | "credit" | "other";
 export type AdjustmentStatus = "pending_approval" | "approved" | "rejected" | "reversed";
 
@@ -138,6 +145,8 @@ export type BillingProviderAdapter = {
   createPortalSession(input: { providerCustomerId: string; providerSubscriptionIds: string[] }): Promise<PortalSession>;
   cancelSubscriptionNow(providerSubscriptionId: string): Promise<ProviderSubscription>;
   listSubscriptions(providerCustomerId: string): Promise<ProviderSubscription[]>;
+  /** The customer's completed transactions, for granting a pack whose event never arrived. */
+  listCompletedTransactions(providerCustomerId: string): Promise<ProviderTransaction[]>;
   verifyAndParseWebhook(rawBody: string, headers: Headers): Promise<ParsedBillingEvent>;
   syncCatalog(options: { webhookUrl: string | null }): Promise<CatalogSyncReport>;
 };

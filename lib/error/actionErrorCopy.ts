@@ -35,6 +35,8 @@ const COPY: Record<ErrorCode, string> = {
     "The interview room is misconfigured on our side. Retrying won't help — please check back later.",
   INTERVIEW_NOT_STARTABLE:
     "This interview has already ended. Your feedback will appear under Interviews once it's ready.",
+  INTERVIEW_EXPIRED:
+    "This attempt expired: two hours passed without a session, so it was closed and nothing was charged. Rehearse again from the analysis.",
   INTERVIEW_START_LIMIT:
     "This interview has used all of its starts: every connection to the interviewer counts as one. Rehearse again from the analysis.",
   INTERVIEW_CONTEXT_MISSING:
