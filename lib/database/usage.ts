@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Prisma, type UsageKind } from "@prisma/client";
+import { cache } from "react";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { quotaPeriodFor, type PlanStanding } from "@/lib/billing/access";
@@ -155,29 +156,50 @@ export async function refundUsage(eventId: string, reason: string): Promise<bool
 }
 
 /**
- * The facts the entitlement is decided on, read in one parallel wave on
- * the client given (a transaction, or the pool): the period's interviews
- * used, the credits, the trials ever, whether the account ever had voice,
- * and the credits held by interviews still in progress.
+ * The facts the entitlement is decided on, in one parallel wave of three
+ * reads on the client given (a transaction, or the pool): the period's
+ * analyses and interviews grouped by kind; the lifetime ledger grouped by
+ * kind (grants and revokes by units, trials, full interviews and credit
+ * consumptions by count, refunded ones excluded); and the credits held by
+ * interviews still in progress. Three reads because every round trip to
+ * the pooler costs hundreds of milliseconds from far away, and the pool
+ * holds five connections: a wave of three stays one wave.
  */
 async function entitlementFactsIn(db: Prisma.TransactionClient, userId: string, standing: PlanStanding, now: Date) {
   const period = quotaPeriodFor(standing, now);
-  const [periodUsed, credits, trialsUsed, fullEver, creditsPending] = await Promise.all([
-    db.usageEvent.count({ where: { userId, kind: "INTERVIEW", refundedAt: null, createdAt: { gte: period.start, lt: period.end } } }),
-    creditBalanceIn(db, userId),
-    db.usageEvent.count({ where: { userId, kind: "INTERVIEW_TRIAL", refundedAt: null } }),
-    db.usageEvent.count({ where: { userId, kind: { in: ["INTERVIEW", "INTERVIEW_CREDIT"] }, refundedAt: null } }),
+  const [inPeriod, ever, creditsPending] = await Promise.all([
+    db.usageEvent.groupBy({
+      by: ["kind"],
+      where: { userId, refundedAt: null, kind: { in: ["ANALYSIS", "INTERVIEW"] }, createdAt: { gte: period.start, lt: period.end } },
+      _count: { _all: true },
+    }),
+    db.usageEvent.groupBy({
+      by: ["kind"],
+      where: {
+        userId,
+        OR: [
+          { kind: { in: ["INTERVIEW_CREDIT_GRANT", "INTERVIEW_CREDIT_REVOKE"] } },
+          { kind: { in: ["INTERVIEW_CREDIT", "INTERVIEW", "INTERVIEW_TRIAL"] }, refundedAt: null },
+        ],
+      },
+      _count: { _all: true },
+      _sum: { units: true },
+    }),
     db.interview.count({ where: { userId, status: "IN_PROGRESS", paidBy: "CREDIT", usageEventId: { not: null } } }),
   ]);
+  const countIn = (rows: { kind: UsageKind; _count: { _all: number } }[], kind: UsageKind) => rows.find((row) => row.kind === kind)?._count._all ?? 0;
+  const unitsEver = (kind: UsageKind) => ever.find((row) => row.kind === kind)?._sum.units ?? 0;
+  const credits = Math.max(0, unitsEver("INTERVIEW_CREDIT_GRANT") - unitsEver("INTERVIEW_CREDIT_REVOKE") - unitsEver("INTERVIEW_CREDIT"));
   return {
     period,
+    analysesUsed: countIn(inPeriod, "ANALYSIS"),
     facts: {
       plan: standing.plan,
-      periodUsed,
+      periodUsed: countIn(inPeriod, "INTERVIEW"),
       credits,
       creditsPending,
-      trialsUsed,
-      hadVoice: standing.everSubscribed || fullEver > 0,
+      trialsUsed: countIn(ever, "INTERVIEW_TRIAL"),
+      hadVoice: standing.everSubscribed || countIn(ever, "INTERVIEW") + countIn(ever, "INTERVIEW_CREDIT") > 0,
       periodEnd: period.end,
     },
   };
@@ -316,20 +338,16 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
     const { plan } = standing;
     const limits = PLANS[plan];
 
-    const [{ period, facts }, analyses, customer] = await Promise.all([
-      entitlementFactsIn(prisma, userId, standing, now),
-      prisma.usageEvent.count({ where: { userId, kind: "ANALYSIS", refundedAt: null, ...periodWhere(quotaPeriodFor(standing, now)) } }),
-      findBillingCustomer(userId),
-    ]);
+    const [{ period, facts, analysesUsed }, customer] = await Promise.all([entitlementFactsIn(prisma, userId, standing, now), findBillingCustomer(userId)]);
     const entitlement = decideEntitlement(facts);
 
     return {
       plan,
       source: standing.source,
       analyses: {
-        used: analyses,
+        used: analysesUsed,
         limit: limits.analysesPerMonth,
-        left: Math.max(0, limits.analysesPerMonth - analyses),
+        left: Math.max(0, limits.analysesPerMonth - analysesUsed),
         announce: limits.announceAnalyses,
       },
       interviews: {
@@ -354,27 +372,20 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
   }
 }
 
-function periodWhere(period: QuotaPeriod) {
-  return { createdAt: { gte: period.start, lt: period.end } };
-}
+/**
+ * The session wrappers for Server Components, each memoised for the
+ * request with React's `cache`: a page and a component that both need the
+ * standing in one render read it once. Identity from the session.
+ */
+export const currentUsageSummary: () => Promise<UsageSummary> = cache(async () => usageSummary(await requireUserId()));
 
-/** The caller's own standing, for Server Components. Identity from the session. */
-export async function currentUsageSummary(now = new Date()): Promise<UsageSummary> {
-  const userId = await requireUserId();
-  return usageSummary(userId, now);
-}
+/** What the caller's next interview start would get, once per request. */
+export const currentInterviewEntitlement: () => Promise<InterviewEntitlement> = cache(async () => resolveInterviewEntitlement(await requireUserId()));
 
-/** What the caller's next interview start would get, for Server Components. Identity from the session. */
-export async function currentInterviewEntitlement(now = new Date()): Promise<InterviewEntitlement> {
-  const userId = await requireUserId();
-  return resolveInterviewEntitlement(userId, now);
-}
-
-/** Whether a checkout the caller paid has landed, for the account page's first render. Identity from the session. */
-export async function currentTransactionApplied(transactionId: string): Promise<boolean> {
-  const userId = await requireUserId();
-  return transactionApplied(userId, transactionId);
-}
+/** Whether a checkout the caller paid has landed, for the account page's first render. */
+export const currentTransactionApplied: (transactionId: string) => Promise<boolean> = cache(async (transactionId: string) =>
+  transactionApplied(await requireUserId(), transactionId),
+);
 
 export type BillingStatus = {
   plan: PlanId;
