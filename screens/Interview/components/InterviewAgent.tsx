@@ -8,6 +8,7 @@ import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
+import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import { sourceCopy, type EntitlementSource } from "@/lib/interviewEntitlement";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
@@ -237,6 +238,9 @@ function InterviewRoom({
       conversationToken: result.data.conversationToken,
       dynamicVariables: result.data.dynamicVariables,
       overrides: { agent: { language: result.data.language } },
+      // The SDK's audio worklets from this origin, not from blob: URLs the
+      // Content-Security-Policy refuses.
+      workletPaths: WORKLET_PATHS,
     });
   };
 

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DisconnectionDetails } from "@elevenlabs/react";
@@ -218,6 +219,7 @@ describe("InterviewAgent: starting", () => {
       conversationToken: "tok_1",
       dynamicVariables: SESSION.dynamicVariables,
       overrides: { agent: { language: "es" } },
+      workletPaths: WORKLET_PATHS,
     });
     // Status line and button both say so.
     expect(screen.getAllByText("Connecting")).toHaveLength(2);

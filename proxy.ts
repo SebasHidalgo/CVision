@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 
 // The landing page, the public pages, plus webhook routes one by one, never
 // a whole prefix. A webhook authenticates its caller itself (a signature on
-// the raw body). This is defense in depth: every Server Action, Route
-// Handler and data-layer call checks the session again.
+// the raw body); the cron route, by the bearer secret Vercel sends. This is
+// defense in depth: every Server Action, Route Handler and data-layer call
+// checks the session again.
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing",
@@ -15,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks/elevenlabs",
   "/api/webhooks/clerk",
   "/api/webhooks/paddle",
+  "/api/cron/storage-gc",
 ]);
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
