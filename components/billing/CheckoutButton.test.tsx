@@ -40,10 +40,33 @@ describe("CheckoutButton", () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/account/billing?activating=interview_pack&txn=${TXN}`));
     expect(createCheckoutAction).toHaveBeenCalledWith({ item: "interview_pack" });
-    expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", { signal: expect.any(AbortSignal) });
+    expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", { signal: expect.any(AbortSignal), onLoaded: expect.any(Function) });
     // Paid, not "opening": the label says so until the page takes over.
     expect(button().textContent).toMatch(/Payment received/);
     expect(button()).toHaveProperty("disabled", true);
+  });
+
+  it("says it is opening only until the overlay is up, then sits disabled under its own label while the overlay is in front", async () => {
+    let settle: (outcome: CheckoutOutcome) => void = () => {};
+    let loaded: (() => void) | undefined;
+    vi.mocked(openCheckout).mockImplementationOnce((_id, _theme, options) => {
+      loaded = options?.onLoaded;
+      return new Promise((resolve) => (settle = resolve));
+    });
+    mount();
+    fireEvent.click(button());
+    await waitFor(() => expect(openCheckout).toHaveBeenCalled());
+    expect(button().textContent).toMatch(/Opening checkout/);
+
+    await act(async () => loaded?.());
+    expect(button().textContent).toBe("Buy 4 more interviews");
+    expect(button()).toHaveProperty("disabled", true);
+
+    await act(async () => {
+      settle("closed");
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(button()).toHaveProperty("disabled", false));
   });
 
   it("resets by itself if the page has not replaced it after a payment (same route, only the query changed)", async () => {

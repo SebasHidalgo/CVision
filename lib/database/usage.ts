@@ -145,14 +145,19 @@ export async function reserveUsage(
 /** Gives a unit back, once: a second refund of the same event changes nothing. A refunded credit is a credit again. */
 export async function refundUsage(eventId: string, reason: string): Promise<boolean> {
   try {
-    const result = await prisma.usageEvent.updateMany({
-      where: { id: eventId, refundedAt: null },
-      data: { refundedAt: new Date(), refundReason: reason },
-    });
-    return result.count === 1;
+    return await refundUsageIn(prisma, eventId, reason);
   } catch (error) {
     handleError(error, "Failed to refund usage");
   }
+}
+
+/** The refund on the client given (a transaction, or the pool), for a caller that pairs it with another write. */
+export async function refundUsageIn(db: Prisma.TransactionClient, eventId: string, reason: string): Promise<boolean> {
+  const result = await db.usageEvent.updateMany({
+    where: { id: eventId, refundedAt: null },
+    data: { refundedAt: new Date(), refundReason: reason },
+  });
+  return result.count === 1;
 }
 
 /**

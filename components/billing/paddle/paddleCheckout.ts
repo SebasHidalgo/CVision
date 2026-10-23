@@ -76,6 +76,8 @@ export type OpenCheckoutOptions = {
   /** Aborting stops listening: the caller went away (unmounted, navigated back) and no outcome is wanted. */
   signal?: AbortSignal;
   openTimeoutMs?: number;
+  /** Called once, when the overlay reports itself up (`checkout.loaded`): the button stops saying it is opening. */
+  onLoaded?: () => void;
 };
 
 /**
@@ -99,7 +101,7 @@ export type OpenCheckoutOptions = {
 export async function openCheckout(
   transactionId: string,
   theme: "light" | "dark",
-  { signal, openTimeoutMs = OPEN_TIMEOUT_MS }: OpenCheckoutOptions = {},
+  { signal, openTimeoutMs = OPEN_TIMEOUT_MS, onLoaded }: OpenCheckoutOptions = {},
 ): Promise<CheckoutOutcome> {
   const paddle = await loadPaddle();
   if (!paddle) throw new Error("Paddle.js is not available");
@@ -108,6 +110,7 @@ export async function openCheckout(
   return new Promise<CheckoutOutcome>((resolve) => {
     let openTimer: ReturnType<typeof setTimeout> | null = null;
     let settled = false;
+    let loaded = false;
     const finish = (outcome: CheckoutOutcome) => {
       if (settled) return;
       settled = true;
@@ -124,6 +127,10 @@ export async function openCheckout(
       if (openTimer) {
         clearTimeout(openTimer);
         openTimer = null;
+      }
+      if (event.name === "checkout.loaded" && !loaded) {
+        loaded = true;
+        onLoaded?.();
       }
       if (event.name === "checkout.completed") {
         finish("completed");

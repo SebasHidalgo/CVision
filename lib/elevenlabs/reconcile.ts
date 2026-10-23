@@ -12,6 +12,7 @@ import { fetchConversation } from "@/lib/elevenlabs/client";
 import {
   isStranded,
   platformFailure,
+  RECONCILE_GRACE_SECONDS,
   RECONCILE_MIN_INTERVAL_MS,
   SESSION_LOST,
 } from "@/lib/elevenlabs/postCall";
@@ -38,9 +39,19 @@ export type ReconcileOutcome =
   /** Fetched and handed to the webhook's storage path. */
   | { kind: "stored"; result: StoreTranscriptResult };
 
+export type ReconcileOptions = {
+  /**
+   * How long after the room's end-of-call report the webhook is still
+   * waited for. The default is the grace; 0 is the fast path for a call
+   * that ended seconds after it started, where no webhook will come.
+   */
+  graceSeconds?: number;
+};
+
 export async function reconcileStrandedInterview(
   interviewId: string,
   now = new Date(),
+  { graceSeconds = RECONCILE_GRACE_SECONDS }: ReconcileOptions = {},
 ): Promise<ReconcileOutcome> {
   const row = await fetchInterviewForReconcile(interviewId);
   if (!row?.conversationId) return { kind: "not-stranded" };
@@ -55,6 +66,7 @@ export async function reconcileStrandedInterview(
     },
     now,
     MAX_INTERVIEW_DURATION_SECONDS,
+    graceSeconds,
   );
   if (!stranded) return { kind: "not-stranded" };
 

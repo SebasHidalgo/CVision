@@ -142,6 +142,15 @@ export const RECONCILE_GRACE_SECONDS = 2 * 60;
  */
 export const RECONCILE_MIN_INTERVAL_MS = 60_000;
 
+/**
+ * A call the room reports over within this long of its session being
+ * issued never became an interview: the platform refused it (no credits, a
+ * misconfigured agent) or the connection broke at once. No webhook comes
+ * for a failed conversation, so the server fetches it right away instead of
+ * waiting out the grace; the per-interview throttle still applies.
+ */
+export const EARLY_END_WINDOW_MS = 30_000;
+
 export type StrandedCandidate = {
   status: InterviewStatus;
   conversationId: string | null;
@@ -156,17 +165,20 @@ export type StrandedCandidate = {
  * arrived. When the room reported the end of the call, the window is the
  * grace from that moment. When it did not (the tab was closed mid-call), it
  * is the agent's hard limit plus the grace, counted from the session issue,
- * the latest the call could have ended.
+ * the latest the call could have ended. A grace of zero is the fast path
+ * for a call that ended seconds after it started: stranded as soon as the
+ * room has reported the end.
  */
 export function isStranded(
   row: StrandedCandidate,
   now: Date,
   maxDurationSeconds: number,
+  graceSeconds: number = RECONCILE_GRACE_SECONDS,
 ): boolean {
   if (row.status !== "IN_PROGRESS") return false;
   if (!row.conversationId || row.hasTranscript || !row.startedAt) return false;
-  const graceMs = RECONCILE_GRACE_SECONDS * 1000;
-  if (row.endedAt) return now.getTime() - row.endedAt.getTime() > graceMs;
+  const graceMs = graceSeconds * 1000;
+  if (row.endedAt) return now.getTime() - row.endedAt.getTime() >= graceMs;
   return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
 }
 
@@ -230,6 +242,12 @@ export type PostCallOutcome =
       startedAt: Date | null;
       endedAt: Date | null;
       durationSeconds: number | null;
+      /**
+       * The start this call counted is given back: the platform could not
+       * run the call, and the cap of starts exists for the candidate's
+       * microphone and connection, not for the platform's outages.
+       */
+      startRefunded: boolean;
     };
 
 /**
@@ -244,8 +262,10 @@ export type PostCallOutcome =
  *   the interview fail; otherwise a mic problem would consume the interview
  *   and the retries the cap exists to allow would be unreachable.
  * - No candidate turns and the platform reports the call failed (its
- *   status is "failed": the agent never joined): the same, under
- *   `CALL_FAILED`, so nobody is told to check a microphone that was fine.
+ *   status is "failed": the agent never joined): `CALL_FAILED`, so nobody
+ *   is told to check a microphone that was fine, the interview stays
+ *   startable whatever the count, and the start is given back: a call the
+ *   platform could not run does not count against the candidate.
  */
 export function decidePostCallOutcome({
   row,
@@ -280,15 +300,17 @@ export function decidePostCallOutcome({
         : null;
 
   const failed = data.status === "failed";
+  const platformFailed = !spoke && failed;
 
   return {
     kind: "store",
-    status: spoke ? "FEEDBACK_PENDING" : attemptsLeft ? "IN_PROGRESS" : "FAILED",
+    status: spoke ? "FEEDBACK_PENDING" : platformFailed || attemptsLeft ? "IN_PROGRESS" : "FAILED",
     failureReason: spoke ? null : failed ? CALL_FAILED : NO_CANDIDATE_TURNS,
     contextMismatch: matches === false,
     startedAt,
     endedAt,
     durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
+    startRefunded: platformFailed,
   };
 }
 

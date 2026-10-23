@@ -17,7 +17,7 @@ const COPY: Record<string, FailureCopy> = {
   },
   [CALL_FAILED]: {
     title: "The interviewer couldn't join the call.",
-    body: "The voice platform could not run the call, and this interview has no connection left: a problem on our side, not with your microphone. Nothing was charged. Rehearse again from the analysis.",
+    body: "The voice platform could not run the call: a problem on our side, not with your microphone. Nothing was charged, and that connection did not count as one of your starts. Rehearse again from the analysis.",
     canRetryFeedback: false,
   },
   [FEEDBACK_FAILURE_REASONS.transcriptInvalid]: {

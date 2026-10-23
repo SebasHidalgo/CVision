@@ -323,26 +323,42 @@ export async function fetchInterviewStatus(interviewId: string): Promise<
   }
 }
 
+export type InterviewEndedMark =
+  /** Written; how long after the latest session was issued the call ended, when the row knows. */
+  | { recorded: true; sessionAgeMs: number | null }
+  | { recorded: false };
+
 /**
  * The room's report that the call ended. A hint, not the record: it is
  * written only while the interview is still IN_PROGRESS with no end time, so
  * the platform's own values, when the transcript arrives, win over it. A new
- * session clears it again. False when nothing was written: already ended,
- * no longer in progress, or not the caller's.
+ * session clears it again. Not recorded when nothing was written: already
+ * ended, no longer in progress, or not the caller's. One guarded write
+ * that also reads back when the session was issued, so the route can tell
+ * a call that ended seconds after it started.
  */
 export async function markInterviewEnded(params: {
   interviewId: string;
   endedAt: Date;
-}): Promise<boolean> {
+}): Promise<InterviewEndedMark> {
   try {
     const userId = await requireUserId();
 
-    const result = await prisma.interview.updateMany({
-      where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
-      data: { endedAt: params.endedAt },
-    });
-
-    return result.count === 1;
+    try {
+      const row = await prisma.interview.update({
+        where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
+        data: { endedAt: params.endedAt },
+        select: { lastSessionAt: true },
+      });
+      return {
+        recorded: true,
+        sessionAgeMs: row.lastSessionAt ? params.endedAt.getTime() - row.lastSessionAt.getTime() : null,
+      };
+    } catch (error) {
+      // No row matched the guards: the ordinary outcome of a second report.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return { recorded: false };
+      throw error;
+    }
   } catch (error) {
     handleError(error, "Failed to record the end of the interview");
   }

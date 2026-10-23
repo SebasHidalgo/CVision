@@ -9,7 +9,8 @@ import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview } from "@/lib/database/usage";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError } from "@/lib/error/errors";
+import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
+import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
 import { POST } from "./route";
 
@@ -21,6 +22,7 @@ vi.mock("@/lib/database/interview", () => ({
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({ reserveInterview: vi.fn(), refundUsage: vi.fn(async () => true) }));
 vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
+vi.mock("@/lib/elevenlabs/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESUME_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
@@ -189,6 +191,28 @@ describe("POST /api/interview/[id]/session: checks before the paid call", () => 
     expect(await post()).toEqual({ status: 500, body: { ok: false, code: "VOICE_MISCONFIGURED" } });
     expect(calls).toHaveLength(0);
     expect(reserveInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it("answers 503 VOICE_UNAVAILABLE when the platform's balance is below the floor, before reserving anything, issuing anything or counting a start", async () => {
+    vi.mocked(assertVoiceCapacity).mockRejectedValueOnce(new VoiceUnavailableError("balance below the floor"));
+    const calls = stubElevenLabs(tokenResponse);
+
+    expect(await post()).toEqual({ status: 503, body: { ok: false, code: "VOICE_UNAVAILABLE" } });
+    expect(calls).toHaveLength(0);
+    expect(reserveInterview).not.toHaveBeenCalled();
+    expect(reserveInterviewSession).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
+    // After the ownership, state and context checks: a 404 or a 409 never reads the balance.
+    expect(assertVoiceCapacity).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetchInterviewById).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(assertVoiceCapacity).mock.invocationCallOrder[0]);
+  });
+
+  it("does not read the balance for an interview it refuses on state", async () => {
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "COMPLETED", startCount: 1 }));
+    stubElevenLabs(tokenResponse);
+
+    expect((await post()).status).toBe(409);
+    expect(assertVoiceCapacity).not.toHaveBeenCalled();
   });
 });
 

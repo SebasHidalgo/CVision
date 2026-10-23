@@ -12,7 +12,7 @@ import {
   type PostCallTranscription,
 } from "@/lib/elevenlabs/postCall";
 import { handleError } from "@/lib/error/handleError";
-import { refundUsage } from "./usage";
+import { refundUsageIn } from "./usage";
 
 /**
  * Data access for the post-call webhook, and nothing else. There is no
@@ -77,8 +77,11 @@ export async function storeConversationTranscript({
     // and writes nothing.
     // Times only when the delivery carries them: a payload without metadata
     // must not blank what the room reported.
+    // A start the platform could not run is given back in the same write,
+    // and only once: the second delivery of the same failed call is a
+    // duplicate by the transcript check above.
     const updated = await prisma.interview.updateMany({
-      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] } },
+      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] }, ...(outcome.startRefunded ? { startCount: { gt: 0 } } : {}) },
       data: {
         status: outcome.status,
         conversationId: data.conversation_id,
@@ -89,6 +92,7 @@ export async function storeConversationTranscript({
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
         ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
         ...(outcome.durationSeconds !== null ? { durationSeconds: outcome.durationSeconds } : {}),
+        ...(outcome.startRefunded ? { startCount: { decrement: 1 } } : {}),
       },
     });
 
@@ -223,11 +227,15 @@ export async function markSessionLost(params: {
  * forgets the reservation (the event keeps `refId` = the interview, and the
  * row keeps `paidBy`, so support can still tell), and the next session's
  * first token reserves again. A refunded reservation is never reserved
- * twice: the row's `usageEventId` guards the clear.
+ * twice: the row's `usageEventId` guards the clear. The refund and the
+ * clear are one transaction: a page read between them once showed the
+ * credit as both returned and still pending.
  */
 async function releaseReservation(interviewId: string, usageEventId: string, reason: string, { retryable }: { retryable: boolean }): Promise<void> {
-  await refundUsage(usageEventId, reason);
-  if (retryable) {
-    await prisma.interview.updateMany({ where: { id: interviewId, usageEventId }, data: { usageEventId: null } });
-  }
+  await prisma.$transaction(async (tx) => {
+    await refundUsageIn(tx, usageEventId, reason);
+    if (retryable) {
+      await tx.interview.updateMany({ where: { id: interviewId, usageEventId }, data: { usageEventId: null } });
+    }
+  });
 }

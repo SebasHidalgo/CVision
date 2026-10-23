@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteConversation, fetchConversation } from "./client";
+import { deleteConversation, fetchConversation, missingPermission, readVoiceBalance } from "./client";
 
 const API_KEY = "test-elevenlabs-key";
 
@@ -113,5 +113,102 @@ describe("fetchConversation", () => {
     const calls = stubElevenLabs(() => Response.json(record()));
     await expect(fetchConversation("conv_1")).rejects.toMatchObject({ code: "VOICE_MISCONFIGURED" });
     expect(calls).toHaveLength(0);
+  });
+});
+
+/** What `GET /v1/user/subscription` answers, in the API's casing. */
+const subscription = (overrides: Record<string, unknown> = {}) => ({
+  tier: "creator",
+  status: "active",
+  character_count: 50_000,
+  character_limit: 121_000,
+  max_credit_limit_extension: 0,
+  can_extend_character_limit: false,
+  allowed_to_extend_character_limit: false,
+  next_character_count_reset_unix: 1_764_547_200,
+  voice_slots_used: 0,
+  professional_voice_slots_used: 0,
+  professional_voice_slots_used_in_workspace: 0,
+  voice_limit: 10,
+  voice_add_edit_counter: 0,
+  professional_voice_limit: 1,
+  can_extend_voice_limit: false,
+  can_use_instant_voice_cloning: true,
+  can_use_professional_voice_cloning: true,
+  current_overage: { amount: "0", currency: "usd" },
+  open_invoices: [],
+  has_open_invoices: false,
+  ...overrides,
+});
+
+/** The refusal the owner's key produced on 2026-10-23, verbatim in shape. */
+const missingUserRead = () =>
+  Response.json(
+    {
+      detail: {
+        type: "authentication_error",
+        code: "unauthorized",
+        message: "The API key you used is missing the permission user_read to execute this operation.",
+        status: "missing_permissions",
+        request_id: "cfa400bb0dd5652e3c0c0eef14f44620",
+      },
+    },
+    { status: 401 },
+  );
+
+describe("readVoiceBalance", () => {
+  it("reads the subscription with the key and reduces it to the balance", async () => {
+    const calls = stubElevenLabs(() => Response.json(subscription()));
+
+    const read = await readVoiceBalance();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url.pathname).toBe("/v1/user/subscription");
+    expect(calls[0].headers.get("xi-api-key")).toBe(API_KEY);
+    expect(read).toEqual({
+      kind: "balance",
+      balance: {
+        tier: "creator",
+        status: "active",
+        creditsUsed: 50_000,
+        creditsLimit: 121_000,
+        creditsRemaining: 71_000,
+        extension: 0,
+        resetsAt: new Date(1_764_547_200 * 1000),
+      },
+    });
+  });
+
+  it("never reports a negative remainder, keeps an unlimited extension, and tolerates a missing reset", async () => {
+    stubElevenLabs(() => Response.json(subscription({ character_count: 130_000, max_credit_limit_extension: "unlimited", next_character_count_reset_unix: undefined })));
+    const read = await readVoiceBalance();
+    expect(read).toMatchObject({ kind: "balance", balance: { creditsRemaining: 0, extension: "unlimited", resetsAt: null } });
+  });
+
+  it("reports a key without user_read as such, naming the permission, instead of as an outage", async () => {
+    stubElevenLabs(missingUserRead);
+    expect(await readVoiceBalance()).toEqual({ kind: "no-permission", permission: "user_read" });
+  });
+
+  it.each([
+    { status: 503, code: "VOICE_UNAVAILABLE" },
+    { status: 401, code: "VOICE_MISCONFIGURED" },
+  ])("throws the app's voice error on any other HTTP $status", async ({ status, code }) => {
+    stubElevenLabs(() => Response.json({ detail: "x" }, { status }));
+    await expect(readVoiceBalance()).rejects.toMatchObject({ code });
+  });
+
+  it("refuses to call out without a key", async () => {
+    vi.stubEnv("ELEVENLABS_API_KEY", "");
+    const calls = stubElevenLabs(() => Response.json(subscription()));
+    await expect(readVoiceBalance()).rejects.toMatchObject({ code: "VOICE_MISCONFIGURED" });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("missingPermission", () => {
+  it("names the permission only for a missing_permissions refusal", () => {
+    expect(missingPermission(new Error("x"))).toBeNull();
+    expect(missingPermission({ statusCode: 401 })).toBeNull();
   });
 });

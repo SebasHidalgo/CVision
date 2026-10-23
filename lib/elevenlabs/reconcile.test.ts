@@ -98,6 +98,18 @@ describe("reconcileStrandedInterview", () => {
     expect(fetchConversation).toHaveBeenCalledWith("conv_1");
   });
 
+  it("with a grace of zero, fetches a call the room reported over a second ago: the fast path for a call the platform refused", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(
+      row({ startedAt: new Date(NOW.getTime() - 6_000), endedAt: new Date(NOW.getTime() - 1_000) }),
+    );
+
+    expect(await reconcileStrandedInterview(INTERVIEW_ID, NOW)).toEqual({ kind: "not-stranded" });
+    expect((await reconcileStrandedInterview(INTERVIEW_ID, NOW, { graceSeconds: 0 })).kind).toBe("stored");
+    expect(fetchConversation).toHaveBeenCalledTimes(1);
+    // The throttle is the same one the poll uses: a second fast check within the minute asks nothing.
+    expect(claimReconcile).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, now: NOW, minIntervalMs: RECONCILE_MIN_INTERVAL_MS });
+  });
+
   it("past the window, fetches the latest conversation and stores it through the webhook's path, marked as the API's", async () => {
     const outcome = await reconcileStrandedInterview(INTERVIEW_ID, NOW);
 

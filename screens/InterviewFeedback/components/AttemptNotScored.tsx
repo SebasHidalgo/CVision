@@ -23,8 +23,15 @@ const COPY = {
   },
   failed: {
     title: "The interviewer couldn't join the call.",
-    body: "The voice platform could not start the session: a problem on our side, not with your microphone. Nothing was scored and nothing was charged.",
+    body: "Nothing was charged, and this didn't use one of your starts. The voice platform could not run the call: a problem on our side, not with your microphone.",
   },
+};
+
+/** What the start that just ended did to the count: a call the platform could not run is given back. */
+const STARTS_COPY = {
+  silent: "That start counts, but the interview is still yours:",
+  lost: "That start counts, but the interview is still yours:",
+  failed: "The interview is still yours:",
 };
 
 /**
@@ -48,8 +55,7 @@ export default function AttemptNotScored({ interview, reason, startsLeft, date }
           {copy.title}
         </p>
         <p className="lede mt-4 max-w-xl">
-          {copy.body} That start counts, but the interview is still yours: you have{" "}
-          {startsLeft} {startsLeft === 1 ? "start" : "starts"} left.
+          {copy.body} {STARTS_COPY[reason]} you have {startsLeft} {startsLeft === 1 ? "start" : "starts"} left.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">

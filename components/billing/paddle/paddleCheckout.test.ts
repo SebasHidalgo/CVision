@@ -120,6 +120,19 @@ describe("openCheckout against Paddle.js's real sequence", () => {
     expect(await outcome).toBe("completed");
   });
 
+  it("tells the caller once when the overlay is up, so the button can stop saying it is opening", async () => {
+    const onLoaded = vi.fn();
+    const outcome = start(TXN, "light", { onLoaded });
+    await outcome.ready;
+    expect(onLoaded).not.toHaveBeenCalled();
+    emit(event("checkout.loaded", { transaction_id: TXN, status: "ready" }));
+    emit(event("checkout.loaded", { transaction_id: TXN, status: "ready" }));
+    emit(event("checkout.customer.created", { transaction_id: TXN }));
+    expect(onLoaded).toHaveBeenCalledTimes(1);
+    emit(event("checkout.completed", { transaction_id: TXN }));
+    expect(await outcome).toBe("completed");
+  });
+
   it("stops listening when aborted (the button went away) and resolves closed", async () => {
     const controller = new AbortController();
     const outcome = start(TXN, "light", { signal: controller.signal });

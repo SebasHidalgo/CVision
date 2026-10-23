@@ -227,7 +227,7 @@ describe("InterviewAgent: starting", () => {
     { when: "the middleware answers a 404 page", body: "<!doctype html>", status: 404, copy: /didn't go through/ },
     { when: "the server answers 409 at the cap", body: { ok: false, code: "INTERVIEW_START_LIMIT" }, status: 409, copy: /all of its starts/ },
     { when: "the server answers 409 for an ended interview", body: { ok: false, code: "INTERVIEW_NOT_STARTABLE" }, status: 409, copy: /already ended/ },
-    { when: "the server answers 503", body: { ok: false, code: "VOICE_UNAVAILABLE" }, status: 503, copy: /couldn't connect/ },
+    { when: "the server answers 503", body: { ok: false, code: "VOICE_UNAVAILABLE" }, status: 503, copy: /temporarily unavailable/ },
   ])("shows the copy and does not start the SDK when $when", async ({ body, status, copy }) => {
     vi.stubGlobal(
       "fetch",
@@ -282,7 +282,7 @@ describe("InterviewAgent: starting", () => {
       callbacks().onError?.("Failed to fetch conversation token");
     });
 
-    expect(screen.getByRole("status").textContent).toMatch(/couldn't connect/);
+    expect(screen.getByRole("status").textContent).toMatch(/temporarily unavailable/);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(screen.queryByText(/starts? left/)).toBeNull();
   });

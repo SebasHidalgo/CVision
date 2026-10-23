@@ -30,7 +30,7 @@ const COPY: Record<ErrorCode, string> = {
   AI_BAD_FORMAT:
     "We couldn't read the analysis. Try again — it usually works on a retry.",
   VOICE_UNAVAILABLE:
-    "The interviewer couldn't connect right now. Give it a minute and try again.",
+    "Voice interviews are temporarily unavailable. Nothing was charged. Try again in a few minutes.",
   VOICE_MISCONFIGURED:
     "The interview room is misconfigured on our side. Retrying won't help — please check back later.",
   INTERVIEW_NOT_STARTABLE:

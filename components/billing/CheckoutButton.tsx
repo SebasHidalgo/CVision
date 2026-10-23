@@ -21,7 +21,12 @@ type CheckoutButtonProps = {
   variant?: "default" | "outline";
 };
 
-type Phase = "idle" | "opening" | "paid";
+/**
+ * "opening" lasts from the click until Paddle.js reports the overlay up;
+ * "open" is the overlay in front of the page, where the button has nothing
+ * to say and only has to stay out of the way (disabled, its own label).
+ */
+type Phase = "idle" | "opening" | "open" | "paid";
 
 /**
  * After a payment the button says so and sends the buyer to the account
@@ -86,7 +91,12 @@ export default function CheckoutButton({ item, label, className, size = "lg", va
         return;
       }
       const { transactionId } = result.data;
-      const outcome = await openCheckout(transactionId, resolvedTheme === "dark" ? "dark" : "light", { signal: controller.signal });
+      const outcome = await openCheckout(transactionId, resolvedTheme === "dark" ? "dark" : "light", {
+        signal: controller.signal,
+        onLoaded: () => {
+          if (!controller.signal.aborted && mounted.current) setPhase("open");
+        },
+      });
       if (controller.signal.aborted || !mounted.current) return;
       if (outcome === "completed") {
         setPhase("paid");

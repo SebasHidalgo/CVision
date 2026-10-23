@@ -9,6 +9,7 @@ import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview, type InterviewReservation } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { issueConversationToken } from "@/lib/elevenlabs/client";
+import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
 import { STARTABLE_STATUSES } from "@/lib/elevenlabs/postCall";
 import {
   InterviewContextMissingError,
@@ -37,7 +38,9 @@ const LOG = "[CVision][session]";
  * Every check runs before the token call, which is the first thing here that
  * touches a paid platform, and so does the quota: the interview's usage unit
  * is reserved on its first token, in this request, never on creation and
- * never again on a reconnect. The write comes after the token, in one
+ * never again on a reconnect. Before the reservation, the platform's own
+ * balance is checked (cached for a minute): below the floor, the start is
+ * refused with nothing reserved. The write comes after the token, in one
  * guarded update: if that update finds the interview no longer startable (a
  * second tab won the race), the token is dropped unused, the unit goes back
  * and the caller gets a 409.
@@ -78,6 +81,12 @@ export async function POST(
     if (!analysis || !context?.success) {
       throw new InterviewContextMissingError();
     }
+
+    // The platform's balance, before anything is reserved or counted: a
+    // workspace out of credits issues the token and drops the call a second
+    // later, which would spend a start and the candidate's patience for
+    // nothing. Refused as VOICE_UNAVAILABLE, honestly, with nothing charged.
+    await assertVoiceCapacity();
 
     // The first token takes the unit the entitlement names and fixes the
     // tier and the source; a reconnect reuses what the first token set.

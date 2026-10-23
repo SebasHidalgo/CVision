@@ -5,6 +5,7 @@ import {
   ElevenLabsError,
   ElevenLabsTimeoutError,
 } from "@elevenlabs/elevenlabs-js";
+import type { VoiceBalance } from "@/lib/elevenlabs/balance";
 import {
   CONVERSATION_ENDED_STATUSES,
   fromConversationApi,
@@ -18,11 +19,12 @@ import {
 import type { InterviewTierId } from "@/lib/plans";
 
 /**
- * The only module that talks to ElevenLabs at runtime. Four calls: issue a
+ * The only module that talks to ElevenLabs at runtime. Five calls: issue a
  * conversation token (session endpoint), verify a webhook signature
  * (post-call route), fetch a conversation by id (the reconcile fallback for
- * a webhook that never arrived) and delete one (when its analysis or account
- * is deleted). The agent itself is managed by scripts/elevenlabs.
+ * a webhook that never arrived), delete one (when its analysis or account
+ * is deleted) and read the workspace's balance (the health check before a
+ * start). The agent itself is managed by scripts/elevenlabs.
  */
 
 /** A single fast call; the route's budget is on top of this. */
@@ -153,6 +155,64 @@ export async function deleteConversation(conversationId: string): Promise<"delet
     if (error instanceof ElevenLabsError && error.statusCode === 404) return "not-found";
     throw toVoiceError(error);
   }
+}
+
+export type VoiceBalanceRead =
+  | { kind: "balance"; balance: VoiceBalance }
+  /** The key may not read the subscription; `permission` is the one the platform named. */
+  | { kind: "no-permission"; permission: string };
+
+/**
+ * The workspace's subscription, reduced to its balance: what the health
+ * check compares with the floor and the doctor prints. The endpoint needs
+ * the key's `user_read` permission; a key without it is reported as such
+ * rather than as an outage, so the caller can decide not to block on it.
+ */
+export async function readVoiceBalance(): Promise<VoiceBalanceRead> {
+  const { apiKey } = readConfig();
+  if (!apiKey) throw new VoiceMisconfiguredError("ELEVENLABS_API_KEY is not set");
+
+  const client = new ElevenLabsClient({
+    apiKey,
+    timeoutInSeconds: TOKEN_TIMEOUT_SECONDS,
+    maxRetries: 0,
+  });
+
+  try {
+    const subscription = await client.user.subscription.get();
+    const limit = Math.max(0, subscription.characterLimit);
+    const used = Math.max(0, subscription.characterCount);
+    return {
+      kind: "balance",
+      balance: {
+        tier: subscription.tier,
+        status: subscription.status,
+        creditsUsed: used,
+        creditsLimit: limit,
+        creditsRemaining: Math.max(0, limit - used),
+        extension: subscription.maxCreditLimitExtension ?? 0,
+        resetsAt: subscription.nextCharacterCountResetUnix ? new Date(subscription.nextCharacterCountResetUnix * 1000) : null,
+      },
+    };
+  } catch (error) {
+    const permission = missingPermission(error);
+    if (permission) return { kind: "no-permission", permission };
+    throw toVoiceError(error);
+  }
+}
+
+/**
+ * The permission a `missing_permissions` refusal names, or null for any
+ * other failure. The platform answers 401 with `detail.status` set and the
+ * permission in the message ("missing the permission user_read to ...").
+ */
+export function missingPermission(error: unknown): string | null {
+  if (!(error instanceof ElevenLabsError)) return null;
+  if (error.statusCode !== 401 && error.statusCode !== 403) return null;
+  const detail = (error.body as { detail?: { status?: unknown; message?: unknown } } | undefined)?.detail;
+  if (detail?.status !== "missing_permissions") return null;
+  const message = typeof detail.message === "string" ? detail.message : "";
+  return /permission\s+(\S+)\s+to/.exec(message)?.[1] ?? "(unnamed)";
 }
 
 /** Thrown when a webhook delivery fails verification. Never reaches a user. */

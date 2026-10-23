@@ -113,14 +113,21 @@ async function main() {
   reportDifferences(agents.FULL, agents.TRIAL);
 }
 
-/** The workspace webhook id to attach, creating it when asked to. */
+/**
+ * The workspace webhook id to attach, creating it when asked to. Webhooks
+ * are workspace objects that each agent selects by id, so a workspace may
+ * hold one per environment: the one for this URL is found by URL first,
+ * and only then by name (the first sync, before any URL was recorded).
+ */
 async function ensureWebhook(
   client: ElevenLabsClient,
   webhookUrl: string | null,
   replace: boolean,
 ): Promise<string | null> {
   const { webhooks } = await client.webhooks.list({ includeUsages: true });
-  const existing = webhooks.find((webhook) => webhook.name === INTERVIEW_WEBHOOK_NAME);
+  const existing =
+    (webhookUrl ? webhooks.find((webhook) => webhook.webhookUrl === webhookUrl) : undefined) ??
+    webhooks.find((webhook) => webhook.name === INTERVIEW_WEBHOOK_NAME);
 
   if (existing) {
     const state = existing.isDisabled
