@@ -8,7 +8,7 @@ import {
 } from "@/lib/database/billing";
 import { grantInterviewCredits } from "@/lib/database/credits";
 import { revokeUnusedInterviewCredits } from "@/lib/database/usage";
-import { userExists } from "@/lib/database/user";
+import { userExists } from "@/lib/database/userById";
 import { INTERVIEW_PACK_CREDITS } from "@/lib/plans";
 import { applyBillingEvent } from "./applyEvent";
 import { CATALOG } from "./catalog";
@@ -25,7 +25,7 @@ vi.mock("@/lib/database/credits", () => ({ grantInterviewCredits: vi.fn(async ()
 vi.mock("@/lib/database/usage", () => ({
   revokeUnusedInterviewCredits: vi.fn(async () => ({ revoked: 3, outcome: "revoked" })),
 }));
-vi.mock("@/lib/database/user", () => ({ userExists: vi.fn(async () => true) }));
+vi.mock("@/lib/database/userById", () => ({ userExists: vi.fn(async () => true) }));
 
 const NOW = new Date("2026-10-20T12:00:00Z");
 const base = { eventId: "evt_01", type: "x", occurredAt: NOW };

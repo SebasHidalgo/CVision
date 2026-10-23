@@ -4,7 +4,7 @@ import {
   deleteAnalysisRows,
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
-import { deleteUserRows } from "@/lib/database/user";
+import { deleteUserRows } from "@/lib/database/userById";
 import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/elevenlabs/client";
 import { AnalysisBusyError, VoiceUnavailableError } from "@/lib/error/errors";
@@ -16,7 +16,7 @@ vi.mock("@/lib/database/deletion", () => ({
   listAnalysisIdsOfUser: vi.fn(),
   collectDetachedConversationIds: vi.fn(async () => []),
 }));
-vi.mock("@/lib/database/user", () => ({ deleteUserRows: vi.fn(async () => true) }));
+vi.mock("@/lib/database/userById", () => ({ deleteUserRows: vi.fn(async () => true) }));
 vi.mock("@/lib/billing", () => ({ cancelSubscriptionNow: vi.fn(async () => ({ canceled: [], failed: [] })) }));
 vi.mock("@/lib/elevenlabs/client", () => ({ deleteConversation: vi.fn(async () => "deleted") }));
 vi.mock("@/lib/supabase/server", () => ({

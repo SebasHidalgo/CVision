@@ -9,7 +9,7 @@ import {
 } from "@/lib/database/billing";
 import { grantInterviewCredits } from "@/lib/database/credits";
 import { revokeUnusedInterviewCredits } from "@/lib/database/usage";
-import { userExists } from "@/lib/database/user";
+import { userExists } from "@/lib/database/userById";
 import { CATALOG } from "./catalog";
 import type { ParsedBillingEvent } from "./types";
 

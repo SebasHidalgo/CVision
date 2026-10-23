@@ -5,7 +5,7 @@ import {
   deleteAnalysisRows,
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
-import { deleteUserRows } from "@/lib/database/user";
+import { deleteUserRows } from "@/lib/database/userById";
 import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/elevenlabs/client";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";

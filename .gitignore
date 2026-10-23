@@ -55,3 +55,6 @@ CLAUDE.md
 # Claude Code: local tool permissions and attribution settings, never shared
 /.claude/settings.json
 /.claude/settings.local.json
+
+# browser suite: screenshots, traces and reports of local runs
+/e2e/.artifacts/

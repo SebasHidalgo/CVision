@@ -1,6 +1,6 @@
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import type { NextRequest } from "next/server";
-import { upsertUserById } from "@/lib/database/user";
+import { upsertUserById } from "@/lib/database/userById";
 import { deleteAccountCascade } from "@/lib/deletion";
 
 const LOG = "[CVision][webhook] clerk:";

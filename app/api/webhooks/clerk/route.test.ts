@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signClerkWebhook } from "@/lib/clerk/webhookSignature";
-import { upsertUserById } from "@/lib/database/user";
+import { upsertUserById } from "@/lib/database/userById";
 import { deleteAccountCascade } from "@/lib/deletion";
 import { POST } from "./route";
 
-vi.mock("@/lib/database/user", () => ({ upsertUserById: vi.fn(async () => {}) }));
+vi.mock("@/lib/database/userById", () => ({ upsertUserById: vi.fn(async () => {}) }));
 vi.mock("@/lib/deletion", () => ({ deleteAccountCascade: vi.fn() }));
 
 const deleted = (userRowRemoved: boolean) => ({

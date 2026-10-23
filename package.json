@@ -20,7 +20,10 @@
     "billing:reconcile": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/reconcile.ts",
     "billing:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/doctor.ts",
     "storage:bucket": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/bucket-private.ts",
-    "storage:gc": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/gc.ts"
+    "storage:gc": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/gc.ts",
+    "e2e": "playwright test --project chromium",
+    "e2e:voice": "playwright test --project voice",
+    "e2e:cleanup": "tsx --conditions=react-server --env-file-if-exists=.env e2e/cleanup.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.69",
@@ -54,6 +57,8 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.50",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
