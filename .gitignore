@@ -52,3 +52,6 @@ CLAUDE.md
 # eval harness: model output, and local fixtures that may hold real CVs
 /scripts/eval/runs/
 /scripts/eval/fixtures.local/
+# Claude Code: local tool permissions and attribution settings, never shared
+/.claude/settings.json
+/.claude/settings.local.json
