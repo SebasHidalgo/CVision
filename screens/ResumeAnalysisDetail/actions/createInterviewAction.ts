@@ -42,15 +42,13 @@ export async function createInterviewAction(
     const live = liveAttempt(resume.interviews);
     if (live) return { ok: true, data: { interviewId: live.id } };
 
-    // Pro: the period's interviews, then the pack credits. Free: the pack
-    // credits it holds, else its one trial. The ledger decides for real on
-    // the first token; this only spares a row nobody could start.
-    const usage = await usageSummary(userId);
-    const hasUnit = usage.credits.balance > 0 || (usage.plan === "FREE" ? usage.trial.available : usage.interviews.left > 0);
-    if (!hasUnit) {
+    // The same decision the first token will make (lib/interviewEntitlement),
+    // on the same facts: this only spares a row nobody could start.
+    const { entitlement } = await usageSummary(userId);
+    if (entitlement.source === "none") {
       throw new InterviewQuotaExceededError({
-        plan: usage.plan,
-        ...(usage.plan === "PRO" ? { resetsAt: usage.resetsAt.toISOString() } : {}),
+        plan: entitlement.plan,
+        ...(entitlement.resetsAt ? { resetsAt: entitlement.resetsAt } : {}),
       });
     }
 

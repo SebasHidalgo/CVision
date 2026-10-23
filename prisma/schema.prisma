@@ -223,6 +223,15 @@ model ResumeFeedback {
 ///   FAILED           attempts exhausted without a scoreable transcript, or
 ///                    feedback generation gave up (see `failureReason`)
 ///   EXPIRED          reserved for a never-started interview past its window
+/// What paid for an interview's unit: one of a Pro's period interviews, a pack
+/// credit, or the lifetime trial. Set with the first token, beside the usage
+/// event; what a refund gives back and what support reads.
+enum InterviewPaidBy {
+  PERIOD
+  CREDIT
+  TRIAL
+}
+
 enum InterviewStatus {
   SCHEDULED
   IN_PROGRESS
@@ -284,6 +293,9 @@ model Interview {
   /// never on a reconnect. Null until then; refunded if the interview ends
   /// without a candidate turn.
   usageEventId    String?   @unique
+  /// Which source paid for the unit in `usageEventId`; kept after a refund so
+  /// support can tell what went back. Overwritten by the next reservation.
+  paidBy          InterviewPaidBy?
   /// Set with the first token: which agent, and so which duration, this
   /// interview runs on. Reconnects reuse it; the feedback is judged against it.
   tier            InterviewTier?

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma, type InterviewStatus } from "@prisma/client";
+import { Prisma, type InterviewStatus, type InterviewPaidBy } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
@@ -179,10 +179,11 @@ export type ReserveInterviewSessionData = {
   issuedAt: Date;
   maxStarts: number;
   /**
-   * The usage unit and the agent tier, on the first token only. A reconnect
-   * passes nothing here and keeps what the first token set.
+   * The usage unit, the agent tier and what paid for the unit, on the first
+   * token only. A reconnect passes nothing here and keeps what the first
+   * token set.
    */
-  reservation?: { usageEventId: string; tier: InterviewTierId };
+  reservation?: { usageEventId: string; tier: InterviewTierId; paidBy: InterviewPaidBy };
 };
 
 /**
@@ -210,7 +211,7 @@ export async function reserveInterviewSession(
       },
       data: {
         status: "IN_PROGRESS",
-        ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier } : {}),
+        ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier, paidBy: data.reservation.paidBy } : {}),
         issuedContext: data.issuedContext,
         conversationId: data.conversationId,
         issuedConversationIds: { push: data.conversationId },

@@ -18,6 +18,7 @@ import {
   NotFoundError,
 } from "@/lib/error/errors";
 import { routeOk, toRouteError } from "@/lib/error/toRouteResponse";
+import { PAID_BY_SOURCE, sourceOfPaidBy, type EntitlementSource } from "@/lib/interviewEntitlement";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
 import type { InterviewSessionResponse } from "@/types/interview";
@@ -78,12 +79,14 @@ export async function POST(
       throw new InterviewContextMissingError();
     }
 
-    // The first token takes the plan's unit and fixes the tier; a reconnect
-    // reuses the tier the first token set.
+    // The first token takes the unit the entitlement names and fixes the
+    // tier and the source; a reconnect reuses what the first token set.
     let tier = interview.tier ?? "FULL";
+    let source: Exclude<EntitlementSource, "none"> = sourceOfPaidBy(interview.paidBy) ?? (tier === "TRIAL" ? "trial" : "period");
     if (!interview.usageEventId) {
       reservation = await reserveInterview(userId, interview.id);
       tier = reservation.tier;
+      source = reservation.source;
     }
     const { seconds: maxDurationSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
 
@@ -111,7 +114,7 @@ export async function POST(
       startedAt: interview.startedAt ?? issuedAt,
       issuedAt,
       maxStarts: MAX_INTERVIEW_STARTS,
-      ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier } } : {}),
+      ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier, paidBy: PAID_BY_SOURCE[reservation.source] } } : {}),
     });
     if (!reserved) {
       throw new InterviewNotStartableError("Interview changed while issuing the session");
@@ -129,6 +132,7 @@ export async function POST(
       language,
       expiresAt: session.expiresAt.toISOString(),
       maxDurationSeconds,
+      source,
     };
     return routeOk(body);
   } catch (error) {

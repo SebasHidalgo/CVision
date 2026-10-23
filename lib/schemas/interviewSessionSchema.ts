@@ -17,6 +17,8 @@ export const interviewSessionResponseSchema = z.object({
   language: z.enum(INTERVIEW_LANGUAGES),
   expiresAt: z.string(),
   maxDurationSeconds: z.number().int().positive(),
+  /** What paid for this interview's unit: the room shows it, and says so if it differs from what the page promised. */
+  source: z.enum(["period", "credit", "trial"]),
 });
 
 export type InterviewSessionResponse = z.infer<typeof interviewSessionResponseSchema>;

@@ -9,7 +9,8 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
-import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, type InterviewQuotaView } from "@/lib/plans";
+import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
+import { INTERVIEW_PACK_CREDITS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -24,14 +25,16 @@ type InterviewCtaProps = {
   children?: React.ReactNode;
 };
 
-const TRIAL_MINUTES = Math.round(INTERVIEW_TIERS.TRIAL.seconds / 60);
-const FULL_MINUTES = Math.round(INTERVIEW_TIERS.FULL.seconds / 60);
+const TRIAL_MINUTES = Math.round(AGENT_SECONDS.trial / 60);
+const FULL_MINUTES = Math.round(AGENT_SECONDS.main / 60);
 
 /**
- * What the control offers, decided from the plan and the ledger: the live
- * attempt when there is one; otherwise the free trial, a Pro interview, or
- * the reason there is none. Pro's number of interviews is announced; nothing
- * here ever says how many analyses Pro gets.
+ * What the control offers, read off the entitlement (the one decision of
+ * which interview the next start gets, lib/interviewEntitlement.ts): the
+ * live attempt when there is one; otherwise the free trial, a Pro
+ * interview, a Free account's credit, or the reason there is none. Pro's
+ * number of interviews is announced; nothing here ever says how many
+ * analyses Pro gets.
  */
 export type InterviewOffer =
   | { kind: "live" }
@@ -45,13 +48,20 @@ export type InterviewOffer =
 
 export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
   if (hasLive) return { kind: "live" };
-  if (quota.plan === "PRO") {
-    return quota.left > 0 || quota.credits > 0
-      ? { kind: "pro", left: quota.left, limit: quota.limit, credits: quota.credits }
-      : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
+  const { entitlement } = quota;
+  const { remaining } = entitlement;
+  switch (entitlement.source) {
+    case "period":
+      return { kind: "pro", left: remaining.period, limit: remaining.periodLimit, credits: remaining.credits };
+    case "credit":
+      return entitlement.plan === "PRO"
+        ? { kind: "pro", left: remaining.period, limit: remaining.periodLimit, credits: remaining.credits }
+        : { kind: "credits", credits: remaining.credits };
+    case "trial":
+      return { kind: "trial" };
+    case "none":
+      return entitlement.plan === "PRO" && entitlement.resetsAt ? { kind: "pro-exhausted", resetsAt: entitlement.resetsAt } : { kind: "needs-pro" };
   }
-  if (quota.credits > 0) return { kind: "credits", credits: quota.credits };
-  return quota.trialAvailable ? { kind: "trial" } : { kind: "needs-pro" };
 }
 
 /** "3 credits left": what a Free account with pack credits sees under the button. */

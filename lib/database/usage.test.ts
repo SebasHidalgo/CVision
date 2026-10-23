@@ -14,6 +14,7 @@ import {
   refundUsage,
   reserveInterview,
   reserveUsage,
+  resolveInterviewEntitlement,
   revokeUnusedInterviewCredits,
   usageSummary,
 } from "./usage";
@@ -31,11 +32,13 @@ vi.mock("@/lib/billing/reconcile", () => ({ reconcileIfStale: vi.fn(async () => 
 
 const tx = {
   usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() },
+  interview: { count: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
   default: {
     $transaction: vi.fn(),
     usageEvent: { count: vi.fn(), updateMany: vi.fn(), create: vi.fn(), groupBy: vi.fn() },
+    interview: { count: vi.fn() },
   },
 }));
 
@@ -74,6 +77,21 @@ function setStanding(standing: PlanStanding) {
   vi.mocked(resolvePlanStandingIn).mockResolvedValue(standing);
 }
 
+type Facts = { periodUsed?: number; trials?: number; fullEver?: number; credits?: number; creditsUsed?: number; pending?: number };
+
+/**
+ * The entitlement's facts, in the order the one wave reads them inside a
+ * transaction: the period's interviews, the credit ledger, the trials, the
+ * full interviews ever, the credits held by open interviews.
+ */
+function factsIn(db: typeof tx, { periodUsed = 0, trials = 0, fullEver = 0, credits = 0, creditsUsed = 0, pending = 0 }: Facts) {
+  db.usageEvent.count.mockResolvedValueOnce(periodUsed).mockResolvedValueOnce(trials).mockResolvedValueOnce(fullEver);
+  db.usageEvent.groupBy.mockResolvedValueOnce(ledger(credits, creditsUsed));
+  db.interview.count.mockResolvedValueOnce(pending);
+}
+
+const pool = { usageEvent: prisma.usageEvent as unknown as typeof tx.usageEvent, interview: prisma.interview as unknown as typeof tx.interview };
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
@@ -83,8 +101,10 @@ beforeEach(() => {
   tx.usageEvent.create.mockResolvedValue({ id: "evt_1" });
   tx.usageEvent.findUnique.mockResolvedValue(null);
   tx.usageEvent.groupBy.mockResolvedValue([]);
+  tx.interview.count.mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([] as never);
+  vi.mocked(prisma.interview.count).mockResolvedValue(0);
   vi.mocked(transactionApplied).mockResolvedValue(false);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -151,134 +171,113 @@ describe("reserveUsage", () => {
   });
 });
 
-describe("reserveInterview: the Free trial", () => {
-  it("gives an account that never had voice its one trial on the short agent", async () => {
-    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300 });
+describe("reserveInterview: the entitlement decided inside the transaction", () => {
+  it("reads the facts in one wave on the transaction and takes the unit the entitlement names: a Free account's trial, on the short agent", async () => {
+    factsIn(tx, {});
 
+    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300, source: "trial" });
+
+    expect(resolvePlanStandingIn).toHaveBeenCalledWith(tx, "user_1", NOW);
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: MONTH } });
     expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { userId: "user_1", kind: "INTERVIEW_TRIAL", refundedAt: null } });
-    expect(tx.usageEvent.count).toHaveBeenCalledWith({
-      where: { userId: "user_1", kind: { in: ["INTERVIEW", "INTERVIEW_CREDIT"] }, refundedAt: null },
-    });
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { userId: "user_1", kind: { in: ["INTERVIEW", "INTERVIEW_CREDIT"] }, refundedAt: null } });
+    expect(tx.usageEvent.groupBy).toHaveBeenCalledTimes(1);
+    expect(tx.interview.count).toHaveBeenCalledWith({ where: { userId: "user_1", status: "IN_PROGRESS", paidBy: "CREDIT", usageEventId: { not: null } } });
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
       data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1", createdAt: NOW },
       select: { id: true },
     });
   });
 
-  it("refuses a second trial, with no reset date", async () => {
-    tx.usageEvent.count.mockResolvedValueOnce(1);
+  it("refuses a second trial, with no reset date, and gives no trial to an account that had voice", async () => {
+    factsIn(tx, { trials: 1 });
     const error = await reserveInterview("user_1", "int_2", NOW).catch((e) => e);
     expect(error).toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
     expect(error.meta.resetsAt).toBeUndefined();
-    expect(tx.usageEvent.create).not.toHaveBeenCalled();
-  });
 
-  it("gives no trial to an account that had voice: one that subscribed once, or one that ran a full interview while comped", async () => {
-    setStanding(free(true));
-    await expect(reserveInterview("user_1", "int_1", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
+    setStanding(free(true)); // subscribed once
+    factsIn(tx, {});
+    await expect(reserveInterview("user_1", "int_3", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
 
     setStanding(free(false));
-    tx.usageEvent.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1); // no trial yet, one full interview ever
-    await expect(reserveInterview("user_1", "int_1", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED" });
+    factsIn(tx, { fullEver: 1 }); // a full interview while comped
+    await expect(reserveInterview("user_1", "int_4", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED" });
     expect(tx.usageEvent.create).not.toHaveBeenCalled();
   });
 
   it("spends a pack credit on the full agent for a Free account before any trial: paid credits are usable on any plan", async () => {
-    // An account whose Pro ended, holding credits: the credit goes first, the trial is not even looked at.
-    setStanding(free(true));
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(4));
-
-    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_CREDIT", tier: "FULL", seconds: 720 });
-    expect(tx.usageEvent.count).not.toHaveBeenCalled();
+    setStanding(free(true)); // Pro ended, credits kept
+    factsIn(tx, { credits: 4 });
+    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_CREDIT", tier: "FULL", seconds: 720, source: "credit" });
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
       data: { userId: "user_1", kind: "INTERVIEW_CREDIT", refId: "int_1", createdAt: NOW },
       select: { id: true },
     });
 
-    // A never-subscribed Free account with credits (a gift, a refunded consumption) spends them too, and keeps its trial for later.
+    // A never-subscribed Free account with a credit spends it too, and keeps its trial for later.
     setStanding(free(false));
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(1));
-    expect((await reserveInterview("user_1", "int_2", NOW)).kind).toBe("INTERVIEW_CREDIT");
-    expect(tx.usageEvent.count).not.toHaveBeenCalled();
-
-    // With the credits gone, the trial is what is left, if the account never had voice.
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(1, 1));
-    tx.usageEvent.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
-    expect((await reserveInterview("user_1", "int_3", NOW)).kind).toBe("INTERVIEW_TRIAL");
+    factsIn(tx, { credits: 1 });
+    expect((await reserveInterview("user_1", "int_2", NOW)).source).toBe("credit");
+    factsIn(tx, { credits: 1, creditsUsed: 1 });
+    expect((await reserveInterview("user_1", "int_3", NOW)).source).toBe("trial");
   });
 
   it("a grant made at the old pack size still counts for what it gave: the balance sums the units stored on each grant", async () => {
     setStanding(free(true));
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(5 + 4, 8)); // an old pack of 5, a new one of 4, eight used
+    factsIn(tx, { credits: 5 + 4, creditsUsed: 8 }); // an old pack of 5, a new one of 4, eight used
     expect((await reserveInterview("user_1", "int_9", NOW)).kind).toBe("INTERVIEW_CREDIT");
-
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(5 + 4, 9));
-    tx.usageEvent.count.mockResolvedValueOnce(0); // never a trial; it had voice anyway (it subscribed once), so no second count
+    factsIn(tx, { credits: 5 + 4, creditsUsed: 9 });
     await expect(reserveInterview("user_1", "int_10", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
-    expect(tx.usageEvent.count).toHaveBeenCalledTimes(1);
   });
-});
 
-describe("reserveInterview: Pro", () => {
-  it("takes one of the period's interviews on the full agent; a comped Pro's period is the month", async () => {
+  it("a Pro takes one of the period's interviews on the full agent; a comped Pro's period is the month", async () => {
     setStanding(comped);
-    tx.usageEvent.count.mockResolvedValueOnce(2);
-
-    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW", tier: "FULL", seconds: 720 });
-    expect(tx.usageEvent.count).toHaveBeenCalledWith({
-      where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: MONTH },
-    });
+    factsIn(tx, { periodUsed: 2 });
+    expect(await reserveInterview("user_1", "int_1", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW", tier: "FULL", seconds: 720, source: "period" });
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: MONTH } });
   });
 
   it("counts a subscribed Pro's interviews over the billing period, and rolls over with it", async () => {
     setStanding(subscribed());
-    tx.usageEvent.count.mockResolvedValueOnce(3);
+    factsIn(tx, { periodUsed: 3 });
     await reserveInterview("user_1", "int_1", NOW);
-    expect(tx.usageEvent.count).toHaveBeenCalledWith({
-      where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: BILLING_PERIOD },
-    });
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: BILLING_PERIOD } });
 
     // The renewal moved the period: the four used last period no longer count.
     const renewed = { ...SUBSCRIPTION, currentPeriodStart: new Date("2026-11-05T00:00:00Z"), currentPeriodEnd: new Date("2026-12-05T00:00:00Z") };
     setStanding(subscribed(renewed));
     const later = new Date("2026-11-10T00:00:00Z");
-    tx.usageEvent.count.mockResolvedValueOnce(0);
+    factsIn(tx, { periodUsed: 0 });
     expect((await reserveInterview("user_1", "int_2", later)).kind).toBe("INTERVIEW");
-    expect(tx.usageEvent.count).toHaveBeenLastCalledWith({
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({
       where: { userId: "user_1", kind: "INTERVIEW", refundedAt: null, createdAt: { gte: renewed.currentPeriodStart, lt: renewed.currentPeriodEnd } },
     });
   });
 
-  it("spends a pack credit once the period's interviews are used, on the full agent", async () => {
+  it("a Pro spends a pack credit once the period's interviews are used, and is refused with the period's end when both are gone", async () => {
     setStanding(subscribed());
-    tx.usageEvent.count.mockResolvedValueOnce(PLANS.PRO.interviewsPerMonth); // period used up
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(5, 1)); // one credit spent before
+    factsIn(tx, { periodUsed: PLANS.PRO.interviewsPerMonth, credits: 5, creditsUsed: 1 });
+    expect(await reserveInterview("user_1", "int_5", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_CREDIT", tier: "FULL", seconds: 720, source: "credit" });
 
-    expect(await reserveInterview("user_1", "int_5", NOW)).toEqual({ eventId: "evt_1", kind: "INTERVIEW_CREDIT", tier: "FULL", seconds: 720 });
-    expect(tx.usageEvent.groupBy).toHaveBeenCalledWith({
-      by: ["kind"],
-      where: {
-        userId: "user_1",
-        OR: [{ kind: { in: ["INTERVIEW_CREDIT_GRANT", "INTERVIEW_CREDIT_REVOKE"] } }, { kind: "INTERVIEW_CREDIT", refundedAt: null }],
-      },
-      _sum: { units: true },
-    });
-    expect(tx.usageEvent.create).toHaveBeenCalledWith({
-      data: { userId: "user_1", kind: "INTERVIEW_CREDIT", refId: "int_5", createdAt: NOW },
-      select: { id: true },
-    });
-  });
-
-  it("refuses with the period's end when both the interviews and the credits are gone", async () => {
-    setStanding(subscribed());
-    tx.usageEvent.count.mockResolvedValueOnce(PLANS.PRO.interviewsPerMonth);
-    tx.usageEvent.groupBy.mockResolvedValueOnce(ledger(5, 5));
-
+    factsIn(tx, { periodUsed: PLANS.PRO.interviewsPerMonth, credits: 5, creditsUsed: 5 });
     await expect(reserveInterview("user_1", "int_6", NOW)).rejects.toMatchObject({
       code: "INTERVIEW_QUOTA_EXCEEDED",
       meta: { plan: "PRO", resetsAt: "2026-11-05T00:00:00.000Z" },
     });
-    expect(tx.usageEvent.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveInterviewEntitlement for a page", () => {
+  it("is the same decision on the same facts, read on the pool", async () => {
+    setStanding(free(true));
+    factsIn(pool, { credits: 2, pending: 1 });
+    expect(await resolveInterviewEntitlement("user_1", NOW)).toMatchObject({
+      source: "credit",
+      agent: "main",
+      maxDurationSeconds: 720,
+      remaining: { credits: 2, creditsPending: 1, trial: 0 },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -337,12 +336,14 @@ describe("refundUsage", () => {
 });
 
 describe("usageSummary and its views", () => {
-  /** The summary's counts, in order: analyses, interviews, trials, full interviews ever. The credits are the one groupBy. */
-  const counts = (analyses: number, interviews: number, trials: number, fullEver: number) =>
-    vi.mocked(prisma.usageEvent.count).mockResolvedValueOnce(analyses).mockResolvedValueOnce(interviews).mockResolvedValueOnce(trials).mockResolvedValueOnce(fullEver);
+  /** The summary's reads: the entitlement's facts, then the analyses count. */
+  const summaryFacts = (facts: Facts & { analyses?: number }) => {
+    factsIn(pool, facts);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValueOnce(facts.analyses ?? 0);
+  };
 
-  it("reports what is left per quota, the credits, the trial's state and the period, after sweeping abandoned interviews", async () => {
-    counts(2, 0, 0, 0);
+  it("reports what is left per quota, the credits, the trial, the entitlement and the period, after sweeping abandoned interviews", async () => {
+    summaryFacts({ analyses: 2 });
 
     const summary = await usageSummary("user_1", NOW);
 
@@ -351,13 +352,14 @@ describe("usageSummary and its views", () => {
       vi.mocked(prisma.usageEvent.count).mock.invocationCallOrder[0],
     );
 
-    expect(summary).toEqual({
+    expect(summary).toMatchObject({
       plan: "FREE",
       source: "free",
       analyses: { used: 2, limit: 3, left: 1, announce: true },
       interviews: { used: 0, limit: 0, left: 0 },
-      credits: { balance: 0 },
+      credits: { balance: 0, pending: 0 },
       trial: { available: true, used: false },
+      entitlement: { source: "trial", agent: "trial", maxDurationSeconds: 300 },
       period: { start: MONTH.gte, end: MONTH.lt },
       resetsAt: MONTH.lt,
       subscription: null,
@@ -365,57 +367,49 @@ describe("usageSummary and its views", () => {
       hasBillingAccount: false,
     });
     expect(analysisQuotaView(summary)).toEqual({ plan: "FREE", left: 1, limit: 3, announce: true, resetsAt: "2026-11-01T00:00:00.000Z" });
-    expect(interviewQuotaView(summary)).toEqual({
-      plan: "FREE",
-      trialAvailable: true,
-      left: 0,
-      limit: 0,
-      credits: 0,
-      resetsAt: "2026-11-01T00:00:00.000Z",
-    });
+    expect(interviewQuotaView(summary)).toMatchObject({ plan: "FREE", trialAvailable: true, left: 0, limit: 0, credits: 0, entitlement: { source: "trial" }, resetsAt: "2026-11-01T00:00:00.000Z" });
   });
 
   it("a subscribed Pro's counters run over the billing period, with the credits, and nothing announces analyses", async () => {
     setStanding(subscribed());
     vi.mocked(findBillingCustomer).mockResolvedValueOnce({ providerCustomerId: "ctm_01" });
-    counts(10, 1, 0, 1);
-    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce(ledger(5, 1));
+    summaryFacts({ analyses: 10, periodUsed: 1, fullEver: 1, credits: 5, creditsUsed: 1 });
 
     const summary = await usageSummary("user_1", NOW);
 
     expect(summary.analyses).toEqual({ used: 10, limit: 50, left: 40, announce: false });
     expect(summary.interviews).toEqual({ used: 1, limit: 4, left: 3 });
-    expect(summary.credits).toEqual({ balance: 4 });
+    expect(summary.credits).toEqual({ balance: 4, pending: 0 });
     expect(summary.trial).toEqual({ available: false, used: false });
+    expect(summary.entitlement).toMatchObject({ source: "period", remaining: { period: 3, credits: 4 }, resetsAt: "2026-11-05T00:00:00.000Z" });
     expect(summary.period).toEqual({ start: SUBSCRIPTION.currentPeriodStart, end: SUBSCRIPTION.currentPeriodEnd });
     expect(summary.resetsAt).toEqual(SUBSCRIPTION.currentPeriodEnd);
     expect(summary.subscription).toBe(SUBSCRIPTION);
     expect(summary.hasBillingAccount).toBe(true);
-    for (const call of vi.mocked(prisma.usageEvent.count).mock.calls.slice(0, 2)) {
-      expect(call[0]).toMatchObject({ where: { refundedAt: null, createdAt: BILLING_PERIOD } });
-    }
+    expect(vi.mocked(prisma.usageEvent.count).mock.calls[0][0]).toMatchObject({ where: { kind: "INTERVIEW", refundedAt: null, createdAt: BILLING_PERIOD } });
+    expect(vi.mocked(prisma.usageEvent.count).mock.calls[3][0]).toMatchObject({ where: { kind: "ANALYSIS", refundedAt: null, createdAt: BILLING_PERIOD } });
     expect(interviewQuotaView(summary)).toMatchObject({ plan: "PRO", left: 3, limit: 4, credits: 4, resetsAt: "2026-11-05T00:00:00.000Z" });
     expect(interviewQuotaView(summary)).not.toHaveProperty("creditsUsable");
     expect(requireUserId).not.toHaveBeenCalled();
   });
 
-  it("after Pro ends the account is Free with no new trial and its credits kept, still usable", async () => {
+  it("after Pro ends the account is Free with no new trial, its credits kept and usable, and one pending while an interview holds it", async () => {
     setStanding(free(true));
-    counts(0, 0, 0, 2);
-    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce(ledger(5, 1));
+    summaryFacts({ fullEver: 2, credits: 5, creditsUsed: 1, pending: 1 });
 
     const summary = await usageSummary("user_1", NOW);
 
     expect(summary.plan).toBe("FREE");
     expect(summary.trial).toEqual({ available: false, used: false });
-    expect(summary.credits).toEqual({ balance: 4 });
+    expect(summary.credits).toEqual({ balance: 4, pending: 1 });
+    expect(summary.entitlement).toMatchObject({ source: "credit", agent: "main", maxDurationSeconds: 720, remaining: { credits: 4, creditsPending: 1 } });
     expect(summary.everSubscribed).toBe(true);
   });
 
   it("runs the lazy reconcile on the standing and re-reads the plan when it changed something", async () => {
     setStanding(subscribed());
     vi.mocked(reconcileIfStale).mockResolvedValueOnce(true);
-    counts(0, 0, 0, 0);
+    summaryFacts({});
 
     await usageSummary("user_1", NOW);
 

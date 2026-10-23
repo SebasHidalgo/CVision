@@ -140,12 +140,12 @@ describe("reserveInterviewSession", () => {
   it("on the first token, sets the unit and the tier only on a row that has none", async () => {
     vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
 
-    await reserveInterviewSession({ ...base, reservation: { usageEventId: "evt_1", tier: "TRIAL" } });
+    await reserveInterviewSession({ ...base, reservation: { usageEventId: "evt_1", tier: "TRIAL", paidBy: "TRIAL" } });
 
     expect(prisma.interview.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ usageEventId: null }),
-        data: expect.objectContaining({ usageEventId: "evt_1", tier: "TRIAL" }),
+        data: expect.objectContaining({ usageEventId: "evt_1", tier: "TRIAL", paidBy: "TRIAL" }),
       }),
     );
   });

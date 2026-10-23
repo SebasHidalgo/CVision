@@ -1,4 +1,5 @@
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import type { InterviewEntitlement } from "@/lib/interviewEntitlement";
 
 /**
  * The product's limits, in one place. Every quota and rate-limit number the
@@ -29,8 +30,6 @@ export type PlanLimits = {
   interviewsPerMonth: number;
   /** Trial interviews in the account's lifetime, for an account that never had voice. */
   trialInterviews: number;
-  /** Which agent an interview of this plan runs on. */
-  interviewTier: InterviewTierId;
   /**
    * How many of the most recent analyses the plan shows; null for all.
    * Older ones are hidden, never deleted: the lists leave them out and
@@ -45,7 +44,6 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     announceAnalyses: true,
     interviewsPerMonth: 0,
     trialInterviews: 1,
-    interviewTier: "TRIAL",
     historyLimit: 3,
   },
   PRO: {
@@ -53,7 +51,6 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     announceAnalyses: false,
     interviewsPerMonth: 4,
     trialInterviews: 0,
-    interviewTier: "FULL",
     historyLimit: null,
   },
 };
@@ -128,6 +125,8 @@ export type InterviewQuotaView = {
   limit: number;
   /** Pack credits held: each one a full interview, on any plan. */
   credits: number;
+  /** What the next start would get: the source, the agent and its length, decided once (lib/interviewEntitlement.ts). */
+  entitlement: InterviewEntitlement;
   /** ISO date of the next reset. */
   resetsAt: string;
 };

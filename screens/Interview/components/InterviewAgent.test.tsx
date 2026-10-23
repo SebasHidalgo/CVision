@@ -76,6 +76,7 @@ const SESSION = {
   language: "es" as const,
   expiresAt: "2026-10-12T10:15:00.000Z",
   maxDurationSeconds: 720,
+  source: "period" as const,
 };
 
 const props: InterviewAgentProps = {
@@ -88,6 +89,7 @@ const props: InterviewAgentProps = {
   startCount: 0,
   maxStarts: 3,
   maxDurationSeconds: 720,
+  source: "period",
 };
 
 const getUserMedia = vi.fn();
@@ -154,17 +156,20 @@ describe("InterviewAgent: before the call", () => {
     expect(screen.getByText("Northwind")).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
+    expect(screen.getByText("Uses one of this period's interviews.")).toBeTruthy();
     expect(screen.getByText(/Attempt 2$/)).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("labels the attempt from the analysis's numbering, never from the start counter, and shows the tier's length", () => {
-    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} />);
+  it("labels the attempt from the analysis's numbering, never from the start counter, and shows the entitlement's length and source", () => {
+    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} source="trial" />);
 
     expect(screen.getByText(/Attempt 1$/)).toBeTruthy();
     expect(screen.getByText("Up to 5 minutes")).toBeTruthy();
+    expect(screen.getByText("Your free trial, on us.")).toBeTruthy();
+    expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByText(/starts? left/)).toBeNull();
     // The old cell that showed the start counter as "3 of 3" is gone.
     expect(screen.queryByText("3 of 3")).toBeNull();
@@ -314,6 +319,30 @@ describe("InterviewAgent: during the call", () => {
 
     // Nothing in the transcript was posted anywhere: the one request was the session.
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the session's length after Start and says so when it differs from what the page promised, never jumping silently", async () => {
+    // The page promised a credit's twelve minutes; a credit spent elsewhere left the trial's five.
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300, source: "trial" } });
+    render(<InterviewAgent {...props} maxDurationSeconds={720} source="credit" />);
+    expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
+    expect(screen.getByText("Uses one credit.")).toBeTruthy();
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    expect(screen.getByRole("note").textContent).toMatch(/This call runs 5 minutes, not 12/);
+    expect(screen.getByLabelText("Time left").textContent).toBe("5:00");
+  });
+
+  it("says nothing extra when the session confirms the page's length", async () => {
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 720, source: "period" } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
   it("counts down from the session's limit, warning at one minute and again in the last ten seconds, in the session's language", async () => {

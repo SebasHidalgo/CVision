@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { decideEntitlement } from "@/lib/interviewEntitlement";
 import type { InterviewQuotaView } from "@/lib/plans";
 import type { InterviewAttempt } from "@/types/resume";
 import InterviewCta, { interviewOffer } from "./InterviewCta";
@@ -25,8 +26,25 @@ const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: 
   createdAt: "2026-10-01T00:00:00.000Z",
 });
 
-const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({ plan: "FREE", trialAvailable, left: 0, limit: 0, credits, resetsAt: RESETS });
-const pro = (left: number, credits = 0): InterviewQuotaView => ({ plan: "PRO", trialAvailable: false, left, limit: 4, credits, resetsAt: RESETS });
+/** A view with the entitlement the ledger would have decided from the same numbers. */
+const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({
+  plan: "FREE",
+  trialAvailable,
+  left: 0,
+  limit: 0,
+  credits,
+  entitlement: decideEntitlement({ plan: "FREE", periodUsed: 0, credits, trialsUsed: trialAvailable ? 0 : 1, hadVoice: false, periodEnd: new Date(RESETS) }),
+  resetsAt: RESETS,
+});
+const pro = (left: number, credits = 0): InterviewQuotaView => ({
+  plan: "PRO",
+  trialAvailable: false,
+  left,
+  limit: 4,
+  credits,
+  entitlement: decideEntitlement({ plan: "PRO", periodUsed: 4 - left, credits, trialsUsed: 0, hadVoice: true, periodEnd: new Date(RESETS) }),
+  resetsAt: RESETS,
+});
 
 function mount(quota: InterviewQuotaView, attempts: InterviewAttempt[] = [], variant: "compact" | "full" = "full") {
   return render(
