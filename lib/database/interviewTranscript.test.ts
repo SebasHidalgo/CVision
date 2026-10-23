@@ -140,24 +140,40 @@ describe("the usage unit when the interview ends with nothing to score", () => {
     expect(refundUsage).toHaveBeenCalledWith("evt_1", "NO_CANDIDATE_TURNS");
   });
 
-  it("keeps the unit while a silent attempt still has starts left, and when the candidate spoke", async () => {
+  it("refunds a silent attempt with starts left at once, whatever paid for it, and forgets the reservation so the next start reserves again", async () => {
     findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
-    await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "NO_CANDIDATE_TURNS");
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(updateMany.mock.calls[1][0]).toEqual({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+  });
+
+  it("keeps the unit when the candidate spoke, and when a silent delivery is from an earlier session than the row's", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
     await storeConversationTranscript({ data: payload(), eventTimestamp: null });
+    expect(refundUsage).not.toHaveBeenCalled();
 
+    // conv_1 is an earlier session; conv_2, the latest, may be live and holds the unit.
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+    await storeConversationTranscript({ data: silent().conversation_id === "conv_2" ? { ...silent(), conversation_id: "conv_1" } : silent(), eventTimestamp: null });
     expect(refundUsage).not.toHaveBeenCalled();
   });
 
-  it("markSessionLost fails the interview and refunds only when no start is left", async () => {
+  it("markSessionLost refunds whether or not a start is left, fails the interview only when none is, and forgets the reservation only while one is", async () => {
     await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST", exhausted: false, usageEventId: "evt_1" });
     expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { failureReason: "SESSION_LOST" } });
     expect((updateMany.mock.calls[0][0] as { data: Record<string, unknown> }).data).not.toHaveProperty("status");
-    expect(refundUsage).not.toHaveBeenCalled();
-
-    await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST", exhausted: true, usageEventId: "evt_1" });
-    expect(updateMany.mock.calls[1][0]).toMatchObject({ data: { failureReason: "SESSION_LOST", status: "FAILED" } });
     expect(refundUsage).toHaveBeenCalledWith("evt_1", "SESSION_LOST");
+    expect(updateMany.mock.calls[1][0]).toEqual({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+
+    vi.clearAllMocks();
+    updateMany.mockResolvedValue({ count: 1 });
+    await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST", exhausted: true, usageEventId: "evt_1" });
+    expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { failureReason: "SESSION_LOST", status: "FAILED" } });
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "SESSION_LOST");
+    expect(updateMany).toHaveBeenCalledTimes(1);
   });
 });
 

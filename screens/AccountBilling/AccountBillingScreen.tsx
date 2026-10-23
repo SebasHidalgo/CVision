@@ -86,6 +86,12 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
                 ? "Used after the period's interviews. They never expire."
                 : "Each one is a full 12-minute interview, on any plan. They never expire."}
           </p>
+          {credits.pending > 0 && (
+            <p className="mt-2 text-sm text-ink-2" role="status">
+              {credits.pending === 1 ? "1 credit pending return" : `${credits.pending} credits pending return`}: an interview is still open. If
+              nothing was answered, it comes back within minutes of the call ending.
+            </p>
+          )}
         </div>
         <div>
           <dt className="eyebrow">Analyses</dt>
