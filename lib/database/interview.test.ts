@@ -4,13 +4,14 @@ import prisma from "@/lib/prisma";
 import { createInterview, markInterviewEnded, reserveInterviewSession } from "./interview";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 
 /** A transaction client whose calls the tests script. */
 const tx = {
   interview: { findFirst: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
-  default: { $transaction: vi.fn(), interview: { updateMany: vi.fn() } },
+  default: { $transaction: vi.fn(), interview: { updateMany: vi.fn(), update: vi.fn() } },
 }));
 
 const RESUME_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
@@ -103,10 +104,11 @@ describe("reserveInterviewSession", () => {
     issuedContext: { interview_id: INTERVIEW_ID },
     conversationId: "conv_2",
     startedAt: new Date("2026-10-16T12:00:00Z"),
+    issuedAt: new Date("2026-10-16T12:05:00Z"),
     maxStarts: 3,
   };
 
-  it("clears every leftover of the previous session, the reconcile throttle included", async () => {
+  it("clears every leftover of the previous session, the reconcile throttle included, and dates this session", async () => {
     vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
 
     expect(await reserveInterviewSession(base)).toBe(true);
@@ -117,6 +119,9 @@ describe("reserveInterviewSession", () => {
         data: expect.objectContaining({
           status: "IN_PROGRESS",
           conversationId: "conv_2",
+          // The first session's time stays; the latest one is what the abandoned sweep reads.
+          startedAt: new Date("2026-10-16T12:00:00Z"),
+          lastSessionAt: new Date("2026-10-16T12:05:00Z"),
           endedAt: null,
           durationSeconds: null,
           failureReason: null,
@@ -135,12 +140,12 @@ describe("reserveInterviewSession", () => {
   it("on the first token, sets the unit and the tier only on a row that has none", async () => {
     vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
 
-    await reserveInterviewSession({ ...base, reservation: { usageEventId: "evt_1", tier: "TRIAL" } });
+    await reserveInterviewSession({ ...base, reservation: { usageEventId: "evt_1", tier: "TRIAL", paidBy: "TRIAL" } });
 
     expect(prisma.interview.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ usageEventId: null }),
-        data: expect.objectContaining({ usageEventId: "evt_1", tier: "TRIAL" }),
+        data: expect.objectContaining({ usageEventId: "evt_1", tier: "TRIAL", paidBy: "TRIAL" }),
       }),
     );
   });
@@ -149,19 +154,30 @@ describe("reserveInterviewSession", () => {
 describe("markInterviewEnded", () => {
   const endedAt = new Date("2026-10-13T12:00:00Z");
 
-  it("writes the end time once, owner-scoped, only while in progress with none set", async () => {
-    vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 1 });
+  it("writes the end time once, owner-scoped, only while in progress with none set, and says how old the session was", async () => {
+    vi.mocked(prisma.interview.update).mockResolvedValue({ lastSessionAt: new Date("2026-10-13T11:59:48Z") } as never);
 
-    expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toBe(true);
-    expect(prisma.interview.updateMany).toHaveBeenCalledWith({
+    expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toEqual({ recorded: true, sessionAgeMs: 12_000 });
+    expect(prisma.interview.update).toHaveBeenCalledWith({
       where: { id: INTERVIEW_ID, userId: "user_1", status: "IN_PROGRESS", endedAt: null },
       data: { endedAt },
+      select: { lastSessionAt: true },
     });
   });
 
-  it("reports false when nothing matched: a second report, a stored transcript, or a foreign id", async () => {
-    vi.mocked(prisma.interview.updateMany).mockResolvedValue({ count: 0 });
+  it("reports an unknown session age for a row without one", async () => {
+    vi.mocked(prisma.interview.update).mockResolvedValue({ lastSessionAt: null } as never);
+    expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toEqual({ recorded: true, sessionAgeMs: null });
+  });
 
-    expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toBe(false);
+  it("reports not recorded when nothing matched: a second report, a stored transcript, or a foreign id", async () => {
+    vi.mocked(prisma.interview.update).mockRejectedValue(new Prisma.PrismaClientKnownRequestError("no row", { code: "P2025", clientVersion: "test" }));
+
+    expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toEqual({ recorded: false });
+  });
+
+  it("lets any other database failure through as the app's error", async () => {
+    vi.mocked(prisma.interview.update).mockRejectedValue(new Error("connection lost"));
+    await expect(markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).rejects.toBeInstanceOf(Error);
   });
 });

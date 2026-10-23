@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { fetchInterviewById } from "@/lib/database/interview";
-import { currentPlan, tierOf } from "@/lib/database/usage";
+import { currentInterviewEntitlement } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
+import { sourceOfPaidBy } from "@/lib/interviewEntitlement";
 import { interviewPhase } from "@/lib/interviewStatus";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
@@ -29,9 +30,15 @@ export default async function InterviewScreen({
 
   const user = await getAuthUser();
 
-  // The first token fixes the tier; before it, the plan says which agent
-  // the interview will run on, so the room shows the right length.
-  const tier = interview.tier ?? tierOf(await currentPlan());
+  // Before the first token, what the next start would get is decided by
+  // the one entitlement function the session endpoint will run too, so
+  // the length the room shows is the length the call will have. After it,
+  // the interview's own tier and source are the truth (a reconnect keeps
+  // them).
+  const paid = interview.tier && interview.usageEventId ? { tier: interview.tier, source: sourceOfPaidBy(interview.paidBy) } : null;
+  const entitlement = paid ? null : await currentInterviewEntitlement();
+  const maxDurationSeconds = paid ? INTERVIEW_TIERS[paid.tier].seconds : (entitlement?.maxDurationSeconds ?? 0);
+  const source = paid ? paid.source : (entitlement?.source ?? "none");
 
   return (
     <InterviewRoomLoader
@@ -43,7 +50,8 @@ export default async function InterviewScreen({
       attemptNumber={interview.attemptNumber}
       startCount={interview.startCount}
       maxStarts={MAX_INTERVIEW_STARTS}
-      maxDurationSeconds={INTERVIEW_TIERS[tier].seconds}
+      maxDurationSeconds={maxDurationSeconds}
+      source={source}
     />
   );
 }

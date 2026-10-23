@@ -21,6 +21,7 @@ export type ErrorCode =
   | "VOICE_MISCONFIGURED"
   // Interview state at session start.
   | "INTERVIEW_NOT_STARTABLE"
+  | "INTERVIEW_EXPIRED"
   | "INTERVIEW_START_LIMIT"
   | "INTERVIEW_CONTEXT_MISSING"
   // Deleting an analysis while a rehearsal of it is live or being scored.
@@ -29,6 +30,13 @@ export type ErrorCode =
   | "ANALYSIS_QUOTA_EXCEEDED"
   | "INTERVIEW_QUOTA_EXCEEDED"
   | "RATE_LIMITED"
+  // Billing (lib/billing): the provider, and what may be bought.
+  | "BILLING_UNAVAILABLE"
+  | "BILLING_MISCONFIGURED"
+  | "ALREADY_SUBSCRIBED"
+  | "PACK_REQUIRES_PRO"
+  | "NO_BILLING_ACCOUNT"
+  | "BILLING_PORTAL_UNAVAILABLE"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -178,6 +186,13 @@ export class VoiceMisconfiguredError extends AppError {
 }
 
 /** The interview is past the point where a session can be issued. */
+/** The interview expired (two hours without a session) before this start: closed, and its unit given back. */
+export class InterviewExpiredError extends AppError {
+  constructor(message = "Interview expired") {
+    super("INTERVIEW_EXPIRED", message);
+  }
+}
+
 export class InterviewNotStartableError extends AppError {
   constructor(message = "Interview cannot be started in its current state") {
     super("INTERVIEW_NOT_STARTABLE", message);
@@ -226,5 +241,51 @@ export class RateLimitedError extends AppError {
 export class InterviewContextMissingError extends AppError {
   constructor(message = "Interview has no analysis context") {
     super("INTERVIEW_CONTEXT_MISSING", message);
+  }
+}
+
+/** The billing provider did not answer, timed out, or failed on its side: try again shortly. */
+export class BillingUnavailableError extends AppError {
+  constructor(message = "Billing provider unavailable", options?: ErrorOptions) {
+    super("BILLING_UNAVAILABLE", message, options);
+  }
+}
+
+/** Missing key, wrong environment, unknown price, rejected request: an operator problem. */
+export class BillingMisconfiguredError extends AppError {
+  constructor(message = "Billing misconfigured", options?: ErrorOptions) {
+    super("BILLING_MISCONFIGURED", message, options);
+  }
+}
+
+/** A Pro subscription already exists for the account; the portal is where it is managed. */
+export class AlreadySubscribedError extends AppError {
+  constructor(message = "Already subscribed") {
+    super("ALREADY_SUBSCRIBED", message);
+  }
+}
+
+/** The interview pack is sold to active Pro accounts only. */
+export class PackRequiresProError extends AppError {
+  constructor(message = "Interview packs require an active Pro subscription") {
+    super("PACK_REQUIRES_PRO", message);
+  }
+}
+
+/** Nothing to manage: the account never checked out, so it has no customer record at the provider. */
+export class NoBillingAccountError extends AppError {
+  constructor(message = "No billing account for this user") {
+    super("NO_BILLING_ACCOUNT", message);
+  }
+}
+
+/**
+ * The provider would not mint a portal link (down, timed out, or the API
+ * key lacks the permission): the user did nothing wrong and the copy says
+ * so; the detail is in the server log.
+ */
+export class BillingPortalUnavailableError extends AppError {
+  constructor(message = "Billing portal unavailable", options?: ErrorOptions) {
+    super("BILLING_PORTAL_UNAVAILABLE", message, options);
   }
 }

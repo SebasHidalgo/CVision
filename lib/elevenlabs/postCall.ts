@@ -36,6 +36,8 @@ export const postCallTranscriptionSchema = z.looseObject({
       start_time_unix_secs: z.number().nullish(),
       call_duration_secs: z.number().nullish(),
       termination_reason: z.string().nullish(),
+      /** Set when the platform could not run the call; `status` is then "failed". */
+      error: z.looseObject({ code: z.number().nullish(), reason: z.string().nullish() }).nullish(),
     })
     .nullish(),
   conversation_initiation_client_data: z
@@ -60,6 +62,7 @@ export type ConversationApiRecord = {
     startTimeUnixSecs: number;
     callDurationSecs: number;
     terminationReason?: string | null;
+    error?: { code: number; reason?: string | null } | null;
   };
   conversationInitiationClientData?: { dynamicVariables?: Record<string, unknown> | null } | null;
 };
@@ -88,6 +91,7 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
       start_time_unix_secs: record.metadata.startTimeUnixSecs,
       call_duration_secs: record.metadata.callDurationSecs,
       termination_reason: record.metadata.terminationReason ?? null,
+      ...(record.metadata.error ? { error: { code: record.metadata.error.code, reason: record.metadata.error.reason ?? null } } : {}),
     },
     conversation_initiation_client_data: record.conversationInitiationClientData
       ? { dynamic_variables: record.conversationInitiationClientData.dynamicVariables ?? null }
@@ -99,6 +103,28 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
 export const NO_CANDIDATE_TURNS = "NO_CANDIDATE_TURNS";
 /** `failureReason` when the platform has no record of the latest session. */
 export const SESSION_LOST = "SESSION_LOST";
+/**
+ * `failureReason` when the platform itself reports the call failed (its
+ * status is "failed": the agent never joined, or the call broke before
+ * anyone spoke). Not the candidate's microphone, and the feedback page
+ * says so. Seen live when the ElevenLabs account ran out of credits: the
+ * session token was issued, the room connected, and the platform dropped
+ * the call at once with a conversation of zero turns.
+ */
+export const CALL_FAILED = "CALL_FAILED";
+
+/**
+ * The platform's own account of a failed call, for the server log only:
+ * the error code and reason it recorded (a quota, a misconfiguration, an
+ * outage). Null unless the status is "failed".
+ */
+export function platformFailure(data: PostCallTranscription): string | null {
+  if (data.status !== "failed") return null;
+  const error = data.metadata?.error;
+  if (!error) return "no reason given";
+  const reason = (error.reason ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  return `code=${error.code ?? "-"}${reason ? ` ${reason}` : ""}`;
+}
 
 /**
  * How long after the call is known to be over a webhook is still given a
@@ -116,6 +142,15 @@ export const RECONCILE_GRACE_SECONDS = 2 * 60;
  */
 export const RECONCILE_MIN_INTERVAL_MS = 60_000;
 
+/**
+ * A call the room reports over within this long of its session being
+ * issued never became an interview: the platform refused it (no credits, a
+ * misconfigured agent) or the connection broke at once. No webhook comes
+ * for a failed conversation, so the server fetches it right away instead of
+ * waiting out the grace; the per-interview throttle still applies.
+ */
+export const EARLY_END_WINDOW_MS = 30_000;
+
 export type StrandedCandidate = {
   status: InterviewStatus;
   conversationId: string | null;
@@ -130,17 +165,20 @@ export type StrandedCandidate = {
  * arrived. When the room reported the end of the call, the window is the
  * grace from that moment. When it did not (the tab was closed mid-call), it
  * is the agent's hard limit plus the grace, counted from the session issue,
- * the latest the call could have ended.
+ * the latest the call could have ended. A grace of zero is the fast path
+ * for a call that ended seconds after it started: stranded as soon as the
+ * room has reported the end.
  */
 export function isStranded(
   row: StrandedCandidate,
   now: Date,
   maxDurationSeconds: number,
+  graceSeconds: number = RECONCILE_GRACE_SECONDS,
 ): boolean {
   if (row.status !== "IN_PROGRESS") return false;
   if (!row.conversationId || row.hasTranscript || !row.startedAt) return false;
-  const graceMs = RECONCILE_GRACE_SECONDS * 1000;
-  if (row.endedAt) return now.getTime() - row.endedAt.getTime() > graceMs;
+  const graceMs = graceSeconds * 1000;
+  if (row.endedAt) return now.getTime() - row.endedAt.getTime() >= graceMs;
   return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
 }
 
@@ -204,6 +242,12 @@ export type PostCallOutcome =
       startedAt: Date | null;
       endedAt: Date | null;
       durationSeconds: number | null;
+      /**
+       * The start this call counted is given back: the platform could not
+       * run the call, and the cap of starts exists for the candidate's
+       * microphone and connection, not for the platform's outages.
+       */
+      startRefunded: boolean;
     };
 
 /**
@@ -217,6 +261,11 @@ export type PostCallOutcome =
  *   startable while attempts remain. Only when the start cap is used up does
  *   the interview fail; otherwise a mic problem would consume the interview
  *   and the retries the cap exists to allow would be unreachable.
+ * - No candidate turns and the platform reports the call failed (its
+ *   status is "failed": the agent never joined): `CALL_FAILED`, so nobody
+ *   is told to check a microphone that was fine, the interview stays
+ *   startable whatever the count, and the start is given back: a call the
+ *   platform could not run does not count against the candidate.
  */
 export function decidePostCallOutcome({
   row,
@@ -250,14 +299,18 @@ export function decidePostCallOutcome({
         ? new Date(eventTimestamp * 1000)
         : null;
 
+  const failed = data.status === "failed";
+  const platformFailed = !spoke && failed;
+
   return {
     kind: "store",
-    status: spoke ? "FEEDBACK_PENDING" : attemptsLeft ? "IN_PROGRESS" : "FAILED",
-    failureReason: spoke ? null : NO_CANDIDATE_TURNS,
+    status: spoke ? "FEEDBACK_PENDING" : platformFailed || attemptsLeft ? "IN_PROGRESS" : "FAILED",
+    failureReason: spoke ? null : failed ? CALL_FAILED : NO_CANDIDATE_TURNS,
     contextMismatch: matches === false,
     startedAt,
     endedAt,
     durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
+    startRefunded: platformFailed,
   };
 }
 

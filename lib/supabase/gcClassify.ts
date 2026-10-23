@@ -8,8 +8,15 @@ import type { StoredObject } from "@/lib/supabase/server";
  */
 export const ORPHAN_GRACE_HOURS = 24;
 
+/**
+ * The zero-byte object Supabase writes when a folder is created from the
+ * dashboard, so the folder exists before it has a file. Not ours, not a
+ * CV, and deleting it deletes the folder: left alone wherever it is.
+ */
+export const FOLDER_PLACEHOLDER = ".emptyFolderPlaceholder";
+
 export type Verdict =
-  | { kind: "keep"; why: "referenced" | "recent" | "unknown-age" }
+  | { kind: "keep"; why: "referenced" | "recent" | "unknown-age" | "placeholder" }
   | { kind: "orphan"; why: "no-row" | "outside-cv" };
 
 export type Classified = StoredObject & { verdict: Verdict };
@@ -30,6 +37,9 @@ export function classifyObjects(
 
   return objects.map((object) => {
     if (referencedKeys.has(object.key)) return { ...object, verdict: { kind: "keep", why: "referenced" } };
+    if (object.key === FOLDER_PLACEHOLDER || object.key.endsWith(`/${FOLDER_PLACEHOLDER}`)) {
+      return { ...object, verdict: { kind: "keep", why: "placeholder" } };
+    }
     if (!object.key.startsWith(RESUME_KEY_PREFIX)) {
       return { ...object, verdict: { kind: "orphan", why: "outside-cv" } };
     }

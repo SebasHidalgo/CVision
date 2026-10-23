@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
-import SignInCta from "@/components/auth/SignInCta";
+import SignInCtaButton from "@/components/auth/SignInCtaButton";
 import Eyebrow from "@/components/layout/Eyebrow";
 import Reveal from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
@@ -55,21 +55,18 @@ export function HeroSection() {
 
           <Reveal delay={0.16}>
             <p className="lede mt-7 max-w-xl">
-              Paste the posting, upload your CV, and get read the way a
-              demanding recruiter would read you: what matches, what&apos;s
-              missing, and what to fix first. Then rehearse the interview out
-              loud.
+              Paste the posting, upload your CV, and get a frank read of your
+              own application: what matches, what&apos;s missing, and what to
+              fix first. Then practice the interview out loud with an AI
+              interviewer.
             </p>
           </Reveal>
 
           <Reveal delay={0.24} className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
             <SignedOut>
-              <SignInCta forceRedirectUrl="/resume/upload">
-                <Button size="lg" className="group h-12 px-6 text-base">
-                  Analyze my CV
-                  <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
-                </Button>
-              </SignInCta>
+              <SignInCtaButton forceRedirectUrl="/resume/upload" className="group h-12 px-6 text-base" arrow>
+                Analyze my CV
+              </SignInCtaButton>
             </SignedOut>
             <SignedIn>
               <Button asChild size="lg" className="group h-12 px-6 text-base">

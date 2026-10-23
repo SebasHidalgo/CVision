@@ -8,7 +8,9 @@ import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
+import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { sourceCopy, type EntitlementSource } from "@/lib/interviewEntitlement";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +40,8 @@ export type InterviewAgentProps = {
   maxStarts: number;
   /** The agent's hard limit; the session response repeats it. */
   maxDurationSeconds: number;
+  /** What pays for the next start (or paid for this interview), from the entitlement; "none" when nothing can. */
+  source: EntitlementSource | null;
 };
 
 /**
@@ -111,6 +115,7 @@ function InterviewRoom({
   startCount,
   maxStarts,
   maxDurationSeconds,
+  source,
 }: InterviewAgentProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -233,6 +238,9 @@ function InterviewRoom({
       conversationToken: result.data.conversationToken,
       dynamicVariables: result.data.dynamicVariables,
       overrides: { agent: { language: result.data.language } },
+      // The SDK's audio worklets from this origin, not from blob: URLs the
+      // Content-Security-Policy refuses.
+      workletPaths: WORKLET_PATHS,
     });
   };
 
@@ -257,7 +265,13 @@ function InterviewRoom({
   const startsLeft = Math.max(0, maxStarts - startsUsed);
   const dropped = phase.kind === "dropped";
 
+  // Before Start the length comes from the entitlement the page read; after
+  // it, from the session the server issued. They differ only when the facts
+  // changed in between (a credit spent in another tab): the session wins,
+  // and the room says so rather than jumping silently.
   const maxSeconds = session?.maxDurationSeconds ?? maxDurationSeconds;
+  const shownSource = session?.source ?? source;
+  const lengthChanged = session !== null && maxDurationSeconds > 0 && session.maxDurationSeconds !== maxDurationSeconds;
   const language = session?.language ?? "en";
   const remaining =
     live && connectedAt !== null ? remainingSeconds(maxSeconds, connectedAt, now) : maxSeconds;
@@ -354,8 +368,16 @@ function InterviewRoom({
                 <div>
                   <dt className="eyebrow">Length</dt>
                   <dd className="mt-1 text-ink">Up to {Math.round(maxSeconds / 60)} minutes</dd>
+                  {sourceCopy(shownSource) && <dd className="mt-1 text-ink-2">{sourceCopy(shownSource)}</dd>}
                 </div>
               </dl>
+            )}
+
+            {lengthChanged && (
+              <p role="note" className="mt-6 w-full max-w-sm text-sm leading-relaxed text-ink-2">
+                This call runs {Math.round(maxSeconds / 60)} minutes, not {Math.round(maxDurationSeconds / 60)}: what pays for it changed since the page
+                opened (a credit or an interview was used elsewhere).
+              </p>
             )}
 
             {phase.kind === "idle" && atCap && (

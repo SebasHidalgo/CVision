@@ -41,6 +41,7 @@ describe("decideFeedbackView: a startable interview opened by hand", () => {
   it("sends a silent or lost attempt to the room, where the next start happens", () => {
     expect(decide({ failureReason: "NO_CANDIDATE_TURNS", hasTranscript: true })).toEqual({ kind: "room" });
     expect(decide({ failureReason: "SESSION_LOST" })).toEqual({ kind: "room" });
+    expect(decide({ failureReason: "CALL_FAILED", hasTranscript: true })).toEqual({ kind: "room" });
   });
 });
 
@@ -57,6 +58,10 @@ describe("decideFeedbackView: straight from the room", () => {
     expect(decide({ justEnded: true, failureReason: "SESSION_LOST" })).toEqual({
       kind: "not-scored",
       reason: "lost",
+    });
+    expect(decide({ justEnded: true, failureReason: "CALL_FAILED", hasTranscript: true })).toEqual({
+      kind: "not-scored",
+      reason: "failed",
     });
   });
 });

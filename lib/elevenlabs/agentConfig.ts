@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import {
   INTERVIEWER_AGENT_PROMPT,
@@ -55,10 +56,10 @@ export const INTERVIEW_AGENT_DAILY_CALL_LIMITS: Record<InterviewTierId, number> 
 };
 
 export const INTERVIEW_AGENT_NAMES: Record<InterviewTierId, string> = {
-  FULL: "CVision Interviewer",
-  TRIAL: "CVision Interviewer (5-minute trial)",
+  FULL: `${BRAND.name} Interviewer`,
+  TRIAL: `${BRAND.name} Interviewer (5-minute trial)`,
 };
-export const INTERVIEW_WEBHOOK_NAME = "CVision post-call transcript";
+export const INTERVIEW_WEBHOOK_NAME = `${BRAND.name} post-call transcript`;
 
 /**
  * The model behind the agent. Chosen for instruction following at

@@ -5,10 +5,12 @@ import {
   reserveInterviewSession,
   type InterviewWithResume,
 } from "@/lib/database/interview";
+import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview } from "@/lib/database/usage";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError } from "@/lib/error/errors";
+import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
+import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
 import { POST } from "./route";
 
@@ -19,6 +21,8 @@ vi.mock("@/lib/database/interview", () => ({
 }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({ reserveInterview: vi.fn(), refundUsage: vi.fn(async () => true) }));
+vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
+vi.mock("@/lib/elevenlabs/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESUME_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
@@ -55,6 +59,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     contextMismatch: false,
     failureReason: null,
     startedAt: null,
+    lastSessionAt: null,
     endedAt: null,
     durationSeconds: null,
     startCount: 0,
@@ -64,6 +69,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     reconcileCheckedAt: null,
     usageEventId: null,
     tier: null,
+    paidBy: null,
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {
@@ -110,7 +116,7 @@ beforeEach(() => {
   vi.mocked(fetchInterviewById).mockResolvedValue(interview());
   vi.mocked(reserveInterviewSession).mockResolvedValue(true);
   vi.mocked(assertRateLimit).mockResolvedValue(undefined);
-  vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_1", kind: "INTERVIEW", tier: "FULL", seconds: 720 });
+  vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_1", kind: "INTERVIEW", tier: "FULL", seconds: 720, source: "period" });
   vi.mocked(refundUsage).mockResolvedValue(true);
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -135,7 +141,17 @@ describe("POST /api/interview/[id]/session: checks before the paid call", () => 
     expect(reserveInterviewSession).not.toHaveBeenCalled();
   });
 
-  it.each(["COMPLETED", "FEEDBACK_PENDING", "FAILED", "EXPIRED"] as const)(
+  it("answers 409 INTERVIEW_EXPIRED for an expired interview, so the room says it was closed and not charged", async () => {
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "EXPIRED", startCount: 3, failureReason: "ABANDONED" }));
+    const calls = stubElevenLabs(tokenResponse);
+
+    expect(await post()).toEqual({ status: 409, body: { ok: false, code: "INTERVIEW_EXPIRED" } });
+    expect(calls).toHaveLength(0);
+    expect(reserveInterview).not.toHaveBeenCalled();
+    expect(reserveInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it.each(["COMPLETED", "FEEDBACK_PENDING", "FAILED"] as const)(
     "answers 409 for a %s interview",
     async (status) => {
       vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status, startCount: 1 }));
@@ -176,6 +192,28 @@ describe("POST /api/interview/[id]/session: checks before the paid call", () => 
     expect(calls).toHaveLength(0);
     expect(reserveInterviewSession).not.toHaveBeenCalled();
   });
+
+  it("answers 503 VOICE_UNAVAILABLE when the platform's balance is below the floor, before reserving anything, issuing anything or counting a start", async () => {
+    vi.mocked(assertVoiceCapacity).mockRejectedValueOnce(new VoiceUnavailableError("balance below the floor"));
+    const calls = stubElevenLabs(tokenResponse);
+
+    expect(await post()).toEqual({ status: 503, body: { ok: false, code: "VOICE_UNAVAILABLE" } });
+    expect(calls).toHaveLength(0);
+    expect(reserveInterview).not.toHaveBeenCalled();
+    expect(reserveInterviewSession).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
+    // After the ownership, state and context checks: a 404 or a 409 never reads the balance.
+    expect(assertVoiceCapacity).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetchInterviewById).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(assertVoiceCapacity).mock.invocationCallOrder[0]);
+  });
+
+  it("does not read the balance for an interview it refuses on state", async () => {
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "COMPLETED", startCount: 1 }));
+    stubElevenLabs(tokenResponse);
+
+    expect((await post()).status).toBe(409);
+    expect(assertVoiceCapacity).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/interview/[id]/session: happy path", () => {
@@ -193,6 +231,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
       conversationId: "conv_1",
       language: "en",
       maxDurationSeconds: MAX_INTERVIEW_DURATION_SECONDS,
+      source: "period",
     });
     expect(result.data.dynamicVariables.interview_id).toBe(INTERVIEW_ID);
     expect(result.data.dynamicVariables.candidate_name).toBe("Ana");
@@ -219,9 +258,12 @@ describe("POST /api/interview/[id]/session: happy path", () => {
       issuedContext: result.data.dynamicVariables,
       conversationId: "conv_1",
       startedAt: expect.any(Date),
+      issuedAt: expect.any(Date),
       maxStarts: MAX_INTERVIEW_STARTS,
-      reservation: { usageEventId: "evt_1", tier: "FULL" },
+      reservation: { usageEventId: "evt_1", tier: "FULL", paidBy: "PERIOD" },
     });
+    // The abandoned-interview sweep ran for this user before the row was read.
+    expect(expireAbandonedInterviews).toHaveBeenCalledWith("user_1");
     expect(refundUsage).not.toHaveBeenCalled();
     expect(assertRateLimit).toHaveBeenCalledWith("user_1", "interviewStart");
   });
@@ -229,7 +271,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
   it("allows a retry of a dropped call: in progress, below the cap, on the tier the first token set, reserving nothing", async () => {
     const startedAt = new Date("2026-10-09T10:00:00Z");
     vi.mocked(fetchInterviewById).mockResolvedValue(
-      interview({ status: "IN_PROGRESS", startCount: 1, startedAt, conversationId: "conv_0", usageEventId: "evt_0", tier: "TRIAL" }),
+      interview({ status: "IN_PROGRESS", startCount: 1, startedAt, conversationId: "conv_0", usageEventId: "evt_0", tier: "TRIAL", paidBy: "TRIAL" }),
     );
     const calls = stubElevenLabs(tokenResponse);
 
@@ -240,11 +282,26 @@ describe("POST /api/interview/[id]/session: happy path", () => {
     expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ startedAt }));
     expect(vi.mocked(reserveInterviewSession).mock.calls[0][0]).not.toHaveProperty("reservation");
     expect((body as { data: InterviewSessionResponse }).data.maxDurationSeconds).toBe(300);
+    expect((body as { data: InterviewSessionResponse }).data.source).toBe("trial");
     expect(calls[0].url.searchParams.get("agent_id")).toBe(TRIAL_AGENT_ID);
   });
 
+  it("runs a credit on the main agent for twelve minutes and records the credit as what paid, so the room and the ledger agree", async () => {
+    vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_c", kind: "INTERVIEW_CREDIT", tier: "FULL", seconds: 720, source: "credit" });
+    const calls = stubElevenLabs(tokenResponse);
+
+    const { body } = await post();
+    const { data } = body as { data: InterviewSessionResponse };
+
+    expect(calls[0].url.searchParams.get("agent_id")).toBe(AGENT_ID);
+    expect(data.maxDurationSeconds).toBe(720);
+    expect(data.source).toBe("credit");
+    expect(data.dynamicVariables.interview_minutes).toBe("12");
+    expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ reservation: { usageEventId: "evt_c", tier: "FULL", paidBy: "CREDIT" } }));
+  });
+
   it("runs a Free account's first token on the trial agent, five minutes, and tells the interviewer so", async () => {
-    vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_t", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300 });
+    vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_t", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300, source: "trial" });
     const calls = stubElevenLabs(tokenResponse);
 
     const { body } = await post();
@@ -257,12 +314,12 @@ describe("POST /api/interview/[id]/session: happy path", () => {
     expect(data.dynamicVariables.gaps_to_cover).toBe("1");
     expect(data.dynamicVariables.requirements_gaps).toContain("Payments");
     expect(data.dynamicVariables.requirements_met).toContain("React");
-    expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ reservation: { usageEventId: "evt_t", tier: "TRIAL" } }));
+    expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ reservation: { usageEventId: "evt_t", tier: "TRIAL", paidBy: "TRIAL" } }));
   });
 
   it("refuses a trial when its agent is not configured, and gives the unit back", async () => {
     vi.stubEnv("ELEVENLABS_TRIAL_AGENT_ID", "");
-    vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_t", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300 });
+    vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_t", kind: "INTERVIEW_TRIAL", tier: "TRIAL", seconds: 300, source: "trial" });
     const calls = stubElevenLabs(tokenResponse);
 
     expect(await post()).toEqual({ status: 500, body: { ok: false, code: "VOICE_MISCONFIGURED" } });

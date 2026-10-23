@@ -4,13 +4,15 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import {
+  CALL_FAILED,
   decidePostCallOutcome,
   interviewIdFromPayload,
+  NO_CANDIDATE_TURNS,
   STARTABLE_STATUSES,
   type PostCallTranscription,
 } from "@/lib/elevenlabs/postCall";
 import { handleError } from "@/lib/error/handleError";
-import { refundUsage } from "./usage";
+import { refundUsageIn } from "./usage";
 
 /**
  * Data access for the post-call webhook, and nothing else. There is no
@@ -75,8 +77,11 @@ export async function storeConversationTranscript({
     // and writes nothing.
     // Times only when the delivery carries them: a payload without metadata
     // must not blank what the room reported.
+    // A start the platform could not run is given back in the same write,
+    // and only once: the second delivery of the same failed call is a
+    // duplicate by the transcript check above.
     const updated = await prisma.interview.updateMany({
-      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] } },
+      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] }, ...(outcome.startRefunded ? { startCount: { gt: 0 } } : {}) },
       data: {
         status: outcome.status,
         conversationId: data.conversation_id,
@@ -87,15 +92,25 @@ export async function storeConversationTranscript({
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
         ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
         ...(outcome.durationSeconds !== null ? { durationSeconds: outcome.durationSeconds } : {}),
+        ...(outcome.startRefunded ? { startCount: { decrement: 1 } } : {}),
       },
     });
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
 
-    // FAILED here means the starts ran out without a single candidate turn:
-    // the unit the first token reserved goes back.
-    if (outcome.status === "FAILED" && row.usageEventId) {
-      await refundUsage(row.usageEventId, outcome.failureReason ?? "NO_CANDIDATE_TURNS");
+    // Nothing was heard (the candidate never spoke, or the platform could
+    // not run the call): the unit goes back, whatever paid for it (a period
+    // interview, a credit, the trial), the moment the transcript says so.
+    // With starts left the interview stays startable, so the row forgets
+    // the reservation and the next start reserves again, on the facts of
+    // that moment; only the latest session's transcript may do this (a late
+    // delivery from an earlier call must not release a live call's unit).
+    // With no start left the interview is FAILED and the reservation stays
+    // on the row, refunded, for support to read.
+    const latestSession = data.conversation_id === row.conversationId;
+    const reason = outcome.failureReason;
+    if ((reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED) && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
+      await releaseReservation(row.id, row.usageEventId, reason, { retryable: outcome.status !== "FAILED" });
     }
     return { outcome: "stored", interviewId: row.id, status: outcome.status };
   } catch (error) {
@@ -194,11 +209,33 @@ export async function markSessionLost(params: {
       },
       data: { failureReason: params.reason, ...(params.exhausted ? { status: "FAILED" } : {}) },
     });
-    if (result.count === 1 && params.exhausted && params.usageEventId) {
-      await refundUsage(params.usageEventId, params.reason);
+    // Nothing was heard either way: the unit goes back now. With starts left
+    // the row forgets the reservation so the next start reserves again.
+    if (result.count === 1 && params.usageEventId) {
+      await releaseReservation(params.interviewId, params.usageEventId, params.reason, { retryable: !params.exhausted });
     }
     return result.count === 1;
   } catch (error) {
     handleError(error, "Failed to mark interview session as lost");
   }
+}
+
+/**
+ * Gives an interview's unit back, once, whatever paid for it: the refund is
+ * by usage event id, so a period interview, a credit and the trial all
+ * return the same way. When the interview may still be started, the row
+ * forgets the reservation (the event keeps `refId` = the interview, and the
+ * row keeps `paidBy`, so support can still tell), and the next session's
+ * first token reserves again. A refunded reservation is never reserved
+ * twice: the row's `usageEventId` guards the clear. The refund and the
+ * clear are one transaction: a page read between them once showed the
+ * credit as both returned and still pending.
+ */
+async function releaseReservation(interviewId: string, usageEventId: string, reason: string, { retryable }: { retryable: boolean }): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await refundUsageIn(tx, usageEventId, reason);
+    if (retryable) {
+      await tx.interview.updateMany({ where: { id: interviewId, usageEventId }, data: { usageEventId: null } });
+    }
+  });
 }

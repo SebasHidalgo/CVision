@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatResetDate, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
+import { formatResetDate, INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
 
 describe("the plans", () => {
   it("are the owner's numbers", () => {
@@ -8,14 +8,14 @@ describe("the plans", () => {
       announceAnalyses: true,
       interviewsPerMonth: 0,
       trialInterviews: 1,
-      interviewTier: "TRIAL",
+      historyLimit: 3,
     });
     expect(PLANS.PRO).toEqual({
       analysesPerMonth: 50,
       announceAnalyses: false,
       interviewsPerMonth: 4,
       trialInterviews: 0,
-      interviewTier: "FULL",
+      historyLimit: null,
     });
     expect(INTERVIEW_TIERS.TRIAL.seconds).toBe(300);
     expect(INTERVIEW_TIERS.FULL.seconds).toBe(720);
@@ -26,7 +26,10 @@ describe("the plans", () => {
     expect(RATE_LIMITS.uploadUrl).toEqual({ limit: 20, windowMs: 3_600_000 });
     expect(RATE_LIMITS.interviewStart).toEqual({ limit: 6, windowMs: 3_600_000 });
     expect(RATE_LIMITS.interviewCreate).toEqual({ limit: 3, windowMs: 3_600_000 });
-    expect(RATE_LIMITS.status).toEqual({ limit: 30, windowMs: 60_000 });
+    // Two tabs polling every 3 s make 40 a minute; the ceiling is above that.
+    expect(RATE_LIMITS.status).toEqual({ limit: 60, windowMs: 60_000 });
+    expect(RATE_LIMITS.reconcile).toEqual({ limit: 6, windowMs: 3_600_000 });
+    expect(INTERVIEW_PACK_CREDITS).toBe(4);
   });
 });
 

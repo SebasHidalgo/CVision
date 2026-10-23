@@ -64,16 +64,23 @@ import {
 
 const FIXTURES_DIR = path.join(EVAL_DIR, "fixtures-interview");
 
-type PatternAssertion = { in: string; pattern: string; why?: string };
-type ViolationAssertion = { check: InterviewCheckName; max: number; why?: string };
+/**
+ * What every assertion may carry: the reason it exists, and, when the
+ * current model is known not to meet it, why that is tolerated. An expected
+ * failure is reported apart from a real one, so the suite's "FAILED" means
+ * something new, and a fixture that starts passing is called out too.
+ */
+type AssertionBase = { why?: string; expectedFailure?: string };
+
+type PatternAssertion = AssertionBase & { in: string; pattern: string };
+type ViolationAssertion = AssertionBase & { check: InterviewCheckName; max: number };
 /** The rows for gaps matching the pattern must carry one of these outcomes. */
-type GapOutcomeAssertion = { matching: string; outcome: GapOutcome[]; why?: string };
+type GapOutcomeAssertion = AssertionBase & { matching: string; outcome: GapOutcome[] };
 /** A category score, or the total, inside a band. */
-type ScoreAssertion = {
+type ScoreAssertion = AssertionBase & {
   category: (typeof FEEDBACK_CATEGORIES)[number] | "total";
   min?: number;
   max?: number;
-  why?: string;
 };
 
 type InterviewExpectations = {
@@ -91,7 +98,14 @@ type AssertionResult = {
   passed: boolean;
   found: string[];
   why?: string;
+  /** Set when the fixture declares this assertion is known to fail today, with the reason. */
+  expectedFailure?: string;
 };
+
+/** A failure nobody declared, the only kind that counts against a run. */
+const isUnexpectedFailure = (a: AssertionResult) => !a.passed && !a.expectedFailure;
+/** A declared failure that did not happen: worth a look, the fixture may be stale. */
+const isUnexpectedPass = (a: AssertionResult) => a.passed && a.expectedFailure !== undefined;
 
 const fixtureMetaSchema = z.object({
   purpose: z.string().optional(),
@@ -358,6 +372,7 @@ function evaluateAssertions(
       passed: hits.length <= assertion.max,
       found: hits.map((hit) => `${hit.path}: ${truncate(hit.value, 60)}`),
       why: assertion.why,
+      expectedFailure: assertion.expectedFailure,
     });
   }
 
@@ -374,6 +389,7 @@ function evaluateAssertions(
         passed: !resolved ? false : kind === "mustMatch" ? hit : !hit,
         found: !resolved ? ["path not found"] : hit ? [matched[0]] : [],
         why: assertion.why,
+        expectedFailure: assertion.expectedFailure,
       });
     }
   }
@@ -389,6 +405,7 @@ function evaluateAssertions(
       passed: rows.length > 0 && wrong.length === 0,
       found: rows.length === 0 ? ["no row matched"] : rows.map((row) => `${row.outcome}: ${truncate(row.requirement, 50)}`),
       why: assertion.why,
+      expectedFailure: assertion.expectedFailure,
     });
   }
 
@@ -410,6 +427,7 @@ function evaluateAssertions(
       passed,
       found: [String(score)],
       why: assertion.why,
+      expectedFailure: assertion.expectedFailure,
     });
   }
 
@@ -444,12 +462,37 @@ function guardrailNote(guardrail: InterviewRunRecord["guardrail"]): string {
   return note ? `guardrail: ${note}` : "";
 }
 
+/**
+ * "8/8 assertions", "7/8 assertions, 1 expected failure", "7/8 assertions,
+ * 1 FAILED", "8/8 assertions, 1 UNEXPECTED PASS": a declared failure is
+ * named apart, so FAILED only ever means something new.
+ */
 function assertionNote(assertions: AssertionResult[] | undefined): string {
   if (!assertions?.length) return "";
-  const failed = assertions.filter((assertion) => !assertion.passed).length;
-  return failed === 0
-    ? `${assertions.length}/${assertions.length} assertions`
-    : `${assertions.length - failed}/${assertions.length} assertions, ${failed} FAILED`;
+  const passed = assertions.filter((assertion) => assertion.passed).length;
+  const failed = assertions.filter(isUnexpectedFailure).length;
+  const expected = assertions.filter((assertion) => !assertion.passed && assertion.expectedFailure).length;
+  const surprises = assertions.filter(isUnexpectedPass).length;
+  return [
+    `${passed}/${assertions.length} assertions`,
+    expected ? `${expected} expected failure${expected === 1 ? "" : "s"}` : "",
+    failed ? `${failed} FAILED` : "",
+    surprises ? `${surprises} UNEXPECTED PASS` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** The lines under a fixture's row: real failures marked `!`, declared ones `~`, surprises `+`. */
+function assertionDetail(assertions: AssertionResult[] | undefined, indent: string): string {
+  return (assertions ?? [])
+    .filter((a) => !a.passed || a.expectedFailure !== undefined)
+    .map((a) => {
+      const mark = a.passed ? "+ unexpectedly passed" : a.expectedFailure ? `~ expected (${truncate(a.expectedFailure, 70)})` : "!";
+      const found = a.found.length ? ` -> ${truncate(a.found.join(", "), 80)}` : "";
+      return `${indent}${mark} ${a.kind} ${a.in}: ${truncate(a.expression, 60)}${found}`;
+    })
+    .join("\n");
 }
 
 function formatProgress(record: InterviewRunRecord): string {
@@ -469,10 +512,7 @@ function formatProgress(record: InterviewRunRecord): string {
   ]
     .filter(Boolean)
     .join("   ");
-  const failed = (record.assertions ?? []).filter((a) => !a.passed);
-  const detail = failed
-    .map((a) => `${" ".repeat(10)}! ${a.kind} ${a.in}: ${truncate(a.expression, 60)}${a.found.length ? ` -> ${truncate(a.found.join(", "), 80)}` : ""}`)
-    .join("\n");
+  const detail = assertionDetail(record.assertions, " ".repeat(10));
   return [notes ? `${head}\n${" ".repeat(10)}${notes}` : head, detail].filter(Boolean).join("\n");
 }
 
@@ -633,10 +673,8 @@ async function compareCommand(args: string[]) {
     console.log(`  Assertions  A: ${assertionNote(a.assertions) || "none"}`);
     console.log(`              B: ${assertionNote(b.assertions) || "none"}`);
     for (const [side, record] of [["A", a], ["B", b]] as const) {
-      for (const assertion of record.assertions ?? []) {
-        if (assertion.passed) continue;
-        console.log(`    ${side} ! ${assertion.kind} ${assertion.in}: ${truncate(assertion.expression)}${assertion.found.length ? ` -> ${truncate(assertion.found.join(", "))}` : ""}`);
-      }
+      const detail = assertionDetail(record.assertions, `    ${side} `);
+      if (detail) console.log(detail);
     }
     totalDeltas.push(Math.abs(fb.totalScore - fa.totalScore));
   }

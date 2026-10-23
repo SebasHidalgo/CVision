@@ -23,6 +23,16 @@ export async function requireUserId(): Promise<string> {
 }
 
 /**
+ * The session's user id, or null: for the public pages that render
+ * differently to a visitor and a member (the pricing page), where neither a
+ * redirect nor a throw is wanted. Reads the session; no API call.
+ */
+export async function getOptionalUserId(): Promise<string | null> {
+  const { userId } = await auth();
+  return userId ?? null;
+}
+
+/**
  * Profile details for server code that cannot redirect (Route Handlers).
  * Costs a Clerk API call, unlike `requireUserId`, which reads the session.
  */

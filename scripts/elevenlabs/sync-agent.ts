@@ -113,14 +113,21 @@ async function main() {
   reportDifferences(agents.FULL, agents.TRIAL);
 }
 
-/** The workspace webhook id to attach, creating it when asked to. */
+/**
+ * The workspace webhook id to attach, creating it when asked to. Webhooks
+ * are workspace objects that each agent selects by id, so a workspace may
+ * hold one per environment: the one for this URL is found by URL first,
+ * and only then by name (the first sync, before any URL was recorded).
+ */
 async function ensureWebhook(
   client: ElevenLabsClient,
   webhookUrl: string | null,
   replace: boolean,
 ): Promise<string | null> {
   const { webhooks } = await client.webhooks.list({ includeUsages: true });
-  const existing = webhooks.find((webhook) => webhook.name === INTERVIEW_WEBHOOK_NAME);
+  const existing =
+    (webhookUrl ? webhooks.find((webhook) => webhook.webhookUrl === webhookUrl) : undefined) ??
+    webhooks.find((webhook) => webhook.name === INTERVIEW_WEBHOOK_NAME);
 
   if (existing) {
     const state = existing.isDisabled
@@ -238,11 +245,15 @@ function describeValue(value: unknown): string {
   return text.length > 70 ? `${text.slice(0, 69)}…` : text;
 }
 
-main().catch((error: unknown) => {
-  // The SDK error body can echo the request; the message and status are enough.
-  const status = (error as { statusCode?: unknown })?.statusCode;
-  console.error(
-    `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exit(1);
-});
+// The script smoke test (scripts/scripts.test.ts) loads this module under the
+// npm script's own flags to prove its import graph resolves; it must not run.
+if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
+  main().catch((error: unknown) => {
+    // The SDK error body can echo the request; the message and status are enough.
+    const status = (error as { statusCode?: unknown })?.statusCode;
+    console.error(
+      `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  });
+}

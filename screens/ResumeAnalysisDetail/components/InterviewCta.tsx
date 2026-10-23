@@ -9,7 +9,8 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
-import { INTERVIEW_TIERS, type InterviewQuotaView } from "@/lib/plans";
+import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
+import { INTERVIEW_PACK_CREDITS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -24,28 +25,54 @@ type InterviewCtaProps = {
   children?: React.ReactNode;
 };
 
-const TRIAL_MINUTES = Math.round(INTERVIEW_TIERS.TRIAL.seconds / 60);
-const FULL_MINUTES = Math.round(INTERVIEW_TIERS.FULL.seconds / 60);
+const TRIAL_MINUTES = Math.round(AGENT_SECONDS.trial / 60);
+const FULL_MINUTES = Math.round(AGENT_SECONDS.main / 60);
 
 /**
- * What the control offers, decided from the plan and the ledger: the live
- * attempt when there is one; otherwise the free trial, a Pro interview, or
- * the reason there is none. Pro's number of interviews is announced; nothing
- * here ever says how many analyses Pro gets.
+ * What the control offers, read off the entitlement (the one decision of
+ * which interview the next start gets, lib/interviewEntitlement.ts): the
+ * live attempt when there is one; otherwise the free trial, a Pro
+ * interview, a Free account's credit, or the reason there is none. Pro's
+ * number of interviews is announced; nothing here ever says how many
+ * analyses Pro gets.
  */
 export type InterviewOffer =
   | { kind: "live" }
   | { kind: "trial" }
-  | { kind: "pro"; left: number; limit: number }
+  /** The period's interviews, then the pack credits: a button while either is left. */
+  | { kind: "pro"; left: number; limit: number; credits: number }
   | { kind: "pro-exhausted"; resetsAt: string }
+  /** A Free account holding pack credits: each one is a full interview, before any trial. */
+  | { kind: "credits"; credits: number }
   | { kind: "needs-pro" };
 
 export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
   if (hasLive) return { kind: "live" };
-  if (quota.plan === "PRO") {
-    return quota.left > 0 ? { kind: "pro", left: quota.left, limit: quota.limit } : { kind: "pro-exhausted", resetsAt: quota.resetsAt };
+  const { entitlement } = quota;
+  const { remaining } = entitlement;
+  switch (entitlement.source) {
+    case "period":
+      return { kind: "pro", left: remaining.period, limit: remaining.periodLimit, credits: remaining.credits };
+    case "credit":
+      return entitlement.plan === "PRO"
+        ? { kind: "pro", left: remaining.period, limit: remaining.periodLimit, credits: remaining.credits }
+        : { kind: "credits", credits: remaining.credits };
+    case "trial":
+      return { kind: "trial" };
+    case "none":
+      return entitlement.plan === "PRO" && entitlement.resetsAt ? { kind: "pro-exhausted", resetsAt: entitlement.resetsAt } : { kind: "needs-pro" };
   }
-  return quota.trialAvailable ? { kind: "trial" } : { kind: "needs-pro" };
+}
+
+/** "3 credits left": what a Free account with pack credits sees under the button. */
+export function creditsLine(credits: number): string {
+  return `${credits} credit${credits === 1 ? "" : "s"} left`;
+}
+
+/** "3 of 4 interviews left this period · 5 credits": the period's allowance, then the credits when there are any. */
+export function proAllowanceLine(offer: Extract<InterviewOffer, { kind: "pro" }>): string {
+  const credits = offer.credits > 0 ? ` · ${offer.credits} credit${offer.credits === 1 ? "" : "s"}` : "";
+  return `${offer.left} of ${offer.limit} interviews left this period${credits}`;
 }
 
 export default function InterviewCta({
@@ -117,15 +144,20 @@ export default function InterviewCta({
     </Button>
   ) : offer.kind === "trial" ? (
     startButton(`Try a ${TRIAL_MINUTES}-minute interview, free`, <Mic className="size-4" />)
-  ) : offer.kind === "pro" ? (
+  ) : offer.kind === "pro" || offer.kind === "credits" ? (
     startButton(
       rehearsed ? "Rehearse again" : "Rehearse the interview",
       rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
     )
   ) : offer.kind === "pro-exhausted" ? (
-    <p className="flex h-11 items-center text-sm font-medium text-ink">
-      {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
-    </p>
+    <div className="flex flex-col items-start gap-2 md:items-end">
+      <p className="text-sm font-medium text-ink">
+        {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
+      </p>
+      <Link href="/account/billing" className="link-rule text-sm text-ink-2">
+        Get {INTERVIEW_PACK_CREDITS} more interviews
+      </Link>
+    </div>
   ) : (
     <p className="flex h-11 items-center text-sm font-medium text-ink">
       {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
@@ -137,8 +169,10 @@ export default function InterviewCta({
     offer.kind === "trial"
       ? `${TRIAL_MINUTES} minutes with the interviewer, on us · needs a microphone · works on a phone`
       : offer.kind === "pro"
-        ? `${offer.left} of ${offer.limit} interviews left this month · up to ${FULL_MINUTES} minutes · needs a microphone`
-        : null;
+        ? `${proAllowanceLine(offer)} · up to ${FULL_MINUTES} minutes · needs a microphone`
+        : offer.kind === "credits"
+          ? `${creditsLine(offer.credits)} · up to ${FULL_MINUTES} minutes · needs a microphone`
+          : null;
 
   if (variant === "compact") return control;
 
@@ -150,7 +184,7 @@ export default function InterviewCta({
         : offer.kind === "needs-pro"
           ? "Rehearse this interview out loud, with Pro."
           : offer.kind === "pro-exhausted"
-            ? "This month's interviews are used."
+            ? "This period's interviews are used."
             : rehearsed
               ? "Rehearse it again."
               : `Rehearse the ${jobTitle} interview out loud.`;

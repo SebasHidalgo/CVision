@@ -195,6 +195,15 @@ export const guardStatsSchema = z.object({
 
 export type GuardStats = z.infer<typeof guardStatsSchema>;
 
+/**
+ * The pseudo-check under which the anonymous daily aggregate
+ * (`GuardStatDaily`) counts rows themselves, beside the real (check, action)
+ * pairs: one `recorded` per row that stored stats, one `fired` per row where
+ * anything fired. Shared by the data layer that writes it and the report
+ * that reads it.
+ */
+export const GUARD_ROWS = { check: "rows", recorded: "recorded", fired: "fired" } as const;
+
 /** The stored subset of a guard report, from either guardrail. */
 export function toGuardStats(report: {
   counts: Record<string, number>;

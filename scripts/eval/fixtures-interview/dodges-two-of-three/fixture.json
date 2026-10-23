@@ -29,7 +29,7 @@
     ],
     "scores": [
       { "category": "total", "max": 69, "why": "Two of three probes dodged is the 'mostly general' band or below; the anti-inflation line exists for this fixture." },
-      { "category": "Technical Knowledge", "max": 69, "why": "Nothing specific was said about Kubernetes or incidents, two of the posting's four required items." }
+      { "category": "Technical Knowledge", "max": 69, "why": "Nothing specific was said about Kubernetes or incidents, two of the posting's four required items.", "expectedFailure": "Known to fail on gemini-3.5-flash-lite since M3-D (m1b-control and m1b-trial both scored Technical above 69): the model credits the GraphQL example and the general Node/Postgres talk enough to clear the bar. Kept so a prompt change that fixes it shows up as an unexpected pass, while a new failure anywhere else still stands out." }
     ]
   }
 }

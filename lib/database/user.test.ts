@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { UnauthorizedError } from "@/lib/error/errors";
-import { deleteUserRows, ensureUser, upsertUserById } from "./user";
+import { ensureUser } from "./user";
+import { deleteUserRows, upsertUserById } from "./userById";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
@@ -12,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireUserId).mockResolvedValue("user_1");
-  vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "user_1", plan: "FREE", createdAt: new Date(), updatedAt: new Date() });
+  vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "user_1", compPlan: null, createdAt: new Date(), updatedAt: new Date() });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

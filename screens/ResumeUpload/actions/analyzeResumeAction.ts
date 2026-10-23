@@ -16,7 +16,6 @@ import {
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
 import { extractTextFromPDFBytes, hasPdfHeader } from "@/lib/pdfParse";
-import { ANALYSIS_CONSUMING_FAILURE_CODES } from "@/lib/plans";
 import { analyzeResumeInputSchema } from "@/lib/schemas/resumeSchema";
 import { isResumeKeyOf } from "@/lib/supabase/resumeKey";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
@@ -25,24 +24,40 @@ import type { ActionResult } from "@/types/action";
 
 /**
  * Step two of an analysis, after the browser put the CV in storage: session,
- * rate limit, validation, the quota, and the orchestration (download ->
- * checks -> parse -> AI -> Postgres). The key is trusted for nothing: it has
- * to be under the caller's own prefix, and the bytes behind it are checked
- * as if they had arrived in the request. The usage unit is reserved before
- * the download and the model call, against an analysis id minted here, and
- * refunded on any failure that is not the user's input. Once downloaded,
- * the object is removed on any failure, so no file outlives a flow that
- * produced no row.
+ * the key's ownership, rate limit, validation, the quota, and the
+ * orchestration (download -> checks -> parse -> AI -> Postgres). The key is
+ * trusted for nothing: it has to be under the caller's own prefix, and the
+ * bytes behind it are checked as if they had arrived in the request.
+ *
+ * Only a stored row consumes a unit. The unit is reserved before the
+ * download, against an analysis id minted here, and given back on every
+ * failure, the user's own file included: a scan or a renamed file never
+ * reaches the model, so it costs nothing, and the hourly rate limit is what
+ * bounds abuse. And once the key is known to be the caller's, every refusal
+ * removes the object: the losing tab at the last analysis of the month, a
+ * rate-limited burst, a form that failed validation and the file errors all
+ * leave nothing behind in the bucket.
  */
 export async function analyzeResumeAction(
   input: unknown,
 ): Promise<ActionResult<{ resumeId: string }>> {
-  let downloadedKey: string | null = null;
+  let ownedKey: string | null = null;
   let reservation: Reservation | null = null;
 
   try {
     // Identity and the account's row, before anything that inserts under it.
     const userId = await ensureUser();
+
+    // The key's ownership before anything can refuse: from here on a
+    // refusal deletes the object, and only the caller's own object may be
+    // deleted. Another user's key is indistinguishable from one that does
+    // not exist, and is never downloaded, let alone deleted.
+    const namedKey = resumeKeyNamedBy(input);
+    if (namedKey !== null && !isResumeKeyOf(namedKey, userId)) {
+      throw new NotFoundError("Resume key is not the caller's");
+    }
+    ownedKey = namedKey;
+
     await assertRateLimit(userId, "analysis");
 
     const parsed = analyzeResumeInputSchema.safeParse(input);
@@ -57,10 +72,6 @@ export async function analyzeResumeAction(
 
     const { companyName, jobTitle, jobDescription, resumeKey } = parsed.data;
 
-    // Another user's key is indistinguishable from one that does not exist,
-    // and is never downloaded, let alone deleted.
-    if (!isResumeKeyOf(resumeKey, userId)) throw new NotFoundError("Resume key is not the caller's");
-
     // The unit, before the download and the model call. The analysis id is
     // minted now so the ledger can name what it paid for.
     const resumeId = crypto.randomUUID();
@@ -68,7 +79,6 @@ export async function analyzeResumeAction(
 
     const bytes = await downloadObject(resumeKey);
     if (!bytes) throw new UploadFailedError("No object under the resume key");
-    downloadedKey = resumeKey;
 
     // The bucket limits type and size on the way in; these are the server's
     // own checks on what it actually got, before any parsing is paid for.
@@ -96,18 +106,19 @@ export async function analyzeResumeAction(
       guardStats: toGuardStats(guard),
     });
 
-    downloadedKey = null;
+    // The row points at the object and the unit is spent for good.
+    ownedKey = null;
     reservation = null;
     revalidatePath("/resume/analyses");
     revalidatePath("/resume/upload");
 
     return { ok: true, data: { resumeId } };
   } catch (error) {
-    // Drop the file when no record ends up pointing at it.
-    if (downloadedKey) await removeObject(downloadedKey);
+    // Drop the file when no record ends up pointing at it. Never throws.
+    if (ownedKey) await removeObject(ownedKey);
 
     const result = toActionError(error, "Failed to analyze resume");
-    if (reservation && !result.ok && !ANALYSIS_CONSUMING_FAILURE_CODES.has(result.code)) {
+    if (reservation && !result.ok) {
       const { eventId } = reservation;
       await refundUsage(eventId, result.code).catch((refundError) => {
         console.error(`[CVision] refund of ${eventId} failed:`, refundError);
@@ -115,4 +126,10 @@ export async function analyzeResumeAction(
     }
     return result;
   }
+}
+
+/** The key the request names, if it names one at all; whose it is, the caller checks. */
+function resumeKeyNamedBy(input: unknown): string | null {
+  const key = (input as { resumeKey?: unknown } | null)?.resumeKey;
+  return typeof key === "string" && key !== "" ? key : null;
 }

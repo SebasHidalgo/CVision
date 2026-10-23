@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma, type InterviewStatus } from "@prisma/client";
+import { Prisma, type InterviewStatus, type InterviewPaidBy } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
@@ -8,12 +8,14 @@ import { z } from "zod";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
+import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   feedbackInclude,
   interviewOmit,
   mapDbInterview,
   mapDbInterviewFeedback,
 } from "./mappers";
+import { isVisible, visibleAnalysisIds } from "./visibility";
 
 /**
  * The room needs the posting; the session endpoint also needs the parts of
@@ -114,34 +116,52 @@ export async function createInterview(
   }
 }
 
-export async function fetchAllInterviews(): Promise<Interview[]> {
+export type VisibleInterviews = {
+  /** The caller's interviews whose analysis the plan shows, newest first. */
+  interviews: Interview[];
+  /** Interviews of analyses hidden by the plan's history rule. */
+  hidden: number;
+};
+
+/** The caller's interviews within the plan's history (an interview follows its analysis), and how many are hidden. */
+export async function fetchVisibleInterviews(): Promise<VisibleInterviews> {
   try {
     const userId = await requireUserId();
+    // A list is a read of every interview: the sweep for abandoned ones runs first.
+    await expireAbandonedInterviews(userId);
 
-    const rows = await prisma.interview.findMany({
-      where: { userId },
-      omit: interviewOmit,
-      orderBy: { createdAt: "desc" },
-    });
+    const [rows, visible] = await Promise.all([
+      prisma.interview.findMany({
+        where: { userId },
+        omit: interviewOmit,
+        orderBy: { createdAt: "desc" },
+      }),
+      visibleAnalysisIds(userId),
+    ]);
+    const shown = rows.filter((row) => isVisible(visible, row.resumeAnalysisId));
 
-    return rows.map(mapDbInterview);
+    return { interviews: shown.map(mapDbInterview), hidden: rows.length - shown.length };
   } catch (error) {
-    handleError(error, "Failed to retrieve all interview records");
+    handleError(error, "Failed to retrieve the interview records");
   }
 }
 
-/** `null` when it doesn't exist or belongs to another user. */
+/** `null` when it doesn't exist, belongs to another user, or its analysis is hidden by the plan. */
 export async function fetchInterviewById(
   interviewId: string
 ): Promise<InterviewWithResume | null> {
   try {
     const userId = await requireUserId();
 
-    return await prisma.interview.findFirst({
+    const row = await prisma.interview.findFirst({
       where: { id: interviewId, userId },
       include: interviewDetailInclude,
       omit: interviewOmit,
     });
+    if (!row) return null;
+
+    const visible = await visibleAnalysisIds(userId);
+    return isVisible(visible, row.resumeAnalysisId) ? row : null;
   } catch (error) {
     handleError(error, "Failed to retrieve interview record");
   }
@@ -153,13 +173,17 @@ export type ReserveInterviewSessionData = {
   issuedContext: Record<string, string>;
   /** The conversation id ElevenLabs minted with the token. */
   conversationId: string;
+  /** The first session's time, kept across reconnects. */
   startedAt: Date;
+  /** This session's time: what the abandoned-interview sweep measures from. */
+  issuedAt: Date;
   maxStarts: number;
   /**
-   * The usage unit and the agent tier, on the first token only. A reconnect
-   * passes nothing here and keeps what the first token set.
+   * The usage unit, the agent tier and what paid for the unit, on the first
+   * token only. A reconnect passes nothing here and keeps what the first
+   * token set.
    */
-  reservation?: { usageEventId: string; tier: InterviewTierId };
+  reservation?: { usageEventId: string; tier: InterviewTierId; paidBy: InterviewPaidBy };
 };
 
 /**
@@ -187,11 +211,12 @@ export async function reserveInterviewSession(
       },
       data: {
         status: "IN_PROGRESS",
-        ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier } : {}),
+        ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier, paidBy: data.reservation.paidBy } : {}),
         issuedContext: data.issuedContext,
         conversationId: data.conversationId,
         issuedConversationIds: { push: data.conversationId },
         startedAt: data.startedAt,
+        lastSessionAt: data.issuedAt,
         startCount: { increment: 1 },
         transcript: Prisma.DbNull,
         transcriptSource: null,
@@ -298,26 +323,42 @@ export async function fetchInterviewStatus(interviewId: string): Promise<
   }
 }
 
+export type InterviewEndedMark =
+  /** Written; how long after the latest session was issued the call ended, when the row knows. */
+  | { recorded: true; sessionAgeMs: number | null }
+  | { recorded: false };
+
 /**
  * The room's report that the call ended. A hint, not the record: it is
  * written only while the interview is still IN_PROGRESS with no end time, so
  * the platform's own values, when the transcript arrives, win over it. A new
- * session clears it again. False when nothing was written: already ended,
- * no longer in progress, or not the caller's.
+ * session clears it again. Not recorded when nothing was written: already
+ * ended, no longer in progress, or not the caller's. One guarded write
+ * that also reads back when the session was issued, so the route can tell
+ * a call that ended seconds after it started.
  */
 export async function markInterviewEnded(params: {
   interviewId: string;
   endedAt: Date;
-}): Promise<boolean> {
+}): Promise<InterviewEndedMark> {
   try {
     const userId = await requireUserId();
 
-    const result = await prisma.interview.updateMany({
-      where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
-      data: { endedAt: params.endedAt },
-    });
-
-    return result.count === 1;
+    try {
+      const row = await prisma.interview.update({
+        where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
+        data: { endedAt: params.endedAt },
+        select: { lastSessionAt: true },
+      });
+      return {
+        recorded: true,
+        sessionAgeMs: row.lastSessionAt ? params.endedAt.getTime() - row.lastSessionAt.getTime() : null,
+      };
+    } catch (error) {
+      // No row matched the guards: the ordinary outcome of a second report.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return { recorded: false };
+      throw error;
+    }
   } catch (error) {
     handleError(error, "Failed to record the end of the interview");
   }

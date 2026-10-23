@@ -65,6 +65,16 @@ export function Header() {
 
         <SignedOut>
           <div className="flex items-center gap-2">
+            <Link
+              href="/pricing"
+              aria-current={pathname.startsWith("/pricing") ? "page" : undefined}
+              className={cn(
+                "hidden px-3 py-1 text-sm font-medium text-ink-2 transition-colors duration-200 hover:text-ink sm:inline",
+                pathname.startsWith("/pricing") && "text-ink",
+              )}
+            >
+              Pricing
+            </Link>
             <ThemeToggle />
             <SignInCta>
               <Button variant="ghost" size="sm" className="h-9 px-3.5">

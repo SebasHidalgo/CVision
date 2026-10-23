@@ -11,6 +11,7 @@ const SESSION = {
   language: "es",
   expiresAt: "2026-10-12T10:15:00.000Z",
   maxDurationSeconds: 720,
+  source: "period",
 };
 
 const respond = (body: unknown, status = 200) =>

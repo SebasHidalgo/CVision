@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { fetchResumeById } from "@/lib/database/resume";
+import HistoryNotice from "@/components/billing/HistoryNotice";
+import { fetchResumeAccess } from "@/lib/database/resume";
 import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
@@ -19,9 +20,12 @@ type ResumeAnalysisDetailScreenProps = {
 export default async function ResumeAnalysisDetailScreen({
   resumeAnalysisId,
 }: ResumeAnalysisDetailScreenProps) {
-  // Already scoped to the owner: another user's analysis comes back null.
-  const analysis = await fetchResumeById(resumeAnalysisId);
-  if (!analysis) redirect("/resume/analyses");
+  // Already scoped to the owner: another user's analysis reads as missing.
+  // The caller's own, beyond the plan's history, gets the notice instead.
+  const access = await fetchResumeAccess(resumeAnalysisId);
+  if (access.kind === "missing") redirect("/resume/analyses");
+  if (access.kind === "hidden") return <HistoryNotice title="This analysis is in your history." />;
+  const { analysis } = access;
 
   // Stored feedback no longer matches the schema, so there is nothing to render.
   const { feedback } = analysis;

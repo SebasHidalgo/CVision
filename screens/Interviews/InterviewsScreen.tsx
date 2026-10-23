@@ -1,7 +1,8 @@
+import { HistoryLine } from "@/components/billing/HistoryNotice";
 import EmptyState from "@/components/layout/EmptyState";
 import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
-import { fetchAllInterviews } from "@/lib/database/interview";
+import { fetchVisibleInterviews } from "@/lib/database/interview";
 import { formatDate, ordinal } from "@/lib/format";
 import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,8 @@ const READING: Record<InterviewPhase, { text: string; dot: string }> = {
 };
 
 export default async function InterviewsScreen() {
-  const interviews = await fetchAllInterviews();
+  // An interview follows its analysis: hidden analyses hide their rehearsals too.
+  const { interviews, hidden } = await fetchVisibleInterviews();
   const completed = interviews.filter((interview) => interview.status === "COMPLETED").length;
 
   return (
@@ -44,7 +46,7 @@ export default async function InterviewsScreen() {
         }
       />
 
-      {interviews.length === 0 ? (
+      {interviews.length === 0 && hidden === 0 ? (
         <EmptyState
           title="No rehearsals yet."
           body="Interviews start from an analysis, so the questions come from the actual job post you are applying to."
@@ -99,6 +101,7 @@ export default async function InterviewsScreen() {
           })}
         </ol>
       )}
+      <HistoryLine hidden={hidden} what="interviews" />
     </div>
   );
 }

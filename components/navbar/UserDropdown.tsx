@@ -80,6 +80,10 @@ export default function UserDropdown() {
           <DropdownMenuSeparator />
         </div>
 
+        <DropdownMenuItem asChild className="px-2.5 py-2">
+          <Link href="/account/billing">Plan &amp; billing</Link>
+        </DropdownMenuItem>
+
         <DropdownMenuItem
           className="px-2.5 py-2"
           onSelect={() => openUserProfile({ appearance })}

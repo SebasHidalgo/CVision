@@ -11,6 +11,7 @@ import {
 const tx = {
   interview: { updateMany: vi.fn() },
   interviewFeedback: { upsert: vi.fn() },
+  guardStatDaily: { upsert: vi.fn(async () => ({})) },
 };
 vi.mock("@/lib/prisma", () => ({
   default: {
@@ -37,17 +38,27 @@ describe("the generator's writes when the interview was deleted under it", () =>
 
     expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report, guardStats })).toBeNull();
     expect(tx.interviewFeedback.upsert).not.toHaveBeenCalled();
+    expect(tx.guardStatDaily.upsert).not.toHaveBeenCalled();
   });
 
-  it("completeInterviewFeedback stores the feedback and the guard stats inside the same transaction when the claim still holds", async () => {
-    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report, guardStats })).toBe("fb_1");
+  it("completeInterviewFeedback stores the feedback, dates it, and adds the day's anonymous tallies inside the same transaction", async () => {
+    const now = new Date("2026-10-20T15:00:00Z");
+    expect(await completeInterviewFeedback({ interviewId: INTERVIEW_ID, totalScore: 60, report, guardStats }, now)).toBe("fb_1");
     expect(tx.interview.updateMany).toHaveBeenCalledWith({
       where: { id: INTERVIEW_ID, status: "GENERATING" },
       data: { status: "COMPLETED", failureReason: null },
     });
     expect(tx.interviewFeedback.upsert).toHaveBeenCalledTimes(1);
     expect(tx.interviewFeedback.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { totalScore: 60, report, guardStats } }),
+      expect.objectContaining({ update: { totalScore: 60, report, guardStats, createdAt: now } }),
+    );
+    // One intervention pair, the row recorded, the row fired: three tallies for the UTC day, kind INTERVIEW.
+    expect(tx.guardStatDaily.upsert).toHaveBeenCalledTimes(3);
+    expect(tx.guardStatDaily.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { date_kind_check_action: { date: new Date("2026-10-20T00:00:00Z"), kind: "INTERVIEW", check: "evidence-grounding", action: "quote-dropped" } },
+        update: { count: { increment: 1 } },
+      }),
     );
   });
 

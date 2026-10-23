@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DisconnectionDetails } from "@elevenlabs/react";
@@ -76,6 +77,7 @@ const SESSION = {
   language: "es" as const,
   expiresAt: "2026-10-12T10:15:00.000Z",
   maxDurationSeconds: 720,
+  source: "period" as const,
 };
 
 const props: InterviewAgentProps = {
@@ -88,6 +90,7 @@ const props: InterviewAgentProps = {
   startCount: 0,
   maxStarts: 3,
   maxDurationSeconds: 720,
+  source: "period",
 };
 
 const getUserMedia = vi.fn();
@@ -154,17 +157,20 @@ describe("InterviewAgent: before the call", () => {
     expect(screen.getByText("Northwind")).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
+    expect(screen.getByText("Uses one of this period's interviews.")).toBeTruthy();
     expect(screen.getByText(/Attempt 2$/)).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("labels the attempt from the analysis's numbering, never from the start counter, and shows the tier's length", () => {
-    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} />);
+  it("labels the attempt from the analysis's numbering, never from the start counter, and shows the entitlement's length and source", () => {
+    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} source="trial" />);
 
     expect(screen.getByText(/Attempt 1$/)).toBeTruthy();
     expect(screen.getByText("Up to 5 minutes")).toBeTruthy();
+    expect(screen.getByText("Your free trial, on us.")).toBeTruthy();
+    expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByText(/starts? left/)).toBeNull();
     // The old cell that showed the start counter as "3 of 3" is gone.
     expect(screen.queryByText("3 of 3")).toBeNull();
@@ -213,6 +219,7 @@ describe("InterviewAgent: starting", () => {
       conversationToken: "tok_1",
       dynamicVariables: SESSION.dynamicVariables,
       overrides: { agent: { language: "es" } },
+      workletPaths: WORKLET_PATHS,
     });
     // Status line and button both say so.
     expect(screen.getAllByText("Connecting")).toHaveLength(2);
@@ -222,7 +229,7 @@ describe("InterviewAgent: starting", () => {
     { when: "the middleware answers a 404 page", body: "<!doctype html>", status: 404, copy: /didn't go through/ },
     { when: "the server answers 409 at the cap", body: { ok: false, code: "INTERVIEW_START_LIMIT" }, status: 409, copy: /all of its starts/ },
     { when: "the server answers 409 for an ended interview", body: { ok: false, code: "INTERVIEW_NOT_STARTABLE" }, status: 409, copy: /already ended/ },
-    { when: "the server answers 503", body: { ok: false, code: "VOICE_UNAVAILABLE" }, status: 503, copy: /couldn't connect/ },
+    { when: "the server answers 503", body: { ok: false, code: "VOICE_UNAVAILABLE" }, status: 503, copy: /temporarily unavailable/ },
   ])("shows the copy and does not start the SDK when $when", async ({ body, status, copy }) => {
     vi.stubGlobal(
       "fetch",
@@ -277,7 +284,7 @@ describe("InterviewAgent: starting", () => {
       callbacks().onError?.("Failed to fetch conversation token");
     });
 
-    expect(screen.getByRole("status").textContent).toMatch(/couldn't connect/);
+    expect(screen.getByRole("status").textContent).toMatch(/temporarily unavailable/);
     expect(startButton().hasAttribute("disabled")).toBe(false);
     expect(screen.queryByText(/starts? left/)).toBeNull();
   });
@@ -314,6 +321,30 @@ describe("InterviewAgent: during the call", () => {
 
     // Nothing in the transcript was posted anywhere: the one request was the session.
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the session's length after Start and says so when it differs from what the page promised, never jumping silently", async () => {
+    // The page promised a credit's twelve minutes; a credit spent elsewhere left the trial's five.
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300, source: "trial" } });
+    render(<InterviewAgent {...props} maxDurationSeconds={720} source="credit" />);
+    expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
+    expect(screen.getByText("Uses one credit.")).toBeTruthy();
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    expect(screen.getByRole("note").textContent).toMatch(/This call runs 5 minutes, not 12/);
+    expect(screen.getByLabelText("Time left").textContent).toBe("5:00");
+  });
+
+  it("says nothing extra when the session confirms the page's length", async () => {
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 720, source: "period" } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
   it("counts down from the session's limit, warning at one minute and again in the last ten seconds, in the session's language", async () => {

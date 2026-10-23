@@ -1,5 +1,5 @@
-import type { ErrorCode } from "@/lib/error/errors";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import type { InterviewEntitlement } from "@/lib/interviewEntitlement";
 
 /**
  * The product's limits, in one place. Every quota and rate-limit number the
@@ -28,10 +28,14 @@ export type PlanLimits = {
   announceAnalyses: boolean;
   /** Full interviews per period. */
   interviewsPerMonth: number;
-  /** Trial interviews in the account's lifetime. */
+  /** Trial interviews in the account's lifetime, for an account that never had voice. */
   trialInterviews: number;
-  /** Which agent an interview of this plan runs on. */
-  interviewTier: InterviewTierId;
+  /**
+   * How many of the most recent analyses the plan shows; null for all.
+   * Older ones are hidden, never deleted: the lists leave them out and
+   * their pages answer with an upgrade notice, and Pro reveals them.
+   */
+  historyLimit: number | null;
 };
 
 export const PLANS: Record<PlanId, PlanLimits> = {
@@ -40,14 +44,14 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     announceAnalyses: true,
     interviewsPerMonth: 0,
     trialInterviews: 1,
-    interviewTier: "TRIAL",
+    historyLimit: 3,
   },
   PRO: {
     analysesPerMonth: 50,
     announceAnalyses: false,
     interviewsPerMonth: 4,
     trialInterviews: 0,
-    interviewTier: "FULL",
+    historyLimit: null,
   },
 };
 
@@ -70,33 +74,37 @@ export const INTERVIEW_TIERS: Record<InterviewTierId, InterviewTier> = {
 export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;
 
 /**
+ * The interview pack: a one-time purchase, sold to active Pro accounts,
+ * this many credits. A credit is one full interview: for a Pro, once the
+ * period's are used; for an account whose Pro ended, at any time. Paid-for
+ * credits never expire and are never frozen (the owner's decision after
+ * the first live test: unusable paid credits are a refund magnet). A grant
+ * stores the units it gave, so packs sold at an earlier size keep theirs.
+ * The price is in lib/billing/catalog.ts beside the subscription's.
+ */
+export const INTERVIEW_PACK_CREDITS = 4;
+
+/**
  * Hourly, per user, the same for both plans. A brake on loops and abuse,
  * not a product limit: the quotas above are those. The status endpoint is
- * polled every 3 to 10 seconds by design, so its ceiling is per minute and
- * generous, there only to stop a runaway loop.
+ * polled every 3 to 10 seconds by design, and two tabs of the same page
+ * poll independently, so its ceiling is per minute and generous, there only
+ * to stop a runaway loop.
  */
 export const RATE_LIMITS = {
   analysis: { limit: 10, windowMs: 60 * 60_000 },
   uploadUrl: { limit: 20, windowMs: 60 * 60_000 },
   interviewStart: { limit: 6, windowMs: 60 * 60_000 },
   interviewCreate: { limit: 3, windowMs: 60 * 60_000 },
-  status: { limit: 30, windowMs: 60_000 },
+  status: { limit: 60, windowMs: 60_000 },
+  /** Checkouts and portal links: each is a provider call that creates a record there. */
+  checkout: { limit: 10, windowMs: 60 * 60_000 },
+  portal: { limit: 10, windowMs: 60 * 60_000 },
+  /** "Check again" after a checkout whose confirmation is late: two provider reads per press. */
+  reconcile: { limit: 6, windowMs: 60 * 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;
-
-/**
- * Analysis failures that are the user's own file: the unit stays spent.
- * Everything else (the model, storage, the network, an object that never
- * arrived, anything unknown) gives the unit back, because the user got
- * nothing and the fault was not theirs.
- */
-export const ANALYSIS_CONSUMING_FAILURE_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
-  "NOT_A_PDF",
-  "PDF_NO_TEXT",
-  "FILE_TOO_LARGE",
-  "PDF_UNREADABLE",
-]);
 
 /** What the new-analysis page shows: the Free allowance, or nothing until Pro's fair-use cap is hit. */
 export type AnalysisQuotaView = {
@@ -115,13 +123,21 @@ export type InterviewQuotaView = {
   trialAvailable: boolean;
   left: number;
   limit: number;
+  /** Pack credits held: each one a full interview, on any plan. */
+  credits: number;
+  /** What the next start would get: the source, the agent and its length, decided once (lib/interviewEntitlement.ts). */
+  entitlement: InterviewEntitlement;
   /** ISO date of the next reset. */
   resetsAt: string;
 };
 
 export type QuotaPeriod = { start: Date; end: Date };
 
-/** The calendar month of `now`, in UTC: [start, end). */
+/**
+ * The calendar month of `now`, in UTC: [start, end). The period of every
+ * Free and comped account; a subscribed Pro's period is its billing period
+ * (`quotaPeriodFor` in lib/billing/access.ts).
+ */
 export function quotaPeriod(now: Date): QuotaPeriod {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
+import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
 import { RECONCILE_GRACE_SECONDS } from "@/lib/elevenlabs/postCall";
 import { reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
@@ -11,6 +12,7 @@ import { GET } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ fetchInterviewStatus: vi.fn() }));
+vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/elevenlabs/reconcile", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/elevenlabs/reconcile")>();
@@ -57,6 +59,14 @@ beforeEach(() => {
 });
 
 describe("GET /api/interview/[id]/status", () => {
+  it("sweeps the caller's abandoned interviews before reading the row", async () => {
+    await get();
+    expect(expireAbandonedInterviews).toHaveBeenCalledWith("user_1");
+    expect(vi.mocked(expireAbandonedInterviews).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(fetchInterviewStatus).mock.invocationCallOrder[0],
+    );
+  });
+
   it("answers the four fields the pending page polls for, and nothing else", async () => {
     expect(await get()).toEqual({
       status: 200,

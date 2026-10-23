@@ -254,3 +254,47 @@ export async function applyBucketSettings(settings: typeof BUCKET_SETTINGS): Pro
   });
   if (error) throw toStorageError(error, "update bucket");
 }
+
+/** The bucket as it is, or null when the project has none by that name. */
+export async function findBucketSettings(): Promise<BucketSettings | null> {
+  const { buckets } = storage();
+  const { data, error } = await buckets.getBucket(RESUME_BUCKET);
+  if (error) {
+    if (isNotFound(error)) return null;
+    throw toStorageError(error, "get bucket");
+  }
+  return {
+    public: data.public,
+    fileSizeLimit: data.file_size_limit ?? null,
+    allowedMimeTypes: data.allowed_mime_types ?? null,
+  };
+}
+
+/** Whether what the project holds is exactly `BUCKET_SETTINGS`. */
+export function bucketMatches(actual: BucketSettings | null, wanted: typeof BUCKET_SETTINGS = BUCKET_SETTINGS): boolean {
+  if (!actual) return false;
+  const mimes = [...(actual.allowedMimeTypes ?? [])].sort();
+  return actual.public === wanted.public && actual.fileSizeLimit === wanted.fileSizeLimit && mimes.join(",") === [...wanted.allowedMimeTypes].sort().join(",");
+}
+
+/**
+ * The bucket as the code says it should be, created when the project has
+ * none (a production project's first run) and corrected when it differs.
+ * Idempotent: a second run reports "unchanged".
+ */
+export async function ensureBucket(settings: typeof BUCKET_SETTINGS = BUCKET_SETTINGS): Promise<"created" | "updated" | "unchanged"> {
+  const current = await findBucketSettings();
+  if (current === null) {
+    const { buckets } = storage();
+    const { error } = await buckets.createBucket(RESUME_BUCKET, {
+      public: settings.public,
+      fileSizeLimit: settings.fileSizeLimit,
+      allowedMimeTypes: [...settings.allowedMimeTypes],
+    });
+    if (error) throw toStorageError(error, "create bucket");
+    return "created";
+  }
+  if (bucketMatches(current, settings)) return "unchanged";
+  await applyBucketSettings(settings);
+  return "updated";
+}

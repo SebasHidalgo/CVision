@@ -38,6 +38,24 @@ describe("classifyObjects", () => {
     expect(loose.verdict).toEqual({ kind: "orphan", why: "outside-cv" });
   });
 
+  it("leaves Supabase's folder placeholders alone, old or not, inside cv/ or at the root: deleting one deletes the folder", () => {
+    const [root, inside, dated] = classifyObjects(
+      [
+        object(".emptyFolderPlaceholder", hoursAgo(5000), 0),
+        object(`cv/${USER}/.emptyFolderPlaceholder`, hoursAgo(5000), 0),
+        object("cv/.emptyFolderPlaceholder", null, 0),
+      ],
+      referenced,
+      NOW,
+    );
+    expect(root.verdict).toEqual({ kind: "keep", why: "placeholder" });
+    expect(inside.verdict).toEqual({ kind: "keep", why: "placeholder" });
+    expect(dated.verdict).toEqual({ kind: "keep", why: "placeholder" });
+    // A file that merely ends with the name is not a placeholder.
+    const [lookalike] = classifyObjects([object("notes.emptyFolderPlaceholder", hoursAgo(1))], referenced, NOW);
+    expect(lookalike.verdict).toEqual({ kind: "orphan", why: "outside-cv" });
+  });
+
   it("keeps a cv/ object whose age the listing did not report", () => {
     const [kept] = classifyObjects([object(key("dddddddd-0000-4000-8000-000000000004.pdf"), null)], referenced, NOW);
     expect(kept.verdict).toEqual({ kind: "keep", why: "unknown-age" });

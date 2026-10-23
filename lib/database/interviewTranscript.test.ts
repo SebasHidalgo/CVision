@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import type { PostCallTranscription } from "@/lib/elevenlabs/postCall";
+import { fromConversationApi, type PostCallTranscription } from "@/lib/elevenlabs/postCall";
 import { claimReconcile, markSessionLost, storeConversationTranscript } from "./interviewTranscript";
-import { refundUsage } from "./usage";
+import { refundUsageIn } from "./usage";
 
+/** The transaction the refund and the forgotten reservation share. */
+const tx = { interview: { updateMany: vi.fn(async () => ({ count: 1 })) } };
 vi.mock("@/lib/prisma", () => ({
   default: {
+    $transaction: vi.fn(),
     interview: { findFirst: vi.fn(), updateMany: vi.fn() },
   },
 }));
-vi.mock("./usage", () => ({ refundUsage: vi.fn(async () => true) }));
+vi.mock("./usage", () => ({ refundUsageIn: vi.fn(async () => true) }));
 
 const findFirst = vi.mocked(prisma.interview.findFirst);
 const updateMany = vi.mocked(prisma.interview.updateMany);
@@ -42,6 +45,8 @@ const row = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   updateMany.mockResolvedValue({ count: 1 });
+  tx.interview.updateMany.mockResolvedValue({ count: 1 });
+  vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
 });
 
 describe("storeConversationTranscript: how a delivery finds its row", () => {
@@ -137,27 +142,73 @@ describe("the usage unit when the interview ends with nothing to score", () => {
     const result = await storeConversationTranscript({ data: silent(), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FAILED" });
-    expect(refundUsage).toHaveBeenCalledWith("evt_1", "NO_CANDIDATE_TURNS");
+    expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "NO_CANDIDATE_TURNS");
+    // FAILED keeps the reservation on the row for support to read.
+    expect(tx.interview.updateMany).not.toHaveBeenCalled();
+    // The silent call was the candidate's microphone: the start stays counted.
+    expect((updateMany.mock.calls[0][0] as { data: Record<string, unknown> }).data).not.toHaveProperty("startCount");
   });
 
-  it("keeps the unit while a silent attempt still has starts left, and when the candidate spoke", async () => {
+  it("refunds a silent attempt with starts left at once, whatever paid for it, and forgets the reservation in the same transaction so the next start reserves again", async () => {
     findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
-    await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "NO_CANDIDATE_TURNS");
+    expect(tx.interview.updateMany).toHaveBeenCalledWith({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+    expect(updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("refunds a call the platform could not run (status failed, nothing heard) under CALL_FAILED and gives the start back too, in the same write, even at the cap", async () => {
+    findFirst.mockResolvedValueOnce(row({ startCount: 3 }) as never);
+    const data = fromConversationApi({
+      agentId: "agent_1",
+      conversationId: "conv_2",
+      status: "failed",
+      transcript: [],
+      metadata: { startTimeUnixSecs: 1_792_734_157, callDurationSecs: 0, terminationReason: "", error: { code: 3000, reason: "[quota_exceeded] You've run out of credits." } },
+      conversationInitiationClientData: { dynamicVariables: { interview_id: "int_1" } },
+    });
+
+    const result = await storeConversationTranscript({ data, eventTimestamp: null, source: "elevenlabs-api" });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: "int_1", startCount: { gt: 0 } },
+      data: { status: "IN_PROGRESS", failureReason: "CALL_FAILED", transcriptSource: "elevenlabs-api", durationSeconds: 0, startCount: { decrement: 1 } },
+    });
+    expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "CALL_FAILED");
+    expect(tx.interview.updateMany).toHaveBeenCalledWith({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+  });
+
+  it("keeps the unit when the candidate spoke, and when a silent delivery is from an earlier session than the row's", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
     await storeConversationTranscript({ data: payload(), eventTimestamp: null });
+    expect(refundUsageIn).not.toHaveBeenCalled();
 
-    expect(refundUsage).not.toHaveBeenCalled();
+    // conv_1 is an earlier session; conv_2, the latest, may be live and holds the unit.
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+    await storeConversationTranscript({ data: silent().conversation_id === "conv_2" ? { ...silent(), conversation_id: "conv_1" } : silent(), eventTimestamp: null });
+    expect(refundUsageIn).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("markSessionLost fails the interview and refunds only when no start is left", async () => {
+  it("markSessionLost refunds whether or not a start is left, fails the interview only when none is, and forgets the reservation only while one is", async () => {
     await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST", exhausted: false, usageEventId: "evt_1" });
     expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { failureReason: "SESSION_LOST" } });
     expect((updateMany.mock.calls[0][0] as { data: Record<string, unknown> }).data).not.toHaveProperty("status");
-    expect(refundUsage).not.toHaveBeenCalled();
+    expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "SESSION_LOST");
+    expect(tx.interview.updateMany).toHaveBeenCalledWith({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
 
+    vi.clearAllMocks();
+    updateMany.mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
     await markSessionLost({ interviewId: "int_1", conversationId: "conv_2", reason: "SESSION_LOST", exhausted: true, usageEventId: "evt_1" });
-    expect(updateMany.mock.calls[1][0]).toMatchObject({ data: { failureReason: "SESSION_LOST", status: "FAILED" } });
-    expect(refundUsage).toHaveBeenCalledWith("evt_1", "SESSION_LOST");
+    expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { failureReason: "SESSION_LOST", status: "FAILED" } });
+    expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "SESSION_LOST");
+    expect(tx.interview.updateMany).not.toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledTimes(1);
   });
 });
 

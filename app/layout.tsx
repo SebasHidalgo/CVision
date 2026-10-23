@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Header } from "@/components/navbar/Header";
 import Providers from "@/components/providers/Providers";
+import { appUrl, BRAND } from "@/lib/brand";
 import { clerkAppearance } from "@/lib/clerkAppearance";
 
 const fraunces = Fraunces({
@@ -27,12 +28,13 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl()),
   title: {
-    default: "CVision",
-    template: "%s · CVision",
+    default: BRAND.name,
+    template: `%s · ${BRAND.name}`,
   },
-  description:
-    "Paste a job post, upload your CV, and find out how well you actually fit before you apply. Then rehearse the interview out loud.",
+  description: BRAND.description,
+  applicationName: BRAND.name,
 };
 
 export const viewport: Viewport = {

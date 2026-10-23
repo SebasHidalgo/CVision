@@ -3,6 +3,7 @@ import { createInterview } from "@/lib/database/interview";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { fetchResumeById } from "@/lib/database/resume";
 import { usageSummary, type UsageSummary } from "@/lib/database/usage";
+import type { InterviewEntitlement } from "@/lib/interviewEntitlement";
 import { RateLimitedError } from "@/lib/error/errors";
 import { MAX_TECHSTACK_ITEM_CHARS, MAX_TECHSTACK_ITEMS } from "@/lib/schemas/interviewSchema";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -45,12 +46,31 @@ const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["statu
   createdAt: "2026-10-01T00:00:00.000Z",
 });
 
+
+/** The entitlement a summary carries, for the shape the action reads; the facts behind it are the ledger's business. */
+const entitlement = (source: "period" | "credit" | "trial" | "none", plan: "FREE" | "PRO" = "FREE"): InterviewEntitlement => ({
+  plan,
+  source,
+  agent: source === "none" ? null : source === "trial" ? "trial" : "main",
+  maxDurationSeconds: source === "none" ? 0 : source === "trial" ? 300 : 720,
+  remaining: { period: 0, periodLimit: plan === "PRO" ? 4 : 0, credits: 0, creditsPending: 0, trial: source === "trial" ? 1 : 0 },
+  reason: source === "period" ? "period-left" : source === "credit" ? "credit" : source === "trial" ? "trial-available" : plan === "PRO" ? "period-used" : "trial-used",
+  resetsAt: plan === "PRO" ? "2026-11-01T00:00:00.000Z" : null,
+});
+
 const summary = (overrides: Partial<UsageSummary> = {}): UsageSummary => ({
   plan: "FREE",
+  source: "free",
   analyses: { used: 1, limit: 3, left: 2, announce: true },
   interviews: { used: 0, limit: 0, left: 0 },
+  credits: { balance: 0, pending: 0 },
   trial: { available: true, used: false },
+  entitlement: entitlement("trial"),
+  period: { start: new Date("2026-10-01T00:00:00Z"), end: new Date("2026-11-01T00:00:00Z") },
   resetsAt: new Date("2026-11-01T00:00:00Z"),
+  subscription: null,
+  everSubscribed: false,
+  hasBillingAccount: false,
   ...overrides,
 });
 
@@ -178,7 +198,7 @@ describe("createInterviewAction: the plan's unit is checked, not reserved", () =
   it("creates when a Free account still has its trial, and refuses once it is used", async () => {
     expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
 
-    vi.mocked(usageSummary).mockResolvedValue(summary({ trial: { available: false, used: true } }));
+    vi.mocked(usageSummary).mockResolvedValue(summary({ trial: { available: false, used: true }, entitlement: entitlement("none") }));
     expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({
       ok: false,
       code: "INTERVIEW_QUOTA_EXCEEDED",
@@ -191,11 +211,25 @@ describe("createInterviewAction: the plan's unit is checked, not reserved", () =
     vi.mocked(usageSummary).mockResolvedValue(summary({ plan: "PRO", interviews: { used: 3, limit: 4, left: 1 }, trial: { available: false, used: false } }));
     expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
 
-    vi.mocked(usageSummary).mockResolvedValue(summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, trial: { available: false, used: false } }));
+    vi.mocked(usageSummary).mockResolvedValue(summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, trial: { available: false, used: false }, entitlement: entitlement("none", "PRO") }));
     expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({
       ok: false,
       code: "INTERVIEW_QUOTA_EXCEEDED",
       meta: { plan: "PRO", resetsAt: "2026-11-01T00:00:00.000Z" },
     });
+  });
+
+  it("creates for a Pro account at zero with pack credits, and for a Free account holding credits, but not for one with neither credits nor trial", async () => {
+    vi.mocked(usageSummary).mockResolvedValue(
+      summary({ plan: "PRO", interviews: { used: 4, limit: 4, left: 0 }, credits: { balance: 2, pending: 0 }, trial: { available: false, used: false }, entitlement: entitlement("credit", "PRO") }),
+    );
+    expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
+
+    // Pro ended, credits kept: still a full interview.
+    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 2, pending: 0 }, trial: { available: false, used: true }, everSubscribed: true, entitlement: entitlement("credit") }));
+    expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
+
+    vi.mocked(usageSummary).mockResolvedValue(summary({ credits: { balance: 0, pending: 0 }, trial: { available: false, used: true }, entitlement: entitlement("none") }));
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: false, code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
   });
 });

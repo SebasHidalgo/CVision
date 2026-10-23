@@ -8,7 +8,7 @@ import {
   interviewStatusSnapshotSchema,
   type InterviewStatusSnapshot,
 } from "@/lib/schemas/interviewSessionSchema";
-import { POLL_CEILING_MS, pollDelayMs } from "../utils/pollDelay";
+import { POLL_CEILING_MS, pollDelayMs } from "@/lib/pollDelay";
 
 type StatusPollerProps = {
   interviewId: string;

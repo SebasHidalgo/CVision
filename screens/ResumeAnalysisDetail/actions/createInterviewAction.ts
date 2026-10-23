@@ -42,12 +42,13 @@ export async function createInterviewAction(
     const live = liveAttempt(resume.interviews);
     if (live) return { ok: true, data: { interviewId: live.id } };
 
-    const usage = await usageSummary(userId);
-    const hasUnit = usage.plan === "FREE" ? usage.trial.available : usage.interviews.left > 0;
-    if (!hasUnit) {
+    // The same decision the first token will make (lib/interviewEntitlement),
+    // on the same facts: this only spares a row nobody could start.
+    const { entitlement } = await usageSummary(userId);
+    if (entitlement.source === "none") {
       throw new InterviewQuotaExceededError({
-        plan: usage.plan,
-        ...(usage.plan === "PRO" ? { resetsAt: usage.resetsAt.toISOString() } : {}),
+        plan: entitlement.plan,
+        ...(entitlement.resetsAt ? { resetsAt: entitlement.resetsAt } : {}),
       });
     }
 

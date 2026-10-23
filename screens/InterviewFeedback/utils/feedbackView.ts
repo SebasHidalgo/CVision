@@ -1,5 +1,6 @@
 import type { InterviewStatus } from "@prisma/client";
 import {
+  CALL_FAILED,
   isStranded,
   NO_CANDIDATE_TURNS,
   SESSION_LOST,
@@ -13,7 +14,7 @@ export type FeedbackView =
   /** Opened by hand while a call may still be running elsewhere. */
   | { kind: "live-notice" }
   /** The latest call produced nothing to score; the interview is still startable. */
-  | { kind: "not-scored"; reason: "silent" | "lost" }
+  | { kind: "not-scored"; reason: "silent" | "lost" | "failed" }
   /** The call is over and the transcript has not landed yet. */
   | { kind: "pending-transcript" }
   /** The transcript is stored and feedback is being generated. */
@@ -47,10 +48,16 @@ export function decideFeedbackView(
   const phase = interviewPhase(input.status);
 
   if (phase === "ready") {
-    const silent = input.failureReason === NO_CANDIDATE_TURNS;
-    const lost = input.failureReason === SESSION_LOST;
-    if (silent || lost) {
-      return input.justEnded ? { kind: "not-scored", reason: lost ? "lost" : "silent" } : { kind: "room" };
+    const reason =
+      input.failureReason === NO_CANDIDATE_TURNS
+        ? "silent"
+        : input.failureReason === SESSION_LOST
+          ? "lost"
+          : input.failureReason === CALL_FAILED
+            ? "failed"
+            : null;
+    if (reason) {
+      return input.justEnded ? { kind: "not-scored", reason } : { kind: "room" };
     }
     if (input.justEnded) return { kind: "pending-transcript" };
 

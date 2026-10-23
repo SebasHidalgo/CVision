@@ -30,11 +30,13 @@ const COPY: Record<ErrorCode, string> = {
   AI_BAD_FORMAT:
     "We couldn't read the analysis. Try again — it usually works on a retry.",
   VOICE_UNAVAILABLE:
-    "The interviewer couldn't connect right now. Give it a minute and try again.",
+    "Voice interviews are temporarily unavailable. Nothing was charged. Try again in a few minutes.",
   VOICE_MISCONFIGURED:
     "The interview room is misconfigured on our side. Retrying won't help — please check back later.",
   INTERVIEW_NOT_STARTABLE:
     "This interview has already ended. Your feedback will appear under Interviews once it's ready.",
+  INTERVIEW_EXPIRED:
+    "This attempt expired: two hours passed without a session, so it was closed and nothing was charged. Rehearse again from the analysis.",
   INTERVIEW_START_LIMIT:
     "This interview has used all of its starts: every connection to the interviewer counts as one. Rehearse again from the analysis.",
   INTERVIEW_CONTEXT_MISSING:
@@ -47,6 +49,18 @@ const COPY: Record<ErrorCode, string> = {
     "Voice interviews are part of Pro.",
   RATE_LIMITED:
     "Too many requests in a short time. Wait a moment and try again.",
+  BILLING_UNAVAILABLE:
+    "Billing isn't responding right now. Nothing was charged. Give it a minute and try again.",
+  BILLING_MISCONFIGURED:
+    "Billing is misconfigured on our side. Nothing was charged. Retrying won't help — please check back later.",
+  ALREADY_SUBSCRIBED:
+    "You already have a Pro subscription. Manage it from your account page.",
+  PACK_REQUIRES_PRO:
+    "Interview packs are for Pro subscribers. Subscribe to Pro first.",
+  NO_BILLING_ACCOUNT:
+    "There's no billing account for you yet. It's created with your first purchase.",
+  BILLING_PORTAL_UNAVAILABLE:
+    "Billing management is temporarily unavailable. Try again later.",
   REQUEST_FAILED:
     "The request didn't go through. Check your connection and try again. If it keeps failing, reload the page.",
   UNKNOWN: "Something went wrong on our side. Please try again.",
@@ -74,7 +88,7 @@ export function actionErrorCopy(code: ErrorCode, meta?: ErrorMeta): string {
   if (code === "INTERVIEW_QUOTA_EXCEEDED") {
     if (meta?.plan === "PRO") {
       const reset = meta.resetsAt ? ` They reset ${resetDateCopy(meta.resetsAt)}.` : "";
-      return `You've used this month's interviews.${reset}`;
+      return `You've used this period's interviews.${reset}`;
     }
     return COPY.INTERVIEW_QUOTA_EXCEEDED;
   }
