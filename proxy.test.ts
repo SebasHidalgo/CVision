@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import middleware from "./middleware";
+import proxy from "./proxy";
 
 /**
  * Clerk's wrapper is replaced by the handler itself, and its matcher by a
@@ -30,13 +30,13 @@ const authFor = (userId: string | null) =>
 const request = (path: string) => new NextRequest(`https://cvision.test${path}`);
 
 const run = (path: string, userId: string | null) =>
-  (middleware as unknown as Handler)(authFor(userId), request(path), {});
+  (proxy as unknown as Handler)(authFor(userId), request(path), {});
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("middleware", () => {
+describe("proxy", () => {
   it("answers a signed-out API call with 401 JSON in the project's shape, not Clerk's 404 page", async () => {
     const response = await run("/api/interview/abc/session", null);
 
@@ -56,7 +56,7 @@ describe("middleware", () => {
     async (path) => {
       const auth = authFor(null);
       const spy = vi.fn(auth);
-      const response = await (middleware as unknown as Handler)(
+      const response = await (proxy as unknown as Handler)(
         Object.assign(spy, { protect }),
         request(path),
         {},

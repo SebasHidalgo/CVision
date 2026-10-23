@@ -1,3 +1,4 @@
+// Next 16 names this file proxy.ts (the middleware convention is deprecated); it runs on the Node runtime.
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import SignInCta from "@/components/auth/SignInCta";
+import SignInCtaButton from "@/components/auth/SignInCtaButton";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
 import Eyebrow from "@/components/layout/Eyebrow";
@@ -58,12 +59,9 @@ export default async function PricingScreen() {
             highlighted
             action={
               plan === null ? (
-                <SignInCta mode="signUp" forceRedirectUrl="/pricing">
-                  <Button size="lg" className="group h-12 px-6 text-base">
-                    Sign up for Pro
-                    <ArrowRight className="size-5 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
-                  </Button>
-                </SignInCta>
+                <SignInCtaButton mode="signUp" forceRedirectUrl="/pricing" className="group h-12 px-6 text-base" arrow>
+                  Sign up for Pro
+                </SignInCtaButton>
               ) : plan === "FREE" ? (
                 <CheckoutButton item="pro_monthly" label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`} className="h-12 px-6 text-base" />
               ) : (
