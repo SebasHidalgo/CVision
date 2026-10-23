@@ -235,6 +235,13 @@ export type InterviewReservation = Reservation & {
  * entitlement is decided inside it, on the same facts the reservation
  * writes against, so what the room was told and what the first token takes
  * cannot diverge. The source decides the ledger kind and the agent.
+ *
+ * `refId` is the interview id. A refunded reservation stays on the ledger
+ * (refunds mark, never delete) and `(kind, refId)` is unique, so a start
+ * after a silent, lost or failed call takes a new row under
+ * `<interviewId>#<n>`, n counting the refunded ones before it: every
+ * reservation keeps its row, and the retry the refund promised can happen.
+ * An active reservation under the same id still collides, as it should.
  */
 export async function reserveInterview(userId: string, interviewId: string, now = new Date()): Promise<InterviewReservation> {
   try {
@@ -245,8 +252,9 @@ export async function reserveInterview(userId: string, interviewId: string, now 
       }
       const kind = USAGE_KIND_BY_SOURCE[entitlement.source];
       const tier = tierOfAgent(entitlement.agent ?? "main");
+      const refunded = await tx.usageEvent.count({ where: { kind, refId: { startsWith: interviewId }, refundedAt: { not: null } } });
       const event = await tx.usageEvent.create({
-        data: { userId, kind, refId: interviewId, createdAt: now },
+        data: { userId, kind, refId: refunded === 0 ? interviewId : `${interviewId}#${refunded + 1}`, createdAt: now },
         select: { id: true },
       });
       return { eventId: event.id, kind, tier, seconds: INTERVIEW_TIERS[tier].seconds, source: entitlement.source };

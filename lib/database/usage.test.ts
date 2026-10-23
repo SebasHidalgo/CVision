@@ -207,10 +207,32 @@ describe("reserveInterview: the entitlement decided inside the transaction", () 
     expect(resolvePlanStandingIn).toHaveBeenCalledWith(tx, "user_1", NOW);
     expect(tx.usageEvent.groupBy).toHaveBeenNthCalledWith(1, PERIOD_GROUP(MONTH));
     expect(tx.usageEvent.groupBy).toHaveBeenNthCalledWith(2, LIFETIME_GROUP);
-    expect(tx.usageEvent.count).not.toHaveBeenCalled();
+    // The only count is the retry probe: refunded reservations of this interview and kind.
+    expect(tx.usageEvent.count).toHaveBeenCalledTimes(1);
+    expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { kind: "INTERVIEW_TRIAL", refId: { startsWith: "int_1" }, refundedAt: { not: null } } });
     expect(tx.interview.count).toHaveBeenCalledWith({ where: { userId: "user_1", status: "IN_PROGRESS", paidBy: "CREDIT", usageEventId: { not: null } } });
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
       data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1", createdAt: NOW },
+      select: { id: true },
+    });
+  });
+
+  it("a start after a refunded reservation (a silent, lost or failed call) takes a new row under the interview's id with the ordinal, so the unique (kind, refId) does not block the retry", async () => {
+    // What the browser proof saw: the trial's first row refunded, and the second Start answering 500 on P2002.
+    factsIn(tx, {});
+    tx.usageEvent.count.mockResolvedValueOnce(1);
+    expect(await reserveInterview("user_1", "int_1", NOW)).toMatchObject({ kind: "INTERVIEW_TRIAL", source: "trial" });
+    expect(tx.usageEvent.create).toHaveBeenCalledWith({
+      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#2", createdAt: NOW },
+      select: { id: true },
+    });
+
+    // The third, after two refunds.
+    factsIn(tx, {});
+    tx.usageEvent.count.mockResolvedValueOnce(2);
+    await reserveInterview("user_1", "int_1", NOW);
+    expect(tx.usageEvent.create).toHaveBeenLastCalledWith({
+      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#3", createdAt: NOW },
       select: { id: true },
     });
   });

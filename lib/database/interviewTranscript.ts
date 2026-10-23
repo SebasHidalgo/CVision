@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import {
+  CALL_FAILED,
   decidePostCallOutcome,
   interviewIdFromPayload,
   NO_CANDIDATE_TURNS,
@@ -93,7 +94,8 @@ export async function storeConversationTranscript({
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
 
-    // Nothing was heard: the unit goes back, whatever paid for it (a period
+    // Nothing was heard (the candidate never spoke, or the platform could
+    // not run the call): the unit goes back, whatever paid for it (a period
     // interview, a credit, the trial), the moment the transcript says so.
     // With starts left the interview stays startable, so the row forgets
     // the reservation and the next start reserves again, on the facts of
@@ -102,8 +104,9 @@ export async function storeConversationTranscript({
     // With no start left the interview is FAILED and the reservation stays
     // on the row, refunded, for support to read.
     const latestSession = data.conversation_id === row.conversationId;
-    if (outcome.failureReason === NO_CANDIDATE_TURNS && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
-      await releaseReservation(row.id, row.usageEventId, NO_CANDIDATE_TURNS, { retryable: outcome.status !== "FAILED" });
+    const reason = outcome.failureReason;
+    if ((reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED) && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
+      await releaseReservation(row.id, row.usageEventId, reason, { retryable: outcome.status !== "FAILED" });
     }
     return { outcome: "stored", interviewId: row.id, status: outcome.status };
   } catch (error) {

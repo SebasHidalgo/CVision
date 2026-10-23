@@ -1,4 +1,5 @@
 import { FEEDBACK_FAILURE_REASONS } from "@/lib/ai/interviewFeedback";
+import { CALL_FAILED } from "@/lib/elevenlabs/postCall";
 
 /** Plain words for `Interview.failureReason`, and what is left to do. */
 export type FailureCopy = {
@@ -12,6 +13,11 @@ const COPY: Record<string, FailureCopy> = {
   [FEEDBACK_FAILURE_REASONS.noCandidateTurns]: {
     title: "The interviewer never heard you.",
     body: "Every connection ended without a single answer from you, which usually means the microphone was muted or not allowed. Check the browser's microphone permission, then rehearse again from the analysis.",
+    canRetryFeedback: false,
+  },
+  [CALL_FAILED]: {
+    title: "The interviewer couldn't join the call.",
+    body: "The voice platform could not run the call, and this interview has no connection left: a problem on our side, not with your microphone. Nothing was charged. Rehearse again from the analysis.",
     canRetryFeedback: false,
   },
   [FEEDBACK_FAILURE_REASONS.transcriptInvalid]: {

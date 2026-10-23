@@ -36,6 +36,8 @@ export const postCallTranscriptionSchema = z.looseObject({
       start_time_unix_secs: z.number().nullish(),
       call_duration_secs: z.number().nullish(),
       termination_reason: z.string().nullish(),
+      /** Set when the platform could not run the call; `status` is then "failed". */
+      error: z.looseObject({ code: z.number().nullish(), reason: z.string().nullish() }).nullish(),
     })
     .nullish(),
   conversation_initiation_client_data: z
@@ -60,6 +62,7 @@ export type ConversationApiRecord = {
     startTimeUnixSecs: number;
     callDurationSecs: number;
     terminationReason?: string | null;
+    error?: { code: number; reason?: string | null } | null;
   };
   conversationInitiationClientData?: { dynamicVariables?: Record<string, unknown> | null } | null;
 };
@@ -88,6 +91,7 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
       start_time_unix_secs: record.metadata.startTimeUnixSecs,
       call_duration_secs: record.metadata.callDurationSecs,
       termination_reason: record.metadata.terminationReason ?? null,
+      ...(record.metadata.error ? { error: { code: record.metadata.error.code, reason: record.metadata.error.reason ?? null } } : {}),
     },
     conversation_initiation_client_data: record.conversationInitiationClientData
       ? { dynamic_variables: record.conversationInitiationClientData.dynamicVariables ?? null }
@@ -99,6 +103,28 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
 export const NO_CANDIDATE_TURNS = "NO_CANDIDATE_TURNS";
 /** `failureReason` when the platform has no record of the latest session. */
 export const SESSION_LOST = "SESSION_LOST";
+/**
+ * `failureReason` when the platform itself reports the call failed (its
+ * status is "failed": the agent never joined, or the call broke before
+ * anyone spoke). Not the candidate's microphone, and the feedback page
+ * says so. Seen live when the ElevenLabs account ran out of credits: the
+ * session token was issued, the room connected, and the platform dropped
+ * the call at once with a conversation of zero turns.
+ */
+export const CALL_FAILED = "CALL_FAILED";
+
+/**
+ * The platform's own account of a failed call, for the server log only:
+ * the error code and reason it recorded (a quota, a misconfiguration, an
+ * outage). Null unless the status is "failed".
+ */
+export function platformFailure(data: PostCallTranscription): string | null {
+  if (data.status !== "failed") return null;
+  const error = data.metadata?.error;
+  if (!error) return "no reason given";
+  const reason = (error.reason ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  return `code=${error.code ?? "-"}${reason ? ` ${reason}` : ""}`;
+}
 
 /**
  * How long after the call is known to be over a webhook is still given a
@@ -217,6 +243,9 @@ export type PostCallOutcome =
  *   startable while attempts remain. Only when the start cap is used up does
  *   the interview fail; otherwise a mic problem would consume the interview
  *   and the retries the cap exists to allow would be unreachable.
+ * - No candidate turns and the platform reports the call failed (its
+ *   status is "failed": the agent never joined): the same, under
+ *   `CALL_FAILED`, so nobody is told to check a microphone that was fine.
  */
 export function decidePostCallOutcome({
   row,
@@ -250,10 +279,12 @@ export function decidePostCallOutcome({
         ? new Date(eventTimestamp * 1000)
         : null;
 
+  const failed = data.status === "failed";
+
   return {
     kind: "store",
     status: spoke ? "FEEDBACK_PENDING" : attemptsLeft ? "IN_PROGRESS" : "FAILED",
-    failureReason: spoke ? null : NO_CANDIDATE_TURNS,
+    failureReason: spoke ? null : failed ? CALL_FAILED : NO_CANDIDATE_TURNS,
     contextMismatch: matches === false,
     startedAt,
     endedAt,

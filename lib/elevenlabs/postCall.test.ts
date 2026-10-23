@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CALL_FAILED,
   decidePostCallOutcome,
   fromConversationApi,
   hasCandidateTurns,
@@ -7,6 +8,7 @@ import {
   interviewIdFromPayload,
   isStranded,
   NO_CANDIDATE_TURNS,
+  platformFailure,
   postCallEventSchema,
   postCallTranscriptionSchema,
   RECONCILE_GRACE_SECONDS,
@@ -132,6 +134,22 @@ describe("decidePostCallOutcome", () => {
     expect(outcome).toMatchObject({ kind: "store", status: "FAILED", failureReason: NO_CANDIDATE_TURNS });
   });
 
+  it("records a call the platform could not run as CALL_FAILED, not as a silent candidate, startable while starts remain", () => {
+    const failed = payload({
+      status: "failed",
+      transcript: [],
+      metadata: { start_time_unix_secs: START, call_duration_secs: 0, termination_reason: "", error: { code: 3000, reason: "[quota_exceeded] You've run out of credits." } },
+    });
+
+    expect(decide(row({ startCount: 1 }), failed)).toMatchObject({ kind: "store", status: "IN_PROGRESS", failureReason: CALL_FAILED });
+    expect(decide(row({ startCount: 3 }), failed, 3)).toMatchObject({ kind: "store", status: "FAILED", failureReason: CALL_FAILED });
+    // What the candidate said still counts, however the platform labelled the call.
+    expect(decide(row(), payload({ status: "failed" }))).toMatchObject({ kind: "store", status: "FEEDBACK_PENDING", failureReason: null });
+    expect(platformFailure(failed)).toBe("code=3000 [quota_exceeded] You've run out of credits.");
+    expect(platformFailure(payload())).toBeNull();
+    expect(platformFailure(payload({ status: "failed", metadata: null }))).toBe("no reason given");
+  });
+
   it("flags a session whose variables differ from what the server issued, and still stores it", () => {
     const tampered = payload({
       conversation_initiation_client_data: { dynamic_variables: { ...ISSUED, role: "CTO" } },
@@ -231,5 +249,37 @@ describe("fromConversationApi", () => {
     });
     expect(data.conversation_initiation_client_data).toBeNull();
     expect(data.metadata?.termination_reason).toBeNull();
+    expect(data.metadata).not.toHaveProperty("error");
+  });
+
+  it("carries the platform's error: the record seen live when the agent could not start (the account out of credits)", () => {
+    const data = fromConversationApi({
+      agentId: "agent_1",
+      conversationId: "conv_failed",
+      status: "failed",
+      transcript: [],
+      metadata: {
+        startTimeUnixSecs: START,
+        callDurationSecs: 0,
+        terminationReason: "",
+        error: { code: 3000, reason: "[quota_exceeded] You've run out of credits. Add credits or upgrade your plan to start a new conversation." },
+      },
+      conversationInitiationClientData: { dynamicVariables: { ...ISSUED } },
+    });
+
+    expect(data.metadata).toEqual({
+      start_time_unix_secs: START,
+      call_duration_secs: 0,
+      termination_reason: "",
+      error: { code: 3000, reason: expect.stringContaining("[quota_exceeded]") },
+    });
+    expect(postCallTranscriptionSchema.safeParse(data).success).toBe(true);
+    expect(decide(row({ conversationId: "conv_failed", startCount: 1 }), data)).toMatchObject({
+      kind: "store",
+      status: "IN_PROGRESS",
+      failureReason: CALL_FAILED,
+      contextMismatch: false,
+      durationSeconds: 0,
+    });
   });
 });

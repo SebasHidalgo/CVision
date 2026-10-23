@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import type { PostCallTranscription } from "@/lib/elevenlabs/postCall";
+import { fromConversationApi, type PostCallTranscription } from "@/lib/elevenlabs/postCall";
 import { claimReconcile, markSessionLost, storeConversationTranscript } from "./interviewTranscript";
 import { refundUsage } from "./usage";
 
@@ -147,6 +147,27 @@ describe("the usage unit when the interview ends with nothing to score", () => {
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
     expect(refundUsage).toHaveBeenCalledWith("evt_1", "NO_CANDIDATE_TURNS");
     expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(updateMany.mock.calls[1][0]).toEqual({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+  });
+
+  it("refunds a call the platform could not run (status failed, nothing heard) the same way, under CALL_FAILED, as the reconcile saw it live", async () => {
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+    const data = fromConversationApi({
+      agentId: "agent_1",
+      conversationId: "conv_2",
+      status: "failed",
+      transcript: [],
+      metadata: { startTimeUnixSecs: 1_792_734_157, callDurationSecs: 0, terminationReason: "", error: { code: 3000, reason: "[quota_exceeded] You've run out of credits." } },
+      conversationInitiationClientData: { dynamicVariables: { interview_id: "int_1" } },
+    });
+
+    const result = await storeConversationTranscript({ data, eventTimestamp: null, source: "elevenlabs-api" });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      data: { status: "IN_PROGRESS", failureReason: "CALL_FAILED", transcriptSource: "elevenlabs-api", durationSeconds: 0 },
+    });
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "CALL_FAILED");
     expect(updateMany.mock.calls[1][0]).toEqual({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
   });
 

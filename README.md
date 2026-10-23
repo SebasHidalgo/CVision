@@ -158,10 +158,11 @@ known to be the caller's, a refused analysis also removes the uploaded
 object, so a losing tab at the last analysis of the month leaves nothing in
 the bucket. An interview reserves on its first session token, which is the
 moment it costs, and gets the unit back if the token is not issued, if the
-call produces no candidate turns or the platform has no record of the
-session (at once, whatever paid for it: a period interview, a credit or
-the trial; while starts remain the interview forgets the reservation and
-the next start reserves again), or if nobody comes back to it: an
+call produces no candidate turns, the platform has no record of the
+session, or the platform reports it could not run the call at all (at
+once, whatever paid for it: a period interview, a credit or the trial;
+while starts remain the interview forgets the reservation and the next
+start reserves again), or if nobody comes back to it: an
 interview still in progress with no session issued for two hours is
 expired, with the unit refunded, the next time its owner's interviews or
 quotas are read (no cron). Refunds mark the event; nothing is deleted.

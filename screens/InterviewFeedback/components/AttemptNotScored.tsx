@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 
 type AttemptNotScoredProps = {
   interview: { id: string; role: string };
-  /** "silent": the platform heard nothing. "lost": the platform has no record of the session. */
-  reason: "silent" | "lost";
+  /** "silent": the platform heard nothing. "lost": it has no record of the session. "failed": it could not run the call. */
+  reason: "silent" | "lost" | "failed";
   /** Starts (connections) this interview can still issue. */
   startsLeft: number;
   date: string;
@@ -20,6 +20,10 @@ const COPY = {
   lost: {
     title: "That session never reached the interviewer.",
     body: "The voice platform has no record of the call, so there is nothing to score. This happens when the connection failed before the interview started.",
+  },
+  failed: {
+    title: "The interviewer couldn't join the call.",
+    body: "The voice platform could not start the session: a problem on our side, not with your microphone. Nothing was scored and nothing was charged.",
   },
 };
 
