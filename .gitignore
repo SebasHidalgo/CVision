@@ -47,7 +47,14 @@ next-env.d.ts
 # Project instructions for Claude Code: local, never in the public repo
 CLAUDE.md
 
-/docs
+# the owner's planning notes stay local; the committed docs are whitelisted below
+/docs/*
+!/docs/data-inventory.md
+!/docs/database.md
+!/docs/accounts.md
+!/docs/billing.md
+!/docs/storage.md
+!/docs/voice.md
 
 # eval harness: model output, and local fixtures that may hold real CVs
 /scripts/eval/runs/
@@ -58,3 +65,6 @@ CLAUDE.md
 
 # browser suite: screenshots, traces and reports of local runs
 /e2e/.artifacts/
+
+# the deploy guide, written for the owner, with his accounts in mind: never pushed
+/docs.local/
