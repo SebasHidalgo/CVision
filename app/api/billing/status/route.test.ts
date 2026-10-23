@@ -61,18 +61,18 @@ describe("GET /api/billing/status", () => {
       credits: 5,
       transactionApplied: null,
     });
-    expect(billingStatus).toHaveBeenCalledWith("user_1", null);
+    expect(billingStatus).toHaveBeenCalledWith("user_1", { transactionId: null, item: null });
     expect(assertRateLimit).toHaveBeenCalledWith("user_1", "status");
   });
 
-  it("asks whether the named transaction was applied, and ignores a malformed one", async () => {
+  it("asks whether the named transaction was applied, with what it bought, and ignores a malformed id or item", async () => {
     vi.mocked(billingStatus).mockResolvedValueOnce(status({ transactionApplied: true }));
-    const { body } = await get(`?transactionId=${TXN}`);
-    expect(billingStatus).toHaveBeenCalledWith("user_1", TXN);
+    const { body } = await get(`?transactionId=${TXN}&item=pro_monthly`);
+    expect(billingStatus).toHaveBeenCalledWith("user_1", { transactionId: TXN, item: "pro_monthly" });
     expect(body.data).toMatchObject({ transactionApplied: true });
 
-    await get("?transactionId=txn_short");
-    expect(billingStatus).toHaveBeenLastCalledWith("user_1", null);
+    await get("?transactionId=txn_short&item=something");
+    expect(billingStatus).toHaveBeenLastCalledWith("user_1", { transactionId: null, item: null });
   });
 
   it("describes a Free account without a subscription", async () => {

@@ -68,7 +68,12 @@ export default async function PricingScreen() {
                 <CheckoutButton item="pro_monthly" label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`} className="h-12 px-6 text-base" />
               ) : (
                 <div className="flex flex-col items-start gap-3">
-                  <ManageSubscriptionButton />
+                  {/* A comped Pro has no customer at the provider yet: nothing to manage there. */}
+                  {summary?.hasBillingAccount ? (
+                    <ManageSubscriptionButton />
+                  ) : (
+                    <p className="eyebrow pt-3">Your current plan</p>
+                  )}
                   <Link href="/account/billing" className="link-rule text-sm text-ink-2">
                     Plan &amp; billing
                   </Link>

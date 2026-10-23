@@ -32,6 +32,18 @@ type Listener = (event: PaddleEventData) => void;
 const listeners = new Set<Listener>();
 let instance: Promise<Paddle | undefined> | null = null;
 
+/**
+ * Development only: every Paddle.js event, in order, with the transaction
+ * it names, so a real checkout's sequence can be read off the console (the
+ * sandbox's overlay is the only place that sequence exists). Compiled out
+ * of production builds.
+ */
+function recordEvent(event: PaddleEventData): void {
+  if (process.env.NODE_ENV === "production") return;
+  const data = event.data as { transaction_id?: string; status?: string } | undefined;
+  console.info(`[CVision][paddle] ${event.name} txn=${data?.transaction_id ?? "-"} status=${data?.status ?? "-"} at=${new Date().toISOString()}`);
+}
+
 /** Paddle's client tokens say which account they open: `test_` the sandbox, `live_` production. */
 export function paddleEnvironmentOf(token: string | undefined): "sandbox" | "production" | null {
   if (!token) return null;
@@ -50,6 +62,7 @@ export function loadPaddle(): Promise<Paddle | undefined> {
     token,
     environment,
     eventCallback: (event) => {
+      recordEvent(event);
       for (const listener of listeners) listener(event);
     },
   }).catch(() => {
@@ -73,6 +86,15 @@ export type OpenCheckoutOptions = {
  * overlay. An overlay that reports nothing at all within the open timeout
  * is treated as never opened. Aborted: resolves "closed" and listens no
  * more.
+ *
+ * Order matters: Paddle.js's `Checkout.close()` emits `checkout.closed` to
+ * the event callback **synchronously, from inside close()** (its source:
+ * `close = function(){ bt({name: CHECKOUT_CLOSE, data: {}}), vt() }`). A
+ * listener still registered at that moment sees a close right after the
+ * completion and, if it settles on the first event it sees, reports the
+ * payment as a close: that is the regression the owner found after M6-B.
+ * So the outcome is settled, and the listener removed, before close() is
+ * called, and a settled listener ignores whatever follows.
  */
 export async function openCheckout(
   transactionId: string,
@@ -85,7 +107,10 @@ export async function openCheckout(
 
   return new Promise<CheckoutOutcome>((resolve) => {
     let openTimer: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
     const finish = (outcome: CheckoutOutcome) => {
+      if (settled) return;
+      settled = true;
       listeners.delete(listener);
       signal?.removeEventListener("abort", onAbort);
       if (openTimer) clearTimeout(openTimer);
@@ -94,27 +119,28 @@ export async function openCheckout(
     const onAbort = () => finish("closed");
 
     const listener: Listener = (event) => {
+      if (settled) return;
       // Any event means Paddle.js is alive and the overlay is up.
       if (openTimer) {
         clearTimeout(openTimer);
         openTimer = null;
       }
       if (event.name === "checkout.completed") {
-        paddle.Checkout.close();
         finish("completed");
+        paddle.Checkout.close();
       } else if (event.name === "checkout.closed") {
         finish("closed");
       } else if (event.name === "checkout.error" || event.name === "checkout.failed") {
-        paddle.Checkout.close();
         finish("error");
+        paddle.Checkout.close();
       }
     };
 
     listeners.add(listener);
     signal?.addEventListener("abort", onAbort);
     openTimer = setTimeout(() => {
-      paddle.Checkout.close();
       finish("timeout");
+      paddle.Checkout.close();
     }, openTimeoutMs);
     paddle.Checkout.open({ transactionId, settings: { displayMode: "overlay", theme } });
   });

@@ -63,7 +63,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
     const tick = async () => {
       if (cancelled) return;
       try {
-        const response = await fetch(`/api/billing/status?transactionId=${encodeURIComponent(activation.transactionId)}`, {
+        const response = await fetch(`/api/billing/status?transactionId=${encodeURIComponent(activation.transactionId)}&item=${activation.item}`, {
           headers: { accept: "application/json" },
           cache: "no-store",
         });
@@ -88,7 +88,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [activation.transactionId, applied]);
+  }, [activation.transactionId, activation.item, applied]);
 
   // Landed: a moment of confirmation, then the plain page, re-read from the server.
   useEffect(() => {

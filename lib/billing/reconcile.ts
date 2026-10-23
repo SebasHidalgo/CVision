@@ -4,6 +4,7 @@ import {
   applySubscriptionSnapshot,
   claimSubscriptionReconcile,
   findBillingCustomer,
+  markSubscriptionTransaction,
   type SnapshotOutcome,
 } from "@/lib/database/billing";
 import { grantInterviewCredits } from "@/lib/database/credits";
@@ -79,6 +80,11 @@ export async function reconcileUserBilling(userId: string, now = new Date()): Pr
   const transactions = await listProviderTransactions(customer.providerCustomerId);
   result.transactions = transactions.length;
   for (const transaction of transactions) {
+    // A subscription payment names its subscription: the mirror learns which
+    // checkout opened it even when both events that carry that were lost.
+    if (transaction.providerSubscriptionId) {
+      await markSubscriptionTransaction(transaction.providerSubscriptionId, transaction.transactionId);
+    }
     const units = transaction.items.reduce((sum, item) => sum + item.quantity * (item.priceKey ? (CATALOG[item.priceKey].credits ?? 0) : 0), 0);
     if (units === 0) continue;
     const outcome = await grantInterviewCredits(userId, { units, transactionId: transaction.transactionId, now });

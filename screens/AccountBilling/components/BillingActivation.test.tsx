@@ -62,7 +62,7 @@ describe("BillingActivation", () => {
 
     await advance(POLL_FAST_MS);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(`/api/billing/status?transactionId=${TXN}`);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(`/api/billing/status?transactionId=${TXN}&item=interview_pack`);
     expect(screen.getByRole("status").textContent).toMatch(/Adding your credits/);
 
     await advance(POLL_FAST_MS);

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { quotaPeriodFor, type PlanStanding } from "@/lib/billing/access";
 import { reconcileIfStale } from "@/lib/billing/reconcile";
+import type { CheckoutItem } from "@/lib/billing/types";
 import {
   AnalysisQuotaExceededError,
   InterviewQuotaExceededError,
@@ -360,6 +361,13 @@ export type BillingStatus = {
   transactionApplied: boolean | null;
 };
 
+export type BillingStatusQuery = {
+  /** The checkout the page waits for, when it names one. */
+  transactionId: string | null;
+  /** What that checkout bought, when the page says: lets a Pro checkout count as applied once Pro is in force by subscription. */
+  item: CheckoutItem | null;
+};
+
 /**
  * What the account page polls after a checkout, every few seconds: the
  * plan, the credits, and whether the transaction it waits for has been
@@ -367,20 +375,27 @@ export type BillingStatus = {
  * sweep of abandoned interviews, no lazy reconcile (so a poll never
  * reaches the provider), and every read in one parallel wave, because a
  * round trip to the pooler is the cost here, not the query.
+ *
+ * A Pro checkout also counts as applied once the plan is Pro by
+ * subscription: only the created event and the completed transaction name
+ * the transaction, and if both are lost the activated event still mirrors
+ * the subscription. The checkout action refuses Pro while any subscription
+ * is open, so the one in force can only be this checkout's.
  */
-export async function billingStatus(userId: string, transactionId: string | null, now = new Date()): Promise<BillingStatus> {
+export async function billingStatus(userId: string, query: BillingStatusQuery, now = new Date()): Promise<BillingStatus> {
   try {
     const [standing, credits, applied] = await Promise.all([
       resolvePlanStanding(userId, now),
       creditBalanceIn(prisma, userId),
-      transactionId ? transactionApplied(userId, transactionId) : Promise.resolve(null),
+      query.transactionId ? transactionApplied(userId, query.transactionId) : Promise.resolve(null),
     ]);
+    const proInForce = query.item === "pro_monthly" && standing.plan === "PRO" && standing.source === "subscription";
     return {
       plan: standing.plan,
       subscription: standing.subscription,
       periodEnd: quotaPeriodFor(standing, now).end,
       credits,
-      transactionApplied: applied,
+      transactionApplied: applied === null ? null : applied || proInForce,
     };
   } catch (error) {
     handleError(error, "Failed to read the billing status");

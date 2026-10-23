@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { applySubscriptionSnapshot, claimSubscriptionReconcile, findBillingCustomer } from "@/lib/database/billing";
+import { applySubscriptionSnapshot, claimSubscriptionReconcile, findBillingCustomer, markSubscriptionTransaction } from "@/lib/database/billing";
 import { grantInterviewCredits } from "@/lib/database/credits";
 import type { PlanStanding, SubscriptionStanding } from "./access";
 import { listProviderSubscriptions, listProviderTransactions } from "./index";
@@ -17,6 +17,7 @@ vi.mock("@/lib/database/billing", () => ({
   applySubscriptionSnapshot: vi.fn(async () => "applied"),
   claimSubscriptionReconcile: vi.fn(async () => true),
   findBillingCustomer: vi.fn(async () => ({ providerCustomerId: "ctm_01" })),
+  markSubscriptionTransaction: vi.fn(async () => true),
 }));
 vi.mock("./index", () => ({ listProviderSubscriptions: vi.fn(async () => []), listProviderTransactions: vi.fn(async () => []) }));
 vi.mock("@/lib/database/credits", () => ({ grantInterviewCredits: vi.fn(async () => ({ granted: true })) }));
@@ -119,6 +120,9 @@ describe("reconcileUserBilling", () => {
     expect(grantInterviewCredits).toHaveBeenCalledWith("user_1", { units: 4, transactionId: "txn_pack", now: NOW });
     expect(grantInterviewCredits).toHaveBeenCalledWith("user_1", { units: 4, transactionId: "txn_seen", now: NOW });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("transaction=txn_pack: 4 credit(s) granted now"));
+    // The subscription payment names its subscription: the mirror learns the checkout even if both events were lost.
+    expect(markSubscriptionTransaction).toHaveBeenCalledTimes(1);
+    expect(markSubscriptionTransaction).toHaveBeenCalledWith("sub_01", "txn_pro");
   });
 
   it("reads no transactions for a user without a customer", async () => {

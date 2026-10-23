@@ -24,8 +24,12 @@ export async function GET(request: NextRequest) {
 
     const named = request.nextUrl.searchParams.get("transactionId");
     const transactionId = named && transactionIdSchema.safeParse(named).success ? named : null;
+    const item = request.nextUrl.searchParams.get("item");
 
-    const status = await billingStatus(userId, transactionId);
+    const status = await billingStatus(userId, {
+      transactionId,
+      item: item === "pro_monthly" || item === "interview_pack" ? item : null,
+    });
     const body: BillingStatusSnapshot = billingStatusSnapshotSchema.parse({
       plan: status.plan,
       subscriptionStatus: status.subscription?.status ?? null,

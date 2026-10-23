@@ -430,7 +430,7 @@ describe("billingStatus", () => {
     vi.mocked(prisma.usageEvent.groupBy).mockResolvedValueOnce(ledger(5, 1));
     vi.mocked(transactionApplied).mockResolvedValueOnce(true);
 
-    const status = await billingStatus("user_1", "txn_01", NOW);
+    const status = await billingStatus("user_1", { transactionId: "txn_01", item: "interview_pack" }, NOW);
 
     expect(status).toEqual({ plan: "PRO", subscription: SUBSCRIPTION, periodEnd: SUBSCRIPTION.currentPeriodEnd, credits: 4, transactionApplied: true });
     expect(transactionApplied).toHaveBeenCalledWith("user_1", "txn_01");
@@ -442,8 +442,20 @@ describe("billingStatus", () => {
   });
 
   it("answers null for the transaction when none was named, and the month's end for a Free account", async () => {
-    const status = await billingStatus("user_1", null, NOW);
+    const status = await billingStatus("user_1", { transactionId: null, item: null }, NOW);
     expect(status).toEqual({ plan: "FREE", subscription: null, periodEnd: MONTH.lt, credits: 0, transactionApplied: null });
     expect(transactionApplied).not.toHaveBeenCalled();
+  });
+
+  it("counts a Pro checkout as applied once Pro is in force by subscription, even when no event named the transaction", async () => {
+    // Only subscription.activated arrived: the row exists, its transactionId is null.
+    setStanding(subscribed());
+    vi.mocked(transactionApplied).mockResolvedValue(false);
+    expect((await billingStatus("user_1", { transactionId: "txn_01", item: "pro_monthly" }, NOW)).transactionApplied).toBe(true);
+
+    // A pack is never inferred from the plan, and a comped Pro is not a subscription.
+    expect((await billingStatus("user_1", { transactionId: "txn_01", item: "interview_pack" }, NOW)).transactionApplied).toBe(false);
+    setStanding(comped);
+    expect((await billingStatus("user_1", { transactionId: "txn_01", item: "pro_monthly" }, NOW)).transactionApplied).toBe(false);
   });
 });
