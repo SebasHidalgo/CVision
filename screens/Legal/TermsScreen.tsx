@@ -1,13 +1,14 @@
 import { INTERVIEW_PACK_CREDITS, PLANS } from "@/lib/plans";
+import { BRAND } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAIL, LEGAL_ENTITY_NAME, MERCHANT_OF_RECORD } from "@/lib/legal";
 import LegalDocument, { type LegalSection } from "./components/LegalDocument";
 
 const SECTIONS: LegalSection[] = [
   {
-    heading: "1. What CVision is",
+    heading: `1. What ${BRAND.name} is`,
     body: [
-      `CVision is a self-assessment and practice tool for job seekers, operated by ${LEGAL_ENTITY_NAME}. You upload your own CV and a job posting you are interested in; the service compares the two and gives you feedback. You can then practice an interview for that posting out loud with an AI voice interviewer and receive feedback on your answers.`,
-      "CVision is for you, about your own application. It is not a tool for companies to assess or rank people, no one else sees your results, and the voice interviewer is software, never a person.",
+      `${BRAND.name} is a self-assessment and practice tool for job seekers, operated by ${LEGAL_ENTITY_NAME}. You upload your own CV and a job posting you are interested in; the service compares the two and gives you feedback. You can then practice an interview for that posting out loud with an AI voice interviewer and receive feedback on your answers.`,
+      `${BRAND.name} is for you, about your own application. It is not a tool for companies to assess or rank people, no one else sees your results, and the voice interviewer is software, never a person.`,
     ],
   },
   {
@@ -45,7 +46,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "7. Ending the service",
     body: [
-      "You can stop using CVision at any time. We may suspend an account that breaks these terms. [PLACEHOLDER: notice periods, what happens to paid periods, and the governing law.]",
+      `You can stop using ${BRAND.name} at any time. We may suspend an account that breaks these terms. [PLACEHOLDER: notice periods, what happens to paid periods, and the governing law.]`,
     ],
   },
   {
@@ -62,7 +63,7 @@ export default function TermsScreen() {
   return (
     <LegalDocument
       title="Terms of service"
-      lede="The agreement between you and CVision. A draft: the owner finalizes it with legal help before launch."
+      lede={`The agreement between you and ${BRAND.name}. A draft: the owner finalizes it with legal help before launch.`}
       sections={SECTIONS}
     />
   );

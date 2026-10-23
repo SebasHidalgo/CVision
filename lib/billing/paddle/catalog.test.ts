@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import { describe, expect, it } from "vitest";
 import { CATALOG } from "@/lib/billing/catalog";
 import { priceDiffers, productDiffers, SUBSCRIBED_EVENTS, WEBHOOK_DESCRIPTION } from "./catalog";
@@ -49,10 +50,10 @@ describe("the catalog sync's decisions", () => {
         "transaction.completed",
       ].sort(),
     );
-    expect(WEBHOOK_DESCRIPTION).toBe("CVision");
+    expect(WEBHOOK_DESCRIPTION).toBe(BRAND.name);
   });
 
-  it("describes CVision as a self-assessment and practice tool, never as screening, coaching or a person", () => {
+  it("describes the product as a self-assessment and practice tool, never as screening, coaching or a person", () => {
     for (const product of Object.values(CATALOG)) {
       const text = `${product.name} ${product.description}`.toLowerCase();
       expect(text).toMatch(/self-assessment|practice|your own cv/);

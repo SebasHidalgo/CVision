@@ -1,7 +1,7 @@
 /**
  * Checks the Paddle account the app runs against, read-only, and prints
  * each check as PASS, FAIL or SKIP with the exact fix: the environment and
- * the keys, every API key permission CVision uses (by a harmless call each,
+ * the keys, every API key permission the app uses (by a harmless call each,
  * or named as unprovable), the default payment link (without which Paddle
  * refuses every transaction), the webhook destination, its events and its
  * secret, and the price ids in .env against the catalog.

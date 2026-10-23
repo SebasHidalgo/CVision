@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
+import { BRAND } from "@/lib/brand";
 
 const LEGAL = [
   { href: "/terms", label: "Terms" },
@@ -50,7 +51,7 @@ export function Footer() {
               {page.label}
             </Link>
           ))}
-          <span className="eyebrow self-center">© 2026 CVision</span>
+          <span className="eyebrow self-center">© {new Date().getUTCFullYear()} {BRAND.name}</span>
         </nav>
       </div>
     </footer>

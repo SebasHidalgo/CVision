@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CATALOG } from "@/lib/billing/catalog";
 import { SUBSCRIBED_EVENTS } from "./catalog";
@@ -23,7 +24,7 @@ const forbidden = (): Answer => ({ status: 403, body: { error: { type: "request_
 const customer = { id: "ctm_01", name: null, email: "x@example.com", marketing_consent: false, status: "active", custom_data: null, locale: "en", created_at: "2026-10-20T10:00:00Z", updated_at: "2026-10-20T10:00:00Z", import_meta: null };
 const destination = (overrides: Record<string, unknown> = {}) => ({
   id: "ntfset_01",
-  description: "CVision",
+  description: BRAND.name,
   type: "url",
   destination: WEBHOOK_URL,
   active: true,

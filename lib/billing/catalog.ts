@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import { INTERVIEW_PACK_CREDITS, PLANS } from "@/lib/plans";
 import type { PriceKey } from "./types";
 
@@ -7,7 +8,7 @@ import type { PriceKey } from "./types";
  * webhook maps the provider's price ids back to these keys. One place, so
  * the price on the page and the price at checkout cannot disagree.
  *
- * The wording describes CVision as what it is: a self-assessment and
+ * The wording describes the product as what it is: a self-assessment and
  * practice tool a job seeker uses on their own CV and their own interview
  * answers, with an AI voice interviewer. Never a tool run on other people,
  * never a service by a person, never a person's voice (see the wording test
@@ -39,17 +40,17 @@ export type CatalogProduct = {
 export const CATALOG: Record<PriceKey, CatalogProduct> = {
   pro_monthly: {
     key: "pro_monthly",
-    name: "CVision Pro",
+    name: `${BRAND.name} Pro`,
     description:
-      `Monthly subscription to CVision Pro, a self-assessment and practice tool for job seekers: unlimited checks of your own CV against job postings, ${PLANS.PRO.interviewsPerMonth} practice interviews a month with an AI voice interviewer (up to 12 minutes each), and your full history.`,
+      `Monthly subscription to ${BRAND.name} Pro, a self-assessment and practice tool for job seekers: unlimited checks of your own CV against job postings, ${PLANS.PRO.interviewsPerMonth} practice interviews a month with an AI voice interviewer (up to 12 minutes each), and your full history.`,
     amountMinor: "1500",
     interval: "month",
     amountLabel: "$15",
   },
   interview_pack: {
     key: "interview_pack",
-    name: `CVision interview pack (${INTERVIEW_PACK_CREDITS} interviews)`,
-    description: `One-time pack of ${INTERVIEW_PACK_CREDITS} voice interviews, up to 12 minutes each, with the AI voice interviewer: extra practice for CVision Pro subscribers. The credits never expire and stay usable after the subscription ends.`,
+    name: `${BRAND.name} interview pack (${INTERVIEW_PACK_CREDITS} interviews)`,
+    description: `One-time pack of ${INTERVIEW_PACK_CREDITS} voice interviews, up to 12 minutes each, with the AI voice interviewer: extra practice for ${BRAND.name} Pro subscribers. The credits never expire and stay usable after the subscription ends.`,
     amountMinor: "900",
     interval: null,
     amountLabel: "$9",

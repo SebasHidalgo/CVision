@@ -1,10 +1,11 @@
+import { BRAND } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAIL, LEGAL_ENTITY_NAME, MERCHANT_OF_RECORD } from "@/lib/legal";
 import LegalDocument, { type LegalSection } from "./components/LegalDocument";
 
 const SECTIONS: LegalSection[] = [
   {
     heading: "1. Who is responsible",
-    body: [`${LEGAL_ENTITY_NAME} operates CVision and is responsible for the personal data described here. Contact: ${LEGAL_CONTACT_EMAIL}. [PLACEHOLDER: registered address.]`],
+    body: [`${LEGAL_ENTITY_NAME} operates ${BRAND.name} and is responsible for the personal data described here. Contact: ${LEGAL_CONTACT_EMAIL}. [PLACEHOLDER: registered address.]`],
   },
   {
     heading: "2. What we collect, and why",
@@ -56,7 +57,7 @@ export default function PrivacyScreen() {
   return (
     <LegalDocument
       title="Privacy"
-      lede="What CVision keeps about you, who processes it and why. A draft: the owner finalizes it with legal help before launch."
+      lede={`What ${BRAND.name} keeps about you, who processes it and why. A draft: the owner finalizes it with legal help before launch.`}
       sections={SECTIONS}
     />
   );

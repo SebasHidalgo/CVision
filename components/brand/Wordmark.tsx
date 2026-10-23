@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type WordmarkProps = {
@@ -11,7 +12,7 @@ export default function Wordmark({ size = "sm", className }: WordmarkProps) {
   return (
     <Link
       href="/"
-      aria-label="CVision — home"
+      aria-label={`${BRAND.name} — home`}
       className={cn(
         "group inline-flex items-baseline gap-[0.16em] font-display font-medium tracking-tight text-ink",
         size === "sm" ? "text-[1.375rem]" : "text-[2.25rem]",
@@ -19,7 +20,7 @@ export default function Wordmark({ size = "sm", className }: WordmarkProps) {
       )}
     >
       <span style={{ fontVariationSettings: '"opsz" 36, "SOFT" 40, "WONK" 1' }}>
-        CVision
+        {BRAND.name}
       </span>
       <span
         aria-hidden

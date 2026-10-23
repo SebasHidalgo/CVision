@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import "server-only";
 
 import type { IEventName, NotificationSettings, Price, Product } from "@paddle/paddle-node-sdk";
@@ -15,7 +16,7 @@ import { PADDLE_FORBIDDEN, paddleCall, paddleClient, paddleErrorCode } from "./c
  */
 
 /** How a destination of ours is recognised among the account's. */
-export const WEBHOOK_DESCRIPTION = "CVision";
+export const WEBHOOK_DESCRIPTION = BRAND.name;
 
 /** The events the webhook route applies; the rest are not even delivered. */
 export const SUBSCRIBED_EVENTS: IEventName[] = [
