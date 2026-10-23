@@ -158,11 +158,17 @@ known to be the caller's, a refused analysis also removes the uploaded
 object, so a losing tab at the last analysis of the month leaves nothing in
 the bucket. An interview reserves on its first session token, which is the
 moment it costs, and gets the unit back if the token is not issued, if the
-call produces no candidate turns, if the session is lost with no reconnects
-left, or if nobody comes back to it: an interview still in progress with
-starts left and no session issued for two hours is expired, with the unit
-refunded, the next time its owner's interviews or quotas are read (no
-cron). Refunds mark the event; nothing is deleted.
+call produces no candidate turns or the platform has no record of the
+session (at once, whatever paid for it: a period interview, a credit or
+the trial; while starts remain the interview forgets the reservation and
+the next start reserves again), or if nobody comes back to it: an
+interview still in progress with no session issued for two hours is
+expired, with the unit refunded, the next time its owner's interviews or
+quotas are read (no cron). Refunds mark the event; nothing is deleted.
+Which interview a start gets (a Pro's period interview, a credit on the
+main agent for twelve minutes, the five-minute trial, or nothing) is
+decided in one place, `lib/interviewEntitlement.ts`, read by the pages,
+the create action and the session endpoint alike.
 
 On top of the quotas, hourly rate limits per user (the same for both
 plans): 10 analyses, 20 upload URLs, 6 interview starts, 3 interview
