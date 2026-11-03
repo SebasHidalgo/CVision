@@ -1,0 +1,88 @@
+{
+  "fixture": "tech-frontend-match",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "3+ years of professional experience with React and TypeScript",
+      "spans": ["3+ years of professional experience with React and TypeScript."],
+      "aliases": ["React and TypeScript experience", "years of React"],
+      "status": "met",
+      "why": "Five years of React and TypeScript."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Next.js or another server-side rendering framework",
+      "spans": ["Experience with Next.js or another server-side rendering framework."],
+      "aliases": ["Next.js", "SSR"],
+      "status": "met",
+      "why": "Server-side rendering with Next.js at Brightpath."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Strong CSS; Tailwind CSS or a design system",
+      "spans": ["Strong CSS skills; experience with Tailwind CSS or a design system."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Strong CSS skills", "Tailwind CSS or a design system"],
+      "status": "met",
+      "why": "CSS, SCSS, Tailwind CSS and a Radix-based design system."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Automated testing (Jest or Vitest, and Playwright or Cypress)",
+      "spans": ["Experience with automated testing (Jest or Vitest, and Playwright or Cypress)."],
+      "aliases": ["automated testing", "Jest", "Playwright"],
+      "status": "met",
+      "why": "Vitest, Jest and Playwright."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Working knowledge of web accessibility standards",
+      "spans": ["Working knowledge of web accessibility standards."],
+      "aliases": ["accessibility", "WCAG"],
+      "status": "met",
+      "why": "WCAG 2.1 AA work verified with axe and screen readers."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "GraphQL experience",
+      "spans": ["GraphQL experience."],
+      "aliases": ["GraphQL"],
+      "status": "met",
+      "why": "Apollo GraphQL client layer."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Healthcare or another regulated industry",
+      "spans": ["Experience in healthcare or another regulated industry."],
+      "aliases": ["healthcare", "regulated industry"],
+      "status": "missing",
+      "why": "E-commerce, B2B analytics and an agency; nothing regulated."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "CI/CD pipelines such as GitHub Actions",
+      "spans": ["Familiarity with CI/CD pipelines such as GitHub Actions."],
+      "aliases": ["CI/CD", "GitHub Actions"],
+      "status": "met",
+      "why": "GitHub Actions in tooling."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Build and maintain features in our React and TypeScript web application.", "reason": "responsibility" },
+    { "span": "Own the performance of key flows (booking, intake forms) and track Core Web Vitals.", "reason": "responsibility" },
+    { "span": "Make every screen accessible; we target WCAG 2.1 AA.", "reason": "responsibility" },
+    { "span": "Collaborate with product designers on our component library.", "reason": "responsibility" },
+    { "span": "Write unit and end-to-end tests and keep the suite fast and reliable.", "reason": "responsibility" },
+    { "span": "Review code and mentor less experienced engineers.", "reason": "responsibility" },
+    { "span": "Fully remote team, four weeks of paid time off, a learning budget and a yearly team offsite.", "reason": "benefit" }
+  ]
+}

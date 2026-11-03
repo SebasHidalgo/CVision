@@ -1,0 +1,68 @@
+{
+  "fixture": "hidden-in-responsibilities",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "Operated Kubernetes in production",
+      "spans": ["so you have operated Kubernetes in production before"],
+      "aliases": ["Kubernetes in production", "Kubernetes"],
+      "hidden": true,
+      "status": "met",
+      "why": "Rule 2: the responsibilities sentence demands it. Four production EKS clusters."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Writes Go every week",
+      "spans": ["you write Go every week"],
+      "aliases": ["Go", "Golang", "Go-based tooling"],
+      "hidden": true,
+      "status": "met",
+      "why": "Rule 2. Go operator and Go CLI."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "5+ years in infrastructure, platform or SRE roles",
+      "spans": ["5+ years in infrastructure, platform or SRE roles."],
+      "aliases": ["years in infrastructure", "SRE experience"],
+      "status": "met",
+      "why": "Six years across platform and SRE roles."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Shipped infrastructure as code with Terraform or Pulumi",
+      "spans": ["Shipped infrastructure as code with Terraform or Pulumi."],
+      "aliases": ["Terraform", "Pulumi", "infrastructure as code"],
+      "status": "met",
+      "why": "Owns the Terraform for all environments."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Incident commander on a formal rotation",
+      "spans": ["It helps if you have been an incident commander on a formal rotation,"],
+      "aliases": ["incident commander", "incident command"],
+      "status": "missing",
+      "why": "On-call member, never an incident commander."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Run Prometheus and Grafana at scale",
+      "spans": ["or have run Prometheus and Grafana at scale yourself."],
+      "aliases": ["Prometheus and Grafana", "Prometheus", "Grafana"],
+      "status": "met",
+      "why": "Runs both for 300 services."
+    }
+  ],
+  "notRequirements": [
+    { "span": "You will own the Terraform that provisions every environment, extend our Prometheus alerting, and take your turn on the on-call rotation.", "reason": "responsibility" },
+    { "span": "Expect to spend a third of your time on reliability projects you propose.", "reason": "responsibility" },
+    { "span": "Harbor Cloud hosts managed PostgreSQL for 900 companies. Four SREs keep it running; you would be the fifth.", "reason": "description" },
+    { "span": "We pay €85,000 to €105,000, fully remote within EU time zones, with a hardware budget and 28 days of leave.", "reason": "benefit" }
+  ]
+}

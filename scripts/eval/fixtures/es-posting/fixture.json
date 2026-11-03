@@ -1,0 +1,20 @@
+{
+  "jobTitle": "Analista de Datos Senior",
+  "purpose": "A posting written in Spanish (Requisitos / Valoramos / Ofrecemos), with alternatives (Python o R; BigQuery o Snowflake; Power BI o Looker), an equivalence clause on the degree, years of experience and a two-language bullet. The CV is Lucía's, rendered to a single-column PDF with accented characters in the text layer (cv.html -> cv.pdf -> cv.txt by scripts/eval/pdf.ts).",
+  "pdf": { "layout": "single-column", "accents": true },
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 7,
+        "maxCount": 9,
+        "why": "POSTING COUNT: seven bullets under Requisitos; the SQL-plus-warehouse and Spanish-plus-English bullets may each be split."
+      },
+      {
+        "matching": "^\\s*(?:R|Snowflake|BigQuery|Looker|Power BI)\\s*$",
+        "count": 0,
+        "why": "Alternatives inside one bullet are not requirements of their own."
+      }
+    ]
+  }
+}

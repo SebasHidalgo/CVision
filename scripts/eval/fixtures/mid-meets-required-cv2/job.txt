@@ -1,0 +1,31 @@
+Backend Developer - Internal Platform Team
+Northwind Freight | Remote (Latin America)
+
+About the role
+Our internal platform team builds the services the rest of the company runs on:
+shipment tracking, rating, and the APIs our carrier partners integrate with. You would
+own one of those services end to end, alongside four other backend developers.
+
+Required qualifications
+- 3+ years of professional backend development experience.
+- Experience writing production code in languages including, but not limited to, C,
+  C++, C#, Java, JavaScript, or Python.
+- Hands-on experience with relational databases and SQL.
+- Experience with containers and CI/CD pipelines.
+- Experience designing and maintaining REST APIs.
+- Working proficiency in written and spoken English.
+
+Preferred qualifications
+- Experience running Kubernetes in production.
+- Experience with event-driven systems such as Kafka or RabbitMQ.
+- Exposure to Go or Rust.
+- Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).
+- An AWS or GCP certification.
+- Experience in logistics, freight or supply chain.
+
+What the first six months look like
+You pick up one existing service, learn its failure modes on call, and take the lead on
+its next version. After that you will have a say in which parts of the platform we
+rebuild and in what order.
+
+We review applications on a rolling basis and reply to every candidate.

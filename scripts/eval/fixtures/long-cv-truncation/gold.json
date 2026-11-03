@@ -1,0 +1,98 @@
+{
+  "fixture": "long-cv-truncation",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "10+ years of backend engineering with at least 3 at senior or staff level",
+      "spans": ["10+ years of backend engineering, with at least 3 at a senior or staff level."],
+      "aliases": ["years of backend engineering", "senior or staff level"],
+      "status": "met",
+      "why": "Sixteen years, principal and staff roles."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Go, Java or Kotlin in production",
+      "spans": ["Deep experience with Go, Java or Kotlin in production."],
+      "status": "met",
+      "why": "Go 8 years, Java 9, Kotlin 3."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Designing event-driven systems with Kafka or a similar log",
+      "spans": ["Proven experience designing event-driven systems with Kafka or a similar log."],
+      "aliases": ["event-driven", "Kafka"],
+      "status": "met",
+      "why": "Event-driven architectures and Kafka throughout the CV."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Strong PostgreSQL: schema design, query tuning and migrations at scale",
+      "spans": ["Strong PostgreSQL skills, including schema design, query tuning and migrations at scale."],
+      "aliases": ["PostgreSQL"],
+      "status": "met",
+      "why": "PostgreSQL schema design, partitioning, query tuning, zero-downtime migrations."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Kubernetes on AWS or GCP, and infrastructure as code (Terraform)",
+      "spans": ["Production experience with Kubernetes on AWS or GCP, and infrastructure as code (Terraform)."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Kubernetes on AWS or GCP", "infrastructure as code (Terraform)"],
+      "status": "met",
+      "why": "Kubernetes on EKS and GKE, Terraform."
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "Track record of leading cross-team technical initiatives",
+      "spans": ["A track record of leading cross-team technical initiatives."],
+      "aliases": ["cross-team", "leading initiatives"],
+      "status": "met",
+      "why": "Led platform initiatives spanning six to twelve teams."
+    },
+    {
+      "id": "r7",
+      "kind": "required",
+      "name": "Degree in Computer Science or equivalent practical experience",
+      "spans": ["A degree in Computer Science or equivalent practical experience."],
+      "aliases": ["CS degree", "Computer Science degree"],
+      "status": "met",
+      "why": "Rule 7: equivalence clause is part of the item; sixteen years is equivalent practical experience whatever the degree."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Logistics, marketplace or payments domain experience",
+      "spans": ["Logistics, marketplace or payments domain experience."],
+      "status": "met",
+      "why": "Logistics and payments companies in the summary."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Stream processing (Flink, Kafka Streams)",
+      "spans": ["Experience with stream processing (Flink, Kafka Streams)."],
+      "why": "Status omitted: the CV names Kafka Connect and Schema Registry, which a reader may or may not accept as stream processing."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "Public speaking or open-source contributions",
+      "spans": ["Public speaking or open-source contributions."],
+      "why": "Status omitted: depends on sections of a 20,000-character CV that the gold does not pin."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Lead the evolution of our Kafka-based event platform and our PostgreSQL data layer.", "reason": "responsibility" },
+    { "span": "Design distributed systems that stay correct under partial failure: idempotent APIs, event-driven workflows, exactly-once processing where it matters.", "reason": "responsibility" },
+    { "span": "Drive reliability: SLOs, observability, capacity planning and incident reviews.", "reason": "responsibility" },
+    { "span": "Mentor senior engineers and raise the bar on design documents and code review.", "reason": "responsibility" },
+    { "span": "Compensation $210,000 - $250,000 plus equity. Remote in the US or Canada.", "reason": "benefit" }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "fixture": "mid-meets-required-cv2",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "3+ years of professional backend development experience",
+      "spans": ["3+ years of professional backend development experience."],
+      "aliases": ["years of backend development"],
+      "status": "met",
+      "why": "Four years, three backend roles."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Production code in C, C++, C#, Java, JavaScript or Python",
+      "spans": ["Experience writing production code in languages including, but not limited to, C, C++, C#, Java, JavaScript, or Python."],
+      "aliases": ["production code in one of the listed languages"],
+      "status": "met",
+      "why": "Python in production."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Relational databases and SQL",
+      "spans": ["Hands-on experience with relational databases and SQL."],
+      "aliases": ["SQL", "relational databases"],
+      "status": "met",
+      "why": "PostgreSQL schema design and SQL reports."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Containers and CI/CD pipelines",
+      "spans": ["Experience with containers and CI/CD pipelines."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["containers", "CI/CD pipelines"],
+      "status": "met",
+      "why": "Docker, GitHub Actions pipeline."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Designing and maintaining REST APIs",
+      "spans": ["Experience designing and maintaining REST APIs."],
+      "aliases": ["REST APIs", "REST"],
+      "status": "met",
+      "why": "Designed the settlement REST API and the claims intake API."
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "Working proficiency in written and spoken English",
+      "spans": ["Working proficiency in written and spoken English."],
+      "aliases": ["English"],
+      "status": "met",
+      "why": "English B2, professional working proficiency."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Running Kubernetes in production",
+      "spans": ["Experience running Kubernetes in production."],
+      "aliases": ["Kubernetes"],
+      "status": "met",
+      "why": "EKS in production with Helm charts."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Event-driven systems such as Kafka or RabbitMQ",
+      "spans": ["Experience with event-driven systems such as Kafka or RabbitMQ."],
+      "aliases": ["Kafka", "RabbitMQ", "event-driven"],
+      "status": "met",
+      "why": "Kafka consumers feeding the ledger."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "Exposure to Go or Rust",
+      "spans": ["Exposure to Go or Rust."],
+      "status": "missing",
+      "why": "Neither language in the CV."
+    },
+    {
+      "id": "p4",
+      "kind": "preferred",
+      "name": "Observability tooling (Prometheus, Grafana, OpenTelemetry)",
+      "spans": ["Experience with observability tooling (Prometheus, Grafana, OpenTelemetry)."],
+      "aliases": ["observability"],
+      "status": "met",
+      "why": "Prometheus metrics and Grafana dashboards."
+    },
+    {
+      "id": "p5",
+      "kind": "preferred",
+      "name": "An AWS or GCP certification",
+      "spans": ["An AWS or GCP certification."],
+      "aliases": ["cloud certification"],
+      "status": "met",
+      "why": "AWS Certified Developer - Associate."
+    },
+    {
+      "id": "p6",
+      "kind": "preferred",
+      "name": "Experience in logistics, freight or supply chain",
+      "spans": ["Experience in logistics, freight or supply chain."],
+      "aliases": ["logistics"],
+      "status": "missing",
+      "why": "Fintech and insurance only."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Our internal platform team builds the services the rest of the company runs on: shipment tracking, rating, and the APIs our carrier partners integrate with.", "reason": "description" },
+    { "span": "You pick up one existing service, learn its failure modes on call, and take the lead on its next version.", "reason": "description" },
+    { "span": "We review applications on a rolling basis and reply to every candidate.", "reason": "boilerplate" }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "jobTitle": "Customer Support Team Lead",
+  "purpose": "A long posting whose requirements live in two prose paragraphs, surrounded by company history, values, a team description, benefits, hiring process and equal-opportunity text. Tests that boilerplate is not extracted and that prose requirements are, including a work-authorization condition stated in the legal paragraph and a 'would help but is not essential' item without a heading.",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 4,
+        "maxCount": 7,
+        "why": "POSTING COUNT: team lead experience; English and Spanish; Zendesk or comparable; workforce scheduling and QA scorecards; authorised to work in Ireland. The last two are contested or splittable, hence the range."
+      },
+      {
+        "matching": "telecom",
+        "kind": "preferred",
+        "minCount": 1,
+        "why": "'would help but is not essential' is the posting's own framing of a preferred item."
+      },
+      {
+        "matching": "bonus|pension|leave|salary|health plan|christmas",
+        "count": 0,
+        "why": "Benefits are not requirements."
+      }
+    ]
+  }
+}

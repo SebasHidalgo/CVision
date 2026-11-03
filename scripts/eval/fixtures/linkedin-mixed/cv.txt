@@ -1,0 +1,78 @@
+Tomasz
+
+Nowak
+Senior Data Engineer
+Berlin, Germany
+tomasz.nowak@example.com
++49 30 000 0000
+
+SKILLS
+
+Python (6 years), SQL
+(advanced), Scala (basic)
+Apache Spark, Spark
+Structured Streaming
+Apache Kafka, Debezium,
+Schema Registry
+Airflow, SQL modelling,
+data contracts
+PostgreSQL, ClickHouse,
+Parquet on S3
+Docker, Kubernetes, GitLab
+CI, Terraform
+Great Expectations, pytest
+
+EDUCATION
+
+MSc Computer Science
+Warsaw University of
+Technology
+2013 - 2018
+
+LANGUAGES
+
+Polish (native)
+English (C2)
+German (B1,
+conversational)
+SUMMARY
+
+Data engineer with six years building and operating production data
+pipelines for mobility and e-commerce companies. I own pipelines
+end to end: event schemas with the producers, Spark jobs,
+orchestration, quality checks and the on-call that follows. I write the
+design documents my teams decide on and present the options to
+product managers.
+
+EXPERIENCE
+
+Senior Data Engineer - Kiezride (shared mobility), Berlin
+March 2022 - present
+Built the streaming ingestion for vehicle telemetry on Kafka and
+Spark Structured Streaming, processing 120 million events a day
+with end-to-end latency under 90 seconds.
+Introduced data contracts for the eight core event types; schema
+changes now fail CI before a producer ships, which ended the
+monthly breakage of the rides dataset.
+Modelled the rides, vehicles and pricing datasets in ClickHouse
+and PostgreSQL and kept their interfaces stable for the analytics
+and ML teams for three years.
+Own data quality: Great Expectations suites and freshness
+checks on every dataset, and the on-call rotation for pipeline
+incidents.
+Mentor two mid-level engineers through design reviews; both now
+lead their own pipelines.
+Data Engineer - Sklepio (e-commerce), Warsaw
+July 2019 - February 2022
+Moved 40 nightly batch jobs from cron to Airflow with retries and
+SLAs; late reports dropped from several a week to about one a
+month.
+Wrote the Spark jobs that joined orders, returns and marketing
+spend into the daily margin dataset.
+Presented pipeline options and their trade-offs to product
+managers before each quarterly planning.
+
+Junior Data Engineer - Sklepio, Warsaw
+September 2018 - June 2019
+Maintained the PostgreSQL reporting replica and the Python ETL
+scripts that fed it.

@@ -1,0 +1,32 @@
+{
+  "jobTitle": "Site Reliability Engineer",
+  "purpose": "Two requirements hidden inside the responsibilities paragraph ('so you have operated Kubernetes in production before and you write Go every week'), a short 'You have' list, a preferred sentence without a nice-to-have heading ('It helps if…'), responsibilities that name tools (Terraform, Prometheus) which are also requirements elsewhere, and an on-call rotation that is a condition of the job rather than a qualification.",
+  "expect": {
+    "requirements": [
+      {
+        "matching": "kubernetes",
+        "kind": "required",
+        "minCount": 1,
+        "why": "The responsibilities paragraph demands prior Kubernetes production experience in so many words."
+      },
+      {
+        "matching": "\\bGo\\b|golang",
+        "kind": "required",
+        "minCount": 1,
+        "why": "Same sentence: 'you write Go every week'."
+      },
+      {
+        "matching": "incident commander|Prometheus and Grafana",
+        "kind": "preferred",
+        "minCount": 1,
+        "why": "'It helps if' is the posting's framing of preferred."
+      },
+      {
+        "kind": "required",
+        "minCount": 4,
+        "maxCount": 6,
+        "why": "POSTING COUNT: Kubernetes in production, Go, 5+ years infra/platform/SRE, Terraform or Pulumi."
+      }
+    ]
+  }
+}

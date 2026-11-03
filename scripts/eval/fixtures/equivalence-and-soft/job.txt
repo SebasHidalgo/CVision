@@ -1,0 +1,21 @@
+Product Manager, Payments
+Tessera Commerce · Amsterdam (hybrid) or remote in the Netherlands
+
+The job
+Tessera runs checkout and payouts for 2,000 online marketplaces. You will own the payouts product: how and when sellers get paid, in which currencies, and what they see while they wait.
+
+What we need
+- 4+ years of product management, at least 2 of them in payments or fintech.
+- A bachelor's degree in business, economics or engineering, or equivalent experience.
+- You have shipped a product used by paying customers, from discovery to launch to the numbers afterwards.
+- You write crisply and run meetings that end on time.
+- You are comfortable saying no to senior stakeholders when the data says no.
+- Daily use of Jira or Linear to run a team's work.
+
+It would be great if you also bring:
+- SQL good enough to answer your own questions.
+- Experience with PSD2, strong customer authentication or card network rules.
+- A second European language besides English.
+
+The package
+Base salary €80,000 to €95,000, equity, a commuting allowance and 26 days of leave. We hire on a four-week notice period at most.

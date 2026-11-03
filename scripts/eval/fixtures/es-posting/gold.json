@@ -1,0 +1,115 @@
+{
+  "fixture": "es-posting",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "Al menos 4 años de experiencia como analista de datos o de negocio",
+      "spans": ["Al menos 4 años de experiencia como analista de datos o de negocio."],
+      "aliases": ["años de experiencia como analista", "4 years as an analyst", "years of analyst experience"],
+      "status": "met",
+      "why": "Analyst roles since 2020; the profile says cuatro años."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Dominio de SQL y un almacén de datos en la nube (BigQuery o Snowflake)",
+      "spans": ["Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake)."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Dominio de SQL", "almacén de datos en la nube (BigQuery o Snowflake)"],
+      "aliases": ["SQL", "cloud data warehouse", "BigQuery"],
+      "status": "met",
+      "why": "SQL on PostgreSQL and BigQuery."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Python para análisis (pandas) o R",
+      "spans": ["Python para análisis (pandas) o R."],
+      "aliases": ["Python", "pandas", "R"],
+      "status": "met",
+      "why": "Python (pandas) in the current role and in skills."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Experiencia con una herramienta de BI",
+      "spans": ["Experiencia con una herramienta de BI,"],
+      "aliases": ["herramienta de BI", "BI tool"],
+      "status": "met",
+      "why": "Power BI dashboards."
+    },
+    {
+      "id": "r5",
+      "kind": "preferred",
+      "name": "Power BI o Looker",
+      "spans": ["preferiblemente Power BI o Looker."],
+      "aliases": ["Power BI", "Looker"],
+      "status": "met",
+      "why": "Rule 5: 'preferiblemente' makes this clause preferred. Power BI."
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "Base sólida de estadística y diseño de experimentos",
+      "spans": ["Base sólida de estadística y diseño de experimentos."],
+      "aliases": ["estadística", "statistics", "experiment design", "pruebas A/B"],
+      "status": "met",
+      "why": "Statistics degree and A/B tests."
+    },
+    {
+      "id": "r7",
+      "kind": "required",
+      "name": "Español nativo o C2 e inglés profesional",
+      "spans": ["Español nativo o C2 e inglés profesional."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Español nativo o C2", "inglés profesional"],
+      "aliases": ["Spanish", "English", "español", "inglés"],
+      "status": "met",
+      "why": "Native Spanish, English C1."
+    },
+    {
+      "id": "r8",
+      "kind": "required",
+      "name": "Grado en Estadística, Matemáticas, Economía o disciplina afín, o experiencia equivalente",
+      "spans": ["Grado en Estadística, Matemáticas, Economía o disciplina afín, o experiencia equivalente."],
+      "aliases": ["Grado", "degree", "titulación"],
+      "status": "met",
+      "why": "Rules 6 and 7. Grado en Estadística."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Experiencia en comercio electrónico o retail",
+      "spans": ["Experiencia en comercio electrónico o retail."],
+      "aliases": ["comercio electrónico", "e-commerce", "retail"],
+      "status": "met",
+      "why": "Tiendas Aurora, comercio electrónico."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Conocimiento de dbt o de modelado dimensional",
+      "spans": ["Conocimiento de dbt o de modelado dimensional."],
+      "aliases": ["dbt", "modelado dimensional", "dimensional modelling"],
+      "why": "Status omitted: 'modelado de datos' in the skills may or may not be read as dimensional modelling."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "Portugués",
+      "spans": ["Portugués."],
+      "aliases": ["Portuguese"],
+      "status": "met",
+      "why": "Portuguese B1."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Diseñar y mantener los cuadros de mando de ventas, márgenes y devoluciones.", "reason": "responsibility" },
+    { "span": "Analizar pruebas A/B del embudo de compra y presentar conclusiones a producto.", "reason": "responsibility" },
+    { "span": "Definir y documentar las métricas de negocio junto a finanzas.", "reason": "responsibility" },
+    { "span": "Acompañar al equipo de ciencia de datos en la previsión de demanda.", "reason": "responsibility" },
+    { "span": "Contrato indefinido, 23 días de vacaciones, presupuesto de formación y dos días de teletrabajo a la semana. Salario entre 42.000 y 50.000 euros brutos anuales según experiencia.", "reason": "benefit" }
+  ]
+}

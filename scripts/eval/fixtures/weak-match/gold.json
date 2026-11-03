@@ -1,0 +1,79 @@
+{
+  "fixture": "weak-match",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "6+ years of professional backend software development",
+      "spans": ["6+ years of professional backend software development."],
+      "aliases": ["years of backend development"],
+      "status": "missing",
+      "why": "A pastry chef; no software experience at all."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Go, Java or another statically typed language",
+      "spans": ["Strong experience with Go, Java or another statically typed language."],
+      "aliases": ["statically typed language", "Go", "Java"],
+      "status": "missing",
+      "why": "No programming language in the CV."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Distributed systems, message queues (Kafka) and relational databases (PostgreSQL)",
+      "spans": ["Experience with distributed systems, message queues (Kafka) and relational databases (PostgreSQL)."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["distributed systems", "message queues (Kafka)", "relational databases (PostgreSQL)"],
+      "status": "missing",
+      "why": "Nothing in the CV."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Kubernetes and a major cloud provider (AWS or GCP) in production",
+      "spans": ["Production experience with Kubernetes and a major cloud provider (AWS or GCP)."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Kubernetes", "a major cloud provider (AWS or GCP)"],
+      "status": "missing",
+      "why": "Nothing in the CV."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Observability tools such as Prometheus, Grafana or Datadog",
+      "spans": ["Experience with observability tools such as Prometheus, Grafana or Datadog."],
+      "aliases": ["observability"],
+      "status": "missing",
+      "why": "Nothing in the CV."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Payments or fintech experience, including PCI DSS",
+      "spans": ["Payments or fintech experience, including PCI DSS."],
+      "aliases": ["payments", "fintech", "PCI DSS"],
+      "status": "missing",
+      "why": "Nothing in the CV."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Event sourcing or CQRS",
+      "spans": ["Experience with event sourcing or CQRS."],
+      "aliases": ["event sourcing", "CQRS"],
+      "status": "missing",
+      "why": "Nothing in the CV."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Design, build and operate high-throughput services in Go.", "reason": "responsibility" },
+    { "span": "Own services end to end on Kubernetes, including on-call for the systems you build.", "reason": "responsibility" },
+    { "span": "Design APIs and data models for payment authorization and settlement.", "reason": "responsibility" },
+    { "span": "Improve reliability: observability, load testing and incident follow-ups.", "reason": "responsibility" },
+    { "span": "Mentor engineers and lead technical design reviews.", "reason": "responsibility" },
+    { "span": "Compensation $180,000 - $220,000 plus equity.", "reason": "benefit" }
+  ]
+}

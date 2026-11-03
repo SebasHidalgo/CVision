@@ -1,0 +1,30 @@
+AOIFE BYRNE
+Customer Support Team Lead | Dublin, Ireland | aoife.byrne@example.com | +353 1 000 0000
+Irish citizen
+
+PROFILE
+Support team lead with three years running an eight-person phone and email team for a utility, after four years as an agent and senior agent in retail support. I coach through call reviews, own the rota and the quality scorecard, and take the escalations nobody else wants.
+
+EXPERIENCE
+
+Customer Support Team Lead | Shannon Energy | Dublin | September 2023 - present
+- Lead a team of eight agents on the billing and moving-home queues (phone and email); the team's CSAT rose from 78% to 89% in my first year.
+- Built the team's workforce schedule in Assembled against the forecast, and cut unplanned overtime by 40%.
+- Designed the QA scorecard the whole support floor now uses, and run the weekly calibration session with the other leads.
+- Configure Zendesk for the team myself: views, triggers and the macros agents use for the ten most common cases.
+- Write customer replies in Spanish for our Spanish-speaking customers and review the team's Spanish templates.
+
+Senior Support Agent | Shannon Energy | Dublin | March 2022 - August 2023
+- Handled escalated billing disputes and trained six new agents.
+
+Customer Support Agent | Brightline Retail | Dublin | June 2019 - February 2022
+- Phone and chat support for an online retailer; consistently in the top three agents for quality scores.
+
+SKILLS
+Zendesk (views, triggers, macros), Assembled, QA scorecards and calibration, workforce scheduling, call coaching, escalation handling, Google Sheets.
+
+EDUCATION
+BA English and Spanish | University College Dublin | 2019
+
+LANGUAGES
+English (native), Spanish (B2, written and spoken).

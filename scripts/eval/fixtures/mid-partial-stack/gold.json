@@ -1,0 +1,93 @@
+{
+  "fixture": "mid-partial-stack",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "4+ years building web applications professionally",
+      "spans": ["4+ years building web applications professionally."],
+      "aliases": ["years building web applications", "web development experience"],
+      "status": "met",
+      "why": "Six years."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Strong React and TypeScript",
+      "spans": ["Strong React and TypeScript."],
+      "aliases": ["React", "TypeScript"],
+      "status": "met",
+      "why": "Both in every role and in skills."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Writing and reviewing SQL against a relational database",
+      "spans": ["Comfort writing and reviewing SQL against a relational database."],
+      "aliases": ["SQL", "relational database"],
+      "status": "met",
+      "why": "PostgreSQL schema work and SQL in skills."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "GraphQL schema design, or a clear appetite to learn it fast",
+      "spans": ["Experience with GraphQL schema design, or a clear appetite to learn it fast."],
+      "aliases": ["GraphQL"],
+      "why": "Rule 6: the appetite clause is a second way to satisfy one required item. Status omitted: the CV has no GraphQL and a CV cannot show appetite; missing and partial are both defensible."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Familiarity with infrastructure as code",
+      "spans": ["Familiarity with infrastructure as code; you will be reading Terraform in your first month even if you do not write much of it."],
+      "aliases": ["infrastructure as code", "Terraform", "IaC"],
+      "status": "missing",
+      "why": "Docker only; no Terraform or any IaC tool."
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "A testing habit, whatever the framework",
+      "spans": ["A testing habit, whatever the framework."],
+      "aliases": ["testing"],
+      "status": "met",
+      "why": "Mocha, Supertest, Playwright; integration tests kept under four minutes."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Healthcare or another regulated domain",
+      "spans": ["Experience in healthcare or another regulated domain."],
+      "aliases": ["healthcare", "regulated"],
+      "status": "met",
+      "why": "Patient portal at Marcanta Health."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "Cypress specifically",
+      "spans": ["Experience with Cypress specifically."],
+      "aliases": ["Cypress"],
+      "status": "missing",
+      "why": "Playwright, not Cypress; the posting says specifically."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "An eye for accessibility, especially for older users",
+      "spans": ["An eye for accessibility, especially for older users."],
+      "aliases": ["accessibility"],
+      "why": "Status omitted: nothing in the CV speaks to it either way."
+    }
+  ],
+  "notRequirements": [
+    { "span": "React and TypeScript on the front end.", "reason": "description" },
+    { "span": "Node.js services behind a GraphQL gateway.", "reason": "description" },
+    { "span": "PostgreSQL, with schema changes reviewed by the whole team.", "reason": "description" },
+    { "span": "AWS, provisioned with Terraform.", "reason": "description" },
+    { "span": "Jest for unit tests, Cypress for end-to-end.", "reason": "description" },
+    { "span": "A take-home exercise you will be paid for, then two conversations: one technical, one about how you work. No whiteboard algorithms.", "reason": "boilerplate" }
+  ]
+}

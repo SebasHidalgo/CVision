@@ -1,0 +1,29 @@
+MATTEO CONTI
+Product Manager | Amsterdam, Netherlands | matteo.conti@example.com
+
+SUMMARY
+Product manager with five years in B2B software, the last three on payment products at a marketplace payments company. I own a product from the first customer interviews to the launch and the retention numbers after it, and I keep the team's work in Jira honest.
+
+EXPERIENCE
+
+Product Manager, Payouts | Paylane | Amsterdam | February 2023 - present
+- Own the seller payouts product used by 1,400 marketplaces: scheduling, currencies and the payout status page.
+- Shipped instant payouts from discovery to launch; 31% of sellers opted in within two months and payout-related support tickets fell by a quarter.
+- Run a squad of six engineers and a designer; plan and track all work in Jira.
+- Write the product briefs and launch notes the company reads; chair the weekly payments review.
+
+Associate Product Manager | Paylane | Amsterdam | March 2021 - January 2023
+- Owned the payout status notifications and the seller-facing reconciliation report.
+- Relied on the analytics team for data pulls and dashboards.
+
+Business Analyst | Nordwind Software | Rotterdam | September 2019 - February 2021
+- Wrote requirements and acceptance criteria for a procurement product used by 300 companies.
+
+SKILLS
+Product discovery and customer interviews, roadmapping, Jira, Figma basics, pricing and payout flows, launch planning, stakeholder communication.
+
+EDUCATION
+BSc Economics | Erasmus University Rotterdam | 2019
+
+LANGUAGES
+Italian (native), English (fluent), Dutch (A2).

@@ -1,0 +1,55 @@
+{
+  "fixture": "short-posting",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "1+ years testing web apps",
+      "spans": ["1+ years testing web apps"],
+      "aliases": ["years testing", "web app testing experience", "QA experience"],
+      "status": "met",
+      "why": "Two years at Fieldnote Software."
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Hands-on Playwright or Cypress",
+      "spans": ["hands-on Playwright or Cypress"],
+      "aliases": ["Playwright", "Cypress", "end-to-end testing tool"],
+      "status": "met",
+      "why": "180 Cypress tests."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Basic SQL",
+      "spans": ["basic SQL"],
+      "aliases": ["SQL"],
+      "status": "met",
+      "why": "SQL against PostgreSQL to verify data."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Good written English",
+      "spans": ["good written English"],
+      "aliases": ["written English", "English"],
+      "status": "met",
+      "why": "Native English; writes bug reports and summaries."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "ISTQB Foundation",
+      "spans": ["ISTQB Foundation is a plus."],
+      "aliases": ["ISTQB"],
+      "status": "missing",
+      "why": "No certification in the CV."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Small SaaS team needs a junior QA engineer.", "reason": "description" },
+    { "span": "Start in January.", "reason": "boilerplate" }
+  ]
+}

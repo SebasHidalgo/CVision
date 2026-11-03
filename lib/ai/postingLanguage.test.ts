@@ -3,18 +3,22 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { detectPostingLanguage } from "./postingLanguage";
 
-// The versioned eval postings: all written in English, one of them paired
-// with a Spanish CV, which must not matter here.
+// The versioned eval postings: written in English except the one Spanish
+// posting; one English posting is paired with a Spanish CV, which must not
+// matter here.
 const FIXTURES = path.join(process.cwd(), "scripts", "eval", "fixtures");
+const SPANISH_POSTINGS = new Set(["es-posting"]);
 
 describe("detectPostingLanguage", () => {
-  it("reads every eval fixture posting as English", () => {
-    const names = readdirSync(FIXTURES);
+  it("reads every eval fixture posting in the language it was written in", () => {
+    const names = readdirSync(FIXTURES, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
     expect(names.length).toBeGreaterThan(0);
 
     for (const name of names) {
       const job = readFileSync(path.join(FIXTURES, name, "job.txt"), "utf8");
-      expect(detectPostingLanguage(job), name).toBe("en");
+      expect(detectPostingLanguage(job), name).toBe(SPANISH_POSTINGS.has(name) ? "es" : "en");
     }
   });
 

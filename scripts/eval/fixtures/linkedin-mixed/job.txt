@@ -1,0 +1,32 @@
+Senior Data Engineer
+Bluefin Mobility · Berlin, Germany (Hybrid) · Full-time
+
+About the job
+Bluefin Mobility runs shared e-bikes and scooters in 14 European cities. Every ride produces telemetry, payments and support events, and the Data Platform team turns that into the datasets the whole company runs on. We are hiring a Senior Data Engineer to own our ingestion and modelling layer.
+
+What you'll do
+- Design and operate batch and streaming pipelines that land ride, payment and fleet telemetry in the warehouse.
+- Model the core datasets (rides, vehicles, pricing) and keep their contracts stable for analysts and ML.
+- Own data quality: tests, freshness checks and incident response for the datasets you build.
+- Pair with backend engineers on event schemas before new producers ship.
+- Help two mid-level engineers grow through reviews and design sessions.
+
+Perks
+- 30 days of vacation, a monthly mobility budget and a yearly offsite.
+- Hybrid: two days a week in our Kreuzberg office.
+
+What you bring
+- 5+ years building data pipelines in production.
+- Fluent Python or Scala, and strong SQL.
+- Experience with Spark, Flink or Beam for large-scale processing.
+- A modern orchestrator such as Airflow or Dagster.
+- Hands-on experience with a cloud data warehouse (BigQuery, Snowflake or Redshift).
+- You explain trade-offs clearly to analysts and product managers.
+
+Bonus points
+- Kafka or Kinesis in production.
+- dbt and data contracts.
+- German at a conversational level.
+
+Who we are
+We are a 60-person engineering organisation, remote-friendly, with a strong writing culture. We value people who finish what they start and tell us early when something is off.
