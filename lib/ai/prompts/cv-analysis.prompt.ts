@@ -322,17 +322,32 @@ const formatToday = (now: Date) =>
     timeZone: "UTC",
   })})`;
 
+// Experiment blocks (M8-A, scripts/eval only). Absent, the prompt is byte-identical to production's.
+const PDF_ATTACHED_NOTE = `
+  The resume is also attached as a PDF so you can see its layout and formatting. Every quoted field must still be copied from the resume text above, which is what an ATS extracts, never from the PDF.`;
+
+const fixedRequirementsBlock = (fixed: { requirement: string; kind: string }[]) => `
+  The posting's requirements were extracted beforehand. jobFit.requirements must contain exactly these ${fixed.length} entries, in this order, with "requirement" and "kind" copied as given here; decide only status, evidence and note for each one:
+${fixed.map((entry, i) => `  ${i + 1}. [${entry.kind}] ${entry.requirement}`).join("\n")}
+`;
+
 export const resumeAnalysisPrompt = ({
   jobTitle,
   jobDescription,
   resumeText,
   now,
+  pdfAttached = false,
+  fixedRequirements,
 }: {
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
   /** Resolved per request, so the date anchor is never baked in at build time. */
   now: Date;
+  /** Experiment: the PDF travels beside the text. */
+  pdfAttached?: boolean;
+  /** Experiment: the requirement list is fixed and the model only assigns statuses. */
+  fixedRequirements?: { requirement: string; kind: string }[];
 }) => {
   const today = formatToday(now);
 
@@ -345,8 +360,8 @@ export const resumeAnalysisPrompt = ({
   Today's date is ${today}.
   The job title is: ${jobTitle}
   The job description is: ${jobDescription}
-  The resume text is: ${resumeText}
-  ${ANALYSIS_RULES(today)}
+  The resume text is: ${resumeText}${pdfAttached ? PDF_ATTACHED_NOTE : ""}
+  ${ANALYSIS_RULES(today)}${fixedRequirements ? fixedRequirementsBlock(fixedRequirements) : ""}
   Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields.
   ${AIResponseFormat}
   Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.
