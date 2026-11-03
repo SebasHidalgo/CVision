@@ -11,6 +11,8 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { interviewMain } from "./interview";
+import { loadGold, percent, score, sumMetrics, type ExtractedItem, type Gold, type GoldVerdict, type ItemVerdict, type Metrics } from "./gold";
+import { extractRequirements, type ExtractionResult } from "@/lib/ai/requirementExtraction";
 import {
   captureAiLog,
   describeEngine,
@@ -50,6 +52,8 @@ import {
   ANALYSIS_TIMEOUT_MS,
   MAX_RESUME_TEXT_CHARS,
   truncateResumeText,
+  type AnalysisInputMode,
+  type RequirementAlignment,
 } from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
@@ -136,16 +140,33 @@ type FixtureMeta = {
   jobTitle: string;
   purpose?: string;
   expect?: FixtureExpectations;
+  /** How the fixture's cv.pdf was made; `scanned` means it has no text layer. */
+  pdf?: { layout?: string; scanned?: boolean; photo?: boolean; accents?: boolean };
 };
 
-type Fixture = FixtureMeta & {
+type Fixture = Omit<FixtureMeta, "pdf"> & {
   id: string;
   source: "synthetic" | "local";
   cvText: string;
   jobDescription: string;
-  /** Present when the fixture folder holds a cv.pdf, for the --pdf spike. */
+  /** Present when the fixture folder holds a cv.pdf, for the PDF arms. */
   pdf?: Uint8Array;
+  pdfMeta?: FixtureMeta["pdf"];
+  /** The gold requirement list, when the folder holds a gold.json. */
+  gold: Gold | null;
 };
+
+/** The experiment arms a run is captured under. */
+type Arms = { input: AnalysisInputMode; extraction: "single" | "two-call" };
+
+/** What a run keeps of the extraction call: everything but the posting text. */
+type ExtractionSummary = Omit<ExtractionResult, "requirements"> & {
+  requirements: ExtractionResult["requirements"];
+  tokens: { input: number | null; output: number | null };
+  durationMs: number;
+};
+
+type RequirementScore = { metrics: Metrics; items: ItemVerdict[]; gold: GoldVerdict[]; goldStatus: "final" | "draft" };
 
 type RunRecord = {
   fixture: string;
@@ -167,10 +188,21 @@ type RunRecord = {
     cvCharsSent: number;
     cvTruncated: boolean;
     jobChars: number;
-    /** "pdf" means the model was given the PDF instead of the extracted text. */
-    mode: "text" | "pdf";
+    /** What the model was given as the CV: the text layer, the PDF, or both. */
+    mode: AnalysisInputMode;
+    /** How the requirements were extracted: inside the analysis call, or by a call of their own. */
+    extraction: Arms["extraction"];
   };
+  /** The analysis call's tokens; the extraction call's are in `extraction.tokens`. */
   tokens: { input: number | null; output: number | null };
+  /** The two-call arm's first call, after the code checks. */
+  extraction?: ExtractionSummary;
+  /** How the model's list was pinned to the fixed one (two-call arm). */
+  alignment?: RequirementAlignment;
+  /** Per requirement in the feedback, the verbatim posting quote the extraction gave it, when the arm has one. */
+  requirementSources?: (string | null)[];
+  /** The extracted list scored against the fixture's gold, when it has one. */
+  requirementScore?: RequirementScore;
   /**
    * Content checks and fixture assertions, both only when the call succeeded.
    * These are the violations as found BEFORE the production guardrail edited
@@ -196,7 +228,9 @@ const USAGE = `CVision analysis eval: run the resume analysis over fixed fixture
 compare model output across provider, model or prompt changes.
 
 Usage:
-  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force] [--pdf]
+  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
+                     [--input text|pdf|pdf+text] [--extraction single|two-call]
+  npm run eval -- gold <label> [<label> ...] [--verbose] [--json <file>]
   npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
   npm run eval -- canary <reference-label> [--only <id>]
@@ -215,9 +249,19 @@ split into the same required/preferred partition each time, and whether the
 derived fit verdict survived. Nothing billed. The verdict is a function of that
 partition, so a partition that moves between runs moves the headline with it.
 
---pdf is an experiment, wired into nothing in production: it hands the model
-the fixture's cv.pdf instead of the text extracted from it, to compare what
-each input is worth. Only fixtures holding a cv.pdf can run it.
+--input and --extraction are the M8-A experiment arms, wired into nothing in
+production. --input pdf hands the model the fixture's cv.pdf instead of the
+text extracted from it; pdf+text sends both and tells the model quotes come
+from the text. Only fixtures holding a cv.pdf can run those; a fixture whose
+fixture.json says the PDF is scanned is refused on the text arm the way
+production refuses it (PDF_NO_TEXT, no model call). --extraction two-call
+runs a posting-only extraction first (numbered lines, every line accounted
+for, verbatim quotes checked in code) and hands the analysis the fixed list.
+
+gold scores one or more stored runs against each fixture's gold.json
+(fixtures/GOLD-RULES.md): recall, precision, kind and status accuracy, splits,
+merges, inventions, per fixture and summed, with draft gold kept apart. Nothing
+billed. --verbose prints every item's verdict; --json writes it all.
 
 Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
@@ -305,6 +349,8 @@ async function main(argv: string[]) {
       return canaryCommand(rest);
     case "stability":
       return stabilityCommand(rest);
+    case "gold":
+      return goldCommand(rest);
     case "list":
       return listCommand();
     case "interview":
@@ -349,23 +395,23 @@ async function runCommand(args: string[]) {
   }
 
   const only = flags.get("only");
-  const mode = flags.has("pdf") ? ("pdf" as const) : ("text" as const);
+  const arms = parseArms(flags);
   const fixtures = (await loadFixtures()).filter(
     (fixture) =>
       typeof only !== "string" || only.split(",").includes(fixture.id),
   );
   if (fixtures.length === 0) fail("No fixtures matched.");
 
-  if (mode === "pdf") {
+  if (arms.input !== "text") {
     const without = fixtures.filter((fixture) => !fixture.pdf).map((f) => f.id);
     if (without.length) {
-      fail(`--pdf needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
+      fail(`--input ${arms.input} needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
     }
   }
 
   await mkdir(outDir, { recursive: true });
   console.log(
-    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${mode === "pdf" ? "the PDF itself" : "extracted text"})\n`,
+    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${describeInput(arms.input)}, extraction: ${arms.extraction})\n`,
   );
 
   const startedAt = new Date().toISOString();
@@ -377,7 +423,7 @@ async function runCommand(args: string[]) {
   let versionLookedUp = false;
 
   for (const fixture of fixtures) {
-    const record = await runFixture(fixture, label, timeoutMs, mode);
+    const record = await runFixture(fixture, label, timeoutMs, arms);
     if (!versionLookedUp && record.model) {
       apiModelVersion = await readApiModelVersion(record.model);
       versionLookedUp = true;
@@ -422,52 +468,113 @@ async function runCommand(args: string[]) {
   }
 }
 
+function parseArms(flags: Map<string, string | true>): Arms {
+  const input = flags.has("pdf") ? "pdf" : String(flags.get("input") ?? "text");
+  const extraction = String(flags.get("extraction") ?? "single");
+  if (!["text", "pdf", "pdf+text"].includes(input)) fail(`--input must be text, pdf or pdf+text, not "${input}".`);
+  if (!["single", "two-call"].includes(extraction)) fail(`--extraction must be single or two-call, not "${extraction}".`);
+  return { input: input as AnalysisInputMode, extraction: extraction as Arms["extraction"] };
+}
+
+const describeInput = (input: AnalysisInputMode) =>
+  input === "pdf" ? "the PDF itself" : input === "pdf+text" ? "the PDF and the extracted text" : "extracted text";
+
 async function runFixture(
   fixture: Fixture,
   label: string,
   timeoutMs: number,
-  mode: "text" | "pdf",
+  arms: Arms,
 ): Promise<RunRecord> {
   // The same truncation analyzeResume applies, so the checks see exactly the
   // text the model read.
   const sent = truncateResumeText(fixture.cvText);
-  const aiLog = captureAiLog();
   const startedAt = Date.now();
-  let result: RunRecord["result"];
-  let guard: GuardReport | undefined;
+  const input: RunRecord["input"] = {
+    jobTitle: fixture.jobTitle,
+    cvChars: fixture.cvText.length,
+    cvCharsSent: sent.charsSent,
+    cvTruncated: sent.truncated,
+    jobChars: fixture.jobDescription.length,
+    mode: arms.input,
+    extraction: arms.extraction,
+  };
+  const base = { fixture: fixture.id, source: fixture.source, label, input };
 
-  try {
-    const analysis = await analyzeResume({
-      jobTitle: fixture.jobTitle,
-      jobDescription: fixture.jobDescription,
-      resumeText: fixture.cvText,
-      timeoutMs,
-      // The spike: hand the model the PDF and let it read the document.
-      ...(mode === "pdf" ? { pdf: fixture.pdf } : {}),
-    });
-    guard = analysis.guard;
-    result = { ok: true, feedback: analysis.feedback };
-  } catch (error) {
-    result = { ok: false, error: describeError(error) };
-  } finally {
-    aiLog.restore();
+  // A scan has no text layer: production refuses it before any model call,
+  // and the text arm records that refusal instead of pretending to read it.
+  if (arms.input === "text" && fixture.pdfMeta?.scanned && fixture.pdf) {
+    let error: RunRecord["result"];
+    try {
+      // Loaded here, not at the top: the parser pulls in pdf.js, which the smoke test should not pay for.
+      const { extractTextFromPDFBytes } = await import("@/lib/pdfParse");
+      await extractTextFromPDFBytes(fixture.pdf);
+      error = { ok: false, error: { name: "Error", code: "UNEXPECTED", message: "the scan has a text layer after all" } };
+    } catch (thrown) {
+      error = { ok: false, error: describeError(thrown) };
+    }
+    return { ...base, provider: null, model: null, tokens: { input: null, output: null }, generatedAt: new Date().toISOString(), durationMs: Date.now() - startedAt, result: error };
   }
 
-  /*
-   * The guardrail already ran the checks against the text the model received,
-   * before it edited anything, so its list is what the model actually produced
-   * - re-running them on the cleaned output here would read near zero and hide
-   * exactly what this harness exists to see. The fallback keeps the --pdf
-   * spike measurable, where the guardrail has no CV text to work from.
-   */
+  let result: RunRecord["result"] | undefined;
+  let guard: GuardReport | undefined;
+  let alignment: RequirementAlignment | undefined;
+  let extraction: ExtractionSummary | undefined;
+
+  if (arms.extraction === "two-call") {
+    const extractionLog = captureAiLog();
+    const extractionStartedAt = Date.now();
+    try {
+      const extracted = await extractRequirements({ jobTitle: fixture.jobTitle, jobDescription: fixture.jobDescription, timeoutMs });
+      extraction = {
+        ...extracted,
+        tokens: { input: extractionLog.meta.inputTokens, output: extractionLog.meta.outputTokens },
+        durationMs: Date.now() - extractionStartedAt,
+      };
+    } catch (error) {
+      result = { ok: false, error: describeError(error) };
+    } finally {
+      extractionLog.restore();
+    }
+  }
+
+  const aiLog = captureAiLog();
+  if (!result) {
+    try {
+      const analysis = await analyzeResume({
+        jobTitle: fixture.jobTitle,
+        jobDescription: fixture.jobDescription,
+        resumeText: fixture.cvText,
+        timeoutMs,
+        ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
+        ...(extraction ? { fixedRequirements: extraction.requirements.map(({ requirement, kind }) => ({ requirement, kind })) } : {}),
+      });
+      guard = analysis.guard;
+      alignment = analysis.alignment;
+      result = { ok: true, feedback: analysis.feedback };
+    } catch (error) {
+      result = { ok: false, error: describeError(error) };
+    } finally {
+      aiLog.restore();
+    }
+  }
+  aiLog.restore();
+
+  // The guardrail already ran the checks against the CV text before it
+  // edited anything, so its list is what the model actually produced;
+  // re-running them on the cleaned output would read near zero.
   const violations = result.ok
     ? (guard?.violations ?? checkAnalysis(sent.text, result.feedback))
     : undefined;
 
-  return {
-    fixture: fixture.id,
-    source: fixture.source,
-    label,
+  const requirementSources =
+    result.ok && extraction
+      ? result.feedback.jobFit.requirements.map(
+          (entry) => extraction?.requirements.find((one) => one.requirement === entry.requirement)?.quote ?? null,
+        )
+      : undefined;
+
+  const record: RunRecord = {
+    ...base,
     provider: aiLog.meta.provider,
     model: aiLog.meta.model,
     engine: {
@@ -480,6 +587,9 @@ async function runFixture(
       seed: aiLog.meta.seed,
     },
     tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
+    extraction,
+    alignment,
+    requirementSources,
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     checks: violations && {
@@ -494,16 +604,10 @@ async function runFixture(
     assertions: result.ok
       ? evaluateAssertions(result.feedback, fixture.expect, violations ?? [])
       : undefined,
-    input: {
-      jobTitle: fixture.jobTitle,
-      cvChars: fixture.cvText.length,
-      cvCharsSent: sent.charsSent,
-      cvTruncated: sent.truncated,
-      jobChars: fixture.jobDescription.length,
-      mode,
-    },
     result,
   };
+  record.requirementScore = fixture.gold ? scoreRecord(fixture.gold, record) : undefined;
+  return record;
 }
 
 // ------------------------------------------------- fixture assertions
@@ -694,8 +798,10 @@ function formatProgress(record: RunRecord): string {
   // only model-chosen number left is quality.
   const head = `  ${id} ok    fit ${fit.tone.padEnd(6)} quality ${formatScore(feedback.overall.qualityScore).padStart(3)}  ${seconds}`;
   const notes = [
-    record.input.mode === "pdf" ? "input: PDF" : "",
+    record.input.mode !== "text" ? `input: ${record.input.mode}` : "",
     record.tokens.input === null ? "" : `${record.tokens.input} in / ${record.tokens.output} out tokens`,
+    extractionNote(record),
+    goldNote(record.requirementScore),
     record.input.cvTruncated
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
       : "",
@@ -755,10 +861,11 @@ async function recheckCommand(args: string[]) {
       fixture.expect,
       violations,
     );
+    record.requirementScore = fixture.gold ? scoreRecord(fixture.gold, record) : undefined;
 
     await writeJson(target, record);
     console.log(
-      `  ${record.fixture.padEnd(26)} ${[checkNote(record.checks), assertionNote(record.assertions)].filter(Boolean).join("   ")}`,
+      `  ${record.fixture.padEnd(26)} ${[checkNote(record.checks), assertionNote(record.assertions), goldNote(record.requirementScore)].filter(Boolean).join("   ")}`,
     );
   }
 }
@@ -801,7 +908,7 @@ async function canaryCommand(args: string[]) {
     `Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`,
   );
 
-  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, "text");
+  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text", extraction: "single" });
   if (fresh.engine && fresh.model) {
     fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   }
@@ -1000,6 +1107,148 @@ function statusOf(record: RunRecord): string {
 
 // ---------------------------------------------------------------- list
 
+// ------------------------------------------------------------------ gold
+
+/** The extracted list as the gold scorer reads it, with the arm's quotes as sources when it has them. */
+function itemsOf(record: RunRecord): ExtractedItem[] {
+  if (!record.result.ok) return [];
+  return record.result.feedback.jobFit.requirements.map((entry, i) => ({
+    requirement: entry.requirement,
+    kind: entry.kind,
+    status: entry.status,
+    ...(record.requirementSources?.[i] ? { source: record.requirementSources[i] as string } : {}),
+  }));
+}
+
+function scoreRecord(gold: Gold, record: RunRecord): RequirementScore | undefined {
+  if (!record.result.ok) return undefined;
+  return { ...score(gold, itemsOf(record)), goldStatus: gold.file.status };
+}
+
+function goldNote(scored: RequirementScore | undefined): string {
+  if (!scored) return "";
+  const m = scored.metrics;
+  const errors = [
+    m.inventions ? `${m.inventions} invented` : "",
+    m.overExtractions ? `${m.overExtractions} over` : "",
+    m.splits ? `${m.splits} split` : "",
+    m.merges ? `${m.merges} merged` : "",
+  ].filter(Boolean);
+  return `gold${scored.goldStatus === "draft" ? " (draft)" : ""}: recall ${m.goldFound}/${m.goldTotal}, precision ${m.correct}/${m.extracted}${errors.length ? ` (${errors.join(", ")})` : ""}`;
+}
+
+function extractionNote(record: RunRecord): string {
+  const extraction = record.extraction;
+  if (!extraction) return "";
+  const problems = [
+    extraction.dropped.length ? `${extraction.dropped.length} dropped` : "",
+    extraction.unaccountedLines.length ? `${extraction.unaccountedLines.length} unaccounted line(s)` : "",
+    extraction.bogusLines.length ? `${extraction.bogusLines.length} bogus line ref(s)` : "",
+    record.alignment && !record.alignment.byIndex ? `aligned by text (${record.alignment.unmatched} unmatched, ${record.alignment.extra} extra)` : "",
+  ].filter(Boolean);
+  return `extraction: ${extraction.requirements.length} req in ${(extraction.durationMs / 1000).toFixed(1)} s, ${extraction.tokens.input ?? "?"} in / ${extraction.tokens.output ?? "?"} out${problems.length ? ` (${problems.join(", ")})` : ""}`;
+}
+
+const mean = (values: number[]) => (values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null);
+const range = (values: (number | null)[]) => {
+  const real = values.filter((v): v is number => v !== null);
+  if (real.length === 0) return "n/a";
+  const avg = mean(real) as number;
+  const lo = Math.min(...real);
+  const hi = Math.max(...real);
+  return lo === hi ? percent(avg) : `${percent(avg)} (${percent(lo)}-${percent(hi)})`;
+};
+
+/**
+ * Scores stored runs against the gold. Rates are shown per fixture as the
+ * mean over the runs with its range, and summed over everything as a
+ * micro-average; final and draft gold never mix.
+ */
+async function goldCommand(args: string[]) {
+  const { positional: labels, flags } = parseFlags(args);
+  if (labels.length === 0) fail(`gold needs at least one run label.\n\n${USAGE}`);
+  const verbose = flags.has("verbose");
+
+  const fixtures = new Map((await loadFixtures()).map((fixture) => [fixture.id, fixture]));
+  const runs = await Promise.all(labels.map((label) => readRun(label)));
+  const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
+
+  console.log(`Gold scoring of ${labels.length} run(s): ${labels.join(", ")}\n`);
+  console.log(`  ${"fixture".padEnd(28)} ${"ok".padStart(5)}  ${"recall".padEnd(16)} ${"precision".padEnd(16)} ${"kind".padEnd(8)} ${"status".padEnd(8)} inv/over/split/merge`);
+
+  const output: Record<string, unknown> = { labels, fixtures: {} as Record<string, unknown> };
+  const totals: Record<"final" | "draft", Metrics[]> = { final: [], draft: [] };
+  const perRun: Record<"final" | "draft", Metrics[][]> = { final: labels.map(() => []), draft: labels.map(() => []) };
+
+  for (const id of ids) {
+    const fixture = fixtures.get(id);
+    if (!fixture?.gold) {
+      console.log(`  ${id.padEnd(28)} no gold`);
+      continue;
+    }
+    const scored = runs.map((run) => {
+      const record = run.get(id);
+      return record && record.result.ok ? scoreRecord(fixture.gold as Gold, record) : undefined;
+    });
+    const present = scored.filter((one): one is RequirementScore => one !== undefined);
+    const goldStatus = fixture.gold.file.status;
+    present.forEach((one, i) => {
+      totals[goldStatus].push(one.metrics);
+      const runIndex = scored.indexOf(one, i);
+      perRun[goldStatus][runIndex]?.push(one.metrics);
+    });
+    const sum = sumMetrics(present.map((one) => one.metrics));
+    const kind = sum.kindTotal ? `${sum.kindCorrect}/${sum.kindTotal}` : "n/a";
+    const status = sum.statusTotal ? `${sum.statusCorrect}/${sum.statusTotal}${sum.statusSevere ? `!${sum.statusSevere}` : ""}` : "n/a";
+    console.log(
+      `  ${`${id}${goldStatus === "draft" ? " (draft)" : ""}`.padEnd(28)} ${`${present.length}/${runs.length}`.padStart(5)}  ${range(present.map((one) => one.metrics.recall)).padEnd(16)} ${range(present.map((one) => one.metrics.precision)).padEnd(16)} ${kind.padEnd(8)} ${status.padEnd(8)} ${sum.inventions}/${sum.overExtractions}/${sum.splits}/${sum.merges}`,
+    );
+    (output.fixtures as Record<string, unknown>)[id] = { goldStatus, runs: scored.map((one, i) => ({ label: labels[i], score: one ?? null })) };
+
+    if (verbose) {
+      scored.forEach((one, i) => {
+        if (!one) return;
+        console.log(`      ${labels[i]}`);
+        for (const item of one.items) {
+          const text = truncate(item.item.requirement, 70);
+          if (item.outcome === "match") {
+            console.log(`        ${item.matcher.padEnd(4)} -> ${item.goldIds.join("+").padEnd(6)} ${item.part ? `[${truncate(item.part, 24)}] ` : ""}${item.merge ? "MERGE " : ""}${item.split ? "SPLIT " : ""}${text}`);
+          } else if (item.outcome === "over-extraction") {
+            console.log(`        OVER (${item.reason})          ${text}`);
+          } else {
+            console.log(`        INVENTION                  ${text}`);
+          }
+        }
+        const missed = one.gold.filter((entry) => !entry.found).map((entry) => entry.id);
+        if (missed.length) console.log(`        missed gold: ${missed.join(", ")}`);
+        const wrongStatus = one.gold.filter((entry) => entry.statusCorrect === false).map((entry) => `${entry.id} ${entry.statusGold}->${entry.statusGot}`);
+        if (wrongStatus.length) console.log(`        wrong status: ${wrongStatus.join(", ")}`);
+      });
+    }
+  }
+
+  const summarize = (name: "final" | "draft") => {
+    if (totals[name].length === 0) return;
+    const sum = sumMetrics(totals[name]);
+    const runMeans = perRun[name].map((list) => (list.length ? sumMetrics(list) : null));
+    console.log(`\n${name === "final" ? "Synthetic gold (final)" : "Real-posting gold (draft, pending the owner's review)"}: ${totals[name].length} scored analyses`);
+    console.log(`  recall     ${percent(sum.recall)} (uncontested ${percent(sum.recallUncontested)}; hidden ${sum.hiddenFound}/${sum.hiddenTotal}); by span ${sum.bySpan}, by name ${sum.byName}`);
+    console.log(`  precision  ${percent(sum.precision)}: ${sum.correct} correct of ${sum.extracted}; ${sum.inventions} invented, ${sum.overExtractions} over-extracted, ${sum.splits} split, ${sum.merges} merged`);
+    console.log(`  kind       ${sum.kindCorrect}/${sum.kindTotal} (${percent(sum.kindTotal ? sum.kindCorrect / sum.kindTotal : null)})`);
+    console.log(`  status     ${sum.statusCorrect}/${sum.statusTotal} (${percent(sum.statusTotal ? sum.statusCorrect / sum.statusTotal : null)}), ${sum.statusSevere} met/missing swap(s)`);
+    console.log(`  per run    recall ${runMeans.map((m) => percent(m?.recall ?? null)).join(" | ")}; precision ${runMeans.map((m) => percent(m?.precision ?? null)).join(" | ")}`);
+    (output as Record<string, unknown>)[`totals_${name}`] = { sum, perRun: runMeans };
+  };
+  summarize("final");
+  summarize("draft");
+
+  const jsonFile = flags.get("json");
+  if (typeof jsonFile === "string") {
+    await writeJson(jsonFile, output);
+    console.log(`\nWritten ${jsonFile}`);
+  }
+}
+
 // ------------------------------------------------------------- stability
 
 /**
@@ -1143,16 +1392,19 @@ async function loadFixtures(): Promise<Fixture[]> {
         fail(`${display(base)}/job.txt exceeds ${MAX_JOB_DESCRIPTION_CHARS} characters.`);
       }
 
+      const { pdf: pdfMeta, ...rest } = meta;
       fixtures.push({
-        ...meta,
+        ...rest,
         jobTitle: meta.jobTitle.trim(),
         id: source === "local" ? `local-${name}` : name,
         source,
         cvText: await readFile(path.join(base, "cv.txt"), "utf8"),
-        // Optional: only fixtures built from a real PDF can run the spike.
+        // Optional: only fixtures holding a PDF can run the PDF arms.
         pdf: existsSync(path.join(base, "cv.pdf"))
           ? new Uint8Array(await readFile(path.join(base, "cv.pdf")))
           : undefined,
+        pdfMeta,
+        gold: await loadGold(base, jobDescription),
         jobDescription,
       });
     }
