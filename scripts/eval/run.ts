@@ -230,7 +230,7 @@ compare model output across provider, model or prompt changes.
 Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
                      [--input text|pdf|pdf+text] [--extraction single|two-call]
-  npm run eval -- gold <label> [<label> ...] [--verbose] [--json <file>]
+  npm run eval -- gold <label> [<label> ...] [--only <id,id>] [--verbose] [--json <file>]
   npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
   npm run eval -- canary <reference-label> [--only <id>]
@@ -1171,7 +1171,10 @@ async function goldCommand(args: string[]) {
 
   const fixtures = new Map((await loadFixtures()).map((fixture) => [fixture.id, fixture]));
   const runs = await Promise.all(labels.map((label) => readRun(label)));
-  const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
+  const only = flags.get("only");
+  const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))]
+    .filter((id) => typeof only !== "string" || only.split(",").includes(id))
+    .sort();
 
   console.log(`Gold scoring of ${labels.length} run(s): ${labels.join(", ")}\n`);
   console.log(`  ${"fixture".padEnd(28)} ${"ok".padStart(5)}  ${"recall".padEnd(16)} ${"precision".padEnd(16)} ${"kind".padEnd(8)} ${"status".padEnd(8)} inv/over/split/merge`);

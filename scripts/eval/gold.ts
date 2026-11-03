@@ -311,7 +311,10 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
       }
     }
 
-    if (matched.length === 0) {
+    // The name fallback is for items the posting does not contain in those
+    // words; an item located in the posting outside every gold span is
+    // posting text that is not a requirement, whatever it is named like.
+    if (matched.length === 0 && locations.length === 0) {
       const scored = gold.requirements
         .map((requirement) => ({ requirement, score: nameScore(item.requirement, requirement) }))
         .filter((one) => one.score >= NAME_MIN_SHARE)

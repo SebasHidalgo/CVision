@@ -43,20 +43,13 @@
     {
       "id": "p1",
       "kind": "preferred",
-      "name": "Incident commander on a formal rotation",
-      "spans": ["It helps if you have been an incident commander on a formal rotation,"],
-      "aliases": ["incident commander", "incident command"],
-      "status": "missing",
-      "why": "On-call member, never an incident commander."
-    },
-    {
-      "id": "p2",
-      "kind": "preferred",
-      "name": "Run Prometheus and Grafana at scale",
-      "spans": ["or have run Prometheus and Grafana at scale yourself."],
-      "aliases": ["Prometheus and Grafana", "Prometheus", "Grafana"],
+      "name": "Incident commander on a formal rotation, or Prometheus and Grafana at scale",
+      "spans": ["It helps if you have been an incident commander on a formal rotation, or have run Prometheus and Grafana at scale yourself."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["incident commander on a formal rotation", "run Prometheus and Grafana at scale yourself"],
+      "aliases": ["incident commander", "Prometheus and Grafana"],
       "status": "met",
-      "why": "Runs both for 300 services."
+      "why": "Rule 6: 'A, or B' is one item either alternative satisfies; the baseline measurement read it that way and the first draft of this gold did not. Prometheus and Grafana for 300 services meets it; the incident-commander half alone would be missing."
     }
   ],
   "notRequirements": [

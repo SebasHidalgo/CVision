@@ -3,6 +3,9 @@ import { buildGold, locate, normalize, score, sumMetrics, type GoldFile } from "
 
 const POSTING = `Backend Developer
 
+What you will do
+- Run our Kubernetes clusters day to day.
+
 Required qualifications
 - 3+ years of professional backend development experience.
 - Experience writing production code in C, C++, Java, JavaScript or Python.
@@ -30,7 +33,10 @@ const FILE: GoldFile = {
     },
     { id: "p1", kind: "preferred", name: "Running Kubernetes in production", spans: ["Experience running Kubernetes in production."], aliases: ["Kubernetes"], status: "missing", contested: true },
   ],
-  notRequirements: [{ span: "We offer a yearly learning budget and flexible hours.", reason: "benefit" }],
+  notRequirements: [
+    { span: "We offer a yearly learning budget and flexible hours.", reason: "benefit" },
+    { span: "Run our Kubernetes clusters day to day.", reason: "responsibility" },
+  ],
 };
 
 const gold = buildGold(FILE, POSTING);
@@ -66,6 +72,8 @@ describe("score", () => {
     expect(items[1]).toMatchObject({ outcome: "match", matcher: "name", goldIds: ["p1"] });
     expect(items[2]).toMatchObject({ outcome: "over-extraction", reason: "benefit" });
     expect(items[3]).toMatchObject({ outcome: "invention" });
+    // Posting text outside every gold span is over-extraction even when it is named like a gold item.
+    expect(score(gold, [{ requirement: "Run our Kubernetes clusters day to day", kind: "required" }]).items[0]).toMatchObject({ outcome: "over-extraction", reason: "responsibility" });
     expect(metrics).toMatchObject({ goldTotal: 4, goldFound: 2, extracted: 4, correct: 2, inventions: 1, overExtractions: 1, splits: 0, merges: 0, bySpan: 1, byName: 1 });
     expect(metrics.recallUncontested).toBeCloseTo(1 / 3);
     expect(verdicts.find((one) => one.id === "r1")).toMatchObject({ statusCorrect: true, kindCorrect: true });
