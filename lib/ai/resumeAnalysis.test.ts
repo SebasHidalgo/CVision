@@ -232,7 +232,7 @@ describe("truncation at the limit", () => {
       evidence: "React, TypeScript",
       note: "",
       keyTerms: { mode: "all", terms: [] },
-      unshowableAlternative: "",
+
       yearsEvidence: [],
       ...over,
     });

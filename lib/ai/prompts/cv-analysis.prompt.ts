@@ -91,11 +91,6 @@ const AIResponseFormat = `
       // Elasticsearch, and Sidekiq"). terms is empty when it names none.
       keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
 
-      // The part of sourceQuote offering an alternative no resume can show,
-      // copied word for word ("or willingness to learn and work with it",
-      // "or a clear appetite to learn it fast"), or "" when there is none.
-      unshowableAlternative: string;
-
       // "required" if the posting presents it as a minimum or required
       // qualification; "preferred" if it is listed as preferred, desired, a
       // plus, a bonus or nice to have. Use the posting's own framing: a plain
@@ -389,9 +384,8 @@ atsCompatibility.sectionsDetected, the evidence of every entry in
 skills.matchedSkills and jobFit.requirements (its softenedClause included),
 the cvMatch and yearsEvidence of jobFit.requirements, and the quote of every
 entry in experienceAndImpact.quantifiedAchievements. The sourceQuote,
-softenedClause.quote, keyTerms term and unshowableAlternative of
-jobFit.requirements follow the same rules, copied out of the job description
-instead.
+softenedClause.quote and keyTerms term of jobFit.requirements follow the same
+rules, copied out of the job description instead.
 - Copy one continuous span of the resume character for character: same words,
   same order, same case, same punctuation, same spelling. Prefer the shortest
   span that makes the point, usually a single line.

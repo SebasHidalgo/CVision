@@ -26,13 +26,17 @@ export const UNSHOWABLE_ALTERNATIVE =
 
 const PREFERRED_HEADING =
   /prefer|nice[\s-]to[\s-]have|bonus|plus|desirabl|desired|ideal|advantage|additional|valoramos|valorable|deseable|se valora|ventaja|great if/i;
-const REQUIRED_HEADING =
-  /requir|qualif|must|minimum|essential|what you (?:need|bring|have)|you (?:have|bring)|who you are|about you|skills|requisitos|imprescindible|buscamos|perfil/i;
+const REQUIRED_WORD = /requir|must|minimum|mandatory|essential|requisitos|imprescindible|obligatori/i;
+const QUALIFICATIONS_HEADING =
+  /qualif|skills|what you (?:need|bring|have)|you (?:have|bring)|who you are|about you|buscamos|perfil/i;
 
-/** The kind a verified heading states, or null when it states none. */
+/** The kind a verified heading states, or null when it states none or both ("Job Requirements: Other & Additional"). */
 export function headingKind(heading: string): "required" | "preferred" | null {
-  if (PREFERRED_HEADING.test(heading)) return "preferred";
-  if (REQUIRED_HEADING.test(heading)) return "required";
+  const preferred = PREFERRED_HEADING.test(heading);
+  const required = REQUIRED_WORD.test(heading);
+  if (preferred && required) return null;
+  if (preferred) return "preferred";
+  if (required || QUALIFICATIONS_HEADING.test(heading)) return "required";
   return null;
 }
 
@@ -113,11 +117,7 @@ export function alignToSource(requirement: string, source: string): string {
 }
 
 /** Context the status rules need beside the stored requirement, aligned by index. */
-export type PendingRequirement = {
-  /** The model's unshowable alternative, already checked against sourceQuote; "" when none. */
-  alternative: string;
-  yearsEvidence: string[];
-};
+export type PendingRequirement = { yearsEvidence: string[] };
 
 /** Before guardAnalysis: posting quote, section, softened clause, key terms and the requirement's wording. */
 export function structureRequirements(
@@ -184,14 +184,7 @@ export function structureRequirements(
       assessable: entry.assessable,
     };
     requirements.push(requirement);
-    const alternative = normalizeWhitespace(entry.unshowableAlternative);
-    pending.push({
-      alternative: alternative && containsTerm(source.text, alternative) ? alternative : "",
-      yearsEvidence: entry.yearsEvidence,
-    });
-    if (alternative && !containsTerm(source.text, alternative)) {
-      record({ check: "unshowable-alternative", action: "recorded", path: `${path}.unshowableAlternative`, value: alternative, replacement: "not in sourceQuote" });
-    }
+    pending.push({ yearsEvidence: entry.yearsEvidence });
 
     let derived: Requirement | null = null;
     const clause = entry.softenedClause;
@@ -246,8 +239,9 @@ export function structureRequirements(
       else record({ check: "key-term", action: "term-dropped", path: `${path}.keyTerms`, value: term.term });
     }
     if (own.length) {
-      // "dbt and data contracts" offers no alternative: every term counts.
-      const offersChoice = ALTERNATIVE_WORD.test(requirement.sourceQuote ?? "");
+      // "dbt and data contracts" offers no alternative: every term counts. A parenthesised list is examples.
+      const quote = requirement.sourceQuote ?? "";
+      const offersChoice = ALTERNATIVE_WORD.test(quote) || /\([^)]*,[^)]*\)/.test(quote);
       const mode = entry.keyTerms.mode === "any" && own.length > 1 && !offersChoice ? "all" : entry.keyTerms.mode;
       if (mode !== entry.keyTerms.mode) {
         record({ check: "key-term", action: "mode-changed", path: `${path}.keyTerms.mode`, value: requirement.sourceQuote ?? "", replacement: mode });
@@ -258,7 +252,7 @@ export function structureRequirements(
       // A softened clause names preferred options: "preferably Power BI or Looker".
       if (clauseTerms.length) derived.keyTerms = { mode: "any", terms: clauseTerms };
       requirements.push(derived);
-      pending.push({ alternative: "", yearsEvidence: [] });
+      pending.push({ yearsEvidence: [] });
     }
   });
 
@@ -267,13 +261,72 @@ export function structureRequirements(
 
 const RANK: Record<RequirementStatus, number> = { missing: 0, partial: 1, met: 2, not_evident: -1 };
 
-/** The highest status key-term coverage allows; null when it allows the model's own. */
-export function coverageCap(keyTerms: KeyTerms | undefined): RequirementStatus | null {
+// Between two terms: list items ending in "or" ("C#, Java, JavaScript, or "), or a comma list without "and".
+const OR_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))[^;.()]*?(?:^|[\s,])(?:or|o|u|\/)\s*$/iu;
+const COMMA_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))\s*,[^;.()]*$/iu;
+
+/**
+ * Which terms the posting offers as alternatives to each other, from its own words: terms joined
+ * by "or" ("BigQuery o Snowflake", "C, C++, or Python") or listed in one parenthesis
+ * ("(Prometheus, Grafana, OpenTelemetry)") form one group; every other term is a group of its own.
+ */
+export function termGroups(quote: string, terms: string[]): number[][] {
+  const lower = quote.toLowerCase();
+  const located = terms.map((term, i) => {
+    const at = lower.indexOf(term.trim().toLowerCase());
+    return { i, at, end: at + term.trim().length };
+  });
+  const groups: number[][] = located.filter((one) => one.at < 0).map((one) => [one.i]);
+  let run: typeof located = [];
+  let joinedByOr = false;
+  const flush = () => {
+    if (run.length === 0) return;
+    const first = run[0];
+    const last = run[run.length - 1];
+    const inParens = run.length > 1 && /\([^()]*$/.test(quote.slice(0, first.at)) && /^[^()]*\)/.test(quote.slice(last.end));
+    if (joinedByOr || inParens) groups.push(run.map((one) => one.i));
+    else for (const one of run) groups.push([one.i]);
+    run = [];
+    joinedByOr = false;
+  };
+  for (const one of located.filter((item) => item.at >= 0).sort((a, b) => a.at - b.at)) {
+    const previous = run[run.length - 1];
+    if (previous) {
+      const between = quote.slice(previous.end, one.at);
+      if (OR_SEPARATOR.test(between)) joinedByOr = true;
+      else if (!COMMA_SEPARATOR.test(between)) flush();
+    }
+    run.push(one);
+  }
+  flush();
+  return groups;
+}
+
+const shownTerm = (term: KeyTerms["terms"][number]) => Boolean(normalizeWhitespace(term.cvMatch));
+
+/** The terms without the alternatives the candidate does not need: one shown term satisfies its group. */
+export function neededTerms(keyTerms: KeyTerms, quote: string): KeyTerms {
+  if (keyTerms.mode === "any") {
+    const shown = keyTerms.terms.filter(shownTerm);
+    return shown.length ? { ...keyTerms, terms: shown } : keyTerms;
+  }
+  const drop = new Set<number>();
+  for (const group of termGroups(quote, keyTerms.terms.map((term) => term.term))) {
+    if (group.length > 1 && group.some((i) => shownTerm(keyTerms.terms[i]))) {
+      for (const i of group) if (!shownTerm(keyTerms.terms[i])) drop.add(i);
+    }
+  }
+  return { ...keyTerms, terms: keyTerms.terms.filter((_, i) => !drop.has(i)) };
+}
+
+/** The highest status key-term coverage allows; null when it allows the model's own. "all" counts groups of alternatives. */
+export function coverageCap(keyTerms: KeyTerms | undefined, quote = ""): RequirementStatus | null {
   if (!keyTerms || keyTerms.terms.length === 0) return null;
-  const matched = keyTerms.terms.filter((term) => normalizeWhitespace(term.cvMatch)).length;
-  if (keyTerms.mode === "any") return matched > 0 ? null : "missing";
-  if (matched === keyTerms.terms.length) return null;
-  return matched > 0 ? "partial" : "missing";
+  if (keyTerms.mode === "any") return keyTerms.terms.some(shownTerm) ? null : "missing";
+  const groups = termGroups(quote, keyTerms.terms.map((term) => term.term));
+  const covered = groups.filter((group) => group.some((i) => shownTerm(keyTerms.terms[i]))).length;
+  if (covered === groups.length) return null;
+  return covered > 0 ? "partial" : "missing";
 }
 
 const joinTerms = (terms: string[], word: "and" | "or") =>
@@ -339,7 +392,8 @@ export function enforceRequirementStatuses(
           term.cvMatch = "";
         }
       }
-      const cap = coverageCap(requirement.keyTerms);
+      requirement.keyTerms = neededTerms(requirement.keyTerms, requirement.sourceQuote ?? "");
+      const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
       if (cap && RANK[requirement.status] > RANK[cap]) {
         lower("key-term", cap, coverageNote(requirement.keyTerms, cap));
         // Nothing the requirement names is in the CV, so the quote showed something else.
@@ -358,7 +412,7 @@ export function enforceRequirementStatuses(
         if (!requirement.evidence.trim() && grounded[0]) requirement.evidence = grounded[0];
         const byYears = yearsStatus(min, found.candidate);
         // Years decide the years; key terms still cap the rest.
-        const cap = coverageCap(requirement.keyTerms);
+        const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
         const to = cap && RANK[cap] < RANK[byYears] ? cap : byYears;
         const note = yearsNote(min, found.candidate);
         if (requirement.status === "not_evident") {
@@ -370,9 +424,21 @@ export function enforceRequirementStatuses(
           interventions.push({ check: "years", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
           requirement.status = to;
           requirement.note = note;
-        } else {
+        } else if (requirement.status === to) {
           requirement.note = note;
         }
+        // Lower than the numbers allow: the model's note gives its other reason, and the numbers would contradict it.
+      }
+    }
+
+    // A verified CV match is evidence: quote its line rather than downgrade for a quote the guardrail dropped.
+    if (context && (requirement.status === "met" || requirement.status === "partial") && !requirement.evidence.trim()) {
+      const match = requirement.keyTerms?.terms.find(shownTerm);
+      const lines = match ? cvLines(context.cvText, []) : [];
+      const lineAt = match ? lines.findIndex((line) => !line.heading && containsTerm(line.text, match.cvMatch)) : -1;
+      if (lineAt >= 0) {
+        requirement.evidence = lineSpan(lines, lineAt);
+        interventions.push({ check: "evidence-source", action: "evidence-replaced", path: `${at}.evidence`, value: "", replacement: requirement.evidence });
       }
     }
 
@@ -383,12 +449,10 @@ export function enforceRequirementStatuses(
       requirement.note = DOWNGRADE_NOTE;
     }
 
-    // Detected from the posting's words and from the model's field; both recorded for the eval.
-    const byPattern = unshowableAlternativeIn(requirement.sourceQuote ?? "");
-    const byModel = pending?.alternative || null;
-    const alternative = byPattern ?? byModel;
+    // From the posting's words (M8-C measured a model field beside it: same hits, 13 false alarms in 108 analyses).
+    const alternative = unshowableAlternativeIn(requirement.sourceQuote ?? "");
     if (alternative) {
-      interventions.push({ check: "unshowable-alternative", action: "recorded", path: `${at}.sourceQuote`, value: requirement.sourceQuote ?? "", replacement: byPattern && byModel ? "both" : byPattern ? "pattern" : "model" });
+      interventions.push({ check: "unshowable-alternative", action: "recorded", path: `${at}.sourceQuote`, value: requirement.sourceQuote ?? "" });
       assessable = false;
       requirement.assessable = false;
       if (requirement.status === "missing") {

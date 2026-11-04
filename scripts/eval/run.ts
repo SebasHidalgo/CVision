@@ -1211,6 +1211,9 @@ async function goldCommand(args: string[]) {
     console.log(`  kind       ${sum.kindCorrect}/${sum.kindTotal} (${percent(sum.kindTotal ? sum.kindCorrect / sum.kindTotal : null)})`);
     console.log(`  status     ${sum.statusCorrect}/${sum.statusTotal} (${percent(sum.statusTotal ? sum.statusCorrect / sum.statusTotal : null)}), ${sum.statusSevere} met/missing swap(s), ${sum.falseMet} false met, ${sum.notEvidentAsMissing} not-shown called missing`);
     if (sum.assessableTotal) console.log(`  assessable ${sum.assessableCorrect}/${sum.assessableTotal} agree with the gold`);
+    if (sum.termsTotal) console.log(`  key terms  ${sum.termsNamed}/${sum.termsTotal} gold terms named, ${sum.termsPresenceCorrect} of them judged present or absent correctly`);
+    if (sum.yearsTotal) console.log(`  years      ${sum.yearsDetermined}/${sum.yearsTotal} determined, minimum right ${sum.yearsMinCorrect}, candidate within half a year ${sum.yearsCandidateClose}`);
+    if (sum.preferredEvidenceTotal) console.log(`  evidence   ${sum.preferredEvidenceHit}/${sum.preferredEvidenceTotal} quote the experience line the gold prefers`);
     console.log(`  per run    recall ${runMeans.map((m) => percent(m?.recall ?? null)).join(" | ")}; precision ${runMeans.map((m) => percent(m?.precision ?? null)).join(" | ")}`);
     (output as Record<string, unknown>)[`totals_${name}`] = { sum, perRun: runMeans, overByReason: Object.fromEntries(overByReason[name]) };
   };

@@ -3,13 +3,16 @@ import type { ModelRequirement, Requirement, ResumeAnalysisFeedback } from "@/li
 import {
   alignToSource,
   clauseAsRequirement,
+  coverageCap,
   DOWNGRADE_NOTE,
   enforceRequirementStatuses,
   evidenceSourceOf,
   guardMatchedSkills,
   headingKind,
+  neededTerms,
   requirementHeadline,
   structureRequirements,
+  termGroups,
   unshowableAlternativeIn,
   withEvidenceSources,
   withoutClause,
@@ -43,7 +46,7 @@ const entry = (overrides: Partial<ModelRequirement>): ModelRequirement => ({
   evidence: "Data Analyst, 2019 - present",
   note: "",
   keyTerms: { mode: "all", terms: [] },
-  unshowableAlternative: "",
+
   yearsEvidence: [],
   ...overrides,
 });
@@ -293,6 +296,9 @@ describe("structureRequirements: kind from the posting's own wording", () => {
     expect(headingKind("Valoramos")).toBe("preferred");
     expect(headingKind("Requisitos")).toBe("required");
     expect(headingKind("About Encora")).toBeNull();
+    expect(headingKind("Required/Minimum Qualifications")).toBe("required");
+    // The Microsoft posting's own heading over its background check: it states no kind, so the model's stands.
+    expect(headingKind("Job Requirements: Other & Additional")).toBeNull();
   });
 });
 
@@ -337,7 +343,7 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
     sourceQuote: "Strong expertise in Ruby on Rails and MySQL for backend development",
     ...overrides,
   });
-  const context = (count: number) => ({ pending: Array.from({ length: count }, () => ({ alternative: "", yearsEvidence: [] })), cvText: CV, now: NOW });
+  const context = (count: number) => ({ pending: Array.from({ length: count }, () => ({ yearsEvidence: [] })), cvText: CV, now: NOW });
 
   it("caps an 'all' requirement at partial when some terms are shown, at missing when none is", () => {
     const { requirements, interventions } = enforceRequirementStatuses(
@@ -387,7 +393,7 @@ describe("enforceRequirementStatuses: years", () => {
     ...overrides,
   });
   const run = (requirement: Requirement, yearsEvidence: string[] = []) =>
-    enforceRequirementStatuses([requirement], { pending: [{ alternative: "", yearsEvidence }], cvText: CV, now: NOW });
+    enforceRequirementStatuses([requirement], { pending: [{ yearsEvidence }], cvText: CV, now: NOW });
 
   it("calls 2 of 5 years missing and says both numbers", () => {
     const { requirements, interventions } = run(stored({}));
@@ -448,30 +454,19 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
         { requirement: python, kind: "required", status: "missing", evidence: "", note: "Python is absent", assessable: true, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) },
         { requirement: python, kind: "required", status: "met", evidence: "Python (pandas)", note: "", assessable: true, sourceQuote: python, keyTerms: terms("any", ["Python", "Python"]) },
       ],
-      { pending: [{ alternative: "", yearsEvidence: [] }, { alternative: "", yearsEvidence: [] }], cvText: `${CV}\nPython (pandas)`, now: NOW },
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: `${CV}\nPython (pandas)`, now: NOW },
     );
 
     expect(requirements.map((one) => [one.status, one.assessable])).toEqual([["not_evident", false], ["met", false]]);
     expect(requirements[0].note).toBe("Python isn't in your CV; the posting accepts willingness to learn and work with it — say so in your cover letter.");
-    expect(interventions).toContainEqual(expect.objectContaining({ check: "unshowable-alternative", action: "recorded", replacement: "pattern" }));
-  });
-
-  it("takes the model's field when the pattern misses, as long as it is in the quote", () => {
-    const quote = "Rust, or a demonstrated drive to master it quickly";
-    const { requirements, interventions } = enforceRequirementStatuses(
-      [{ requirement: "Rust", kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: quote }],
-      { pending: [{ alternative: "or a demonstrated drive to master it quickly", yearsEvidence: [] }], cvText: CV, now: NOW },
-    );
-
-    expect(requirements[0].status).toBe("not_evident");
-    expect(interventions).toContainEqual(expect.objectContaining({ check: "unshowable-alternative", replacement: "model" }));
+    expect(interventions).toContainEqual(expect.objectContaining({ check: "unshowable-alternative", action: "recorded" }));
   });
 
   it("writes its own note when the model chose not_evident itself, and drops a quote that showed nothing", () => {
     const python = "Intermediate experience with Python or willingness to learn and work with it";
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: python, kind: "required", status: "not_evident", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "the unshowable alternative covers it", assessable: false, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) }],
-      { pending: [{ alternative: "", yearsEvidence: [] }], cvText: CV, now: NOW },
+      { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
     );
 
     expect(requirements[0]).toMatchObject({
@@ -561,7 +556,7 @@ describe("M8-C smoke fixes", () => {
   it("clears the quote when no named term is in the CV", () => {
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: "Terraform", kind: "required", status: "partial", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "", assessable: true, sourceQuote: "Terraform", keyTerms: terms("all", ["Terraform", ""]) }],
-      { pending: [{ alternative: "", yearsEvidence: [] }], cvText: CV, now: NOW },
+      { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
     );
     expect(requirements[0]).toMatchObject({ status: "missing", evidence: "" });
   });
@@ -603,5 +598,49 @@ Python, Looker, SQL`;
 
     expect(requirements[0]).toMatchObject({ evidence: "Python, Looker, SQL", evidenceSource: "skills", skillsOnly: false });
     expect(requirements[1]).toMatchObject({ evidence: "Maintained the PostgreSQL reporting replica and the Python ETL scripts that fed it.", evidenceSource: "experience" });
+  });
+});
+
+describe("M8-C measurement fixes", () => {
+  it("groups terms the posting joins with 'or', or lists in one parenthesis", () => {
+    expect(termGroups("Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).", ["SQL", "BigQuery", "Snowflake"])).toEqual([[0], [1, 2]]);
+    expect(termGroups("Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", ["Prometheus", "Grafana", "OpenTelemetry"])).toEqual([[0, 1, 2]]);
+    expect(termGroups("Strong expertise in Ruby on Rails and MySQL for backend development", ["Ruby on Rails", "MySQL"])).toEqual([[0], [1]]);
+    expect(termGroups("coding in C, C++, C#, Java, JavaScript, or Python", ["C++", "Java", "Python"])).toEqual([[0, 1, 2]]);
+  });
+
+  it("counts a group as covered by one shown term, and drops the alternatives not needed", () => {
+    const quote = "Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).";
+    const keyTerms = terms("all", ["SQL", "SQL"], ["BigQuery", "BigQuery"], ["Snowflake", ""]);
+
+    expect(coverageCap(keyTerms, quote)).toBeNull();
+    expect(neededTerms(keyTerms, quote).terms.map((term) => term.term)).toEqual(["SQL", "BigQuery"]);
+    expect(coverageCap(terms("all", ["SQL", ""], ["BigQuery", "BigQuery"], ["Snowflake", ""]), quote)).toBe("partial");
+  });
+
+  it("keeps examples in a parenthesis as alternatives when the model says 'any'", () => {
+    const posting = `${ENCORA}\n* Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).`;
+    const { requirements, interventions } = structureRequirements(posting, [
+      entry({ sourceQuote: "Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", heading: "Qualifications and Skills", requirement: "Observability tooling", keyTerms: terms("any", ["Prometheus", "Prometheus"], ["OpenTelemetry", ""]) }),
+    ]);
+    expect(requirements[0].keyTerms?.mode).toBe("any");
+    expect(interventions.some((one) => one.action === "mode-changed")).toBe(false);
+  });
+
+  it("quotes the CV line of a verified match when the model's quote was dropped, instead of downgrading", () => {
+    const { requirements, interventions } = enforceRequirementStatuses(
+      [{ requirement: "React", kind: "required", status: "met", evidence: "", note: "", assessable: true, sourceQuote: "React", keyTerms: terms("all", ["React", "React"]) }],
+      { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
+    );
+    expect(requirements[0]).toMatchObject({ status: "met", evidence: "• Designed and developed a full-stack web platform using the MERN stack (MongoDB, Express.js, React, Node.js) to manage pet adoption." });
+    expect(interventions).toContainEqual(expect.objectContaining({ check: "evidence-source", action: "evidence-replaced", value: "" }));
+  });
+
+  it("keeps the model's note when its status is below what the numbers allow", () => {
+    const { requirements } = enforceRequirementStatuses(
+      [{ requirement: "6+ years of backend", kind: "required", status: "missing", evidence: "", note: "The CV shows pastry work, not backend.", assessable: true, sourceQuote: "1+ year(s) of backend software development" }],
+      { pending: [{ yearsEvidence: ["Full-Stack Developer with 2+ years of experience building scalable web applications."] }], cvText: CV, now: NOW },
+    );
+    expect(requirements[0]).toMatchObject({ status: "missing", note: "The CV shows pastry work, not backend." });
   });
 });

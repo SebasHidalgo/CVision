@@ -165,7 +165,6 @@ export const modelRequirementSchema = z.object({
     note: z.string(),
   }),
   keyTerms: keyTermsSchema,
-  unshowableAlternative: z.string(),
   kind: lowerEnum(REQUIREMENT_KINDS),
   assessable: z.boolean(),
   yearsEvidence: z.array(z.string()),

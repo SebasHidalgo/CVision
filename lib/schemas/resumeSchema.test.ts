@@ -238,7 +238,7 @@ describe("resumeFeedbackSchema: requirements", () => {
       softenedClause: { quote: "", status: "missing", evidence: "", note: "" },
       assessable: true,
       keyTerms: { mode: "all", terms: [{ term: "PostgreSQL", cvMatch: "Postgres" }] },
-      unshowableAlternative: "",
+
       yearsEvidence: [],
     };
 
