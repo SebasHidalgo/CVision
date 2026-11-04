@@ -70,7 +70,8 @@ export type RequirementCheckName =
   | "unshowable-alternative"
   | "requirement-text"
   | "matched-skill"
-  | "evidence-source";
+  | "evidence-source"
+  | "cv-language";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;

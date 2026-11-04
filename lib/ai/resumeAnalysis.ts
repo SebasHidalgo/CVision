@@ -8,6 +8,7 @@ import {
   type GuardReport,
 } from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
+import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
 import {
   enforceRequirementStatuses,
@@ -136,17 +137,20 @@ export async function analyzeResume({
   const guarded = checked ? guardAnalysis(text, shaped) : { feedback: shaped, guard: emptyGuardReport() };
   const skills = checked ? guardMatchedSkills(guarded.feedback, text) : { feedback: guarded.feedback, interventions: [] };
 
+  // Code-written sentences follow the language the model wrote the analysis in.
+  const language = detectPostingLanguage(`${answer.jobFit.description} ${answer.overall.summaryText}`);
+
   // Statuses last: a CV quote the guardrail dropped is no evidence.
   const statuses = enforceRequirementStatuses(
     skills.feedback.jobFit.requirements,
-    checked ? { pending: structured.pending, cvText: text, now } : undefined,
+    checked ? { pending: structured.pending, cvText: text, now, language } : undefined,
   );
   const sourced = checked
     ? withEvidenceSources(statuses.requirements, text, skills.feedback.atsCompatibility.sectionsDetected)
     : { requirements: statuses.requirements, interventions: [] };
   const requirements = sourced.requirements;
   // The first sentence comes from the statuses, so the summary cannot contradict them.
-  const headline = requirementHeadline(requirements);
+  const headline = requirementHeadline(requirements, language);
   const summaryText = [headline, skills.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
   const feedback: ResumeAnalysisFeedback = {
     ...skills.feedback,

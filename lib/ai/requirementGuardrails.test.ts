@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ModelRequirement, Requirement, ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import {
+  absentTerms,
   alignToSource,
   clauseAsRequirement,
   coverageCap,
@@ -642,5 +643,45 @@ describe("M8-C measurement fixes", () => {
       { pending: [{ yearsEvidence: ["Full-Stack Developer with 2+ years of experience building scalable web applications."] }], cvText: CV, now: NOW },
     );
     expect(requirements[0]).toMatchObject({ status: "missing", note: "The CV shows pastry work, not backend." });
+  });
+});
+
+describe("M8-C language", () => {
+  const english = "Fluency to read, write and speak in English.";
+
+  it("meets a requirement for the language the CV is written in, and only that one", () => {
+    const { requirements, interventions } = enforceRequirementStatuses(
+      [
+        { requirement: english, kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: english },
+        { requirement: "Writes clearly in English and Spanish", kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: "writes clearly in English and Spanish" },
+        { requirement: "Fluent German", kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: "Fluent German" },
+      ],
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }, { yearsEvidence: [] }], cvText: `${CV}\nWorked with the team and the clients in this role for two years.`, now: NOW },
+    );
+
+    expect(requirements.map((one) => one.status)).toEqual(["met", "missing", "missing"]);
+    expect(requirements[0].note).toBe("Your CV is written in English, which shows it.");
+    expect(interventions).toContainEqual(expect.objectContaining({ check: "cv-language", replacement: "met" }));
+  });
+
+  it("names absent alternatives with 'or' and the rest with 'and'", () => {
+    const quote = "Production experience with Kubernetes and a major cloud provider (AWS or GCP).";
+    expect(absentTerms(terms("all", ["Kubernetes", ""], ["AWS", ""], ["GCP", ""]), quote)).toBe("Kubernetes and AWS or GCP");
+    expect(absentTerms(terms("all", ["Kubernetes", ""], ["AWS", ""], ["GCP", ""]), quote, "es")).toBe("Kubernetes y AWS o GCP");
+  });
+
+  it("writes the headline and its notes in the analysis language", () => {
+    const quote = "Conocimientos de Airflow o disposición para aprenderlo.";
+    const { requirements } = enforceRequirementStatuses(
+      [
+        { requirement: quote, kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: quote, keyTerms: terms("any", ["Airflow", ""]) },
+        { requirement: "Al menos 4 años", kind: "required", status: "partial", evidence: "Full-Stack Developer with 2+ years of experience building scalable web applications.", note: "", assessable: true, sourceQuote: "Al menos 4 años de experiencia como analista" },
+      ],
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: CV, now: NOW, language: "es" },
+    );
+
+    expect(requirements[0].note).toBe("Airflow no aparece en tu CV; la oferta acepta disposición para aprenderlo: dilo en tu carta de presentación.");
+    expect(requirements[1].note).toBe("La oferta pide 4+ años; tu CV muestra unos 2.");
+    expect(requirementHeadline(requirements, "es")).toBe("Brechas principales: 4+ años de experiencia.");
   });
 });

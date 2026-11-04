@@ -1,3 +1,4 @@
+import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import type { RequirementStatus } from "@/lib/schemas/resumeSchema";
 
 // M8-C: years thresholds decided in code. Pure; tested.
@@ -130,11 +131,11 @@ export function yearsStatus(min: number, candidate: number): RequirementStatus {
 }
 
 /** "about 2", "about 2.5": halves are the precision a CV supports. */
-export function describeYears(value: number): string {
+export function describeYears(value: number, language: AnalysisLanguage = "en"): string {
   const rounded = Math.round(value * 2) / 2;
-  return `about ${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}`;
+  return WORDING[language].about(rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1));
 }
 
-export function yearsNote(min: number, candidate: number): string {
-  return `The posting asks for ${min}+ years; your CV shows ${describeYears(candidate)}.`;
+export function yearsNote(min: number, candidate: number, language: AnalysisLanguage = "en"): string {
+  return WORDING[language].years(min, describeYears(candidate, language));
 }
