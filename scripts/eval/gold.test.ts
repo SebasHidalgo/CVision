@@ -115,4 +115,25 @@ describe("score", () => {
     expect(total.recall).toBeCloseTo(0.5);
     expect(total.statusSevere).toBe(2);
   });
+
+  it("scores not_evident, accepts statusAlso, and counts false met and not-shown called missing", () => {
+    const soft = buildGold(
+      {
+        ...FILE,
+        requirements: [
+          { ...FILE.requirements[0], status: "missing" },
+          { ...FILE.requirements[1], assessable: false, status: "not_evident", statusAlso: ["met"] },
+          { ...FILE.requirements[2], splitAllowed: false, assessable: false, status: "not_evident" },
+        ],
+      },
+      POSTING,
+    );
+    const { metrics, gold: verdicts } = score(soft, [
+      { requirement: "3+ years of professional backend development experience", kind: "required", status: "met", assessable: true },
+      { requirement: "Experience writing production code in C, C++, Java, JavaScript or Python", kind: "required", status: "met", assessable: true },
+      { requirement: "Experience with containers and CI/CD pipelines", kind: "required", status: "missing", assessable: false },
+    ]);
+    expect(verdicts.map((one) => one.statusCorrect)).toEqual([false, true, false]);
+    expect(metrics).toMatchObject({ statusSevere: 1, falseMet: 1, notEvidentAsMissing: 1, assessableTotal: 3, assessableCorrect: 2 });
+  });
 });

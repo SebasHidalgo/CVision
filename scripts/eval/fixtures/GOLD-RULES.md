@@ -92,6 +92,27 @@ report counts separately.
     "Observability tooling (Prometheus, Grafana, OpenTelemetry)" is one
     item; the tools are examples of the capability.
 
+## What a CV can show
+
+13. **Some requirements a CV can state but never demonstrate.** An
+    attitude ("comfortable saying no to senior stakeholders", "a clear
+    appetite to learn it fast"), a soft skill stated as a trait judged by
+    its manner ("you write crisply", "you explain trade-offs clearly"),
+    availability or willingness phrased as a demand ("willing to
+    travel"), and a hiring condition (work authorization, a background
+    check, a security screening) are requirements under rules 1 and 3,
+    and carry `"assessable": false`. Their expected `status` is
+    `not_evident` (the UI's "Not shown in your CV"), never `missing`: the
+    candidate may well satisfy them. They are `met` when the CV states
+    them in words that can be quoted ("Irish citizen" for a work
+    authorization). Past experience of an activity is assessable ("experience
+    being on call for a production service"). Alternatives where one is
+    assessable and another is not ("GraphQL schema design, or a clear
+    appetite to learn it fast") are `assessable: false`: `met` when the CV
+    shows the assessable alternative, `not_evident` otherwise. When both
+    `met` and `not_evident` are defensible for this CV, `status` holds one
+    and `statusAlso` the other.
+
 ## How the file is written
 
 ```json
@@ -132,8 +153,13 @@ report counts separately.
   without judgement: `met` when the CV plainly has it, `missing` when it
   plainly has nothing for it, `partial` when the CV has part of a
   conjunction (rule 9) or an adjacent thing the posting would not accept
-  as the thing asked for. Omit it when a reasonable reader could go
-  either way; the status metric only counts gold items that carry one.
+  as the thing asked for, `not_evident` for an `assessable: false` item
+  the CV does not state (rule 13). Omit it when a reasonable reader could
+  go either way; the status metric only counts gold items that carry one.
+- `statusAlso`: optional, other statuses that are equally right for this
+  CV (rule 13); the status metric accepts any of them. Never `missing`
+  beside `met`: that is the swap the metric exists to catch.
+- `assessable`: `false` for the items of rule 13; absent means `true`.
 - `contested`, `hidden`, `splitAllowed`, `alsoAcceptedAs`: see the rules
   above.
 - `notRequirements`: optional, the spans a model is most likely to

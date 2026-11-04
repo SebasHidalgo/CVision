@@ -1180,8 +1180,12 @@ async function goldCommand(args: string[]) {
   console.log(`  ${"fixture".padEnd(28)} ${"ok".padStart(5)}  ${"recall".padEnd(16)} ${"precision".padEnd(16)} ${"kind".padEnd(8)} ${"status".padEnd(8)} inv/over/split/merge`);
 
   const output: Record<string, unknown> = { labels, fixtures: {} as Record<string, unknown> };
-  const totals: Record<"final" | "draft", Metrics[]> = { final: [], draft: [] };
-  const perRun: Record<"final" | "draft", Metrics[][]> = { final: labels.map(() => []), draft: labels.map(() => []) };
+  // Synthetic and real postings never mix; a real one also says whether the owner approved its gold.
+  type Group = "synthetic" | "real";
+  const totals: Record<Group, Metrics[]> = { synthetic: [], real: [] };
+  const perRun: Record<Group, Metrics[][]> = { synthetic: labels.map(() => []), real: labels.map(() => []) };
+  const overByReason: Record<Group, Map<string, number>> = { synthetic: new Map(), real: new Map() };
+  const realStatus = new Set<string>();
 
   for (const id of ids) {
     const fixture = fixtures.get(id);
@@ -1195,10 +1199,15 @@ async function goldCommand(args: string[]) {
     });
     const present = scored.filter((one): one is RequirementScore => one !== undefined);
     const goldStatus = fixture.gold.file.status;
+    const group: Group = fixture.source === "local" ? "real" : "synthetic";
+    if (group === "real") realStatus.add(goldStatus);
     present.forEach((one, i) => {
-      totals[goldStatus].push(one.metrics);
+      totals[group].push(one.metrics);
       const runIndex = scored.indexOf(one, i);
-      perRun[goldStatus][runIndex]?.push(one.metrics);
+      perRun[group][runIndex]?.push(one.metrics);
+      for (const item of one.items) {
+        if (item.outcome === "over-extraction") overByReason[group].set(item.reason, (overByReason[group].get(item.reason) ?? 0) + 1);
+      }
     });
     const sum = sumMetrics(present.map((one) => one.metrics));
     const kind = sum.kindTotal ? `${sum.kindCorrect}/${sum.kindTotal}` : "n/a";
@@ -1230,20 +1239,24 @@ async function goldCommand(args: string[]) {
     }
   }
 
-  const summarize = (name: "final" | "draft") => {
+  const summarize = (name: Group) => {
     if (totals[name].length === 0) return;
     const sum = sumMetrics(totals[name]);
     const runMeans = perRun[name].map((list) => (list.length ? sumMetrics(list) : null));
-    console.log(`\n${name === "final" ? "Synthetic gold (final)" : "Real-posting gold (draft, pending the owner's review)"}: ${totals[name].length} scored analyses`);
+    const heading = name === "synthetic" ? "Synthetic gold" : `Real-posting gold (${[...realStatus].join(", ")})`;
+    const reasons = [...overByReason[name]].sort((a, b) => b[1] - a[1]).map(([reason, count]) => `${reason} ${count}`).join(", ");
+    console.log(`\n${heading}: ${totals[name].length} scored analyses`);
     console.log(`  recall     ${percent(sum.recall)} (uncontested ${percent(sum.recallUncontested)}; hidden ${sum.hiddenFound}/${sum.hiddenTotal}); by span ${sum.bySpan}, by name ${sum.byName}`);
     console.log(`  precision  ${percent(sum.precision)}: ${sum.correct} correct of ${sum.extracted}; ${sum.inventions} invented, ${sum.overExtractions} over-extracted, ${sum.splits} split, ${sum.merges} merged`);
+    if (reasons) console.log(`  over by    ${reasons}`);
     console.log(`  kind       ${sum.kindCorrect}/${sum.kindTotal} (${percent(sum.kindTotal ? sum.kindCorrect / sum.kindTotal : null)})`);
-    console.log(`  status     ${sum.statusCorrect}/${sum.statusTotal} (${percent(sum.statusTotal ? sum.statusCorrect / sum.statusTotal : null)}), ${sum.statusSevere} met/missing swap(s)`);
+    console.log(`  status     ${sum.statusCorrect}/${sum.statusTotal} (${percent(sum.statusTotal ? sum.statusCorrect / sum.statusTotal : null)}), ${sum.statusSevere} met/missing swap(s), ${sum.falseMet} false met, ${sum.notEvidentAsMissing} not-shown called missing`);
+    if (sum.assessableTotal) console.log(`  assessable ${sum.assessableCorrect}/${sum.assessableTotal} agree with the gold`);
     console.log(`  per run    recall ${runMeans.map((m) => percent(m?.recall ?? null)).join(" | ")}; precision ${runMeans.map((m) => percent(m?.precision ?? null)).join(" | ")}`);
-    (output as Record<string, unknown>)[`totals_${name}`] = { sum, perRun: runMeans };
+    (output as Record<string, unknown>)[`totals_${name}`] = { sum, perRun: runMeans, overByReason: Object.fromEntries(overByReason[name]) };
   };
-  summarize("final");
-  summarize("draft");
+  summarize("synthetic");
+  summarize("real");
 
   const jsonFile = flags.get("json");
   if (typeof jsonFile === "string") {

@@ -16,7 +16,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export type GoldKind = "required" | "preferred";
-export type GoldStatus = "met" | "partial" | "missing";
+export type GoldStatus = "met" | "partial" | "missing" | "not_evident";
 
 export type GoldRequirement = {
   id: string;
@@ -25,6 +25,10 @@ export type GoldRequirement = {
   spans: string[];
   aliases?: string[];
   status?: GoldStatus;
+  /** Other statuses equally right for this CV (GOLD-RULES rule 13). */
+  statusAlso?: GoldStatus[];
+  /** False for what a CV can state but never demonstrate (rule 13). */
+  assessable?: boolean;
   why?: string;
   contested?: boolean;
   hidden?: boolean;
@@ -58,6 +62,8 @@ export type ExtractedItem = {
   requirement: string;
   kind: string;
   status?: string;
+  /** The model's call on whether a CV could show it, when the shape has the field. */
+  assessable?: boolean;
   /** The arm's verbatim source quote, when it produces one. */
   source?: string;
 };
@@ -78,6 +84,12 @@ export type GoldVerdict = {
   statusGot: string | null;
   statusCorrect: boolean | null;
   statusSevere: boolean;
+  /** Called met where the gold says otherwise. */
+  falseMet: boolean;
+  /** An item a CV cannot show (rule 13), called missing. */
+  notEvidentAsMissing: boolean;
+  assessableGold: boolean;
+  assessableGot: boolean | null;
   contested: boolean;
   hidden: boolean;
 };
@@ -103,6 +115,10 @@ export type Metrics = {
   statusTotal: number;
   statusCorrect: number;
   statusSevere: number;
+  falseMet: number;
+  notEvidentAsMissing: number;
+  assessableTotal: number;
+  assessableCorrect: number;
   bySpan: number;
   byName: number;
 };
@@ -357,7 +373,9 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
     const item = first ? items[first.index] : null;
     const statusGold = requirement.status ?? null;
     const statusGot = item?.status ?? null;
-    const statusCorrect = statusGold && statusGot ? statusGot === statusGold : null;
+    const accepted: string[] = statusGold ? [statusGold, ...(requirement.statusAlso ?? [])] : [];
+    const statusCorrect = statusGold && statusGot ? accepted.includes(statusGot) : null;
+    const assessableGold = requirement.assessable !== false;
     return {
       id: requirement.id,
       found: hits.length > 0,
@@ -367,6 +385,10 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
       statusGot,
       statusCorrect,
       statusSevere: statusCorrect === false && ((statusGold === "met" && statusGot === "missing") || (statusGold === "missing" && statusGot === "met")),
+      falseMet: statusCorrect === false && statusGot === "met",
+      notEvidentAsMissing: !assessableGold && statusCorrect === false && statusGot === "missing",
+      assessableGold,
+      assessableGot: typeof item?.assessable === "boolean" ? item.assessable : null,
       contested: requirement.contested === true,
       hidden: requirement.hidden === true,
     };
@@ -400,6 +422,10 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
     statusTotal: statusJudged.length,
     statusCorrect: statusJudged.filter((one) => one.statusCorrect).length,
     statusSevere: goldVerdicts.filter((one) => one.statusSevere).length,
+    falseMet: goldVerdicts.filter((one) => one.falseMet).length,
+    notEvidentAsMissing: goldVerdicts.filter((one) => one.notEvidentAsMissing).length,
+    assessableTotal: goldVerdicts.filter((one) => one.assessableGot !== null).length,
+    assessableCorrect: goldVerdicts.filter((one) => one.assessableGot !== null && one.assessableGot === one.assessableGold).length,
     bySpan: goldVerdicts.filter((one) => one.matcher === "span").length,
     byName: goldVerdicts.filter((one) => one.matcher === "name").length,
   };
@@ -438,6 +464,10 @@ export function sumMetrics(all: Metrics[]): Metrics {
     statusTotal: total((m) => m.statusTotal),
     statusCorrect: total((m) => m.statusCorrect),
     statusSevere: total((m) => m.statusSevere),
+    falseMet: total((m) => m.falseMet),
+    notEvidentAsMissing: total((m) => m.notEvidentAsMissing),
+    assessableTotal: total((m) => m.assessableTotal),
+    assessableCorrect: total((m) => m.assessableCorrect),
     bySpan: total((m) => m.bySpan),
     byName: total((m) => m.byName),
   };

@@ -49,6 +49,7 @@
       "name": "Legally authorised to work in Ireland",
       "spans": ["Applicants must be legally authorised to work in Ireland; we are not able to sponsor work permits for this role."],
       "aliases": ["work authorisation", "right to work in Ireland", "authorized to work"],
+      "assessable": false,
       "status": "met",
       "contested": true,
       "why": "Rule 3 exception: a condition the candidate must meet, stated as must. Irish citizen. Contested because it sits in the legal paragraph and a reader may treat it as boilerplate."

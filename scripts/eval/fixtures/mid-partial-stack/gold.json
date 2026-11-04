@@ -35,7 +35,9 @@
       "name": "GraphQL schema design, or a clear appetite to learn it fast",
       "spans": ["Experience with GraphQL schema design, or a clear appetite to learn it fast."],
       "aliases": ["GraphQL"],
-      "why": "Rule 6: the appetite clause is a second way to satisfy one required item. Status omitted: the CV has no GraphQL and a CV cannot show appetite; missing and partial are both defensible."
+      "assessable": false,
+      "status": "not_evident",
+      "why": "Rules 6 and 13: the appetite clause is a second way to satisfy one required item, and a CV cannot show appetite. The CV has no GraphQL, so the item is not shown, not missing."
     },
     {
       "id": "r5",
@@ -79,7 +81,10 @@
       "name": "An eye for accessibility, especially for older users",
       "spans": ["An eye for accessibility, especially for older users."],
       "aliases": ["accessibility"],
-      "why": "Status omitted: nothing in the CV speaks to it either way."
+      "assessable": false,
+      "status": "not_evident",
+      "statusAlso": ["missing"],
+      "why": "Rule 13: 'an eye for' is a trait. Nothing in the CV speaks to it; accessibility work could have shown it, so missing is defensible too."
     }
   ],
   "notRequirements": [

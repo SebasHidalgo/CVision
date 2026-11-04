@@ -37,7 +37,10 @@
       "name": "Writes crisply and runs meetings that end on time",
       "spans": ["You write crisply and run meetings that end on time."],
       "aliases": ["clear writing", "written communication", "runs meetings"],
-      "why": "Soft requirement as a sentence. Status omitted: writing briefs and chairing a review is evidence, judging crispness is not."
+      "assessable": false,
+      "status": "not_evident",
+      "statusAlso": ["met"],
+      "why": "Rule 13: a trait judged by its manner. Writing briefs and chairing a review is quotable evidence of the activity, so met is defensible too; missing is not."
     },
     {
       "id": "r5",
@@ -45,7 +48,9 @@
       "name": "Comfortable saying no to senior stakeholders when the data says no",
       "spans": ["You are comfortable saying no to senior stakeholders when the data says no."],
       "aliases": ["stakeholder management", "saying no to stakeholders", "data-driven decisions"],
-      "why": "Soft requirement as a sentence. Status omitted: no CV states this plainly."
+      "assessable": false,
+      "status": "not_evident",
+      "why": "Rule 13: an attitude. The CV says nothing about it, and a CV could only assert it."
     },
     {
       "id": "r6",

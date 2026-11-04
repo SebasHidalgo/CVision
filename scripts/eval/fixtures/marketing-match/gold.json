@@ -45,8 +45,10 @@
       "name": "Clear written communication and comfort presenting to senior leaders",
       "spans": ["Clear written communication and comfort presenting to senior leaders."],
       "aliases": ["written communication", "presenting to leadership"],
+      "assessable": false,
       "status": "met",
-      "why": "Monthly reports presented to the leadership team; copywriting."
+      "statusAlso": ["not_evident"],
+      "why": "Rule 13: a trait judged by its manner. Monthly reports presented to the leadership team and copywriting quote the activity, so met; not_evident is defensible."
     },
     {
       "id": "p1",

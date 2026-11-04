@@ -54,7 +54,10 @@
       "name": "Explain trade-offs clearly to analysts and product managers",
       "spans": ["You explain trade-offs clearly to analysts and product managers."],
       "aliases": ["communication", "explain trade-offs", "stakeholder communication"],
-      "why": "A soft requirement written as a sentence. Status omitted: presenting options to product managers is evidence, but judging clarity is judgement."
+      "assessable": false,
+      "status": "met",
+      "statusAlso": ["not_evident"],
+      "why": "Rule 13: a trait judged by its manner. 'Presented pipeline options and their trade-offs to product managers' quotes the activity, so met; not_evident is defensible because clarity is not on the page."
     },
     {
       "id": "p1",
