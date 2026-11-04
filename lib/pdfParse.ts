@@ -1,5 +1,5 @@
-import { getDocumentProxy } from "unpdf";
-import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
+import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
+import { PdfNoTextError, PdfScannedError, PdfUnreadableError } from "@/lib/error/errors";
 
 /**
  * Fewer non-whitespace characters than this is read as "no text layer": scanner
@@ -7,6 +7,9 @@ import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
  * it, and any real CV is far above it.
  */
 export const MIN_PDF_TEXT_CHARS = 200;
+
+/** A page that paints an image and holds fewer characters than this is a scanned page; a scanner watermark fits under it. */
+export const MAX_SCANNED_PAGE_TEXT_CHARS = 40;
 
 /**
  * A vertical gap this many times the page's usual line spacing reads as a
@@ -63,10 +66,10 @@ export async function extractTextFromPDFFile(file: File): Promise<string> {
  * run of text.
  */
 export async function extractTextFromPDFBytes(bytes: Uint8Array): Promise<string> {
-  let text: string;
+  let document: { text: string; scannedPages: number };
 
   try {
-    text = await readDocument(bytes);
+    document = await readDocument(bytes);
   } catch (error) {
     throw new PdfUnreadableError(
       `PDF could not be parsed: ${
@@ -75,16 +78,22 @@ export async function extractTextFromPDFBytes(bytes: Uint8Array): Promise<string
     );
   }
 
-  const textChars = text.replace(/\s/g, "").length;
+  const { text, scannedPages } = document;
+  const textChars = nonBlank(text);
   if (textChars < MIN_PDF_TEXT_CHARS) {
-    // The count is safe to log and is what a threshold change would be tuned on.
+    // Counts are safe to log and are what a threshold change would be tuned on.
+    if (scannedPages > 0) {
+      throw new PdfScannedError(`PDF text layer has ${textChars} non-whitespace characters and ${scannedPages} scanned page(s)`);
+    }
     throw new PdfNoTextError(`PDF text layer has ${textChars} non-whitespace characters`);
   }
 
   return text;
 }
 
-async function readDocument(bytes: Uint8Array): Promise<string> {
+const nonBlank = (text: string) => text.replace(/\s/g, "").length;
+
+async function readDocument(bytes: Uint8Array): Promise<{ text: string; scannedPages: number }> {
   const pdf = await getDocumentProxy(bytes);
 
   try {
@@ -95,7 +104,27 @@ async function readDocument(bytes: Uint8Array): Promise<string> {
       pages.push(withSectionBreaks(linesOf(items)));
     }
 
-    return pages.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+    const text = pages.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+    // Operator lists only on the refusal path: a real CV never pays for them.
+    if (nonBlank(text) >= MIN_PDF_TEXT_CHARS) return { text, scannedPages: 0 };
+
+    const { OPS } = await getResolvedPDFJS();
+    const paintsImage = new Set([
+      OPS.paintImageXObject,
+      OPS.paintInlineImageXObject,
+      OPS.paintImageXObjectRepeat,
+      OPS.paintInlineImageXObjectGroup,
+      OPS.paintImageMaskXObject,
+      OPS.paintImageMaskXObjectGroup,
+      OPS.paintImageMaskXObjectRepeat,
+    ]);
+    let scannedPages = 0;
+    for (let number = 1; number <= pdf.numPages; number += 1) {
+      if (nonBlank(pages[number - 1]) >= MAX_SCANNED_PAGE_TEXT_CHARS) continue;
+      const { fnArray } = await (await pdf.getPage(number)).getOperatorList();
+      if (fnArray.some((op) => paintsImage.has(op))) scannedPages += 1;
+    }
+    return { text, scannedPages };
   } finally {
     await pdf.destroy();
   }

@@ -10,6 +10,8 @@ const COPY: Record<ErrorCode, string> = {
     "We couldn't open this PDF. It may be damaged or password-protected. Export a fresh copy without a password and upload that.",
   PDF_NO_TEXT:
     "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
+  PDF_SCANNED:
+    "Your CV looks like a scanned image. Most applicant tracking systems (ATS) can't read it, so it may never reach a recruiter. Export it as a PDF from Word, Google Docs or Canva and upload it again. This didn't use any of your analyses.",
   NOT_A_PDF:
     "That file isn't a PDF. Export your CV as a PDF and upload that.",
   FILE_TOO_LARGE: `The file is larger than ${MAX_RESUME_SIZE_LABEL}. Export it again with compressed images and upload that.`,

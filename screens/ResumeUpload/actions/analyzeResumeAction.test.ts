@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { emptyGuardReport } from "@/lib/ai/analysisGuardrails";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume } from "@/lib/database/resume";
@@ -64,7 +67,7 @@ beforeEach(() => {
     guard: {
       violations: [{ check: "evidence-grounding", path: "skills.matchedSkills[0].evidence", value: "x" }] as never,
       interventions: [{ check: "evidence-grounding", action: "quote-dropped", path: "skills.matchedSkills[0].evidence", value: "x" }],
-      counts: { "quote-dropped": 1, "quote-normalized": 0, "number-placeheld": 0, "bullet-dropped": 0, recorded: 0 },
+      counts: { ...emptyGuardReport().counts, "quote-dropped": 1 },
     },
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -170,6 +173,18 @@ describe("analyzeResumeAction: every failure refunds", () => {
     ]);
     expect(removeObject).toHaveBeenCalledTimes(4);
     // None of these reached the model.
+    expect(analyzeResume).not.toHaveBeenCalled();
+  });
+
+  it("refuses the scanned-cv fixture with PDF_SCANNED through the real parser: unit refunded, object deleted, no model call", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/pdfParse")>("@/lib/pdfParse");
+    const scan = new Uint8Array(readFileSync(path.join(process.cwd(), "scripts/eval/fixtures/scanned-cv/cv.pdf")));
+    vi.mocked(downloadObject).mockResolvedValueOnce(scan);
+    vi.mocked(extractTextFromPDFBytes).mockImplementationOnce(actual.extractTextFromPDFBytes);
+
+    expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_SCANNED" });
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "PDF_SCANNED");
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
     expect(analyzeResume).not.toHaveBeenCalled();
   });
 
