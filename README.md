@@ -14,6 +14,7 @@ file, `lib/brand.ts`.
 Reference material, once you are running: [docs/database.md](docs/database.md),
 [docs/accounts.md](docs/accounts.md), [docs/billing.md](docs/billing.md),
 [docs/storage.md](docs/storage.md), [docs/voice.md](docs/voice.md),
+[docs/analysis.md](docs/analysis.md),
 [docs/data-inventory.md](docs/data-inventory.md).
 
 ## Getting started from zero
@@ -274,7 +275,7 @@ call's webhook round trip. Then:
 | `npm run e2e` | the browser suite (Playwright, Chromium; `npx playwright install chromium` once): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Needs the tunnel up and `E2E_PUBLIC_URL`; creates and deletes its own accounts; starts the dev server if none is running. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
 | `npm run e2e:voice` | opt-in: one real Start on a trial with fake media devices, ended after three seconds, which spends seconds of platform time; it prints the outcome and the cost. |
 | `npm run e2e:cleanup` | deletes every `+clerk_test` account a dead run left behind (`-- --dry-run` lists them) |
-| `npm run eval` | the analysis over fixed fixtures, one paid model call per fixture; `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias (`npm run eval -- help`) |
+| `npm run eval` | the analysis over fixed fixtures, one paid model call per fixture; `npm run eval -- gold <label> …` scores stored runs against the requirement gold standard, the regression gate for the extraction ([docs/analysis.md](docs/analysis.md#measuring-a-change)); `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias (`npm run eval -- help`) |
 
 ### 11. Script reference
 

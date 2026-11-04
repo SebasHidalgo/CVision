@@ -55,6 +55,7 @@ CLAUDE.md
 !/docs/billing.md
 !/docs/storage.md
 !/docs/voice.md
+!/docs/analysis.md
 
 # eval harness: model output, and local fixtures that may hold real CVs
 /scripts/eval/runs/
