@@ -70,11 +70,16 @@ ten consecutive failures.
 `GET /v1/user/subscription` (the key needs `user_read`) gives the credits
 used and the limit. The session endpoint reads it at most once a minute
 and refuses every start while the reachable credits (the remainder plus
-any usage-based extension) are below `VOICE_BALANCE_FLOOR_CREDITS` =
-12,000: one full interview at the 800 credits per minute measured on the
+any usage-based extension) are below the floor of the agent that start
+would use: its hard duration at the 800 credits per minute measured on the
 owner's five real calls of 2026-10-13 (777 to 844 in total, about 660 the
-platform's per-minute charge and the rest the LLM), times 1.25.
-`ELEVENLABS_BALANCE_FLOOR_CREDITS` overrides it, 0 turns it off. A key
+platform's per-minute charge and the rest the LLM), times 1.25. That is
+12,000 for the full 12-minute interview (`VOICE_BALANCE_FLOOR_CREDITS`)
+and 5,000 for the 5-minute trial, so a free plan's 10,000 credits carry
+trials and never a full interview. A reconnect uses its interview's tier;
+a first start reads the entitlement, read-only, before reserving.
+`ELEVENLABS_BALANCE_FLOOR_CREDITS` overrides both, 0 turns it off;
+`voice:doctor` checks both floors. A key
 without the permission is warned about once and never blocks. One error
 line per fresh read below the floor: `[CVision][voice] REFUSING voice
 sessions`. Billing facts from the platform: Creator includes 275 agent
