@@ -30,8 +30,9 @@ export function resetVoiceHealth(): void {
   warnedNoPermission = false;
 }
 
-export async function assertVoiceCapacity(now = Date.now()): Promise<void> {
-  const floor = readBalanceFloor();
+/** `maxDurationSeconds`: the hard limit of the agent the start would use; the floor is sized on it. */
+export async function assertVoiceCapacity(maxDurationSeconds: number, now = Date.now()): Promise<void> {
+  const floor = readBalanceFloor(maxDurationSeconds);
   if (floor === 0) return;
 
   let read: VoiceBalanceRead;

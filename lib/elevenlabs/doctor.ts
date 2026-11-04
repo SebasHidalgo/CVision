@@ -1,7 +1,7 @@
 import { ElevenLabsClient, ElevenLabsError } from "@elevenlabs/elevenlabs-js";
 import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor, type VoiceBalance } from "./balance";
 import { buildInterviewAgentDefinition, INTERVIEW_AGENT_ID_ENV } from "./agentConfig";
-import type { InterviewTierId } from "@/lib/plans";
+import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
 /**
  * `npm run voice:doctor`: every check of the ElevenLabs workspace that the
@@ -130,22 +130,28 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       resetsAt: subscription.nextCharacterCountResetUnix ? new Date(subscription.nextCharacterCountResetUnix * 1000) : null,
     };
     checks.push(pass("permission user_read", describeVoiceBalance(balance)));
-    const floor = readBalanceFloor(env);
-    const capacity = decideVoiceCapacity(balance, floor);
-    checks.push(
-      floor === 0
-        ? skip("balance floor", "the check is off (ELEVENLABS_BALANCE_FLOOR_CREDITS=0): every start is attempted", "Unset ELEVENLABS_BALANCE_FLOOR_CREDITS to guard starts with the default floor.")
-        : capacity.ok
-          ? pass("balance floor", `${capacity.available === Number.POSITIVE_INFINITY ? "unlimited" : capacity.available} credits reachable, floor ${floor}: starts are allowed`)
-          : fail(
-              "balance floor",
-              `${capacity.available} credits reachable, floor ${floor}: the session endpoint refuses every start as VOICE_UNAVAILABLE`,
-              "Add credits or raise the plan at ElevenLabs > Subscription. The floor is one full interview with a margin (lib/elevenlabs/balance.ts); ELEVENLABS_BALANCE_FLOOR_CREDITS overrides it.",
-            ),
-    );
+    // One floor per agent: the full interview's, and the 5-minute trial's.
+    for (const tier of ["FULL", "TRIAL"] as const) {
+      const name = tier === "FULL" ? "balance floor" : "balance floor (trial)";
+      const floor = readBalanceFloor(INTERVIEW_TIERS[tier].seconds, env);
+      const capacity = decideVoiceCapacity(balance, floor);
+      checks.push(
+        floor === 0
+          ? skip(name, "the check is off (ELEVENLABS_BALANCE_FLOOR_CREDITS=0): every start is attempted", "Unset ELEVENLABS_BALANCE_FLOOR_CREDITS to guard starts with the default floor.")
+          : capacity.ok
+            ? pass(name, `${capacity.available === Number.POSITIVE_INFINITY ? "unlimited" : capacity.available} credits reachable, floor ${floor}: starts are allowed`)
+            : fail(
+                name,
+                `${capacity.available} credits reachable, floor ${floor}: the session endpoint refuses every ${tier === "FULL" ? "full interview" : "trial"} start as VOICE_UNAVAILABLE`,
+                "Add credits or raise the plan at ElevenLabs > Subscription. The floor is the agent's hard duration at the measured rate with a margin (lib/elevenlabs/balance.ts); ELEVENLABS_BALANCE_FLOOR_CREDITS overrides it for both.",
+              ),
+      );
+    }
   } catch (error) {
     checks.push(failFrom("permission user_read", error, "user_read"));
-    checks.push(skip("balance floor", "not checked: the balance could not be read (see permission user_read)", "Without user_read the session endpoint logs a warning once and guards nothing."));
+    for (const name of ["balance floor", "balance floor (trial)"]) {
+      checks.push(skip(name, "not checked: the balance could not be read (see permission user_read)", "Without user_read the session endpoint logs a warning once and guards nothing."));
+    }
   }
 
   // The agents, against the definition that `agent:sync` pushes.

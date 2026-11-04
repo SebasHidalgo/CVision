@@ -4,6 +4,7 @@ import {
   decideVoiceCapacity,
   describeVoiceBalance,
   readBalanceFloor,
+  voiceBalanceFloor,
   VOICE_BALANCE_FLOOR_CREDITS,
   VOICE_BALANCE_MARGIN,
   VOICE_CREDITS_PER_MINUTE,
@@ -29,13 +30,21 @@ describe("the balance floor", () => {
   });
 
   it("can be overridden by a whole number in the environment, 0 included; anything else keeps the default", () => {
-    expect(readBalanceFloor({})).toBe(12_000);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "5000" })).toBe(5_000);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "0" })).toBe(0);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: " 7000 " })).toBe(7_000);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "lots" })).toBe(12_000);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "-1" })).toBe(12_000);
-    expect(readBalanceFloor({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "1.5" })).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, {})).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "5000" })).toBe(5_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "0" })).toBe(0);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: " 7000 " })).toBe(7_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "lots" })).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "-1" })).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "1.5" })).toBe(12_000);
+  });
+});
+
+describe("the floor per agent", () => {
+  it("is the agent's hard duration at the measured rate plus the margin: 5,000 for the trial", () => {
+    expect(voiceBalanceFloor(5 * 60)).toBe(5_000);
+    expect(readBalanceFloor(5 * 60, {})).toBe(5_000);
+    expect(readBalanceFloor(5 * 60, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "7000" })).toBe(7_000);
   });
 });
 

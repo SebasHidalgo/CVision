@@ -30,3 +30,10 @@ describe("actionErrorCopy for the limits", () => {
     expect(resetDateCopy("2026-12-01T00:00:00.000Z")).toBe("Dec 1");
   });
 });
+
+describe("actionErrorCopy for the file refusals", () => {
+  // Every one of them gives the analysis back, and the copy says so.
+  it.each(["PDF_UNREADABLE", "PDF_NO_TEXT", "PDF_SCANNED"] as const)("%s says no analysis was used", (code) => {
+    expect(actionErrorCopy(code)).toMatch(/This didn't use any of your analyses\.$/);
+  });
+});

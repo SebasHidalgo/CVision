@@ -7,9 +7,9 @@ const COPY: Record<ErrorCode, string> = {
   INVALID_INPUT: "Check the form: some field is missing or invalid.",
   NOT_FOUND: "We couldn't find that item. It may have been deleted.",
   PDF_UNREADABLE:
-    "We couldn't open this PDF. It may be damaged or password-protected. Export a fresh copy without a password and upload that.",
+    "We couldn't open this PDF. It may be damaged or password-protected. Export a fresh copy without a password and upload that. This didn't use any of your analyses.",
   PDF_NO_TEXT:
-    "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that.",
+    "This PDF has too little selectable text to analyze. If it's a scan or an image, export your CV to PDF from Word, Google Docs or similar, so the text can be selected, and upload that. This didn't use any of your analyses.",
   PDF_SCANNED:
     "Your CV looks like a scanned image. Most applicant tracking systems (ATS) can't read it, so it may never reach a recruiter. Export it as a PDF from Word, Google Docs or Canva and upload it again. This didn't use any of your analyses.",
   NOT_A_PDF:

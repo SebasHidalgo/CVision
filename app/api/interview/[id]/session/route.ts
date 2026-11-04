@@ -6,7 +6,7 @@ import {
 } from "@/lib/database/interview";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
-import { refundUsage, reserveInterview, type InterviewReservation } from "@/lib/database/usage";
+import { refundUsage, reserveInterview, resolveInterviewEntitlement, type InterviewReservation } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { issueConversationToken } from "@/lib/elevenlabs/client";
 import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
@@ -86,7 +86,12 @@ export async function POST(
     // workspace out of credits issues the token and drops the call a second
     // later, which would spend a start and the candidate's patience for
     // nothing. Refused as VOICE_UNAVAILABLE, honestly, with nothing charged.
-    await assertVoiceCapacity();
+    // Sized on the agent this start would use: a reconnect keeps its tier, a first start reads the entitlement.
+    const plannedSeconds = interview.tier
+      ? INTERVIEW_TIERS[interview.tier].seconds
+      : (await resolveInterviewEntitlement(userId)).maxDurationSeconds;
+    // Nothing to start: the reservation below refuses it with the quota code.
+    if (plannedSeconds > 0) await assertVoiceCapacity(plannedSeconds);
 
     // The first token takes the unit the entitlement names and fixes the
     // tier and the source; a reconnect reuses what the first token set.

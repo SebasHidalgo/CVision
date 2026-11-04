@@ -165,8 +165,16 @@ export function describeError(error: unknown) {
 export function requireComparable(
   runs: ReadonlyArray<readonly [string, Map<string, BaseRunRecord>]>,
   force: boolean,
+  /** The prompt states today's UTC date: runs from two UTC days were sent different prompts. */
+  options: { datedPrompt?: boolean } = {},
 ) {
   const problems: string[] = [];
+  if (options.datedPrompt) {
+    const days = [...new Set(runs.flatMap(([, run]) => [...run.values()].map((record) => record.generatedAt.slice(0, 10))))].sort();
+    if (days.length > 1) {
+      problems.push(`captured on both sides of UTC midnight (${days.join(", ")}); the prompt states today's date, so the prompts differ`);
+    }
+  }
   const fingerprints = runs.map(([label, run]) => {
     const engine = [...run.values()].find((record) => record.engine)?.engine;
     return { label, engine, window: captureWindow(run) };
