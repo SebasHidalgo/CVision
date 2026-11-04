@@ -158,20 +158,20 @@ export const modelRequirementSchema = z.object({
   section: lowerEnum(POSTING_SECTIONS),
   demandsCapability: z.boolean(),
   requirement: z.string(),
-  kind: lowerEnum(REQUIREMENT_KINDS),
   softenedClause: z.object({
     quote: z.string(),
     status: lowerEnum(REQUIREMENT_STATUSES),
     evidence: z.string(),
     note: z.string(),
   }),
-  assessable: z.boolean(),
-  status: lowerEnum(REQUIREMENT_STATUSES),
-  evidence: z.string(),
-  note: z.string(),
   keyTerms: keyTermsSchema,
   unshowableAlternative: z.string(),
+  kind: lowerEnum(REQUIREMENT_KINDS),
+  assessable: z.boolean(),
   yearsEvidence: z.array(z.string()),
+  evidence: z.string(),
+  status: lowerEnum(REQUIREMENT_STATUSES),
+  note: z.string(),
 });
 
 export type ModelRequirement = z.infer<typeof modelRequirementSchema>;
@@ -272,10 +272,19 @@ export const resumeFeedbackSchema = z.object({
 export type ResumeAnalysisFeedback = z.infer<typeof resumeFeedbackSchema>;
 
 /** The model's answer: the stored shape with each requirement in its model form. */
-export const analysisResponseSchema = resumeFeedbackSchema.extend({
-  jobFit: resumeFeedbackSchema.shape.jobFit.extend({
+// Declaration order is generation order: the requirements before any text about them.
+export const analysisResponseSchema = z.object({
+  jobFit: z.object({
     requirements: z.array(modelRequirementSchema),
+    description: resumeFeedbackSchema.shape.jobFit.shape.description,
+    strategicRecommendations: resumeFeedbackSchema.shape.jobFit.shape.strategicRecommendations,
   }),
+  overall: resumeFeedbackSchema.shape.overall,
+  atsCompatibility: resumeFeedbackSchema.shape.atsCompatibility,
+  experienceAndImpact: resumeFeedbackSchema.shape.experienceAndImpact,
+  skills: resumeFeedbackSchema.shape.skills,
+  educationAndCertifications: resumeFeedbackSchema.shape.educationAndCertifications,
+  toneAndClarity: resumeFeedbackSchema.shape.toneAndClarity,
 });
 
 export type AnalysisResponse = z.infer<typeof analysisResponseSchema>;

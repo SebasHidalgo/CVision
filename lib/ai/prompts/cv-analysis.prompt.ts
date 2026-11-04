@@ -21,6 +21,132 @@
  */
 const AIResponseFormat = `
 {
+  // The headline of the analysis: what the posting asks for, one entry per
+  // requirement, and how this resume answers each one.
+  jobFit: {
+    // One entry per requirement in the posting: every required and every
+    // preferred qualification, met or not.
+    requirements: {
+      // The sentence or bullet of the job description this requirement comes
+      // from, copied word for word from the job description, never from the
+      // resume: one continuous span, the shortest that holds the requirement.
+      // An entry whose sourceQuote is not in the job description is discarded.
+      sourceQuote: string;
+
+      // The heading of the part of the posting sourceQuote sits under, copied
+      // word for word ("What you will do", "Requirements", "Nice to have"),
+      // or "" when that part has no heading.
+      heading: string;
+
+      // What that part of the posting is, read from its heading, or from the
+      // sentence itself when there is none: "requirements" (required,
+      // minimum or must-have qualifications, or a demand on the candidate in
+      // prose), "preferred" (nice to have, bonus, a plus), "responsibilities"
+      // (what the hire will do: "What you will do", "Responsibilities", "Your
+      // role", "Lo que harás"), "description" (the company, team, product,
+      // tech stack, benefits or hiring process), "other" (anything else, such
+      // as an eligibility paragraph). A bullet under a responsibilities
+      // heading is "responsibilities" whatever tools it names.
+      section: "requirements" | "preferred" | "responsibilities" | "description" | "other";
+
+      // true only when the sentence says the candidate must already have
+      // this ("so you have operated Kubernetes in production", "you write Go
+      // every week"); false when it describes work the hire will do, even
+      // work that names a tool ("Build dashboards in Power BI", "Write SQL to
+      // answer business questions"), or what the team uses.
+      demandsCapability: boolean;
+
+      // The requirement in one line, as the posting puts it. When the posting
+      // offers alternatives, they belong INSIDE this one entry: "coding in C,
+      // C++, C#, Java, JavaScript, GO or Python" is ONE requirement, never one
+      // per language.
+      requirement: string;
+
+      // The part of a required bullet that the posting softens - "ideally in
+      // e-commerce", "preferably Power BI", "another European language is a
+      // plus", "preferiblemente", "deseable", "valorable" - copied word for
+      // word from the job description into quote. Judge that part here as a
+      // preferred requirement of its own, with status, evidence and note as
+      // below, and judge this entry without it. Examples ("such as BigQuery
+      // or Snowflake", "e.g. Jira") and alternatives ("or Looker") are not
+      // softened. When the entry has no softened part: quote "", status
+      // "missing", evidence "", note "".
+      softenedClause: {
+        quote: string;
+        status: "met" | "partial" | "missing" | "not_evident";
+        evidence: string;
+        note: string;
+      };
+
+      // The named technologies, tools, industries, certifications and
+      // languages this requirement asks for (not general skills such as
+      // "scalability" or "communication", not years), each copied word for
+      // word from sourceQuote, with
+      // cvMatch: the word or phrase in the resume that shows it, copied word
+      // for word, also when it is a synonym or in another language
+      // ("Postgres" for "PostgreSQL", "estadística" for "Statistics"), or ""
+      // when the resume does not show it. mode "all" when the requirement
+      // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
+      // alternatives or examples ("C, C++ or Java", "tools such as Redis,
+      // Elasticsearch, and Sidekiq"). terms is empty when it names none.
+      keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
+
+      // The part of sourceQuote offering an alternative no resume can show,
+      // copied word for word ("or willingness to learn and work with it",
+      // "or a clear appetite to learn it fast"), or "" when there is none.
+      unshowableAlternative: string;
+
+      // "required" if the posting presents it as a minimum or required
+      // qualification; "preferred" if it is listed as preferred, desired, a
+      // plus, a bonus or nice to have. Use the posting's own framing: a plain
+      // bullet in a list of qualifications is required unless its own words
+      // soften it.
+      kind: "required" | "preferred";
+
+      // false when no resume could show this, only state it: an attitude
+      // ("comfortable saying no"), a trait judged by its manner ("writes
+      // crisply"), availability or willingness, or a hiring condition (work
+      // authorization, a background check, a security screening). true for
+      // experience, skills, tools, domains, degrees, languages, certifications.
+      assessable: boolean;
+
+      // For a requirement that asks for a number of years: the resume lines
+      // that show the candidate's years, each copied word for word - a line
+      // that states them ("2+ years of experience"), or else the date line of
+      // every relevant role. Empty for any other requirement.
+      yearsEvidence: string[];
+
+      // The text from the resume that decides the status, copied word for
+      // word: one line, never lines joined. The strongest line: an experience
+      // or project bullet that shows it in use, the skills list only when
+      // nothing else does. Empty string when the status is "missing" or
+      // "not_evident".
+      evidence: string;
+
+      // "met" when the resume satisfies it - for a list of alternatives, one
+      // of them is enough. "partial" when the resume shows something adjacent
+      // but not the thing asked for. "missing" when the resume shows nothing
+      // for it. "not_evident" when assessable is false and the resume does
+      // not state it.
+      status: "met" | "partial" | "missing" | "not_evident";
+
+      // One sentence on why that status. For a list of alternatives, name the
+      // one the candidate has. For "partial", say what is there and what is
+      // not. Never describe an alternative the candidate lacks as a gap when
+      // another alternative in the same requirement is met.
+      note: string;
+    }[];
+
+    // At least 150 characters on how the resume answers this posting as a
+    // whole: where the experience is closest to the role and what would close
+    // the gaps. The requirements list states each status; do not restate them.
+    description: string;
+
+    // 3 specific strategic recommendations to better align the resume
+    // with the target role (e.g., “Add a Key Achievements section”, “Reorder skills”).
+    strategicRecommendations: string[];
+  };
+
   overall: {
     // How good this resume is as a document, 0-100, ignoring this posting
     // entirely. This is the score the candidate can change by editing, and it
@@ -179,132 +305,6 @@ const AIResponseFormat = `
     // 2-4 suggestions for tone and language improvements.
     // Example: “Avoid jargon”, “Use shorter sentences”, “Replace passive verbs”.
     suggestions: string[];
-  };
-
-  // The headline of the analysis: what the posting asks for, one entry per
-  // requirement, and how this resume answers each one.
-  jobFit: {
-    // At least 150 characters on how the resume answers this posting as a
-    // whole: where the experience is closest to the role and what would close
-    // the gaps. The requirements list states each status; do not restate them.
-    description: string;
-
-    // One entry per requirement in the posting: every required and every
-    // preferred qualification, met or not.
-    requirements: {
-      // The sentence or bullet of the job description this requirement comes
-      // from, copied word for word from the job description, never from the
-      // resume: one continuous span, the shortest that holds the requirement.
-      // An entry whose sourceQuote is not in the job description is discarded.
-      sourceQuote: string;
-
-      // The heading of the part of the posting sourceQuote sits under, copied
-      // word for word ("What you will do", "Requirements", "Nice to have"),
-      // or "" when that part has no heading.
-      heading: string;
-
-      // What that part of the posting is, read from its heading, or from the
-      // sentence itself when there is none: "requirements" (required,
-      // minimum or must-have qualifications, or a demand on the candidate in
-      // prose), "preferred" (nice to have, bonus, a plus), "responsibilities"
-      // (what the hire will do: "What you will do", "Responsibilities", "Your
-      // role", "Lo que harás"), "description" (the company, team, product,
-      // tech stack, benefits or hiring process), "other" (anything else, such
-      // as an eligibility paragraph). A bullet under a responsibilities
-      // heading is "responsibilities" whatever tools it names.
-      section: "requirements" | "preferred" | "responsibilities" | "description" | "other";
-
-      // true only when the sentence says the candidate must already have
-      // this ("so you have operated Kubernetes in production", "you write Go
-      // every week"); false when it describes work the hire will do, even
-      // work that names a tool ("Build dashboards in Power BI", "Write SQL to
-      // answer business questions"), or what the team uses.
-      demandsCapability: boolean;
-
-      // The requirement in one line, as the posting puts it. When the posting
-      // offers alternatives, they belong INSIDE this one entry: "coding in C,
-      // C++, C#, Java, JavaScript, GO or Python" is ONE requirement, never one
-      // per language.
-      requirement: string;
-
-      // "required" if the posting presents it as a minimum or required
-      // qualification; "preferred" if it is listed as preferred, desired, a
-      // plus, a bonus or nice to have. Use the posting's own framing: a plain
-      // bullet in a list of qualifications is required unless its own words
-      // soften it.
-      kind: "required" | "preferred";
-
-      // The part of a required bullet that the posting softens - "ideally in
-      // e-commerce", "preferably Power BI", "another European language is a
-      // plus", "preferiblemente", "deseable", "valorable" - copied word for
-      // word from the job description into quote. Judge that part here as a
-      // preferred requirement of its own, with status, evidence and note as
-      // below, and judge this entry without it. Examples ("such as BigQuery
-      // or Snowflake", "e.g. Jira") and alternatives ("or Looker") are not
-      // softened. When the entry has no softened part: quote "", status
-      // "missing", evidence "", note "".
-      softenedClause: {
-        quote: string;
-        status: "met" | "partial" | "missing" | "not_evident";
-        evidence: string;
-        note: string;
-      };
-
-      // false when no resume could show this, only state it: an attitude
-      // ("comfortable saying no"), a trait judged by its manner ("writes
-      // crisply"), availability or willingness, or a hiring condition (work
-      // authorization, a background check, a security screening). true for
-      // experience, skills, tools, domains, degrees, languages, certifications.
-      assessable: boolean;
-
-      // "met" when the resume satisfies it - for a list of alternatives, one
-      // of them is enough. "partial" when the resume shows something adjacent
-      // but not the thing asked for. "missing" when the resume shows nothing
-      // for it. "not_evident" when assessable is false and the resume does
-      // not state it.
-      status: "met" | "partial" | "missing" | "not_evident";
-
-      // The text from the resume that decides the status, copied word for
-      // word: one line, never lines joined. The strongest line: an experience
-      // or project bullet that shows it in use, the skills list only when
-      // nothing else does. Empty string when the status is "missing" or
-      // "not_evident".
-      evidence: string;
-
-      // One sentence on why that status. For a list of alternatives, name the
-      // one the candidate has. For "partial", say what is there and what is
-      // not. Never describe an alternative the candidate lacks as a gap when
-      // another alternative in the same requirement is met.
-      note: string;
-
-      // The named technologies, tools, industries, certifications and
-      // languages this requirement asks for (not general skills such as
-      // "scalability" or "communication", not years), each copied word for
-      // word from sourceQuote, with
-      // cvMatch: the word or phrase in the resume that shows it, copied word
-      // for word, also when it is a synonym or in another language
-      // ("Postgres" for "PostgreSQL", "estadística" for "Statistics"), or ""
-      // when the resume does not show it. mode "all" when the requirement
-      // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
-      // alternatives or examples ("C, C++ or Java", "tools such as Redis,
-      // Elasticsearch, and Sidekiq"). terms is empty when it names none.
-      keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
-
-      // The part of sourceQuote offering an alternative no resume can show,
-      // copied word for word ("or willingness to learn and work with it",
-      // "or a clear appetite to learn it fast"), or "" when there is none.
-      unshowableAlternative: string;
-
-      // For a requirement that asks for a number of years: the resume lines
-      // that show the candidate's years, each copied word for word - a line
-      // that states them ("2+ years of experience"), or else the date line of
-      // every relevant role. Empty for any other requirement.
-      yearsEvidence: string[];
-    }[];
-
-    // 3 specific strategic recommendations to better align the resume
-    // with the target role (e.g., “Add a Key Achievements section”, “Reorder skills”).
-    strategicRecommendations: string[];
   };
 }
 `;
