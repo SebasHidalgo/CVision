@@ -394,7 +394,11 @@ export function enforceRequirementStatuses(
       if (requirement.status === "missing") {
         interventions.push({ check: "unshowable-alternative", action: "status-coerced", path, value: `missing: ${requirement.requirement}`, replacement: "not_evident" });
         requirement.status = "not_evident";
+      }
+      // The note says what is absent and what the posting accepts, whoever chose not_evident.
+      if (requirement.status === "not_evident") {
         requirement.note = alternativeNote(requirement, alternative);
+        requirement.evidence = "";
       }
     }
 
@@ -456,17 +460,24 @@ export function evidenceSourceOf(cvText: string, quote: string, headings: string
 
 const BULLET_START = /^\s*(?:[•·▪◦‣∙*–—-]|\d{1,2}[.)])\s/u;
 
-/** The bullet a line opens or continues, wrapped lines joined: verbatim CV text, whitespace aside. */
-function bulletAt(lines: CvLine[], at: number): string {
-  let start = at;
-  while (start > 0 && !BULLET_START.test(lines[start].text) && !lines[start - 1].heading && lines[start - 1].text.trim() && !/[.!?]\s*$/.test(lines[start - 1].text) && at - start < 2) start -= 1;
+/** A line and the lines it wraps onto (they start in lowercase): verbatim CV text, whitespace aside. */
+function lineSpan(lines: CvLine[], at: number): string {
   let end = at;
-  while (end + 1 < lines.length && !/[.!?]\s*$/.test(lines[end].text) && lines[end + 1].text.trim() && !lines[end + 1].heading && !BULLET_START.test(lines[end + 1].text) && end - at < 2) end += 1;
-  return normalizeWhitespace(lines.slice(start, end + 1).map((line) => line.text).join(" "));
+  while (
+    end + 1 < lines.length &&
+    end - at < 2 &&
+    !/[.!?]\s*$/.test(lines[end].text) &&
+    /^\s*\p{Ll}/u.test(lines[end + 1].text) &&
+    !lines[end + 1].heading &&
+    !BULLET_START.test(lines[end + 1].text)
+  ) {
+    end += 1;
+  }
+  return normalizeWhitespace(lines.slice(at, end + 1).map((line) => line.text).join(" "));
 }
 
-/** An experience or project bullet showing the most of the requirement's matched terms; null when none does. */
-export function experienceLineFor(lines: CvLine[], keyTerms: KeyTerms | undefined): string | null {
+/** The experience or project line showing the most matched terms, and how many it shows; null when none shows one. */
+export function experienceLineFor(lines: CvLine[], keyTerms: KeyTerms | undefined): { text: string; hits: number; of: number } | null {
   const matches = (keyTerms?.terms ?? []).map((term) => term.cvMatch).filter((match) => normalizeWhitespace(match));
   if (matches.length === 0) return null;
   let best: { at: number; hits: number } | null = null;
@@ -475,10 +486,14 @@ export function experienceLineFor(lines: CvLine[], keyTerms: KeyTerms | undefine
     const hits = matches.filter((match) => containsTerm(line.text, match)).length;
     if (hits > 0 && (!best || hits > best.hits)) best = { at: i, hits };
   }
-  return best ? bulletAt(lines, best.at) : null;
+  return best ? { text: lineSpan(lines, best.at), hits: best.hits, of: matches.length } : null;
 }
 
-/** Each requirement's evidence placed in its CV section; a skills-list quote gives way to a bullet that shows the same term in use. */
+/**
+ * Each requirement's evidence placed in its CV section. A skills-list quote gives way to an
+ * experience or project line that shows the term in use (every term, for an "all" requirement);
+ * `skillsOnly` marks a met or partial whose terms no such line shows.
+ */
 export function withEvidenceSources(
   requirements: Requirement[],
   cvText: string,
@@ -489,14 +504,16 @@ export function withEvidenceSources(
   const placed = requirements.map((requirement, index) => {
     if (!requirement.evidence.trim()) return requirement;
     const source = evidenceSourceOf(cvText, requirement.evidence, headings);
-    if (source === "skills" && (requirement.status === "met" || requirement.status === "partial")) {
-      const bullet = experienceLineFor(lines, requirement.keyTerms);
-      if (bullet) {
-        interventions.push({ check: "evidence-source", action: "evidence-replaced", path: `jobFit.requirements[${index}].evidence`, value: requirement.evidence, replacement: bullet });
-        return { ...requirement, evidence: bullet, evidenceSource: evidenceSourceOf(cvText, bullet, headings) };
-      }
+    if (source !== "skills" || (requirement.status !== "met" && requirement.status !== "partial")) {
+      return { ...requirement, evidenceSource: source };
     }
-    return { ...requirement, evidenceSource: source };
+    const line = experienceLineFor(lines, requirement.keyTerms);
+    if (line && (requirement.keyTerms?.mode === "any" || line.hits === line.of)) {
+      interventions.push({ check: "evidence-source", action: "evidence-replaced", path: `jobFit.requirements[${index}].evidence`, value: requirement.evidence, replacement: line.text });
+      return { ...requirement, evidence: line.text, evidenceSource: evidenceSourceOf(cvText, line.text, headings) };
+    }
+    // Without key terms there is nothing to look for; the quote stays, unflagged.
+    return { ...requirement, evidenceSource: source, ...(requirement.keyTerms ? { skillsOnly: !line } : {}) };
   });
   return { requirements: placed, interventions };
 }

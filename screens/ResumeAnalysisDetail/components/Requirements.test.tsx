@@ -48,6 +48,7 @@ describe("Requirements", () => {
       ...row("Strong expertise in Ruby on Rails and MySQL", "required", "partial"),
       evidence: "• Databases: MongoDB, Postgres, MySQL",
       evidenceSource: "skills",
+      skillsOnly: true,
       keyTerms: { mode: "all", terms: [{ term: "Ruby on Rails", cvMatch: "" }, { term: "MySQL", cvMatch: "MySQL" }, { term: "PostgreSQL", cvMatch: "Postgres" }] },
     };
     const tally = { required: { total: 1, met: 0, partial: 1, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
@@ -62,5 +63,22 @@ describe("Requirements", () => {
     expect(text).toContain(SKILLS_ONLY_ADVICE);
     expect(text).toContain("Databases: MongoDB, Postgres, MySQL");
     expect(text).not.toContain("• Databases");
+  });
+
+  it("lists only the shown alternatives of an 'any' requirement, and the advice only when flagged", () => {
+    const requirement: Requirement = {
+      ...row("Coding in C, C++ or Python", "required", "met"),
+      evidence: "Languages: C++",
+      evidenceSource: "skills",
+      skillsOnly: false,
+      keyTerms: { mode: "any", terms: [{ term: "C", cvMatch: "" }, { term: "C++", cvMatch: "C++" }, { term: "Python", cvMatch: "" }] },
+    };
+    const tally = { required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("C++shown in your CV");
+    expect(text).not.toContain("not in your CV");
+    expect(text).not.toContain(SKILLS_ONLY_ADVICE);
   });
 });

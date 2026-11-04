@@ -466,6 +466,20 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
     expect(requirements[0].status).toBe("not_evident");
     expect(interventions).toContainEqual(expect.objectContaining({ check: "unshowable-alternative", replacement: "model" }));
   });
+
+  it("writes its own note when the model chose not_evident itself, and drops a quote that showed nothing", () => {
+    const python = "Intermediate experience with Python or willingness to learn and work with it";
+    const { requirements } = enforceRequirementStatuses(
+      [{ requirement: python, kind: "required", status: "not_evident", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "the unshowable alternative covers it", assessable: false, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) }],
+      { pending: [{ alternative: "", yearsEvidence: [] }], cvText: CV, now: NOW },
+    );
+
+    expect(requirements[0]).toMatchObject({
+      status: "not_evident",
+      evidence: "",
+      note: "Python isn't in your CV; the posting accepts willingness to learn and work with it — say so in your cover letter.",
+    });
+  });
 });
 
 describe("evidenceSourceOf", () => {
@@ -567,7 +581,27 @@ describe("M8-C smoke fixes", () => {
       evidenceSource: "experience",
     });
     // Only in the skills list: it stays there, and the page says so.
-    expect(requirements[1]).toMatchObject({ evidence: "Databases: MongoDB, PostgreSQL, MySQL", evidenceSource: "skills" });
+    expect(requirements[1]).toMatchObject({ evidence: "Databases: MongoDB, PostgreSQL, MySQL", evidenceSource: "skills", skillsOnly: true });
     expect(interventions).toEqual([expect.objectContaining({ check: "evidence-source", action: "evidence-replaced", path: "jobFit.requirements[0].evidence" })]);
+  });
+
+  it("keeps a skills quote for an 'all' requirement no single line shows in full, without calling it skills-only, and never glues a role header to a bullet", () => {
+    const cv = `Experience
+Data Engineer - Sklepio, Warsaw September 2018 - June 2019
+Maintained the PostgreSQL reporting replica and the Python ETL scripts that fed it.
+Wrote dashboards in Looker for the finance team.
+Skills
+Python, Looker, SQL`;
+    const { requirements } = withEvidenceSources(
+      [
+        { requirement: "Python and Looker", kind: "required", status: "met", evidence: "Python, Looker, SQL", note: "", keyTerms: terms("all", ["Python", "Python"], ["Looker", "Looker"]) },
+        { requirement: "Python or Scala", kind: "required", status: "met", evidence: "Python, Looker, SQL", note: "", keyTerms: terms("any", ["Python", "Python"], ["Scala", ""]) },
+      ],
+      cv,
+      ["Experience", "Skills"],
+    );
+
+    expect(requirements[0]).toMatchObject({ evidence: "Python, Looker, SQL", evidenceSource: "skills", skillsOnly: false });
+    expect(requirements[1]).toMatchObject({ evidence: "Maintained the PostgreSQL reporting replica and the Python ETL scripts that fed it.", evidenceSource: "experience" });
   });
 });

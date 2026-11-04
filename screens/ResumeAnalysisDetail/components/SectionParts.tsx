@@ -353,7 +353,7 @@ export const SKILLS_ONLY_ADVICE = "Only listed in your skills — show it in an 
 
 function RequirementRow({ requirement, label }: { requirement: Requirement; label: string }) {
   const onlyListed =
-    (requirement.status === "met" || requirement.status === "partial") && requirement.evidenceSource === "skills";
+    (requirement.status === "met" || requirement.status === "partial") && requirement.skillsOnly === true;
 
   return (
     <li className="py-4">
@@ -363,7 +363,7 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
           <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
           <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
           {requirement.keyTerms && requirement.keyTerms.terms.length > 0 && (
-            <KeyTermList terms={requirement.keyTerms.terms} />
+            <KeyTermList keyTerms={requirement.keyTerms} />
           )}
           {requirement.note && (
             <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
@@ -381,8 +381,11 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
 }
 
 /** "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)": what the posting names, and what the CV shows. */
-function KeyTermList({ terms }: { terms: KeyTerms["terms"] }) {
+function KeyTermList({ keyTerms }: { keyTerms: KeyTerms }) {
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const shownAny = keyTerms.terms.filter((term) => term.cvMatch.trim() !== "");
+  // Alternatives the candidate does not need are not gaps: once one is shown, only the shown ones are listed.
+  const terms = keyTerms.mode === "any" && shownAny.length > 0 ? shownAny : keyTerms.terms;
 
   return (
     <ul aria-label="Terms the posting names" className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-2">
