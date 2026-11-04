@@ -3,6 +3,7 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import { ordinal } from "@/lib/format";
 import type {
+  KeyTerms,
   QuantifiedAchievement,
   Requirement,
   RequirementStatus,
@@ -10,6 +11,7 @@ import type {
 } from "@/lib/schemas/resumeSchema";
 import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
 import { cn } from "@/lib/utils";
+import { displayQuote } from "../utils/displayQuote";
 
 /* Shared building blocks for the six dimension sections. */
 
@@ -189,7 +191,7 @@ export function Evidence({ items }: EvidenceProps) {
         {items.map((item, i) => (
           <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-2">
             <Marker mark="neutral" />
-            <span>{item}</span>
+            <span>{displayQuote(item)}</span>
           </li>
         ))}
       </ul>
@@ -253,7 +255,7 @@ export function SkillEvidence({ skills }: SkillEvidenceProps) {
                 <Check aria-hidden className="size-4 shrink-0 text-strong" />
                 {skill.name}
               </dt>
-              <dd className="text-sm leading-relaxed text-ink-2">{skill.evidence}</dd>
+              <dd className="text-sm leading-relaxed text-ink-2">{displayQuote(skill.evidence)}</dd>
             </div>
           ))}
         </dl>
@@ -347,7 +349,12 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
   );
 }
 
+export const SKILLS_ONLY_ADVICE = "Only listed in your skills — show it in an experience bullet.";
+
 function RequirementRow({ requirement, label }: { requirement: Requirement; label: string }) {
+  const onlyListed =
+    (requirement.status === "met" || requirement.status === "partial") && requirement.evidenceSource === "skills";
+
   return (
     <li className="py-4">
       <div className="flex gap-3">
@@ -355,17 +362,47 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
         <div className="min-w-0 flex-1">
           <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
           <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
+          {requirement.keyTerms && requirement.keyTerms.terms.length > 0 && (
+            <KeyTermList terms={requirement.keyTerms.terms} />
+          )}
           {requirement.note && (
             <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
           )}
           {requirement.evidence && (
             <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
-              {requirement.evidence}
+              {displayQuote(requirement.evidence)}
             </p>
           )}
+          {onlyListed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{SKILLS_ONLY_ADVICE}</p>}
         </div>
       </div>
     </li>
+  );
+}
+
+/** "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)": what the posting names, and what the CV shows. */
+function KeyTermList({ terms }: { terms: KeyTerms["terms"] }) {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+  return (
+    <ul aria-label="Terms the posting names" className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-2">
+      {terms.map((term, i) => {
+        const shown = term.cvMatch.trim() !== "";
+        return (
+          <li key={`${term.term}-${i}`} className="inline-flex items-center gap-1">
+            {i > 0 && <span aria-hidden className="pr-0.5 text-ink-3">·</span>}
+            <span className="text-ink">{term.term}</span>
+            {shown ? (
+              <Check aria-hidden className="size-3.5 text-strong" />
+            ) : (
+              <X aria-hidden className="size-3.5 text-signal" />
+            )}
+            <span className="sr-only">{shown ? "shown in your CV" : "not in your CV"}</span>
+            {shown && !same(term.cvMatch, term.term) && <span className="text-ink-3">({term.cvMatch})</span>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -393,7 +430,7 @@ export function Achievements({ achievements }: AchievementsProps) {
                 {achievement.figure}
               </dt>
               <dd className="font-mono text-[12px] leading-relaxed text-ink-2">
-                {achievement.quote}
+                {displayQuote(achievement.quote)}
               </dd>
             </div>
           ))}

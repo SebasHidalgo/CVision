@@ -155,6 +155,30 @@ function readConfig(): AiConfig {
   };
 }
 
+// Gemini documents alphabetical generation without propertyOrdering; 3.5 Flash-Lite already follows declaration order (M8-C), this pins it.
+/** Every object node of a Gemini schema with `propertyOrdering` set to its own key order. */
+export function withPropertyOrdering(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(withPropertyOrdering);
+  if (schema === null || typeof schema !== "object") return schema;
+  const node: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) node[key] = withPropertyOrdering(value);
+  const properties = (schema as { properties?: unknown }).properties;
+  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
+    node.propertyOrdering = Object.keys(properties);
+  }
+  return node;
+}
+
+// The SDK drops propertyOrdering when it converts the schema, so it is added to the request body here.
+const orderedFetch: typeof fetch = (input, init) => {
+  if (typeof init?.body !== "string") return fetch(input, init);
+  const body = JSON.parse(init.body) as { generationConfig?: { responseSchema?: unknown } };
+  const config = body.generationConfig;
+  if (!config?.responseSchema) return fetch(input, init);
+  config.responseSchema = withPropertyOrdering(config.responseSchema);
+  return fetch(input, { ...init, body: JSON.stringify(body) });
+};
+
 /**
  * `AI_TEMPERATURE` exists so an eval can capture a control arm beside a
  * change without editing code; production leaves it unset. "provider" omits
@@ -221,7 +245,7 @@ async function callGoogle<T>(
     throw new AiMisconfiguredError("GOOGLE_GENERATIVE_AI_API_KEY is not set");
   }
 
-  const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
+  const google = createGoogleGenerativeAI({ apiKey: config.apiKey, fetch: orderedFetch });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const responseSchema = toJsonSchemaOrNull(schema);

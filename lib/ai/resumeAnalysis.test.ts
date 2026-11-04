@@ -231,6 +231,9 @@ describe("truncation at the limit", () => {
       status: "met",
       evidence: "React, TypeScript",
       note: "",
+      keyTerms: { mode: "all", terms: [] },
+      unshowableAlternative: "",
+      yearsEvidence: [],
       ...over,
     });
     installFakeProvider(() =>
@@ -255,6 +258,8 @@ describe("truncation at the limit", () => {
       ["Testing", "required", "missing"],
     ]);
     expect(guard.counts).toMatchObject({ "requirement-dropped": 1, "requirement-split": 1, "quote-dropped": 1, "status-downgraded": 1 });
+    // The headline comes from the statuses, ahead of the model's summary.
+    expect(feedback.overall.summaryText).toBe("Core gaps: Testing.");
   });
 
   it("reports what the model read on a successful analysis", async () => {

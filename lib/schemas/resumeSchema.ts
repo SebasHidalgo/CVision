@@ -98,9 +98,23 @@ export const REQUIREMENT_STATUSES = ["met", "partial", "missing", "not_evident"]
 /** Where in the posting a requirement's source text sits. */
 export const POSTING_SECTIONS = ["requirements", "preferred", "responsibilities", "description", "other"] as const;
 
+/** `all`: the requirement needs every term; `any`: alternatives or examples, one is enough. */
+export const KEY_TERM_MODES = ["all", "any"] as const;
+/** The CV section an evidence quote sits in, derived in code. */
+export const EVIDENCE_SOURCES = ["experience", "projects", "skills", "summary", "education", "other"] as const;
+
 export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
 export type PostingSection = (typeof POSTING_SECTIONS)[number];
+export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
+
+/** A term the requirement names, verbatim from its sourceQuote, and the CV word that shows it ("" when none). */
+const keyTermsSchema = z.object({
+  mode: lowerEnum(KEY_TERM_MODES),
+  terms: z.array(z.object({ term: z.string(), cvMatch: z.string() })),
+});
+
+export type KeyTerms = z.infer<typeof keyTermsSchema>;
 
 /**
  * One requirement from the posting, with how the resume answers it. This is
@@ -124,6 +138,13 @@ const requirementSchema = z.object({
   section: lowerEnum(POSTING_SECTIONS).optional(),
   /** False when no CV could show it; absent reads as true. */
   assessable: z.boolean().optional(),
+  // Optional: analyses stored before M8-C do not have them.
+  keyTerms: keyTermsSchema.optional(),
+  evidenceSource: lowerEnum(EVIDENCE_SOURCES).optional(),
+  /** The years rule's inputs, when the posting asks for a number of years and the CV shows one. */
+  years: z
+    .object({ min: z.number(), candidate: z.number(), source: z.enum(["statement", "dates"]) })
+    .optional(),
 });
 
 export type Requirement = z.infer<typeof requirementSchema>;
@@ -146,6 +167,9 @@ export const modelRequirementSchema = z.object({
   status: lowerEnum(REQUIREMENT_STATUSES),
   evidence: z.string(),
   note: z.string(),
+  keyTerms: keyTermsSchema,
+  unshowableAlternative: z.string(),
+  yearsEvidence: z.array(z.string()),
 });
 
 export type ModelRequirement = z.infer<typeof modelRequirementSchema>;

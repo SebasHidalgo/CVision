@@ -91,6 +91,18 @@ describe("Google provider: request shape", () => {
     expect(requests[0].thinking).toEqual({ thinkingBudget: 0 });
   });
 
+  // The SDK drops the field; Gemini's documented default without it is alphabetical.
+  it("sends propertyOrdering in declaration order on every object", async () => {
+    const { requests } = installFakeProvider(() => reply.json({ zeta: "z", alpha: { b: 1, a: 2 } }));
+    const ordered = z.object({ zeta: z.string(), alpha: z.object({ b: z.number(), a: z.number() }) });
+
+    await generateJson({ prompt: "p", schema: ordered });
+
+    const sent = requests[0].schema as { propertyOrdering?: string[]; properties: { alpha: { propertyOrdering?: string[] } } };
+    expect(sent.propertyOrdering).toEqual(["zeta", "alpha"]);
+    expect(sent.properties.alpha.propertyOrdering).toEqual(["b", "a"]);
+  });
+
   it("makes exactly one attempt per call: a 503 is not retried", async () => {
     const { requests } = installFakeProvider(() => reply.error(503));
 

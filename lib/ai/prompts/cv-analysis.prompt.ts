@@ -38,8 +38,10 @@ const AIResponseFormat = `
     //   0-24    not usable as a resume
     qualityScore: number;
 
-    // 2-4 sentences. Lead with how the resume answers the posting's required
-    // qualifications, then what would most improve the document itself.
+    // 2-3 sentences. The app opens the summary with the requirement statuses,
+    // so do not restate which requirements are met, partial or missing: say
+    // how the experience reads for this role and what would most improve the
+    // document itself.
     summaryText: string;
 
     // A short, prioritized roadmap of the main fixes to make.
@@ -78,7 +80,10 @@ const AIResponseFormat = `
     problems: string[];
 
     // 2-4 actionable fixes for the problems listed. One per problem where you
-    // can. Must not repeat recommendations from other sections.
+    // can. Must not repeat recommendations from other sections. Never advise
+    // removing accents from names, places or companies; when encodingArtifacts
+    // shows split accents ("´e", "e´"), advise re-exporting the PDF, and for a
+    // LaTeX resume adding \\usepackage[T1]{fontenc}.
     fixes: string[];
 
     // 1-3 short snippets copied from the resume that back up the analysis.
@@ -117,7 +122,8 @@ const AIResponseFormat = `
     // phrasing. Keep every figure the original had; where a figure would help
     // but the resume does not have one, leave [X]% or [N] for the candidate.
     suggestedBullets: {
-      // Job role name (e.g., “Marketing Manager”)
+      // The role and the company, as the resume names them (e.g., “Marketing
+      // Manager, Acme”).
       role: string;
 
       // 1-3 rewritten bullet examples demonstrating better phrasing.
@@ -135,7 +141,7 @@ const AIResponseFormat = `
     description: string;
 
     // Skills the posting asks for that the resume has, each with the text from
-    // the resume that proves it.
+    // the resume that proves it. Only skills the posting names.
     matchedSkills: { name: string; evidence: string }[];
 
     // 2-4 clear and actionable steps explaining how to improve the skills section.
@@ -158,8 +164,8 @@ const AIResponseFormat = `
     // resume is actually missing - check the text before asking for it.
     improvements: string[];
 
-    // Optional: certifications not in the resume that would strengthen it
-    // (e.g., “AWS Certified Developer”). Leave empty rather than padding.
+    // Certifications not in the resume that address a requirement of this
+    // posting. Empty when none does; never a generic one.
     recommendedCerts: string[];
   };
 
@@ -178,8 +184,9 @@ const AIResponseFormat = `
   // The headline of the analysis: what the posting asks for, one entry per
   // requirement, and how this resume answers each one.
   jobFit: {
-    // At least 150 characters summarizing how the resume answers the posting's
-    // requirements, leading with the required ones.
+    // At least 150 characters on how the resume answers this posting as a
+    // whole: where the experience is closest to the role and what would close
+    // the gaps. The requirements list states each status; do not restate them.
     description: string;
 
     // One entry per requirement in the posting: every required and every
@@ -222,7 +229,9 @@ const AIResponseFormat = `
 
       // "required" if the posting presents it as a minimum or required
       // qualification; "preferred" if it is listed as preferred, desired, a
-      // plus, a bonus or nice to have. Use the posting's own framing.
+      // plus, a bonus or nice to have. Use the posting's own framing: a plain
+      // bullet in a list of qualifications is required unless its own words
+      // soften it.
       kind: "required" | "preferred";
 
       // The part of a required bullet that the posting softens - "ideally in
@@ -256,9 +265,10 @@ const AIResponseFormat = `
       status: "met" | "partial" | "missing" | "not_evident";
 
       // The text from the resume that decides the status, copied word for
-      // word: one line, never lines joined (for years of experience, the line
-      // of the most relevant role). Empty string when the status is
-      // "missing" or "not_evident".
+      // word: one line, never lines joined. The strongest line: an experience
+      // or project bullet that shows it in use, the skills list only when
+      // nothing else does. Empty string when the status is "missing" or
+      // "not_evident".
       evidence: string;
 
       // One sentence on why that status. For a list of alternatives, name the
@@ -266,6 +276,30 @@ const AIResponseFormat = `
       // not. Never describe an alternative the candidate lacks as a gap when
       // another alternative in the same requirement is met.
       note: string;
+
+      // The named technologies, tools, industries, certifications and
+      // languages this requirement asks for (not general skills such as
+      // "scalability" or "communication", not years), each copied word for
+      // word from sourceQuote, with
+      // cvMatch: the word or phrase in the resume that shows it, copied word
+      // for word, also when it is a synonym or in another language
+      // ("Postgres" for "PostgreSQL", "estadística" for "Statistics"), or ""
+      // when the resume does not show it. mode "all" when the requirement
+      // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
+      // alternatives or examples ("C, C++ or Java", "tools such as Redis,
+      // Elasticsearch, and Sidekiq"). terms is empty when it names none.
+      keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
+
+      // The part of sourceQuote offering an alternative no resume can show,
+      // copied word for word ("or willingness to learn and work with it",
+      // "or a clear appetite to learn it fast"), or "" when there is none.
+      unshowableAlternative: string;
+
+      // For a requirement that asks for a number of years: the resume lines
+      // that show the candidate's years, each copied word for word - a line
+      // that states them ("2+ years of experience"), or else the date line of
+      // every relevant role. Empty for any other requirement.
+      yearsEvidence: string[];
     }[];
 
     // 3 specific strategic recommendations to better align the resume
@@ -353,9 +387,11 @@ RULE 5 - Quoted fields hold text copied out of the resume and nothing else.
 This covers atsCompatibility.evidence, atsCompatibility.encodingArtifacts,
 atsCompatibility.sectionsDetected, the evidence of every entry in
 skills.matchedSkills and jobFit.requirements (its softenedClause included),
-and the quote of every entry in experienceAndImpact.quantifiedAchievements.
-The sourceQuote and softenedClause.quote of jobFit.requirements follow the
-same rules, copied out of the job description instead.
+the cvMatch and yearsEvidence of jobFit.requirements, and the quote of every
+entry in experienceAndImpact.quantifiedAchievements. The sourceQuote,
+softenedClause.quote, keyTerms term and unshowableAlternative of
+jobFit.requirements follow the same rules, copied out of the job description
+instead.
 - Copy one continuous span of the resume character for character: same words,
   same order, same case, same punctuation, same spelling. Prefer the shortest
   span that makes the point, usually a single line.
@@ -379,14 +415,9 @@ const formatToday = (now: Date) =>
     timeZone: "UTC",
   })})`;
 
-// Experiment blocks (M8-A, scripts/eval only). Absent, the prompt is byte-identical to production's.
+// Experiment block (M8-A, scripts/eval only). Absent, the prompt is byte-identical to production's.
 const PDF_ATTACHED_NOTE = `
   The resume is also attached as a PDF so you can see its layout and formatting. Every quoted field must still be copied from the resume text above, which is what an ATS extracts, never from the PDF.`;
-
-const fixedRequirementsBlock = (fixed: { requirement: string; kind: string }[]) => `
-  The posting's requirements were extracted beforehand. jobFit.requirements must contain exactly these ${fixed.length} entries, in this order, with "requirement" and "kind" copied as given here; decide only status, evidence and note for each one:
-${fixed.map((entry, i) => `  ${i + 1}. [${entry.kind}] ${entry.requirement}`).join("\n")}
-`;
 
 export const resumeAnalysisPrompt = ({
   jobTitle,
@@ -394,7 +425,6 @@ export const resumeAnalysisPrompt = ({
   resumeText,
   now,
   pdfAttached = false,
-  fixedRequirements,
 }: {
   jobTitle: string;
   jobDescription: string;
@@ -403,8 +433,6 @@ export const resumeAnalysisPrompt = ({
   now: Date;
   /** Experiment: the PDF travels beside the text. */
   pdfAttached?: boolean;
-  /** Experiment: the requirement list is fixed and the model only assigns statuses. */
-  fixedRequirements?: { requirement: string; kind: string }[];
 }) => {
   const today = formatToday(now);
 
@@ -418,7 +446,7 @@ export const resumeAnalysisPrompt = ({
   The job title is: ${jobTitle}
   The job description is: ${jobDescription}
   The resume text is: ${resumeText}${pdfAttached ? PDF_ATTACHED_NOTE : ""}
-  ${ANALYSIS_RULES(today)}${fixedRequirements ? fixedRequirementsBlock(fixedRequirements) : ""}
+  ${ANALYSIS_RULES(today)}
   Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields.
   ${AIResponseFormat}
   Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.

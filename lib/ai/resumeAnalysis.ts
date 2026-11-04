@@ -7,16 +7,16 @@ import {
   withInterventions,
   type GuardReport,
 } from "@/lib/ai/analysisGuardrails";
-import { loosen, normalizeWhitespace } from "@/lib/ai/analysisChecks";
 import { generateJson } from "@/lib/ai/client";
 import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
-import { enforceRequirementStatuses, structureRequirements } from "@/lib/ai/requirementGuardrails";
 import {
-  analysisResponseSchema,
-  type Requirement,
-  type RequirementKind,
-  type ResumeAnalysisFeedback,
-} from "@/lib/schemas/resumeSchema";
+  enforceRequirementStatuses,
+  guardMatchedSkills,
+  requirementHeadline,
+  structureRequirements,
+  withEvidenceSources,
+} from "@/lib/ai/requirementGuardrails";
+import { analysisResponseSchema, type ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 
 /**
  * Bounds the prompt: a CV longer than this is cut, not rejected. Set well
@@ -35,9 +35,6 @@ export const ANALYSIS_TIMEOUT_MS = 30_000;
 /** Experimental (scripts/eval only): what the model is given as the CV. */
 export type AnalysisInputMode = "text" | "pdf" | "pdf+text";
 
-/** Experimental (scripts/eval only): a requirement extracted before the analysis call. */
-export type FixedRequirement = { requirement: string; kind: RequirementKind };
-
 export type AnalyzeResumeInput = {
   jobTitle: string;
   jobDescription: string;
@@ -50,11 +47,6 @@ export type AnalyzeResumeInput = {
    */
   pdf?: Uint8Array;
   inputMode?: AnalysisInputMode;
-  /**
-   * Experimental, scripts/eval only: the posting's requirements, extracted by
-   * a separate call. The model then only decides status, evidence and note.
-   */
-  fixedRequirements?: FixedRequirement[];
   /** scripts/eval only: the date the prompt states, so the canary can replay its reference's day. */
   now?: Date;
 };
@@ -70,17 +62,6 @@ export type TruncatedText = {
   truncated: boolean;
 };
 
-/** How the model's list was reconciled with a fixed requirement list. */
-export type RequirementAlignment = {
-  fixed: number;
-  model: number;
-  /** Fixed requirements the model's list did not carry; left out of the result. */
-  unmatched: number;
-  /** Model entries that matched no fixed requirement; dropped. */
-  extra: number;
-  byIndex: boolean;
-};
-
 export type AnalyzeResumeResult = {
   /** Guarded: no quote that is not in the CV, no invented figure. */
   feedback: ResumeAnalysisFeedback;
@@ -92,8 +73,6 @@ export type AnalyzeResumeResult = {
    * would read zero violations forever.
    */
   guard: GuardReport;
-  /** Present when `fixedRequirements` was given. */
-  alignment?: RequirementAlignment;
 };
 
 export function truncateResumeText(resumeText: string): TruncatedText {
@@ -118,7 +97,6 @@ export async function analyzeResume({
   timeoutMs = ANALYSIS_TIMEOUT_MS,
   pdf,
   inputMode = pdf ? "pdf" : "text",
-  fixedRequirements,
   now = new Date(),
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
   const { text, ...sent } = truncateResumeText(resumeText);
@@ -140,21 +118,13 @@ export async function analyzeResume({
       // dates against the day of the request, not the day of the last deploy.
       now,
       pdfAttached: inputMode === "pdf+text",
-      fixedRequirements,
     }),
     schema: analysisResponseSchema,
     timeoutMs,
     ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
   });
 
-  let alignment: RequirementAlignment | undefined;
-  if (fixedRequirements) {
-    const aligned = alignFixedRequirements(fixedRequirements, answer.jobFit.requirements);
-    answer.jobFit.requirements = aligned.requirements;
-    alignment = aligned.alignment;
-  }
-
-  // Posting quote, section and softened clause, against the posting the model read.
+  // Posting quote, section, softened clause and key terms, against the posting the model read.
   const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
   const shaped: ResumeAnalysisFeedback = { ...answer, jobFit: { ...answer.jobFit, requirements: structured.requirements } };
 
@@ -162,12 +132,33 @@ export async function analyzeResume({
   // CV text, which is what the model was given in production and what an ATS
   // extracts; in the PDF experiments it is the text layer the quotes must
   // still come from. Only an absent text leaves the quotes unchecked.
-  const guarded = text.trim() ? guardAnalysis(text, shaped) : { feedback: shaped, guard: emptyGuardReport() };
+  const checked = Boolean(text.trim());
+  const guarded = checked ? guardAnalysis(text, shaped) : { feedback: shaped, guard: emptyGuardReport() };
+  const skills = checked ? guardMatchedSkills(guarded.feedback, text) : { feedback: guarded.feedback, interventions: [] };
 
   // Statuses last: a CV quote the guardrail dropped is no evidence.
-  const statuses = enforceRequirementStatuses(guarded.feedback.jobFit.requirements);
-  const feedback: ResumeAnalysisFeedback = { ...guarded.feedback, jobFit: { ...guarded.feedback.jobFit, requirements: statuses.requirements } };
-  const guard = withInterventions(guarded.guard, [...structured.interventions, ...statuses.interventions]);
+  const statuses = enforceRequirementStatuses(
+    skills.feedback.jobFit.requirements,
+    checked ? { pending: structured.pending, cvText: text, now } : undefined,
+  );
+  const sourced = checked
+    ? withEvidenceSources(statuses.requirements, text, skills.feedback.atsCompatibility.sectionsDetected)
+    : { requirements: statuses.requirements, interventions: [] };
+  const requirements = sourced.requirements;
+  // The first sentence comes from the statuses, so the summary cannot contradict them.
+  const headline = requirementHeadline(requirements);
+  const summaryText = [headline, skills.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
+  const feedback: ResumeAnalysisFeedback = {
+    ...skills.feedback,
+    overall: { ...skills.feedback.overall, summaryText },
+    jobFit: { ...skills.feedback.jobFit, requirements },
+  };
+  const guard = withInterventions(guarded.guard, [
+    ...structured.interventions,
+    ...skills.interventions,
+    ...statuses.interventions,
+    ...sourced.interventions,
+  ]);
 
   const note = describeCounts(guard.counts);
   if (note) {
@@ -176,46 +167,5 @@ export async function analyzeResume({
     console.warn(`[CVision][ai] analysis guardrail fired: ${note}`);
   }
 
-  return { feedback, resumeText: sent, guard, ...(alignment ? { alignment } : {}) };
-}
-
-/**
- * Pins the model's list to the fixed one: same count means by position, with
- * the fixed text and kind written back; otherwise by text, keeping only the
- * fixed requirements the model answered. Pure; tested.
- */
-export function alignFixedRequirements<T extends Requirement>(
-  fixed: FixedRequirement[],
-  model: T[],
-): { requirements: T[]; alignment: RequirementAlignment } {
-  if (fixed.length === model.length) {
-    return {
-      requirements: model.map((entry, i) => ({ ...entry, requirement: fixed[i].requirement, kind: fixed[i].kind })),
-      alignment: { fixed: fixed.length, model: model.length, unmatched: 0, extra: 0, byIndex: true },
-    };
-  }
-
-  const key = (text: string) => loosen(normalizeWhitespace(text));
-  const used = new Set<number>();
-  const requirements: T[] = [];
-  let unmatched = 0;
-  for (const want of fixed) {
-    const target = key(want.requirement);
-    const index = model.findIndex((entry, i) => {
-      if (used.has(i)) return false;
-      const got = key(entry.requirement);
-      return got === target || got.includes(target) || target.includes(got);
-    });
-    if (index < 0) {
-      unmatched += 1;
-      continue;
-    }
-    used.add(index);
-    requirements.push({ ...model[index], requirement: want.requirement, kind: want.kind });
-  }
-
-  return {
-    requirements,
-    alignment: { fixed: fixed.length, model: model.length, unmatched, extra: model.length - used.size, byIndex: false },
-  };
+  return { feedback, resumeText: sent, guard };
 }

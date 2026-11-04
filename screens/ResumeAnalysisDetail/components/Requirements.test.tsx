@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { NOT_SHOWN_ADVICE, Requirements } from "./SectionParts";
+import { NOT_SHOWN_ADVICE, Requirements, SKILLS_ONLY_ADVICE } from "./SectionParts";
 
 const row = (requirement: string, kind: Requirement["kind"], status: Requirement["status"]): Requirement => ({
   requirement,
@@ -40,5 +40,27 @@ describe("Requirements", () => {
     );
 
     expect(html).not.toContain("Not shown in your CV");
+    expect(html).not.toContain("Terms the posting names");
+  });
+
+  it("shows each term with what the CV has, the skills-only advice, and the quote without its bullet", () => {
+    const requirement: Requirement = {
+      ...row("Strong expertise in Ruby on Rails and MySQL", "required", "partial"),
+      evidence: "• Databases: MongoDB, Postgres, MySQL",
+      evidenceSource: "skills",
+      keyTerms: { mode: "all", terms: [{ term: "Ruby on Rails", cvMatch: "" }, { term: "MySQL", cvMatch: "MySQL" }, { term: "PostgreSQL", cvMatch: "Postgres" }] },
+    };
+    const tally = { required: { total: 1, met: 0, partial: 1, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+    const text = html.replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("Ruby on Railsnot in your CV");
+    expect(text).toContain("MySQLshown in your CV");
+    expect(text).toContain("PostgreSQLshown in your CV(Postgres)");
+    expect(text).not.toContain("MySQLshown in your CV(MySQL)");
+    expect(text).toContain(SKILLS_ONLY_ADVICE);
+    expect(text).toContain("Databases: MongoDB, Postgres, MySQL");
+    expect(text).not.toContain("• Databases");
   });
 });

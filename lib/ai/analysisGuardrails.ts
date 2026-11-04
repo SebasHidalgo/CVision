@@ -41,15 +41,36 @@ export type InterventionAction =
   /** met or partial with no CV quote behind it. */
   | "status-downgraded"
   /** not_evident on something a CV can show, or missing on something it cannot. */
-  | "status-coerced";
+  | "status-coerced"
+  /** Key-term coverage or the years rule lowered the model's status. */
+  | "status-capped"
+  /** A key term not in the requirement's posting quote. */
+  | "term-dropped"
+  /** A key term's CV match not in the CV: emptied. */
+  | "match-dropped"
+  /** The requirement text rewritten in the posting's spelling or language. */
+  | "text-replaced"
+  /** A matched skill with no CV quote behind it, or not in the CV at all. */
+  | "skill-dropped"
+  /** Key terms marked as alternatives where the posting offers none: they all count. */
+  | "mode-changed"
+  /** A skills-list quote replaced by the experience or project line that shows the same term. */
+  | "evidence-replaced";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
   | "posting-source"
   | "posting-section"
+  | "posting-kind"
   | "softened-clause"
   | "met-without-evidence"
-  | "not-evident";
+  | "not-evident"
+  | "key-term"
+  | "years"
+  | "unshowable-alternative"
+  | "requirement-text"
+  | "matched-skill"
+  | "evidence-source";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;
@@ -88,6 +109,13 @@ const emptyCounts = (): InterventionCounts => ({
   "kind-changed": 0,
   "status-downgraded": 0,
   "status-coerced": 0,
+  "status-capped": 0,
+  "term-dropped": 0,
+  "match-dropped": 0,
+  "text-replaced": 0,
+  "skill-dropped": 0,
+  "mode-changed": 0,
+  "evidence-replaced": 0,
 });
 
 /** The report with more interventions in it, counted. */

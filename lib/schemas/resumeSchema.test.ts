@@ -237,12 +237,17 @@ describe("resumeFeedbackSchema: requirements", () => {
       demandsCapability: true,
       softenedClause: { quote: "", status: "missing", evidence: "", note: "" },
       assessable: true,
+      keyTerms: { mode: "all", terms: [{ term: "PostgreSQL", cvMatch: "Postgres" }] },
+      unshowableAlternative: "",
+      yearsEvidence: [],
     };
 
     expect(answer(full).success).toBe(true);
     expect(answer(requirement()).success).toBe(false);
     const { softenedClause: _dropped, ...withoutClause } = full;
     expect(answer(withoutClause).success).toBe(false);
+    const { keyTerms: _terms, ...withoutTerms } = full;
+    expect(answer(withoutTerms).success).toBe(false);
   });
 });
 

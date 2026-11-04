@@ -12,7 +12,6 @@ import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { interviewMain } from "./interview";
 import { loadGold, percent, score, sumMetrics, type ExtractedItem, type Gold, type GoldVerdict, type ItemVerdict, type Metrics } from "./gold";
-import { extractRequirements, type ExtractionResult } from "@/lib/ai/requirementExtraction";
 import {
   captureAiLog,
   describeEngine,
@@ -53,7 +52,6 @@ import {
   MAX_RESUME_TEXT_CHARS,
   truncateResumeText,
   type AnalysisInputMode,
-  type RequirementAlignment,
 } from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
@@ -156,15 +154,8 @@ type Fixture = Omit<FixtureMeta, "pdf"> & {
   gold: Gold | null;
 };
 
-/** The experiment arms a run is captured under. */
-type Arms = { input: AnalysisInputMode; extraction: "single" | "two-call" };
-
-/** What a run keeps of the extraction call: everything but the posting text. */
-type ExtractionSummary = Omit<ExtractionResult, "requirements"> & {
-  requirements: ExtractionResult["requirements"];
-  tokens: { input: number | null; output: number | null };
-  durationMs: number;
-};
+/** The experiment arm a run is captured under. */
+type Arms = { input: AnalysisInputMode };
 
 type RequirementScore = { metrics: Metrics; items: ItemVerdict[]; gold: GoldVerdict[]; goldStatus: "final" | "draft" };
 
@@ -190,17 +181,8 @@ type RunRecord = {
     jobChars: number;
     /** What the model was given as the CV: the text layer, the PDF, or both. */
     mode: AnalysisInputMode;
-    /** How the requirements were extracted: inside the analysis call, or by a call of their own. */
-    extraction: Arms["extraction"];
   };
-  /** The analysis call's tokens; the extraction call's are in `extraction.tokens`. */
   tokens: { input: number | null; output: number | null };
-  /** The two-call arm's first call, after the code checks. */
-  extraction?: ExtractionSummary;
-  /** How the model's list was pinned to the fixed one (two-call arm). */
-  alignment?: RequirementAlignment;
-  /** Per requirement in the feedback, the verbatim posting quote the extraction gave it, when the arm has one. */
-  requirementSources?: (string | null)[];
   /** The extracted list scored against the fixture's gold, when it has one. */
   requirementScore?: RequirementScore;
   /**
@@ -229,7 +211,7 @@ compare model output across provider, model or prompt changes.
 
 Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
-                     [--input text|pdf|pdf+text] [--extraction single|two-call]
+                     [--input text|pdf|pdf+text]
   npm run eval -- gold <label> [<label> ...] [--only <id,id>] [--verbose] [--json <file>]
                       [--by-source] [--drop-responsibilities]
   npm run eval -- compare <labelA> <labelB> [--force]
@@ -250,14 +232,12 @@ split into the same required/preferred partition each time, and whether the
 derived fit verdict survived. Nothing billed. The verdict is a function of that
 partition, so a partition that moves between runs moves the headline with it.
 
---input and --extraction are the M8-A experiment arms, wired into nothing in
-production. --input pdf hands the model the fixture's cv.pdf instead of the
-text extracted from it; pdf+text sends both and tells the model quotes come
-from the text. Only fixtures holding a cv.pdf can run those; a fixture whose
-fixture.json says the PDF is scanned is refused on the text arm the way
-production refuses it (PDF_SCANNED, no model call). --extraction two-call
-runs a posting-only extraction first (numbered lines, every line accounted
-for, verbatim quotes checked in code) and hands the analysis the fixed list.
+--input is the M8-A experiment arm, wired into nothing in production. --input
+pdf hands the model the fixture's cv.pdf instead of the text extracted from
+it; pdf+text sends both and tells the model quotes come from the text. Only
+fixtures holding a cv.pdf can run those; a fixture whose fixture.json says the
+PDF is scanned is refused on the text arm the way production refuses it
+(PDF_SCANNED, no model call).
 
 gold scores one or more stored runs against each fixture's gold.json
 (fixtures/GOLD-RULES.md): recall, precision, kind and status accuracy, splits,
@@ -418,7 +398,7 @@ async function runCommand(args: string[]) {
 
   await mkdir(outDir, { recursive: true });
   console.log(
-    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${describeInput(arms.input)}, extraction: ${arms.extraction})\n`,
+    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${describeInput(arms.input)})\n`,
   );
 
   const startedAt = new Date().toISOString();
@@ -477,10 +457,8 @@ async function runCommand(args: string[]) {
 
 function parseArms(flags: Map<string, string | true>): Arms {
   const input = flags.has("pdf") ? "pdf" : String(flags.get("input") ?? "text");
-  const extraction = String(flags.get("extraction") ?? "single");
   if (!["text", "pdf", "pdf+text"].includes(input)) fail(`--input must be text, pdf or pdf+text, not "${input}".`);
-  if (!["single", "two-call"].includes(extraction)) fail(`--extraction must be single or two-call, not "${extraction}".`);
-  return { input: input as AnalysisInputMode, extraction: extraction as Arms["extraction"] };
+  return { input: input as AnalysisInputMode };
 }
 
 const describeInput = (input: AnalysisInputMode) =>
@@ -504,7 +482,6 @@ async function runFixture(
     cvTruncated: sent.truncated,
     jobChars: fixture.jobDescription.length,
     mode: arms.input,
-    extraction: arms.extraction,
   };
   const base = { fixture: fixture.id, source: fixture.source, label, input };
 
@@ -523,50 +500,26 @@ async function runFixture(
     return { ...base, provider: null, model: null, tokens: { input: null, output: null }, generatedAt: new Date().toISOString(), durationMs: Date.now() - startedAt, result: error };
   }
 
-  let result: RunRecord["result"] | undefined;
+  let result: RunRecord["result"];
   let guard: GuardReport | undefined;
-  let alignment: RequirementAlignment | undefined;
-  let extraction: ExtractionSummary | undefined;
-
-  if (arms.extraction === "two-call") {
-    const extractionLog = captureAiLog();
-    const extractionStartedAt = Date.now();
-    try {
-      const extracted = await extractRequirements({ jobTitle: fixture.jobTitle, jobDescription: fixture.jobDescription, timeoutMs });
-      extraction = {
-        ...extracted,
-        tokens: { input: extractionLog.meta.inputTokens, output: extractionLog.meta.outputTokens },
-        durationMs: Date.now() - extractionStartedAt,
-      };
-    } catch (error) {
-      result = { ok: false, error: describeError(error) };
-    } finally {
-      extractionLog.restore();
-    }
-  }
 
   const aiLog = captureAiLog();
-  if (!result) {
-    try {
-      const analysis = await analyzeResume({
-        jobTitle: fixture.jobTitle,
-        jobDescription: fixture.jobDescription,
-        resumeText: fixture.cvText,
-        timeoutMs,
-        ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
-        ...(extraction ? { fixedRequirements: extraction.requirements.map(({ requirement, kind }) => ({ requirement, kind })) } : {}),
-        ...(now ? { now } : {}),
-      });
-      guard = analysis.guard;
-      alignment = analysis.alignment;
-      result = { ok: true, feedback: analysis.feedback };
-    } catch (error) {
-      result = { ok: false, error: describeError(error) };
-    } finally {
-      aiLog.restore();
-    }
+  try {
+    const analysis = await analyzeResume({
+      jobTitle: fixture.jobTitle,
+      jobDescription: fixture.jobDescription,
+      resumeText: fixture.cvText,
+      timeoutMs,
+      ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
+      ...(now ? { now } : {}),
+    });
+    guard = analysis.guard;
+    result = { ok: true, feedback: analysis.feedback };
+  } catch (error) {
+    result = { ok: false, error: describeError(error) };
+  } finally {
+    aiLog.restore();
   }
-  aiLog.restore();
 
   // The guardrail already ran the checks against the CV text before it
   // edited anything, so its list is what the model actually produced;
@@ -574,13 +527,6 @@ async function runFixture(
   const violations = result.ok
     ? (guard?.violations ?? checkAnalysis(sent.text, result.feedback))
     : undefined;
-
-  const requirementSources =
-    result.ok && extraction
-      ? result.feedback.jobFit.requirements.map(
-          (entry) => extraction?.requirements.find((one) => one.requirement === entry.requirement)?.quote ?? null,
-        )
-      : undefined;
 
   const record: RunRecord = {
     ...base,
@@ -596,9 +542,6 @@ async function runFixture(
       seed: aiLog.meta.seed,
     },
     tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
-    extraction,
-    alignment,
-    requirementSources,
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     checks: violations && {
@@ -809,7 +752,6 @@ function formatProgress(record: RunRecord): string {
   const notes = [
     record.input.mode !== "text" ? `input: ${record.input.mode}` : "",
     record.tokens.input === null ? "" : `${record.tokens.input} in / ${record.tokens.output} out tokens`,
-    extractionNote(record),
     goldNote(record.requirementScore),
     record.input.cvTruncated
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
@@ -918,7 +860,7 @@ async function canaryCommand(args: string[]) {
   );
 
   // The prompt states today's date: replay the reference's day, or every later day reads as drift.
-  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text", extraction: "single" }, new Date(wanted.generatedAt));
+  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text" }, new Date(wanted.generatedAt));
   if (fresh.engine && fresh.model) {
     fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   }
@@ -984,6 +926,7 @@ async function compareCommand(args: string[]) {
       [labelB, runB],
     ],
     flags.has("force"),
+    { datedPrompt: true },
   );
 
   console.log(`A = ${labelA}  (${identity(runA)})`);
@@ -1122,18 +1065,22 @@ function statusOf(record: RunRecord): string {
 /** How `gold` reads a record: by the requirement text (default) or the posting quote, and with every responsibility dropped. */
 type ScoreOptions = { bySource?: boolean; dropResponsibilities?: boolean };
 
-/** The extracted list as the gold scorer reads it, with the arm's quotes as sources when it has them. */
+/** The extracted list as the gold scorer reads it, by text or by posting quote. */
 function itemsOf(record: RunRecord, options: ScoreOptions = {}): ExtractedItem[] {
   if (!record.result.ok) return [];
   return record.result.feedback.jobFit.requirements
-    .map((entry, i) => {
-      const source = record.requirementSources?.[i] ?? (options.bySource ? entry.sourceQuote : undefined);
+    .map((entry) => {
+      const source = options.bySource ? entry.sourceQuote : undefined;
       return {
         item: {
           requirement: entry.requirement,
           kind: entry.kind,
           status: entry.status,
+          evidence: entry.evidence,
           ...(typeof entry.assessable === "boolean" ? { assessable: entry.assessable } : {}),
+          ...(entry.keyTerms ? { keyTerms: entry.keyTerms } : {}),
+          ...(entry.years ? { years: entry.years } : {}),
+          ...(entry.evidenceSource ? { evidenceSource: entry.evidenceSource } : {}),
           ...(source ? { source } : {}),
         },
         section: entry.section,
@@ -1158,18 +1105,6 @@ function goldNote(scored: RequirementScore | undefined): string {
     m.merges ? `${m.merges} merged` : "",
   ].filter(Boolean);
   return `gold${scored.goldStatus === "draft" ? " (draft)" : ""}: recall ${m.goldFound}/${m.goldTotal}, precision ${m.correct}/${m.extracted}${errors.length ? ` (${errors.join(", ")})` : ""}`;
-}
-
-function extractionNote(record: RunRecord): string {
-  const extraction = record.extraction;
-  if (!extraction) return "";
-  const problems = [
-    extraction.dropped.length ? `${extraction.dropped.length} dropped` : "",
-    extraction.unaccountedLines.length ? `${extraction.unaccountedLines.length} unaccounted line(s)` : "",
-    extraction.bogusLines.length ? `${extraction.bogusLines.length} bogus line ref(s)` : "",
-    record.alignment && !record.alignment.byIndex ? `aligned by text (${record.alignment.unmatched} unmatched, ${record.alignment.extra} extra)` : "",
-  ].filter(Boolean);
-  return `extraction: ${extraction.requirements.length} req in ${(extraction.durationMs / 1000).toFixed(1)} s, ${extraction.tokens.input ?? "?"} in / ${extraction.tokens.output ?? "?"} out${problems.length ? ` (${problems.join(", ")})` : ""}`;
 }
 
 const mean = (values: number[]) => (values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null);
@@ -1317,6 +1252,7 @@ async function stabilityCommand(args: string[]) {
   requireComparable(
     labels.map((label, index) => [label, runs[index]] as const),
     flags.has("force"),
+    { datedPrompt: true },
   );
   const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
 
