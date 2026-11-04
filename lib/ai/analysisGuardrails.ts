@@ -31,10 +31,28 @@ export type InterventionAction =
   /** The figure could not be substituted cleanly, so the bullet went. */
   | "bullet-dropped"
   /** Logged and left alone, because correcting it is a bigger call than this. */
-  | "recorded";
+  | "recorded"
+  /** A requirement whose posting quote is not in the posting, or that the posting only describes. */
+  | "requirement-dropped"
+  /** A softened clause became its own preferred requirement. */
+  | "requirement-split"
+  /** A required entry that was all softened clause became preferred. */
+  | "kind-changed"
+  /** met or partial with no CV quote behind it. */
+  | "status-downgraded"
+  /** not_evident on something a CV can show, or missing on something it cannot. */
+  | "status-coerced";
+
+/** The requirement rules of lib/ai/requirementGuardrails.ts. */
+export type RequirementCheckName =
+  | "posting-source"
+  | "posting-section"
+  | "softened-clause"
+  | "met-without-evidence"
+  | "not-evident";
 
 export type Intervention = {
-  check: CheckName;
+  check: CheckName | RequirementCheckName;
   action: InterventionAction;
   /** Where in the analysis, e.g. `skills.matchedSkills[0].evidence`. */
   path: string;
@@ -65,7 +83,19 @@ const emptyCounts = (): InterventionCounts => ({
   "number-placeheld": 0,
   "bullet-dropped": 0,
   recorded: 0,
+  "requirement-dropped": 0,
+  "requirement-split": 0,
+  "kind-changed": 0,
+  "status-downgraded": 0,
+  "status-coerced": 0,
 });
+
+/** The report with more interventions in it, counted. */
+export function withInterventions(report: GuardReport, more: Intervention[]): GuardReport {
+  const counts = { ...report.counts };
+  for (const intervention of more) counts[intervention.action] += 1;
+  return { ...report, interventions: [...more, ...report.interventions], counts };
+}
 
 /**
  * The span of the source text that a quote differs from only in case or

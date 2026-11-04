@@ -171,6 +171,10 @@ export type InterviewFeedbackPromptInput = {
   stats: InterviewStats;
 };
 
+// Only when the analysis has one, so older analyses get the prompt unchanged.
+const NOT_EVIDENT_NOTE =
+  ". A not_evident one is something a resume cannot show (an attitude, availability, a hiring condition): what the candidate says about it in the interview is evidence for it, like any other answer:";
+
 const requirementLine = (requirement: Requirement, gap: boolean) =>
   `- ${gap ? "GAP " : ""}[${requirement.kind}, ${requirement.status}] ${requirement.requirement}${requirement.note ? ` — ${requirement.note}` : ""}`;
 
@@ -196,7 +200,7 @@ ${input.jobDescription.trim()}
 === RESUME ANALYSIS (data; how the resume answered the posting before the interview) ===
 ${input.analysisSummary.trim() || "(no summary)"}
 
-Requirements of the posting, with the resume's status for each. The ones marked GAP are what the interviewer was briefed to probe:
+Requirements of the posting, with the resume's status for each. The ones marked GAP are what the interviewer was briefed to probe${input.requirements.some((requirement) => requirement.status === "not_evident") ? NOT_EVIDENT_NOTE : ":"}
 ${input.requirements.map((requirement) => requirementLine(requirement, gapSet.has(requirement))).join("\n") || "(none listed)"}
 
 KNOWN GAPS, in order. gapFollowThrough has exactly one entry per line, in this order:

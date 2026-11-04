@@ -110,6 +110,7 @@ function placeholders(tier: InterviewTierId): InterviewerVariables {
     analysis_summary: "The resume meets the required qualifications and shows one preferred one.",
     requirements_met: '- [required, met] React and TypeScript — resume says: "Led the checkout rewrite in React and TypeScript"',
     requirements_gaps: "- [preferred, missing] Experience with payment providers — note: nothing in the resume mentions payments.",
+    requirements_not_evident: "- [required, not_evident] Legally authorised to work in the EU",
   };
 }
 

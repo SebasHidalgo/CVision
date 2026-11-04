@@ -87,15 +87,20 @@ const evidenceSectionBase = {
  */
 const lowerEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.preprocess(
-    (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+    // "Not evident" and "not-evident" arrive too.
+    (value) => (typeof value === "string" ? value.trim().toLowerCase().replace(/[\s-]+/g, "_") : value),
     z.enum(values),
   );
 
 export const REQUIREMENT_KINDS = ["required", "preferred"] as const;
-export const REQUIREMENT_STATUSES = ["met", "partial", "missing"] as const;
+/** `not_evident`: a CV cannot show it (an attitude, a condition); it never counts against the verdict. */
+export const REQUIREMENT_STATUSES = ["met", "partial", "missing", "not_evident"] as const;
+/** Where in the posting a requirement's source text sits. */
+export const POSTING_SECTIONS = ["requirements", "preferred", "responsibilities", "description", "other"] as const;
 
 export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
+export type PostingSection = (typeof POSTING_SECTIONS)[number];
 
 /**
  * One requirement from the posting, with how the resume answers it. This is
@@ -113,9 +118,37 @@ const requirementSchema = z.object({
   /** Verbatim from the resume, or empty when there is nothing to quote. */
   evidence: z.string(),
   note: z.string(),
+  // Optional: analyses stored before M8-B do not have them.
+  /** Verbatim from the posting, checked in code. */
+  sourceQuote: z.string().optional(),
+  section: lowerEnum(POSTING_SECTIONS).optional(),
+  /** False when no CV could show it; absent reads as true. */
+  assessable: z.boolean().optional(),
 });
 
 export type Requirement = z.infer<typeof requirementSchema>;
+
+/** The model's form of a requirement, every field required; requirementGuardrails.ts turns it into a `Requirement`. */
+export const modelRequirementSchema = z.object({
+  sourceQuote: z.string(),
+  heading: z.string(),
+  section: lowerEnum(POSTING_SECTIONS),
+  demandsCapability: z.boolean(),
+  requirement: z.string(),
+  kind: lowerEnum(REQUIREMENT_KINDS),
+  softenedClause: z.object({
+    quote: z.string(),
+    status: lowerEnum(REQUIREMENT_STATUSES),
+    evidence: z.string(),
+    note: z.string(),
+  }),
+  assessable: z.boolean(),
+  status: lowerEnum(REQUIREMENT_STATUSES),
+  evidence: z.string(),
+  note: z.string(),
+});
+
+export type ModelRequirement = z.infer<typeof modelRequirementSchema>;
 
 /** A measured outcome the resume already states, and the line it comes from. */
 const quantifiedAchievementSchema = z.object({
@@ -212,6 +245,15 @@ export const resumeFeedbackSchema = z.object({
 
 export type ResumeAnalysisFeedback = z.infer<typeof resumeFeedbackSchema>;
 
+/** The model's answer: the stored shape with each requirement in its model form. */
+export const analysisResponseSchema = resumeFeedbackSchema.extend({
+  jobFit: resumeFeedbackSchema.shape.jobFit.extend({
+    requirements: z.array(modelRequirementSchema),
+  }),
+});
+
+export type AnalysisResponse = z.infer<typeof analysisResponseSchema>;
+
 /** Requirements of one kind, in the order the model listed them. */
 export function requirementsOfKind(
   feedback: ResumeAnalysisFeedback,
@@ -229,10 +271,13 @@ export function requirementsOfKind(
 export function requirementTally(feedback: ResumeAnalysisFeedback) {
   const count = (kind: RequirementKind) => {
     const all = requirementsOfKind(feedback, kind);
+    // What a CV cannot show is reported beside the counts, never inside them.
+    const judged = all.filter((requirement) => requirement.status !== "not_evident");
     return {
-      total: all.length,
-      met: all.filter((requirement) => requirement.status === "met").length,
-      partial: all.filter((requirement) => requirement.status === "partial").length,
+      total: judged.length,
+      met: judged.filter((requirement) => requirement.status === "met").length,
+      partial: judged.filter((requirement) => requirement.status === "partial").length,
+      notShown: all.length - judged.length,
     };
   };
 
@@ -277,6 +322,8 @@ export type FitVerdict = {
  * Partial counts as half a preferred item and as not-met for a required one,
  * which is why one partial required is tolerated and two are not.
  *
+ * A `not_evident` requirement is in neither count: a CV cannot show it.
+ *
  * Derived on read, never stored: a stored copy could drift from the breakdown
  * it describes, and this cannot. Given a correct breakdown it is correct by
  * construction, which moves the measurement to the eleven assertions that
@@ -290,7 +337,7 @@ export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
   // read it as "nothing unmet, nothing to differentiate on" and return the
   // best one. A posting that yielded no requirements is an extraction failure,
   // and it must not surface as a confident pass.
-  if (required.total === 0) return { tone: "weak", tally };
+  if (required.total + required.notShown === 0) return { tone: "weak", tally };
 
   const barCleared =
     required.total - required.met - required.partial === 0 && required.partial <= 1;
@@ -308,6 +355,7 @@ export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
 export function describeTally(tally: RequirementTally): string {
   const part = (label: string, count: RequirementTally["required"]) =>
     `${count.met} of ${count.total} ${label}${count.partial ? ` (+${count.partial} partial)` : ""}`;
+  const notShown = tally.required.notShown + tally.preferred.notShown;
 
-  return `${part("required", tally.required)}, ${part("preferred", tally.preferred)}`;
+  return `${part("required", tally.required)}, ${part("preferred", tally.preferred)}${notShown ? `, ${notShown} not shown in your CV` : ""}`;
 }

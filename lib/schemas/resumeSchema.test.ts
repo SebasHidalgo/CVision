@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  analysisResponseSchema,
   deriveFitVerdict,
   describeTally,
   requirementTally,
@@ -184,6 +185,8 @@ describe("resumeFeedbackSchema: requirements", () => {
     ["Met", "met"],
     ["PARTIAL", "partial"],
     [" missing ", "missing"],
+    ["Not evident", "not_evident"],
+    ["not-evident", "not_evident"],
   ])("accepts %j as status and normalizes it to %j", (sent, expected) => {
     const parsed = withRequirements([requirement({ status: sent })]);
 
@@ -206,6 +209,40 @@ describe("resumeFeedbackSchema: requirements", () => {
     ]);
 
     expect(parsed.success).toBe(true);
+  });
+
+  // M8-B: rows stored before the fields existed still read, and the new ones keep them.
+  it("reads a stored requirement with or without sourceQuote, section and assessable", () => {
+    const parsed = withRequirements([
+      requirement(),
+      requirement({ sourceQuote: "Experience with PostgreSQL.", section: "Requirements", assessable: false }),
+    ]);
+
+    expect(parsed.success && parsed.data.jobFit.requirements).toEqual([
+      expect.not.objectContaining({ sourceQuote: expect.anything() }),
+      expect.objectContaining({ sourceQuote: "Experience with PostgreSQL.", section: "requirements", assessable: false }),
+    ]);
+  });
+
+  it("requires the model to fill every requirement field, the softened clause included", () => {
+    const answer = (entry: Record<string, unknown>) => {
+      const input = validFeedback();
+      return analysisResponseSchema.safeParse({ ...input, jobFit: { ...input.jobFit, requirements: [entry] } });
+    };
+    const full = {
+      ...requirement(),
+      sourceQuote: "Experience with PostgreSQL.",
+      heading: "Requirements",
+      section: "requirements",
+      demandsCapability: true,
+      softenedClause: { quote: "", status: "missing", evidence: "", note: "" },
+      assessable: true,
+    };
+
+    expect(answer(full).success).toBe(true);
+    expect(answer(requirement()).success).toBe(false);
+    const { softenedClause: _dropped, ...withoutClause } = full;
+    expect(answer(withoutClause).success).toBe(false);
   });
 });
 
@@ -234,15 +271,32 @@ describe("requirementTally", () => {
     );
 
     expect(tally).toEqual({
-      required: { total: 3, met: 2, partial: 1 },
-      preferred: { total: 2, met: 1, partial: 0 },
+      required: { total: 3, met: 2, partial: 1, notShown: 0 },
+      preferred: { total: 2, met: 1, partial: 0, notShown: 0 },
     });
+  });
+
+  it("keeps what a CV cannot show out of the counts and reports it beside them", () => {
+    const tally = requirementTally(
+      feedbackWith([
+        ["required", "met"],
+        ["required", "not_evident"],
+        ["preferred", "not_evident"],
+        ["preferred", "missing"],
+      ]),
+    );
+
+    expect(tally).toEqual({
+      required: { total: 1, met: 1, partial: 0, notShown: 1 },
+      preferred: { total: 1, met: 0, partial: 0, notShown: 1 },
+    });
+    expect(describeTally(tally)).toBe("1 of 1 required, 0 of 1 preferred, 2 not shown in your CV");
   });
 
   it("reports zeroes rather than throwing when nothing was extracted", () => {
     expect(requirementTally(feedbackWith([]))).toEqual({
-      required: { total: 0, met: 0, partial: 0 },
-      preferred: { total: 0, met: 0, partial: 0 },
+      required: { total: 0, met: 0, partial: 0, notShown: 0 },
+      preferred: { total: 0, met: 0, partial: 0, notShown: 0 },
     });
   });
 });
@@ -369,6 +423,22 @@ describe("deriveFitVerdict", () => {
     });
   });
 
+  describe("what a CV cannot show", () => {
+    it("neither fails the bar nor counts as a differentiator", () => {
+      expect(verdict([...required(3), ...required(2, "not_evident"), ...preferred(2)])).toBe("strong");
+      expect(verdict([...required(3), ...preferred(1), ...preferred(3, "not_evident")])).toBe("fair");
+    });
+
+    it("does not hide a missing required one", () => {
+      expect(verdict([...required(2), ...required(1, "not_evident"), ...required(1, "missing")])).toBe("weak");
+    });
+
+    it("clears the bar when every required one is not shown, rather than reading as an empty extraction", () => {
+      expect(verdict([...required(2, "not_evident"), ...preferred(2)])).toBe("strong");
+      expect(verdict(required(2, "not_evident"))).toBe("fair");
+    });
+  });
+
   describe("the bar is cleared", () => {
     it("is fair on one preferred one met, however many were asked for", () => {
       // The case the model would not produce: 6 of 6 required, 1 of 6 preferred.
@@ -427,8 +497,8 @@ describe("deriveFitVerdict", () => {
     );
 
     expect(fit.tally).toEqual({
-      required: { total: 2, met: 2, partial: 0 },
-      preferred: { total: 4, met: 2, partial: 0 },
+      required: { total: 2, met: 2, partial: 0, notShown: 0 },
+      preferred: { total: 4, met: 2, partial: 0, notShown: 0 },
     });
     expect(describeTally(fit.tally)).toBe("2 of 2 required, 2 of 4 preferred");
   });

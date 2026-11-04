@@ -182,9 +182,38 @@ const AIResponseFormat = `
     // requirements, leading with the required ones.
     description: string;
 
-    // One entry per requirement in the posting. Cover every required
-    // qualification; include the preferred ones that matter.
+    // One entry per requirement in the posting: every required and every
+    // preferred qualification, met or not.
     requirements: {
+      // The sentence or bullet of the job description this requirement comes
+      // from, copied word for word from the job description, never from the
+      // resume: one continuous span, the shortest that holds the requirement.
+      // An entry whose sourceQuote is not in the job description is discarded.
+      sourceQuote: string;
+
+      // The heading of the part of the posting sourceQuote sits under, copied
+      // word for word ("What you will do", "Requirements", "Nice to have"),
+      // or "" when that part has no heading.
+      heading: string;
+
+      // What that part of the posting is, read from its heading, or from the
+      // sentence itself when there is none: "requirements" (required,
+      // minimum or must-have qualifications, or a demand on the candidate in
+      // prose), "preferred" (nice to have, bonus, a plus), "responsibilities"
+      // (what the hire will do: "What you will do", "Responsibilities", "Your
+      // role", "Lo que harás"), "description" (the company, team, product,
+      // tech stack, benefits or hiring process), "other" (anything else, such
+      // as an eligibility paragraph). A bullet under a responsibilities
+      // heading is "responsibilities" whatever tools it names.
+      section: "requirements" | "preferred" | "responsibilities" | "description" | "other";
+
+      // true only when the sentence says the candidate must already have
+      // this ("so you have operated Kubernetes in production", "you write Go
+      // every week"); false when it describes work the hire will do, even
+      // work that names a tool ("Build dashboards in Power BI", "Write SQL to
+      // answer business questions"), or what the team uses.
+      demandsCapability: boolean;
+
       // The requirement in one line, as the posting puts it. When the posting
       // offers alternatives, they belong INSIDE this one entry: "coding in C,
       // C++, C#, Java, JavaScript, GO or Python" is ONE requirement, never one
@@ -196,14 +225,40 @@ const AIResponseFormat = `
       // plus, a bonus or nice to have. Use the posting's own framing.
       kind: "required" | "preferred";
 
+      // The part of a required bullet that the posting softens - "ideally in
+      // e-commerce", "preferably Power BI", "another European language is a
+      // plus", "preferiblemente", "deseable", "valorable" - copied word for
+      // word from the job description into quote. Judge that part here as a
+      // preferred requirement of its own, with status, evidence and note as
+      // below, and judge this entry without it. Examples ("such as BigQuery
+      // or Snowflake", "e.g. Jira") and alternatives ("or Looker") are not
+      // softened. When the entry has no softened part: quote "", status
+      // "missing", evidence "", note "".
+      softenedClause: {
+        quote: string;
+        status: "met" | "partial" | "missing" | "not_evident";
+        evidence: string;
+        note: string;
+      };
+
+      // false when no resume could show this, only state it: an attitude
+      // ("comfortable saying no"), a trait judged by its manner ("writes
+      // crisply"), availability or willingness, or a hiring condition (work
+      // authorization, a background check, a security screening). true for
+      // experience, skills, tools, domains, degrees, languages, certifications.
+      assessable: boolean;
+
       // "met" when the resume satisfies it - for a list of alternatives, one
       // of them is enough. "partial" when the resume shows something adjacent
       // but not the thing asked for. "missing" when the resume shows nothing
-      // for it.
-      status: "met" | "partial" | "missing";
+      // for it. "not_evident" when assessable is false and the resume does
+      // not state it.
+      status: "met" | "partial" | "missing" | "not_evident";
 
       // The text from the resume that decides the status, copied word for
-      // word. Empty string when the status is "missing".
+      // word: one line, never lines joined (for years of experience, the line
+      // of the most relevant role). Empty string when the status is
+      // "missing" or "not_evident".
       evidence: string;
 
       // One sentence on why that status. For a list of alternatives, name the
@@ -297,8 +352,10 @@ jobFit.requirements is the only place a gap may appear in this analysis.
 RULE 5 - Quoted fields hold text copied out of the resume and nothing else.
 This covers atsCompatibility.evidence, atsCompatibility.encodingArtifacts,
 atsCompatibility.sectionsDetected, the evidence of every entry in
-skills.matchedSkills and jobFit.requirements, and the quote of every entry in
-experienceAndImpact.quantifiedAchievements.
+skills.matchedSkills and jobFit.requirements (its softenedClause included),
+and the quote of every entry in experienceAndImpact.quantifiedAchievements.
+The sourceQuote and softenedClause.quote of jobFit.requirements follow the
+same rules, copied out of the job description instead.
 - Copy one continuous span of the resume character for character: same words,
   same order, same case, same punctuation, same spelling. Prefer the shortest
   span that makes the point, usually a single line.

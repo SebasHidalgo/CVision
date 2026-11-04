@@ -217,6 +217,46 @@ describe("truncation at the limit", () => {
     expect(result).toBeUndefined(); // the stub's empty answer fails the schema
   });
 
+  it("applies the requirement rules on the way out and counts them in the guard report", async () => {
+    const clause = { quote: "", status: "missing", evidence: "", note: "" };
+    const entry = (over: Record<string, unknown>) => ({
+      sourceQuote: "Build the checkout in React and TypeScript.",
+      heading: "",
+      section: "requirements",
+      demandsCapability: true,
+      requirement: "React and TypeScript",
+      kind: "required",
+      softenedClause: clause,
+      assessable: true,
+      status: "met",
+      evidence: "React, TypeScript",
+      note: "",
+      ...over,
+    });
+    installFakeProvider(() =>
+      reply.json({
+        ...VALID_FEEDBACK,
+        jobFit: {
+          ...VALID_FEEDBACK.jobFit,
+          requirements: [
+            entry({ softenedClause: { quote: "Accessibility is a plus.", status: "missing", evidence: "", note: "" } }),
+            entry({ sourceQuote: "Five years of Go.", requirement: "Go" }),
+            entry({ sourceQuote: "Testing matters.", requirement: "Testing", status: "met", evidence: "Wrote tests every day" }),
+          ],
+        },
+      }),
+    );
+
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: `${JOB_DESCRIPTION} Accessibility is a plus.`, resumeText: SHORT_CV });
+
+    expect(feedback.jobFit.requirements.map((one) => [one.requirement, one.kind, one.status])).toEqual([
+      ["React and TypeScript", "required", "met"],
+      ["Accessibility is a plus", "preferred", "missing"],
+      ["Testing", "required", "missing"],
+    ]);
+    expect(guard.counts).toMatchObject({ "requirement-dropped": 1, "requirement-split": 1, "quote-dropped": 1, "status-downgraded": 1 });
+  });
+
   it("reports what the model read on a successful analysis", async () => {
     installFakeProvider(() => reply.json(VALID_FEEDBACK));
 

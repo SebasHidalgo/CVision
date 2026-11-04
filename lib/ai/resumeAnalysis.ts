@@ -4,13 +4,15 @@ import {
   describeCounts,
   emptyGuardReport,
   guardAnalysis,
+  withInterventions,
   type GuardReport,
 } from "@/lib/ai/analysisGuardrails";
 import { loosen, normalizeWhitespace } from "@/lib/ai/analysisChecks";
 import { generateJson } from "@/lib/ai/client";
 import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { enforceRequirementStatuses, structureRequirements } from "@/lib/ai/requirementGuardrails";
 import {
-  resumeFeedbackSchema,
+  analysisResponseSchema,
   type Requirement,
   type RequirementKind,
   type ResumeAnalysisFeedback,
@@ -53,6 +55,8 @@ export type AnalyzeResumeInput = {
    * a separate call. The model then only decides status, evidence and note.
    */
   fixedRequirements?: FixedRequirement[];
+  /** scripts/eval only: the date the prompt states, so the canary can replay its reference's day. */
+  now?: Date;
 };
 
 /** What stands in for the CV text when only the PDF is attached. */
@@ -115,6 +119,7 @@ export async function analyzeResume({
   pdf,
   inputMode = pdf ? "pdf" : "text",
   fixedRequirements,
+  now = new Date(),
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
   const { text, ...sent } = truncateResumeText(resumeText);
   if (inputMode !== "text" && !pdf) throw new Error(`inputMode ${inputMode} needs the PDF bytes`);
@@ -131,13 +136,13 @@ export async function analyzeResume({
       jobTitle,
       jobDescription,
       resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
-      // Resolved here, per call: the model has to judge end dates against the
-      // day of the request, not the day of the last deploy.
-      now: new Date(),
+      // Resolved per call (the default above): the model has to judge end
+      // dates against the day of the request, not the day of the last deploy.
+      now,
       pdfAttached: inputMode === "pdf+text",
       fixedRequirements,
     }),
-    schema: resumeFeedbackSchema,
+    schema: analysisResponseSchema,
     timeoutMs,
     ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
   });
@@ -149,11 +154,20 @@ export async function analyzeResume({
     alignment = aligned.alignment;
   }
 
+  // Posting quote, section and softened clause, against the posting the model read.
+  const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
+  const shaped: ResumeAnalysisFeedback = { ...answer, jobFit: { ...answer.jobFit, requirements: structured.requirements } };
+
   // After the schema, before anything persists it. The checks run against the
   // CV text, which is what the model was given in production and what an ATS
   // extracts; in the PDF experiments it is the text layer the quotes must
   // still come from. Only an absent text leaves the quotes unchecked.
-  const { feedback, guard } = text.trim() ? guardAnalysis(text, answer) : { feedback: answer, guard: emptyGuardReport() };
+  const guarded = text.trim() ? guardAnalysis(text, shaped) : { feedback: shaped, guard: emptyGuardReport() };
+
+  // Statuses last: a CV quote the guardrail dropped is no evidence.
+  const statuses = enforceRequirementStatuses(guarded.feedback.jobFit.requirements);
+  const feedback: ResumeAnalysisFeedback = { ...guarded.feedback, jobFit: { ...guarded.feedback.jobFit, requirements: statuses.requirements } };
+  const guard = withInterventions(guarded.guard, [...structured.interventions, ...statuses.interventions]);
 
   const note = describeCounts(guard.counts);
   if (note) {
@@ -170,10 +184,10 @@ export async function analyzeResume({
  * the fixed text and kind written back; otherwise by text, keeping only the
  * fixed requirements the model answered. Pure; tested.
  */
-export function alignFixedRequirements(
+export function alignFixedRequirements<T extends Requirement>(
   fixed: FixedRequirement[],
-  model: Requirement[],
-): { requirements: Requirement[]; alignment: RequirementAlignment } {
+  model: T[],
+): { requirements: T[]; alignment: RequirementAlignment } {
   if (fixed.length === model.length) {
     return {
       requirements: model.map((entry, i) => ({ ...entry, requirement: fixed[i].requirement, kind: fixed[i].kind })),
@@ -183,7 +197,7 @@ export function alignFixedRequirements(
 
   const key = (text: string) => loosen(normalizeWhitespace(text));
   const used = new Set<number>();
-  const requirements: Requirement[] = [];
+  const requirements: T[] = [];
   let unmatched = 0;
   for (const want of fixed) {
     const target = key(want.requirement);

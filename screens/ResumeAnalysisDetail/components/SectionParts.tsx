@@ -271,7 +271,11 @@ const STATUS_MARK: Record<RequirementStatus, { icon: Mark; label: string }> = {
   met: { icon: "strong", label: "Met" },
   partial: { icon: "neutral", label: "Partly met" },
   missing: { icon: "signal", label: "Not met" },
+  not_evident: { icon: "neutral", label: "Not shown in your CV" },
 };
+
+export const NOT_SHOWN_ADVICE =
+  "Mention it in your cover letter or be ready to talk about it in the interview.";
 
 /**
  * The headline of the analysis: one row per requirement in the posting. A
@@ -283,6 +287,7 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
     { kind: "required" as const, title: "Required qualifications", count: tally.required },
     { kind: "preferred" as const, title: "Preferred qualifications", count: tally.preferred },
   ];
+  const notShown = requirements.filter((requirement) => requirement.status === "not_evident");
 
   if (requirements.length === 0) {
     return (
@@ -296,7 +301,7 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
     <div className="space-y-10">
       {groups.map(({ kind, title, count }) => {
         const rows = requirements.filter(
-          (requirement) => requirement.kind === kind,
+          (requirement) => requirement.kind === kind && requirement.status !== "not_evident",
         );
         if (rows.length === 0) return null;
 
@@ -311,38 +316,56 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
             </div>
 
             <ul className="mt-4 divide-y divide-line border-y border-line">
-              {rows.map((requirement, i) => {
-                const mark = STATUS_MARK[requirement.status];
-
-                return (
-                  <li key={i} className="py-4">
-                    <div className="flex gap-3">
-                      <Marker mark={mark.icon} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[15px] leading-relaxed text-ink">
-                          {requirement.requirement}
-                        </p>
-                        <p className="eyebrow mt-1.5 text-ink-3">{mark.label}</p>
-                        {requirement.note && (
-                          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                            {requirement.note}
-                          </p>
-                        )}
-                        {requirement.evidence && (
-                          <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
-                            {requirement.evidence}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {rows.map((requirement, i) => (
+                <RequirementRow
+                  key={i}
+                  requirement={requirement}
+                  label={STATUS_MARK[requirement.status].label}
+                />
+              ))}
             </ul>
           </div>
         );
       })}
+
+      {notShown.length > 0 && (
+        <div>
+          <h3 className="eyebrow">Not shown in your CV</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-2">{NOT_SHOWN_ADVICE}</p>
+          <ul className="mt-4 divide-y divide-line border-y border-line">
+            {notShown.map((requirement, i) => (
+              <RequirementRow
+                key={i}
+                requirement={requirement}
+                label={requirement.kind === "required" ? "Required" : "Preferred"}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  );
+}
+
+function RequirementRow({ requirement, label }: { requirement: Requirement; label: string }) {
+  return (
+    <li className="py-4">
+      <div className="flex gap-3">
+        <Marker mark={STATUS_MARK[requirement.status].icon} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
+          <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
+          {requirement.note && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
+          )}
+          {requirement.evidence && (
+            <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
+              {requirement.evidence}
+            </p>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
 
