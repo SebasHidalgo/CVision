@@ -91,7 +91,9 @@ Status rules, after the CV quotes are checked:
 
 Every rule that fires is an intervention in `guardStats` (check, action,
 path, the text it acted on) and a count in `GuardStatDaily`; `npm run
-report:guards` reads the counts.
+report:guards` reads the counts. The posting rules' paths index the
+model's own list (a dropped entry has no place in the stored one); the
+quote and status rules' paths index the stored list.
 
 ## The four statuses and the verdict
 
@@ -142,3 +144,5 @@ splits, merges), kind and status accuracy (with met/missing swaps, false
 their `sourceQuote` instead of their text. A drop in recall or precision,
 or a false "met", is a regression. After an intended change of the output,
 capture a new seed-7 reference and point `npm run eval -- canary` at it.
+The prompt states today's date, so the canary replays its reference's
+date; a difference then means the model behind the alias moved.
