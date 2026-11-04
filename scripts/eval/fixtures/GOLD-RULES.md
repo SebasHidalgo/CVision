@@ -113,6 +113,20 @@ report counts separately.
     `met` and `not_evident` are defensible for this CV, `status` holds one
     and `statusAlso` the other.
 
+14. **Years are counted the way the analysis counts them (M8-C).** The
+    posting's minimum is the lower bound of what it states ("5+", "3-5",
+    "at least 3", "al menos 4", "two or more"). The CV's years are what it
+    states in words ("2+ years of experience", "cuatro años") when it
+    states them; otherwise the sum of the dated roles that are relevant to
+    the requirement, overlapping months counted once. The status follows:
+    `met` at or above the minimum, `partial` from 75% of it, `missing`
+    below. A CV with nothing relevant has 0.
+15. **An alternative no CV can show makes the item `assessable: false`
+    (rule 13) and is marked `"unshowableAlternative": true`** ("or
+    willingness to learn and work with it", "or a clear appetite to learn
+    it fast", "o disposición para aprenderlo"). An equivalence ("or
+    equivalent practical experience") is not one: a CV shows experience.
+
 ## How the file is written
 
 ```json
@@ -162,6 +176,17 @@ report counts separately.
 - `assessable`: `false` for the items of rule 13; absent means `true`.
 - `contested`, `hidden`, `splitAllowed`, `alsoAcceptedAs`: see the rules
   above.
+- `keyTerms` (M8-C): optional, `{ "mode": "all" | "any", "terms": [{
+  "term", "present" }] }`, the technologies, tools, domains,
+  certifications or languages the item names and whether this CV shows
+  each. Scored against the analysis' own key terms: named, and judged
+  present or absent correctly. Annotated where a term decides the status.
+- `years` (M8-C): `{ "min", "cv" }` for an item that asks for a number of
+  years, counted under rule 14.
+- `preferredEvidence` (M8-C): optional, the start of the CV line a careful
+  reader quotes for it: an experience or project bullet over the skills
+  list.
+- `unshowableAlternative` (M8-C): rule 15.
 - `notRequirements`: optional, the spans a model is most likely to
   over-extract (benefits, responsibilities that name tools, boilerplate),
   each with its reason. The matcher uses them to classify an unmatched

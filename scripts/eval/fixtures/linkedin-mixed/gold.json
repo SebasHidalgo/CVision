@@ -9,7 +9,8 @@
       "spans": ["5+ years building data pipelines in production."],
       "aliases": ["years building data pipelines", "data pipeline experience"],
       "status": "met",
-      "why": "Six years, three data engineering roles."
+      "why": "Six years, three data engineering roles.",
+      "years": { "min": 5, "cv": 6 }
     },
     {
       "id": "r2",
@@ -46,7 +47,8 @@
       "spans": ["Hands-on experience with a cloud data warehouse (BigQuery, Snowflake or Redshift)."],
       "aliases": ["cloud data warehouse", "data warehouse"],
       "status": "missing",
-      "why": "ClickHouse, PostgreSQL and Parquet on S3; none of the three warehouses and no cloud warehouse."
+      "why": "ClickHouse, PostgreSQL and Parquet on S3; none of the three warehouses and no cloud warehouse.",
+      "keyTerms": { "mode": "any", "terms": [{ "term": "BigQuery", "present": false }, { "term": "Snowflake", "present": false }, { "term": "Redshift", "present": false }] }
     },
     {
       "id": "r6",
@@ -75,7 +77,8 @@
       "spans": ["dbt and data contracts."],
       "aliases": ["dbt", "data contracts"],
       "status": "partial",
-      "why": "Rule 9: both are asked for. Data contracts yes, dbt nowhere in the CV."
+      "why": "Rule 9: both are asked for. Data contracts yes, dbt nowhere in the CV.",
+      "keyTerms": { "mode": "all", "terms": [{ "term": "dbt", "present": false }, { "term": "data contracts", "present": true }] }
     },
     {
       "id": "p3",

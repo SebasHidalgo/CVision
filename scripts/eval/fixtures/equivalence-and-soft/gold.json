@@ -11,7 +11,8 @@
       "alsoAcceptedAs": ["4+ years of product management", "at least 2 of them in payments or fintech"],
       "aliases": ["years of product management", "payments experience"],
       "status": "met",
-      "why": "Five years as PM or associate PM, three on payouts at a payments company."
+      "why": "Five years as PM or associate PM, three on payouts at a payments company.",
+      "years": { "min": 4, "cv": 5 }
     },
     {
       "id": "r2",

@@ -9,7 +9,8 @@
       "spans": ["5+ years of marketing experience in consumer packaged goods, retail or a consumer brand."],
       "aliases": ["years of marketing experience", "CPG"],
       "status": "met",
-      "why": "Seven years at consumer brands (home goods, outfitters, coffee)."
+      "why": "Seven years at consumer brands (home goods, outfitters, coffee).",
+      "years": { "min": 5, "cv": 7 }
     },
     {
       "id": "r2",

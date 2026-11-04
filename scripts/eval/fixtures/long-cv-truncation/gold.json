@@ -9,7 +9,8 @@
       "spans": ["10+ years of backend engineering, with at least 3 at a senior or staff level."],
       "aliases": ["years of backend engineering", "senior or staff level"],
       "status": "met",
-      "why": "Sixteen years, principal and staff roles."
+      "why": "Sixteen years, principal and staff roles.",
+      "years": { "min": 10, "cv": 16 }
     },
     {
       "id": "r2",

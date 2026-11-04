@@ -9,7 +9,8 @@
       "spans": ["Al menos 4 años de experiencia como analista de datos o de negocio."],
       "aliases": ["años de experiencia como analista", "4 years as an analyst", "years of analyst experience"],
       "status": "met",
-      "why": "Analyst roles since 2020; the profile says cuatro años."
+      "why": "Analyst roles since 2020; the profile says cuatro años.",
+      "years": { "min": 4, "cv": 4 }
     },
     {
       "id": "r2",
@@ -30,6 +31,18 @@
       "aliases": ["Python", "pandas", "R"],
       "status": "met",
       "why": "Python (pandas) in the current role and in skills."
+    },
+    {
+      "id": "r9",
+      "kind": "required",
+      "name": "Airflow, o disposición para aprenderlo",
+      "spans": ["Conocimientos de Airflow o disposición para aprenderlo."],
+      "aliases": ["Airflow"],
+      "status": "not_evident",
+      "assessable": false,
+      "keyTerms": { "mode": "any", "terms": [{ "term": "Airflow", "present": false }] },
+      "why": "M8-C: a required bullet whose alternative no CV can show (rule 13). The CV has no Airflow, so not_evident, never missing.",
+      "unshowableAlternative": true
     },
     {
       "id": "r4",

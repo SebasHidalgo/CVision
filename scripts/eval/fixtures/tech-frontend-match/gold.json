@@ -9,7 +9,8 @@
       "spans": ["3+ years of professional experience with React and TypeScript."],
       "aliases": ["React and TypeScript experience", "years of React"],
       "status": "met",
-      "why": "Five years of React and TypeScript."
+      "why": "Five years of React and TypeScript.",
+      "years": { "min": 3, "cv": 5 }
     },
     {
       "id": "r2",

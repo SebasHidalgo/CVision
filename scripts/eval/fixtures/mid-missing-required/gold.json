@@ -9,19 +9,18 @@
       "spans": ["5+ years of professional backend engineering experience."],
       "aliases": ["years of backend engineering"],
       "status": "met",
-      "why": "Eight years on JVM services."
+      "why": "Eight years on JVM services.",
+      "years": { "min": 5, "cv": 8 }
     },
     {
       "id": "r2",
       "kind": "required",
       "name": "3+ years writing production Python",
-      "spans": [
-        "3+ years writing production Python. This is the language the whole platform is written in, and the team does not have the capacity to support a different runtime.",
-        "We are unable to consider candidates without commercial Python experience for this particular role, as the team is small and everything in production is Python."
-      ],
+      "spans": ["3+ years writing production Python. This is the language the whole platform is written in, and the team does not have the capacity to support a different runtime.", "We are unable to consider candidates without commercial Python experience for this particular role, as the team is small and everything in production is Python."],
       "aliases": ["Python", "production Python", "commercial Python"],
       "status": "missing",
-      "why": "Rule 10: the closing paragraph restates the Python item. The CV has Java, Kotlin, SQL and Bash and no Python."
+      "why": "Rule 10: the closing paragraph restates the Python item. The CV has Java, Kotlin, SQL and Bash and no Python.",
+      "years": { "min": 3, "cv": 0 }
     },
     {
       "id": "r3",

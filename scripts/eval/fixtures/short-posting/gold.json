@@ -9,7 +9,8 @@
       "spans": ["1+ years testing web apps"],
       "aliases": ["years testing", "web app testing experience", "QA experience"],
       "status": "met",
-      "why": "Two years at Fieldnote Software."
+      "why": "Two years at Fieldnote Software.",
+      "years": { "min": 1, "cv": 2 }
     },
     {
       "id": "r2",

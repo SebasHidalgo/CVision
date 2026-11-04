@@ -29,7 +29,8 @@
       "spans": ["5+ years in infrastructure, platform or SRE roles."],
       "aliases": ["years in infrastructure", "SRE experience"],
       "status": "met",
-      "why": "Six years across platform and SRE roles."
+      "why": "Six years across platform and SRE roles.",
+      "years": { "min": 5, "cv": 6 }
     },
     {
       "id": "r4",

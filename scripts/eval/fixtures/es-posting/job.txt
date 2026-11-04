@@ -14,6 +14,7 @@ Requisitos
 - Al menos 4 años de experiencia como analista de datos o de negocio.
 - Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).
 - Python para análisis (pandas) o R.
+- Conocimientos de Airflow o disposición para aprenderlo.
 - Experiencia con una herramienta de BI, preferiblemente Power BI o Looker.
 - Base sólida de estadística y diseño de experimentos.
 - Español nativo o C2 e inglés profesional.

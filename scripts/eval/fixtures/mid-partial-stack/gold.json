@@ -9,7 +9,8 @@
       "spans": ["4+ years building web applications professionally."],
       "aliases": ["years building web applications", "web development experience"],
       "status": "met",
-      "why": "Six years."
+      "why": "Six years.",
+      "years": { "min": 4, "cv": 6 }
     },
     {
       "id": "r2",
@@ -37,7 +38,8 @@
       "aliases": ["GraphQL"],
       "assessable": false,
       "status": "not_evident",
-      "why": "Rules 6 and 13: the appetite clause is a second way to satisfy one required item, and a CV cannot show appetite. The CV has no GraphQL, so the item is not shown, not missing."
+      "why": "Rules 6 and 13: the appetite clause is a second way to satisfy one required item, and a CV cannot show appetite. The CV has no GraphQL, so the item is not shown, not missing.",
+      "unshowableAlternative": true
     },
     {
       "id": "r5",

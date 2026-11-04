@@ -9,7 +9,8 @@
       "spans": ["3+ years of professional backend development experience."],
       "aliases": ["years of backend development"],
       "status": "met",
-      "why": "Five years across two backend roles."
+      "why": "Five years across two backend roles.",
+      "years": { "min": 3, "cv": 5 }
     },
     {
       "id": "r2",

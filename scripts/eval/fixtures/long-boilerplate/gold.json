@@ -9,7 +9,8 @@
       "spans": ["has led a support team of at least five people for two or more years"],
       "aliases": ["team lead experience", "led a support team", "years leading a team"],
       "status": "met",
-      "why": "Three years leading eight agents."
+      "why": "Three years leading eight agents.",
+      "years": { "min": 2, "cv": 3 }
     },
     {
       "id": "r2",
@@ -61,7 +62,8 @@
       "spans": ["A background in telecommunications would help but is not essential;"],
       "aliases": ["telecommunications", "telecom"],
       "status": "missing",
-      "why": "Utility and retail only."
+      "why": "Utility and retail only.",
+      "keyTerms": { "mode": "all", "terms": [{ "term": "telecommunications", "present": false }] }
     }
   ],
   "notRequirements": [

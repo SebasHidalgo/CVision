@@ -9,7 +9,8 @@
       "spans": ["6+ years of professional backend software development."],
       "aliases": ["years of backend development"],
       "status": "missing",
-      "why": "A pastry chef; no software experience at all."
+      "why": "A pastry chef; no software experience at all.",
+      "years": { "min": 6, "cv": 0 }
     },
     {
       "id": "r2",

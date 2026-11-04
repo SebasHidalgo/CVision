@@ -34,6 +34,14 @@ export type GoldRequirement = {
   hidden?: boolean;
   splitAllowed?: boolean;
   alsoAcceptedAs?: string[];
+  /** M8-C: the terms the requirement names and whether this CV shows each. */
+  keyTerms?: { mode: "all" | "any"; terms: { term: string; present: boolean }[] };
+  /** M8-C: the posting's minimum years and the CV's, as a careful reader counts them. */
+  years?: { min: number; cv: number };
+  /** M8-C: a CV line the evidence should come from (an experience bullet over the skills list). */
+  preferredEvidence?: string;
+  /** M8-C: the requirement offers an alternative no CV can show ("or willingness to learn"). */
+  unshowableAlternative?: boolean;
 };
 
 export type GoldFile = {
@@ -66,6 +74,10 @@ export type ExtractedItem = {
   assessable?: boolean;
   /** The arm's verbatim source quote, when it produces one. */
   source?: string;
+  evidence?: string;
+  keyTerms?: { mode: string; terms: { term: string; cvMatch: string }[] };
+  years?: { min: number; candidate: number; source: string };
+  evidenceSource?: string;
 };
 
 export type Matcher = "span" | "name";
@@ -92,6 +104,12 @@ export type GoldVerdict = {
   assessableGot: boolean | null;
   contested: boolean;
   hidden: boolean;
+  /** Gold terms, how many the item named, and how many of those it judged present or absent correctly. */
+  terms: { gold: number; named: number; presenceCorrect: number; wrong: string[] };
+  years: { gold: { min: number; cv: number } | null; got: { min: number; candidate: number; source: string } | null };
+  /** For a gold item with a preferred evidence line that the item calls met or partial: whether it quoted that line. */
+  preferredEvidenceHit: boolean | null;
+  alternativeGold: boolean;
 };
 
 export type Metrics = {
@@ -121,6 +139,15 @@ export type Metrics = {
   assessableCorrect: number;
   bySpan: number;
   byName: number;
+  termsTotal: number;
+  termsNamed: number;
+  termsPresenceCorrect: number;
+  yearsTotal: number;
+  yearsDetermined: number;
+  yearsMinCorrect: number;
+  yearsCandidateClose: number;
+  preferredEvidenceTotal: number;
+  preferredEvidenceHit: number;
 };
 
 export type Scored = { metrics: Metrics; items: ItemVerdict[]; gold: GoldVerdict[] };
@@ -376,6 +403,18 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
     const accepted: string[] = statusGold ? [statusGold, ...(requirement.statusAlso ?? [])] : [];
     const statusCorrect = statusGold && statusGot ? accepted.includes(statusGot) : null;
     const assessableGold = requirement.assessable !== false;
+    const terms = { gold: requirement.keyTerms?.terms.length ?? 0, named: 0, presenceCorrect: 0, wrong: [] as string[] };
+    for (const want of requirement.keyTerms?.terms ?? []) {
+      const named = item?.keyTerms?.terms.find((got) => sameTerm(got.term, want.term));
+      if (!named) continue;
+      terms.named += 1;
+      if (Boolean(named.cvMatch.trim()) === want.present) terms.presenceCorrect += 1;
+      else terms.wrong.push(`${want.term} ${named.cvMatch.trim() ? `✓(${named.cvMatch})` : "✗"}`);
+    }
+    const preferredEvidenceHit =
+      requirement.preferredEvidence && item && (item.status === "met" || item.status === "partial")
+        ? normalize(item.evidence ?? "").includes(normalize(requirement.preferredEvidence))
+        : null;
     return {
       id: requirement.id,
       found: hits.length > 0,
@@ -391,6 +430,10 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
       assessableGot: typeof item?.assessable === "boolean" ? item.assessable : null,
       contested: requirement.contested === true,
       hidden: requirement.hidden === true,
+      terms,
+      years: { gold: requirement.years ?? null, got: item?.years ?? null },
+      preferredEvidenceHit,
+      alternativeGold: requirement.unshowableAlternative === true,
     };
   });
 
@@ -428,6 +471,15 @@ export function score(gold: Gold, items: ExtractedItem[]): Scored {
     assessableCorrect: goldVerdicts.filter((one) => one.assessableGot !== null && one.assessableGot === one.assessableGold).length,
     bySpan: goldVerdicts.filter((one) => one.matcher === "span").length,
     byName: goldVerdicts.filter((one) => one.matcher === "name").length,
+    termsTotal: goldVerdicts.reduce((sum, one) => sum + (one.found ? one.terms.gold : 0), 0),
+    termsNamed: goldVerdicts.reduce((sum, one) => sum + one.terms.named, 0),
+    termsPresenceCorrect: goldVerdicts.reduce((sum, one) => sum + one.terms.presenceCorrect, 0),
+    yearsTotal: goldVerdicts.filter((one) => one.found && one.years.gold).length,
+    yearsDetermined: goldVerdicts.filter((one) => one.years.gold && one.years.got).length,
+    yearsMinCorrect: goldVerdicts.filter((one) => one.years.gold && one.years.got?.min === one.years.gold.min).length,
+    yearsCandidateClose: goldVerdicts.filter((one) => one.years.gold && one.years.got && Math.abs(one.years.got.candidate - one.years.gold.cv) <= 0.5).length,
+    preferredEvidenceTotal: goldVerdicts.filter((one) => one.preferredEvidenceHit !== null).length,
+    preferredEvidenceHit: goldVerdicts.filter((one) => one.preferredEvidenceHit === true).length,
   };
 
   return { metrics, items: verdicts, gold: goldVerdicts };
@@ -470,7 +522,23 @@ export function sumMetrics(all: Metrics[]): Metrics {
     assessableCorrect: total((m) => m.assessableCorrect),
     bySpan: total((m) => m.bySpan),
     byName: total((m) => m.byName),
+    termsTotal: total((m) => m.termsTotal ?? 0),
+    termsNamed: total((m) => m.termsNamed ?? 0),
+    termsPresenceCorrect: total((m) => m.termsPresenceCorrect ?? 0),
+    yearsTotal: total((m) => m.yearsTotal ?? 0),
+    yearsDetermined: total((m) => m.yearsDetermined ?? 0),
+    yearsMinCorrect: total((m) => m.yearsMinCorrect ?? 0),
+    yearsCandidateClose: total((m) => m.yearsCandidateClose ?? 0),
+    preferredEvidenceTotal: total((m) => m.preferredEvidenceTotal ?? 0),
+    preferredEvidenceHit: total((m) => m.preferredEvidenceHit ?? 0),
   };
+}
+
+/** Same term when one's words contain the other's: "React" and "React.js". */
+function sameTerm(a: string, b: string): boolean {
+  const x = ` ${normalize(a)} `;
+  const y = ` ${normalize(b)} `;
+  return x.trim() !== "" && y.trim() !== "" && (x.includes(y) || y.includes(x));
 }
 
 export const percent = (value: number | null) => (value === null ? "n/a" : `${(value * 100).toFixed(0)}%`);
