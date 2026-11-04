@@ -231,6 +231,7 @@ Usage:
   npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
                      [--input text|pdf|pdf+text] [--extraction single|two-call]
   npm run eval -- gold <label> [<label> ...] [--only <id,id>] [--verbose] [--json <file>]
+                      [--by-source] [--drop-responsibilities]
   npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
   npm run eval -- canary <reference-label> [--only <id>]
@@ -254,14 +255,18 @@ production. --input pdf hands the model the fixture's cv.pdf instead of the
 text extracted from it; pdf+text sends both and tells the model quotes come
 from the text. Only fixtures holding a cv.pdf can run those; a fixture whose
 fixture.json says the PDF is scanned is refused on the text arm the way
-production refuses it (PDF_NO_TEXT, no model call). --extraction two-call
+production refuses it (PDF_SCANNED, no model call). --extraction two-call
 runs a posting-only extraction first (numbered lines, every line accounted
 for, verbatim quotes checked in code) and hands the analysis the fixed list.
 
 gold scores one or more stored runs against each fixture's gold.json
 (fixtures/GOLD-RULES.md): recall, precision, kind and status accuracy, splits,
-merges, inventions, per fixture and summed, with draft gold kept apart. Nothing
+merges, inventions, per fixture and summed, real postings kept apart. Nothing
 billed. --verbose prints every item's verdict; --json writes it all.
+--by-source locates each item by its sourceQuote instead of its text;
+--drop-responsibilities rescores as if every item from the responsibilities
+were dropped. This is the regression gate for requirement extraction: run it
+on a change and on its same-session control.
 
 Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
@@ -296,7 +301,9 @@ reference run. Output is deterministic at the pinned sampling, so a difference
 means something changed: the prompt, the schema, or the model behind the alias
 we call - which can change without us deploying, and is the case this exists
 for. One billed call. Exits non-zero on a difference. After an intended prompt
-change, capture a new reference and compare against that instead.
+change, capture a new reference and compare against that instead. The prompt
+states today's date, so the canary replays the reference run's date; without
+that, any run on a later UTC day than its reference differs.
 
 Sampling: temperature is pinned in lib/ai/client.ts (0 since M2d, measured).
 AI_TEMPERATURE overrides it for one run; AI_TEMPERATURE=provider sends no
@@ -484,6 +491,7 @@ async function runFixture(
   label: string,
   timeoutMs: number,
   arms: Arms,
+  now?: Date,
 ): Promise<RunRecord> {
   // The same truncation analyzeResume applies, so the checks see exactly the
   // text the model read.
@@ -547,6 +555,7 @@ async function runFixture(
         timeoutMs,
         ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
         ...(extraction ? { fixedRequirements: extraction.requirements.map(({ requirement, kind }) => ({ requirement, kind })) } : {}),
+        ...(now ? { now } : {}),
       });
       guard = analysis.guard;
       alignment = analysis.alignment;
@@ -908,7 +917,8 @@ async function canaryCommand(args: string[]) {
     `Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`,
   );
 
-  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text", extraction: "single" });
+  // The prompt states today's date: replay the reference's day, or every later day reads as drift.
+  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text", extraction: "single" }, new Date(wanted.generatedAt));
   if (fresh.engine && fresh.model) {
     fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   }
@@ -1109,20 +1119,33 @@ function statusOf(record: RunRecord): string {
 
 // ------------------------------------------------------------------ gold
 
+/** How `gold` reads a record: by the requirement text (default) or the posting quote, and with every responsibility dropped. */
+type ScoreOptions = { bySource?: boolean; dropResponsibilities?: boolean };
+
 /** The extracted list as the gold scorer reads it, with the arm's quotes as sources when it has them. */
-function itemsOf(record: RunRecord): ExtractedItem[] {
+function itemsOf(record: RunRecord, options: ScoreOptions = {}): ExtractedItem[] {
   if (!record.result.ok) return [];
-  return record.result.feedback.jobFit.requirements.map((entry, i) => ({
-    requirement: entry.requirement,
-    kind: entry.kind,
-    status: entry.status,
-    ...(record.requirementSources?.[i] ? { source: record.requirementSources[i] as string } : {}),
-  }));
+  return record.result.feedback.jobFit.requirements
+    .map((entry, i) => {
+      const source = record.requirementSources?.[i] ?? (options.bySource ? entry.sourceQuote : undefined);
+      return {
+        item: {
+          requirement: entry.requirement,
+          kind: entry.kind,
+          status: entry.status,
+          ...(typeof entry.assessable === "boolean" ? { assessable: entry.assessable } : {}),
+          ...(source ? { source } : {}),
+        },
+        section: entry.section,
+      };
+    })
+    .filter((one) => !(options.dropResponsibilities && one.section === "responsibilities"))
+    .map((one) => one.item);
 }
 
-function scoreRecord(gold: Gold, record: RunRecord): RequirementScore | undefined {
+function scoreRecord(gold: Gold, record: RunRecord, options: ScoreOptions = {}): RequirementScore | undefined {
   if (!record.result.ok) return undefined;
-  return { ...score(gold, itemsOf(record)), goldStatus: gold.file.status };
+  return { ...score(gold, itemsOf(record, options)), goldStatus: gold.file.status };
 }
 
 function goldNote(scored: RequirementScore | undefined): string {
@@ -1168,6 +1191,7 @@ async function goldCommand(args: string[]) {
   const { positional: labels, flags } = parseFlags(args);
   if (labels.length === 0) fail(`gold needs at least one run label.\n\n${USAGE}`);
   const verbose = flags.has("verbose");
+  const options: ScoreOptions = { bySource: flags.has("by-source"), dropResponsibilities: flags.has("drop-responsibilities") };
 
   const fixtures = new Map((await loadFixtures()).map((fixture) => [fixture.id, fixture]));
   const runs = await Promise.all(labels.map((label) => readRun(label)));
@@ -1195,7 +1219,7 @@ async function goldCommand(args: string[]) {
     }
     const scored = runs.map((run) => {
       const record = run.get(id);
-      return record && record.result.ok ? scoreRecord(fixture.gold as Gold, record) : undefined;
+      return record && record.result.ok ? scoreRecord(fixture.gold as Gold, record, options) : undefined;
     });
     const present = scored.filter((one): one is RequirementScore => one !== undefined);
     const goldStatus = fixture.gold.file.status;

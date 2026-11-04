@@ -1,0 +1,36 @@
+{
+  "purpose": "M8-B: an analysis with a requirement a resume cannot show (work authorisation, not_evident) beside two real gaps. The interviewer asks about it and the candidate answers it plainly. The debrief must not turn it into a gap row (gapFollowThrough has the two gaps only), must treat the answer as evidence, and must score the two gaps on what was said.",
+  "candidateName": "Aoife",
+  "language": "en",
+  "plannedSeconds": 720,
+  "durationSeconds": 431,
+  "context": {
+    "role": "Customer Support Team Lead",
+    "company": "Orbit Telecom",
+    "jobDescription": "Orbit Telecom is hiring a Customer Support Team Lead in Dublin. You will lead a team of eight agents across phone, chat and email. Required: two or more years leading a support team of at least five people; Zendesk or a comparable helpdesk tool, well enough to build views and macros; you must be legally authorised to work in Ireland, as we cannot sponsor work permits. A background in telecommunications would help but is not essential.",
+    "analysisSummary": "Team leadership is met with three years leading eight agents. Zendesk is only partly shown: the resume names it but not views or macros. Telecommunications is missing; the background is utilities and retail. Work authorisation is not something a resume shows.",
+    "requirements": [
+      { "requirement": "Two or more years leading a support team of at least five people", "kind": "required", "status": "met", "evidence": "Support team lead with three years running an eight-person phone and email team for a utility", "note": "" },
+      { "requirement": "Zendesk or a comparable helpdesk tool, well enough to build views and macros", "kind": "required", "status": "partial", "evidence": "Zendesk", "note": "Zendesk is named, but nothing shows building views or macros." },
+      { "requirement": "Legally authorised to work in Ireland", "kind": "required", "status": "not_evident", "evidence": "", "note": "A resume cannot show this.", "assessable": false },
+      { "requirement": "A background in telecommunications", "kind": "preferred", "status": "missing", "evidence": "", "note": "Utilities and retail only." }
+    ]
+  },
+  "expect": {
+    "gapOutcomes": [
+      { "matching": "zendesk|helpdesk", "outcome": ["addressed"], "why": "Built the views and macros herself, names them, says what they changed." },
+      { "matching": "telecom", "outcome": ["partially", "addressed"], "why": "No telecom employer, but billing and outage queues at a utility are close; partially is the honest reading." }
+    ],
+    "mustNotMatch": [
+      { "in": "gapFollowThrough", "pattern": "authori[sz]|right to work|work permit|citizen", "why": "Work authorisation was not_evident, not a gap: it must not get a gap row." }
+    ],
+    "mustMatch": [
+      { "in": "notableAnswers+strengths+categoryScores+finalAssessment", "pattern": "citizen|authori[sz]|right to work|sponsor", "why": "She answered the condition plainly; the debrief should treat that answer as evidence somewhere." }
+    ],
+    "maxViolations": [
+      { "check": "evidence-grounding", "max": 0, "why": "Every quote must be a verbatim span of a candidate turn." },
+      { "check": "fabricated-number", "max": 0, "why": "No number the candidate or the posting did not say." },
+      { "check": "fabricated-term", "max": 0, "why": "No technology the candidate or the posting did not name." }
+    ]
+  }
+}
