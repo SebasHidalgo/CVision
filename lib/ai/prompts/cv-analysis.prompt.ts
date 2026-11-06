@@ -53,7 +53,10 @@ const AIResponseFormat = `
       // this ("so you have operated Kubernetes in production", "you write Go
       // every week"); false when it describes work the hire will do, even
       // work that names a tool ("Build dashboards in Power BI", "Write SQL to
-      // answer business questions"), or what the team uses.
+      // answer business questions"), or what the team uses. An entry from
+      // "description", or from "responsibilities" with this false, is
+      // discarded: give it no keyTerms terms and leave its evidence,
+      // yearsEvidence and note empty.
       demandsCapability: boolean;
 
       // The requirement in one line, as the posting puts it. When the posting
