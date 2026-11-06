@@ -619,6 +619,34 @@ describe("M8-D: control characters, bullet roles, the CV's own years", () => {
     // The quoted role covers 5 months: the total alone does not raise a partial.
     expect(requirements[1]).toMatchObject({ status: "partial", note: "model note" });
   });
+
+  it("writes no years note where a key term, not the years, decided the status", () => {
+    const python = "3+ years writing production Python";
+    const base = { kind: "required" as const, assessable: true, requirement: python, sourceQuote: python };
+    const { requirements } = enforceRequirementStatuses(
+      [
+        // Seen in M8-D: missing for Python, and the note said "your CV shows about 8".
+        { ...base, status: "missing", evidence: "", note: "No Python in the CV.", keyTerms: terms("all", ["Python", ""]) },
+        { ...base, requirement: "3+ years of experience", sourceQuote: "3+ years of experience", status: "met", evidence: "Built the ETL in Python", note: "model note" },
+      ],
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: "SUMMARY\nEngineer with eight years on JVM services.\nBuilt the ETL in Python", now: NOW, statedYears: 8 },
+    );
+
+    expect(requirements.map((one) => [one.status, one.note])).toEqual([
+      ["missing", "No Python in the CV."],
+      ["met", "The posting asks for 3+ years; your CV shows about 8."],
+    ]);
+  });
+
+  it("still lowers a skill's item with the CV's total, which bounds it from above", () => {
+    const python = "5+ years writing production Python";
+    const { requirements } = enforceRequirementStatuses(
+      [{ kind: "required", assessable: true, requirement: python, sourceQuote: python, status: "met", evidence: "Built the ETL in Python", note: "", keyTerms: terms("all", ["Python", "Python"]) }],
+      { pending: [{ yearsEvidence: [] }], cvText: "SUMMARY\nEngineer with two years of experience.\nBuilt the ETL in Python", now: NOW, statedYears: 2 },
+    );
+
+    expect(requirements[0]).toMatchObject({ status: "missing", note: "The posting asks for 5+ years; your CV shows about 2." });
+  });
 });
 
 describe("M8-C smoke fixes", () => {

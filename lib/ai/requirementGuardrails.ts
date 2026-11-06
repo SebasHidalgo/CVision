@@ -457,7 +457,8 @@ export function enforceRequirementStatuses(
           interventions.push({ check: "years", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
           requirement.status = to;
           requirement.note = note;
-        } else if (requirement.status === to) {
+        } else if (requirement.status === byYears && to === byYears) {
+          // Only when the years decided: under a key-term cap the note is about the missing term.
           requirement.note = note;
         }
         // Lower than the numbers allow: the model's note gives its other reason, and the numbers would contradict it.
