@@ -641,7 +641,8 @@ function gapLabel(requirement: Requirement, language: AnalysisLanguage): string 
 export function requirementHeadline(requirements: Requirement[], language: AnalysisLanguage = "en"): string {
   const words = WORDING[language];
   const required = requirements.filter((requirement) => requirement.kind === "required" && requirement.status !== "not_evident");
-  if (required.length === 0) return "";
+  const notShown = requirements.filter((requirement) => requirement.kind === "required" && requirement.status === "not_evident").length;
+  if (required.length === 0 && notShown === 0) return "";
   const absent = (requirement: Requirement) => absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
   // A partial whose named terms are absent is a gap in those terms; one without terms is partly met.
   const gaps = required
@@ -650,7 +651,8 @@ export function requirementHeadline(requirements: Requirement[], language: Analy
   const partly = required
     .filter((requirement) => requirement.status === "partial" && !absent(requirement))
     .map((requirement) => gapLabel(requirement, language));
-  if (gaps.length === 0 && partly.length === 0) return words.allMet;
+  // "Every required qualification" would contradict the "Not shown in your CV" group below it.
+  if (gaps.length === 0 && partly.length === 0) return notShown ? words.noGapsNotShown(notShown) : words.allMet;
   return [gaps.length ? words.coreGaps(gaps.join("; ")) : "", partly.length ? words.partlyMet(partly.join("; ")) : ""]
     .filter(Boolean)
     .join(" ");

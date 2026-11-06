@@ -1,4 +1,4 @@
-// The sentences code writes into an analysis, in the language the model wrote it in. Pure.
+// The sentences code writes into an analysis. Always English today; Spanish waits for a user-chosen language. Pure.
 
 export type AnalysisLanguage = "en" | "es";
 
@@ -16,6 +16,7 @@ type Wording = {
   coreGaps: (list: string) => string;
   partlyMet: (list: string) => string;
   allMet: string;
+  noGapsNotShown: (count: number) => string;
   yearsLabel: (min: number) => string;
 };
 
@@ -35,6 +36,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     coreGaps: (list) => `Core gaps: ${list}.`,
     partlyMet: (list) => `Partly met: ${list}.`,
     allMet: "You meet every required qualification.",
+    noGapsNotShown: (count) => `No core gaps; ${count} required ${count === 1 ? "item isn't" : "items aren't"} shown in your CV.`,
     yearsLabel: (min) => `${min}+ years of experience`,
   },
   es: {
@@ -52,6 +54,8 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     coreGaps: (list) => `Brechas principales: ${list}.`,
     partlyMet: (list) => `Cumplido en parte: ${list}.`,
     allMet: "Cumples todos los requisitos obligatorios.",
+    noGapsNotShown: (count) =>
+      `Sin brechas principales; ${count} ${count === 1 ? "requisito obligatorio no aparece" : "requisitos obligatorios no aparecen"} en tu CV.`,
     yearsLabel: (min) => `${min}+ años de experiencia`,
   },
 };

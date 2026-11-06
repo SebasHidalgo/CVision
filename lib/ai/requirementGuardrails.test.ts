@@ -528,8 +528,16 @@ describe("requirementHeadline", () => {
   });
 
   it("says so when every required one is met, and says nothing without required ones", () => {
-    expect(requirementHeadline([req({}), req({ status: "not_evident" }), req({ kind: "preferred", status: "missing" })])).toBe("You meet every required qualification.");
+    expect(requirementHeadline([req({}), req({ kind: "preferred", status: "missing" })])).toBe("You meet every required qualification.");
     expect(requirementHeadline([req({ kind: "preferred" })])).toBe("");
+  });
+
+  it("counts the required ones the CV doesn't show instead of claiming every one is met", () => {
+    expect(requirementHeadline([req({}), req({ status: "not_evident" }), req({ status: "not_evident" })])).toBe(
+      "No core gaps; 2 required items aren't shown in your CV.",
+    );
+    expect(requirementHeadline([req({ status: "not_evident" })])).toBe("No core gaps; 1 required item isn't shown in your CV.");
+    expect(requirementHeadline([req({ status: "missing", requirement: "Go" }), req({ status: "not_evident" })])).toBe("Core gaps: Go.");
   });
 });
 
