@@ -91,6 +91,21 @@ describe("structureRequirements: the section", () => {
       ["posting-section", "requirement-dropped", "responsibilities"],
     ]);
   });
+
+  it("keeps the entries when the section rule would leave none", () => {
+    const { requirements, interventions } = structureRequirements(POSTING, [
+      entry({ section: "description" }),
+      entry({ sourceQuote: "Fluent English", section: "description", requirement: "Fluent English" }),
+      entry({ sourceQuote: "A degree in statistics", requirement: "Degree in statistics" }),
+    ]);
+
+    expect(requirements.map((one) => one.requirement)).toEqual(["3+ years as a data or business analyst", "Fluent English"]);
+    expect(interventions.map((one) => [one.check, one.action, one.replacement])).toEqual([
+      ["posting-section", "recorded", "description, kept: nothing else survived"],
+      ["posting-section", "recorded", "description, kept: nothing else survived"],
+      ["posting-source", "requirement-dropped", undefined],
+    ]);
+  });
 });
 
 describe("structureRequirements: the softened clause", () => {

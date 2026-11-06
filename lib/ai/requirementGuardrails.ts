@@ -137,6 +137,12 @@ export function structureRequirements(
     .flatMap((entry) => [loosen(entry.sourceQuote), loosen(entry.requirement)])
     .filter(Boolean);
 
+  // Company, team, stack and offer never; the work only when it demands a capability.
+  const describesOnly = (entry: ModelRequirement) =>
+    entry.section === "description" || (entry.section === "responsibilities" && !entry.demandsCapability);
+  // A model that labels every entry a description would leave an empty analysis: keep them instead.
+  const keepDescriptions = !model.some((entry) => !describesOnly(entry) && inPosting(posting, entry.sourceQuote));
+
   model.forEach((entry, index) => {
     const path = `jobFit.requirements[${index}]`;
 
@@ -157,12 +163,12 @@ export function structureRequirements(
     const sourceAt = flat.indexOf(source.text);
     const ownHeading = heading && sourceAt >= 0 && flat.lastIndexOf(heading.text, sourceAt) >= 0 ? heading.text : null;
 
-    // Company, team, stack and offer never; the work only when it demands a capability.
-    const describesOnly =
-      entry.section === "description" || (entry.section === "responsibilities" && !entry.demandsCapability);
-    if (describesOnly) {
-      record({ check: "posting-section", action: "requirement-dropped", path: `${path}.section`, value: entry.requirement, replacement: entry.section });
-      return;
+    if (describesOnly(entry)) {
+      if (!keepDescriptions) {
+        record({ check: "posting-section", action: "requirement-dropped", path: `${path}.section`, value: entry.requirement, replacement: entry.section });
+        return;
+      }
+      record({ check: "posting-section", action: "recorded", path: `${path}.section`, value: entry.requirement, replacement: `${entry.section}, kept: nothing else survived` });
     }
 
     // Kind from the posting's own wording: its heading, or a softening word in the quote.
