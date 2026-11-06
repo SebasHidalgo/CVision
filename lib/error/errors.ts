@@ -15,6 +15,7 @@ export type ErrorCode =
   | "AI_UNAVAILABLE"
   | "AI_RATE_LIMITED"
   | "AI_MISCONFIGURED"
+  | "AI_BILLING"
   | "AI_CONTENT_BLOCKED"
   | "AI_BAD_FORMAT"
   // Voice session (ElevenLabs): the interview room's equivalent of AI_*.
@@ -160,6 +161,13 @@ export class AiRateLimitedError extends AppError {
 export class AiMisconfiguredError extends AppError {
   constructor(message = "AI provider misconfigured", options?: ErrorOptions) {
     super("AI_MISCONFIGURED", message, options);
+  }
+}
+
+/** The provider account is out of balance or over its spend cap (HTTP 402): an operator problem, not the user's. */
+export class AiBillingError extends AppError {
+  constructor(message = "AI provider billing exhausted", options?: ErrorOptions) {
+    super("AI_BILLING", message, options);
   }
 }
 

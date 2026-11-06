@@ -27,6 +27,8 @@ const COPY: Record<ErrorCode, string> = {
     "The analysis service is busy. Try again in a minute.",
   AI_MISCONFIGURED:
     "The analyzer is misconfigured on our side. Retrying won't help — please check back later.",
+  AI_BILLING:
+    "The analysis service is temporarily unavailable. Nothing was charged.",
   AI_CONTENT_BLOCKED:
     "The analyzer declined to process this content. Remove anything unusual from the CV or job description and try again.",
   AI_BAD_FORMAT:

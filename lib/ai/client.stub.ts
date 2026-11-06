@@ -212,6 +212,7 @@ function googleStatusFor(status: number): string {
   const known: Record<number, string> = {
     400: "INVALID_ARGUMENT",
     401: "UNAUTHENTICATED",
+    402: "RESOURCE_EXHAUSTED",
     403: "PERMISSION_DENIED",
     404: "NOT_FOUND",
     429: "RESOURCE_EXHAUSTED",

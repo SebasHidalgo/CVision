@@ -150,6 +150,17 @@ describe("Google provider: a 429 is logged with its quota, never its message", (
     expect(line).not.toContain("provider failed with status");
   });
 
+  it("fails a 402 as billing, with one line naming the reason and never the message", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    installFakeProvider(() => reply.error(402, [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "BILLING_DISABLED", domain: "googleapis.com" }]));
+
+    const failure = await failureOf(generateJson({ prompt: "p", schema }));
+
+    expect(failure).toMatchObject({ code: "AI_BILLING" });
+    const line = error.mock.calls.map((call) => String(call[0])).find((text) => text.includes("billing exhausted"));
+    expect(line).toBe("[CVision][ai] billing exhausted: http=402 status=RESOURCE_EXHAUSTED reason=BILLING_DISABLED model=gemini-3.5-flash-lite");
+  });
+
   it("still logs the line, with unknowns, when the body carries no details", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     installFakeProvider(() => reply.error(429));

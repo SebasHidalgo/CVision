@@ -59,29 +59,8 @@ export type BaseRunRecord = {
   result: { ok: true } | { ok: false; error: { name: string; code: string; message: string } };
 };
 
-/**
- * The dated build behind the model alias, from the free models listing - not
- * a generateContent call, so it costs nothing and bills nothing. The response
- * to an analysis only ever echoes the alias, so without this a re-pointed
- * alias would show up as unexplained variance, which is exactly what it did.
- */
-export async function readApiModelVersion(model: string): Promise<string | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-  if (!apiKey) return null;
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}?key=${apiKey}`,
-      { signal: AbortSignal.timeout(10_000) },
-    );
-    if (!response.ok) return null;
-    const body = (await response.json()) as { version?: unknown };
-    return typeof body.version === "string" ? body.version : null;
-  } catch {
-    // Offline, or the endpoint moved. A run without it is still valid; it
-    // just cannot be compared against one that has it.
-    return null;
-  }
-}
+// The dated build behind the alias, from the free models listing; the response only echoes the alias.
+export { readListedModelVersion as readApiModelVersion } from "@/lib/ai/client";
 
 export function captureAiLog() {
   const original = console.info;

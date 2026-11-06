@@ -7,6 +7,7 @@ import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume } from "@/lib/database/resume";
 import { refundUsage, reserveUsage } from "@/lib/database/usage";
 import {
+  AiBillingError,
   AiRateLimitedError,
   AiUnavailableError,
   AnalysisQuotaExceededError,
@@ -191,6 +192,7 @@ describe("analyzeResumeAction: every failure refunds", () => {
   it.each([
     ["the model is down", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiUnavailableError()), "AI_UNAVAILABLE"],
     ["the model is rate-limited", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiRateLimitedError()), "AI_RATE_LIMITED"],
+    ["the model account is out of balance", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiBillingError()), "AI_BILLING"],
     ["the object never arrived", () => vi.mocked(downloadObject).mockResolvedValueOnce(null), "UPLOAD_FAILED"],
     ["the row cannot be written", () => vi.mocked(createResume).mockRejectedValueOnce(new Error("connection reset")), "UNKNOWN"],
   ])("refunds the unit with the code when %s", async (_, arrange, code) => {

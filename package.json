@@ -18,6 +18,7 @@
     "eval:pdf": "tsx --env-file-if-exists=.env scripts/eval/pdf.ts",
     "agent:sync": "tsx --env-file-if-exists=.env scripts/elevenlabs/sync-agent.ts",
     "voice:doctor": "tsx --env-file-if-exists=.env scripts/elevenlabs/doctor.ts",
+    "ai:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/ai/doctor.ts",
     "billing:sync": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/sync.ts",
     "billing:reconcile": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/reconcile.ts",
     "billing:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/doctor.ts",

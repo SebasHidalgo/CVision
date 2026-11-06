@@ -31,6 +31,12 @@ describe("actionErrorCopy for the limits", () => {
   });
 });
 
+describe("actionErrorCopy for the provider's billing", () => {
+  it("says the service is unavailable and nothing was charged", () => {
+    expect(actionErrorCopy("AI_BILLING")).toBe("The analysis service is temporarily unavailable. Nothing was charged.");
+  });
+});
+
 describe("actionErrorCopy for the file refusals", () => {
   // Every one of them gives the analysis back, and the copy says so.
   it.each(["PDF_UNREADABLE", "PDF_NO_TEXT", "PDF_SCANNED"] as const)("%s says no analysis was used", (code) => {
