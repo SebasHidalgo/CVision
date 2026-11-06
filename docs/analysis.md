@@ -27,15 +27,20 @@ the rules applied in code, and how a change to any of it is measured.
 4. `structureRequirements` (`lib/ai/requirementGuardrails.ts`) applies the
    posting rules below.
 5. `guardAnalysis` (`lib/ai/analysisGuardrails.ts`) checks every CV quote
-   and every number in the suggested bullets; `guardMatchedSkills` drops a
-   matched skill with no quote, or one the CV never names.
+   and every number in the suggested bullets.
 6. `enforceRequirementStatuses` applies the status rules below, after the
    CV quotes were checked, so a quote the guardrail dropped counts as none.
+   It gets the CV's own statement of its total years (`statedTotalYears`).
 7. `withEvidenceSources` places each quote in its CV section.
-8. `requirementHeadline` writes the first sentence of `overall.summaryText`
+8. `guardMatchedSkills` and `guardBulletRoles` check the skills and the
+   suggested bullets' role labels against the CV (below).
+9. `requirementHeadline` writes the first sentence of `overall.summaryText`
    from the final statuses.
-9. The row is stored with `guardStats`; `GuardStatDaily` gets the same
-   counts, anonymously.
+10. `withoutControlCharacters` strips control characters (U+0000–U+001F
+    except tab and line breaks, U+007F–U+009F) from every string the model
+    wrote; one was seen in a role label ("Asociaci\u0003on").
+11. The row is stored with `guardStats`; `GuardStatDaily` gets the same
+    counts, anonymously.
 
 ## Generation order
 
@@ -87,7 +92,12 @@ Posting rules, before the CV quotes are checked:
   requirement-dropped`).
 - **Section.** An entry from `description` is dropped; one from
   `responsibilities` is dropped unless `demandsCapability` is true
-  (`posting-section / requirement-dropped`).
+  (`posting-section / requirement-dropped`). When that would leave no
+  requirement at all, the entries are kept and recorded instead
+  (`posting-section / recorded`, "kept: nothing else survived"): on
+  2026-11-05 the M8-C code labelled every entry of the `long-boilerplate`
+  posting a description in all three runs, and an empty analysis is worse
+  than an over-extracted one.
 - **Kind, from the posting's own wording.** The heading counts only when it
   is in the posting and sits before the quote. A heading with a preference
   word ("Preferred", "Nice to have", "Bonus", "Valoramos") states
@@ -130,16 +140,28 @@ Status rules, after the CV quotes are checked, in this order:
    status-capped`). A requirement without key terms keeps the model's status.
 2. **Years.** The posting's minimum is parsed from `sourceQuote` ("5+",
    "3-5" takes 3, "at least 3", "two or more", "mínimo 4", "más de 2"; never
-   "every two years"). The candidate's years are an explicit statement in
-   the quoted lines ("2+ years of experience", "cuatro años") or else the
-   sum of their date ranges, overlapping months counted once. `met` at or
-   above the minimum, `partial` from 75% of it, `missing` below; key-term
-   coverage still caps it. The status is lowered to that, or raised to it
-   from `partial` only: a `missing` may be the model ruling the quoted roles
-   irrelevant (a pastry chef's eight years for a backend role). The note
-   states both numbers ("The posting asks for 5+ years; your CV shows about
-   2.") unless the model's status is lower than the numbers allow
-   (`years / status-capped`, `status-coerced`, `recorded` when undetermined).
+   "every two years"). The candidate's years are, first, the CV's own
+   statement of its total: the first "N years" in the summary section or
+   above the first heading ("Software Engineer with 2+ years of
+   experience"; a parenthesised "Python (6 years)" is one skill's, not the
+   total). Without one, an explicit statement in the quoted lines
+   ("cuatro años") or else the sum of their date ranges, overlapping months
+   counted once. So a CV gets one number whatever lines the model quotes
+   (M8-C's notes said 1.3 or 2 for the same CV). `met` at or above the
+   minimum, `partial` from 75% of it, `missing` below; key-term coverage
+   still caps it. The status is lowered to that, or raised to it from
+   `partial` only: a `missing` may be the model ruling the quoted roles
+   irrelevant (a pastry chef's eight years for a backend role). A CV total
+   bounds a skill's years only from above, so raising with a total also
+   needs the model's quoted lines to reach the same status. The note states
+   both numbers ("The posting asks for 5+ years; your CV shows about 2.")
+   only when the years decided the status, never under a key-term cap
+   ("3+ years writing production Python" with no Python is about Python,
+   not about the CV's eight years) (`years / status-capped`,
+   `status-coerced`, `recorded` when undetermined). The CV's total is used
+   for an item about one skill or domain too, where it only bounds the
+   years from above: a model `met` for "3+ years of Python" on a CV with
+   eight years in total and two of Python is not lowered.
 3. **A verified match is evidence.** met or partial with no quote left but a
    CV match on file quotes the CV line that holds it (`evidence-source /
    evidence-replaced`).
@@ -158,10 +180,24 @@ Status rules, after the CV quotes are checked, in this order:
    field was removed.
 6. **not_evident only where a CV cannot show the thing**, as in M8-B
    (`not-evident / status-coerced`).
-7. **The CV's own language.** A requirement that names one language, the one
-   the CV is written in ("Fluency to read, write and speak in English" on an
-   English CV), judged `missing` or `not_evident`, is `met`: "Your CV is
-   written in English, which shows it." (`cv-language / status-coerced`).
+7. **A language level counts only when the CV states it** (owner decision,
+   M8-D; `lib/ai/requirementLanguages.ts`). A requirement that asks for a
+   level of a language (it names English, Spanish, German, French,
+   Portuguese, Italian, Dutch, Chinese or Japanese, in English or Spanish,
+   and is at most four words long or uses a proficiency word: fluent,
+   proficiency, level, spoken, written, professional, "nivel", "dominio", …)
+   is `not_evident`, with no quote and the note "Your CV doesn't state your
+   English level. Add a Languages line, e.g. 'Spanish (native), English
+   (C1)'.", unless the CV states a level for that language: a CEFR level,
+   native, fluent, bilingual, advanced, intermediate, basic, proficient,
+   conversational, or a test (TOEFL, IELTS, TOEIC, Cambridge, FCE, CAE, CPE,
+   DELE), in English or Spanish, in the language's own clause ("English (B2,
+   written and spoken)") or in the four words before it ("Fluent English").
+   A CV written in English does not show the candidate's English. This is
+   the one `not_evident` that is not `assessable: false`, and it runs last,
+   so no other rule overrides it (`language-level / status-coerced`). The
+   rule does not judge whether the stated level is enough (B1 against
+   "C1 required" stays the model's call).
 
 After the statuses:
 
@@ -172,10 +208,19 @@ After the statuses:
   / evidence-replaced`); when no such line exists it is `skillsOnly`, and
   the page says "Only listed in your skills — show it in an experience
   bullet."
-- **Matched skills.** One with no quote after the guardrail, or whose name is
-  neither in its quote nor in the CV, is dropped (`matched-skill /
-  skill-dropped`). The cost: a synonym ("Postgres" for "PostgreSQL") named
-  nowhere else in the CV goes too.
+- **Matched skills.** One with no quote after the guardrail is dropped. One
+  whose name is neither in its quote nor in the CV is kept when a
+  requirement's verified key term has that name and a CV match ("Postgres"
+  for "PostgreSQL"; `matched-skill / recorded`, "synonym: …"), and dropped
+  otherwise (`matched-skill / skill-dropped`).
+- **Role labels of the suggested bullets.** A `suggestedBullets[].role` is
+  kept when each of its parts (split on commas, "|", "·", spaced dashes,
+  "at", "en", "@") is in
+  the CV, letters only, so "Asociación" matches the CV's "Asociaci´on".
+  Otherwise it is replaced by the nearest experience or project line that
+  is not a bullet, by shared words with dates removed (`bullet-role /
+  text-replaced`). The replacement is one line: a CV that puts the title
+  and the company on two lines gets the title alone.
 
 Every rule that fires is an intervention in `guardStats` (check, action,
 path, the text it acted on) and a count in `GuardStatDaily`; `npm run
@@ -189,17 +234,30 @@ final statuses of the required items: "You meet every required
 qualification.", or "Core gaps: 5+ years of experience; Ruby on Rails;
 Redis, Elasticsearch or Sidekiq." (absent key terms, the years label, or the
 requirement's own text cut at 60 characters), and "Partly met: …" for a
-partial that names no absent term. The model's summary follows; its field
-comment, and `jobFit.description`'s, say not to restate statuses. Read on 20
-analyses each, 6 of the control's contradicted the statuses and none of the
-new ones did.
+partial that names no absent term. With no gap but required items under
+"Not shown in your CV", it says "No core gaps; 2 required items aren't
+shown in your CV." instead of claiming every one is met. The model's
+summary follows; its field comment, and `jobFit.description`'s, say not to
+restate statuses. Read on 20 analyses each, 6 of the control's contradicted
+the statuses and none of the new ones did.
 
-The model writes the analysis in the posting's language once the
-requirements come first (6 of 6 Spanish-posting runs; the old order wrote
-English). Every sentence code writes (headline, notes) follows the language
-the model used (`lib/ai/analysisWording.ts`, English and Spanish), detected
-from its own text, so an analysis is in one language. The page's own labels
-stay English.
+The analysis is written in English, whatever the language of the CV or the
+posting (owner decision, M8-D; one line of the prompt). Quotes stay
+verbatim, and a requirement's text stays in the posting's words, so a
+Spanish posting gives English prose around Spanish requirement lines.
+Measured: prose in English on the Spanish posting in 3 of 3 runs (the M8-C
+code, 0 of 3). The sentences code writes (`lib/ai/analysisWording.ts`) are
+English; the Spanish set stays for when the user picks the analysis
+language.
+
+## Certifications
+
+The analysis recommends no certifications (owner decision, M8-D: the model
+named ones that do not exist, "Ruby on Rails Certified Developer", and
+recommended AWS for postings that never mention it). The field is gone
+from the prompt, the schema and the page; `educationAndCertifications`
+still reads the certifications the CV has. A stored row that carries
+`recommendedCerts` parses and the field is dropped on read.
 
 ## The four statuses and the verdict
 
@@ -229,7 +287,25 @@ that what the candidate says about one is evidence for it.
 `sourceQuote`, `section`, `assessable`, `keyTerms`, `evidenceSource`,
 `skillsOnly` and `years` are optional in the stored schema, so older rows
 parse as before; `assessable` absent reads as true. Those rows render as
-before: no term list, no skills-only advice. Nothing is migrated.
+before: no term list, no skills-only advice. Nothing is migrated: a row
+stored before M8-D keeps its English "met" from the old "your CV is written
+in English" rule, and its prose in Spanish if the posting was.
+
+## When the provider fails
+
+`generateJson` throws one of six typed errors, and the analysis gives the
+unit back for each: `AI_UNAVAILABLE`, `AI_RATE_LIMITED` (429, with a
+structured log line), `AI_BILLING` (402: the Gemini key's prepaid balance
+or billing is exhausted; a log line `[CVision][ai] billing exhausted:
+http=402 status=… reason=… model=…`, no content; the copy says "The
+analysis service is temporarily unavailable. Nothing was charged."; 503 on
+a route), `AI_MISCONFIGURED`, `AI_CONTENT_BLOCKED`, `AI_BAD_FORMAT`.
+
+`npm run ai:doctor` makes one minimal call (a few tokens) and prints PASS
+or FAIL with the outcome (ok, rate limited, billing exhausted,
+misconfigured, unavailable, …), the fix, the provider, the model, the
+version the response names and the build the models listing names. It
+exits 1 unless the call answered.
 
 ## Measuring a change
 
@@ -261,4 +337,14 @@ with the same fixtures copied in. `compare` and `stability` refuse runs
 captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
-a difference means the model behind the alias moved.
+a difference means the model behind the alias moved. The reference is
+`m8d-final-s7` (the `es-posting` fixture, which exercises the English-only
+rule, the stated language levels and the years statement): `npm run eval
+-- canary m8d-final-s7`.
+
+The alias moves within days and sometimes within hours. On 2026-11-05 the
+M8-C code dropped every requirement of `long-boilerplate`, which it had
+extracted the day before, and the M8-B code's interview feedback for
+`not-evident-answered` differed from its own output of 2026-11-04 01:43
+UTC with the same version string. A control therefore runs in the same
+session as its change, never from a stored run.

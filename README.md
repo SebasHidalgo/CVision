@@ -209,7 +209,10 @@ free tier is fine. **For any real CV, the key's project must be on the
 paid tier**: on the free tier Google may use prompts and responses to
 improve its products and human reviewers may read them; on the paid tier
 it does not (the terms, "Paid Services"). AI Studio's API keys page shows
-the plan per project ("Paid"); "Set up billing" upgrades it.
+the plan per project ("Paid"); "Set up billing" upgrades it. Check the key
+with `npm run ai:doctor` (one call of a few tokens): it says whether the
+key answers, is rate limited, is out of balance (HTTP 402) or is
+misconfigured.
 
 ### 8. Paddle (sandbox)
 
@@ -294,6 +297,7 @@ call's webhook round trip. Then:
 | `npm run user:set-plan -- <clerkUserId> <free\|pro>` | a manual comp, outside billing |
 | `npm run report:guards [-- --from … --to …]` | the guardrails' daily tallies |
 | `npm run agent:sync [-- --webhook-url … --replace-webhook --dry-run]` | push both ElevenLabs agents and the post-call webhook from code |
+| `npm run ai:doctor` | one minimal Gemini call: OK, rate limited, billing exhausted or misconfigured, and the model version |
 | `npm run voice:doctor [-- --webhook-url …]` | check the ElevenLabs key, balance, agents and webhook, read-only |
 | `npm run billing:sync [-- --webhook-url … --production]` | push the Paddle catalog and the webhook destination from code |
 | `npm run billing:doctor [-- --webhook-url … --production]` | check the Paddle account, read-only |
