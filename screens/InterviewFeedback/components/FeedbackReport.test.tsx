@@ -121,4 +121,17 @@ describe("FeedbackReport", () => {
     );
     expect(html).toContain("The analysis found no gaps to probe.");
   });
+
+  it("renders no empty quotation marks for a notable answer whose quote the guardrail dropped", () => {
+    const html = renderToStaticMarkup(
+      <FeedbackReport
+        feedback={{ ...feedback, report: { ...report, notableAnswers: [{ quote: "", worked: true, why: "Clear ownership." }] } }}
+        transcript={null}
+        date="October 11, 2026"
+      />,
+    );
+    expect(html).toContain("Clear ownership.");
+    expect(html).not.toContain("&ldquo;&rdquo;");
+    expect(html).not.toContain("“”");
+  });
 });

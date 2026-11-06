@@ -193,9 +193,12 @@ export default function FeedbackReport({ feedback, transcript, date }: FeedbackR
                   >
                     {answer.worked ? "Worked" : "Didn't land"}
                   </span>
-                  <blockquote className="mt-3 text-[15px] leading-relaxed text-ink">
-                    &ldquo;{answer.quote}&rdquo;
-                  </blockquote>
+                  {/* The guardrail empties a quote it could not find in the transcript. */}
+                  {answer.quote && (
+                    <blockquote className="mt-3 text-[15px] leading-relaxed text-ink">
+                      &ldquo;{answer.quote}&rdquo;
+                    </blockquote>
+                  )}
                   <p className="mt-3 text-sm leading-relaxed text-ink-2">{answer.why}</p>
                 </li>
               </Reveal>
