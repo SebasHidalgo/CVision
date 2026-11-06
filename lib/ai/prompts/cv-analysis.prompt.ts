@@ -284,10 +284,6 @@ const AIResponseFormat = `
     // 1-3 specific, practical improvements. Each has to be something this
     // resume is actually missing - check the text before asking for it.
     improvements: string[];
-
-    // Certifications not in the resume that address a requirement of this
-    // posting. Empty when none does; never a generic one.
-    recommendedCerts: string[];
   };
 
   // How the resume reads. No score: describe what you see. A number here
@@ -348,8 +344,8 @@ the whole resume before making it. Finding one instance makes the claim false.
   false if experienceAndImpact.quantifiedAchievements has even one entry. That
   list is the test: fill it from the resume first, and if it is not empty, any
   statement about metrics has to be qualified to match what is in it.
-- educationAndCertifications.recommendedCerts and improvements may only hold
-  things the resume does not already have. Check each one against the resume
+- educationAndCertifications.improvements may only hold things the resume
+  does not already have. Check each one against the resume
   text before you add it. A skill named in a skills section is present even if
   no bullet elaborates on it; if it is thinly evidenced, say so in the
   description instead of treating it as absent.
@@ -441,6 +437,7 @@ export const resumeAnalysisPrompt = ({
   The job description is: ${jobDescription}
   The resume text is: ${resumeText}${pdfAttached ? PDF_ATTACHED_NOTE : ""}
   ${ANALYSIS_RULES(today)}
+  Write every field in English, whatever language the resume or the job description is in; quoted fields stay verbatim in their own language.
   Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields.
   ${AIResponseFormat}
   Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.

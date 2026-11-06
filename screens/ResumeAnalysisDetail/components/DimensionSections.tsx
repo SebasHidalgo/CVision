@@ -3,7 +3,6 @@ import type { ResumeAnalysisFeedback } from "@/types/resume";
 import { DIMENSIONS } from "../utils/dimensions";
 import {
   Achievements,
-  Chips,
   Evidence,
   MarkedList,
   NumberedList,
@@ -84,13 +83,6 @@ export default function DimensionSections({ feedback }: DimensionSectionsProps) 
           <MarkedList title="Highlights" items={educationAndCertifications.highlights} mark="strong" />
           <MarkedList title="Improvements" items={educationAndCertifications.improvements} mark="signal" />
         </div>
-        {educationAndCertifications.recommendedCerts.length > 0 && (
-          <Chips
-            title="Worth adding"
-            items={educationAndCertifications.recommendedCerts}
-            kind="neutral"
-          />
-        )}
       </Section>
 
       <Section

@@ -139,3 +139,8 @@ export function describeYears(value: number, language: AnalysisLanguage = "en"):
 export function yearsNote(min: number, candidate: number, language: AnalysisLanguage = "en"): string {
   return WORDING[language].years(min, describeYears(candidate, language));
 }
+
+/** The text without its date ranges: a role line "Full-Stack Developer July 2021 – November 2021" reads "Full-Stack Developer". */
+export function withoutDateRanges(text: string): string {
+  return text.replace(RANGE_PATTERN, " ");
+}

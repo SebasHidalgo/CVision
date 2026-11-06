@@ -96,7 +96,6 @@ const VALID_FEEDBACK = {
     ...SECTION,
     highlights: [],
     improvements: [],
-    recommendedCerts: [],
   },
   toneAndClarity: { description: "", suggestions: [] },
   jobFit: { description: "", requirements: [], strategicRecommendations: [] },

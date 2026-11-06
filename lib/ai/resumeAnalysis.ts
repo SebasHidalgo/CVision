@@ -8,14 +8,16 @@ import {
   type GuardReport,
 } from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
-import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
 import {
   enforceRequirementStatuses,
+  guardBulletRoles,
   guardMatchedSkills,
   requirementHeadline,
+  statedTotalYears,
   structureRequirements,
   withEvidenceSources,
+  withoutControlCharacters,
 } from "@/lib/ai/requirementGuardrails";
 import { analysisResponseSchema, type ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 
@@ -135,33 +137,35 @@ export async function analyzeResume({
   // still come from. Only an absent text leaves the quotes unchecked.
   const checked = Boolean(text.trim());
   const guarded = checked ? guardAnalysis(text, shaped) : { feedback: shaped, guard: emptyGuardReport() };
-  const skills = checked ? guardMatchedSkills(guarded.feedback, text) : { feedback: guarded.feedback, interventions: [] };
 
-  // Code-written sentences follow the language the model wrote the analysis in.
-  const language = detectPostingLanguage(`${answer.jobFit.description} ${answer.overall.summaryText}`);
-
-  // Statuses last: a CV quote the guardrail dropped is no evidence.
+  // Statuses last: a CV quote the guardrail dropped is no evidence. The analysis is written in English (owner decision, M8-D).
   const statuses = enforceRequirementStatuses(
-    skills.feedback.jobFit.requirements,
-    checked ? { pending: structured.pending, cvText: text, now, language } : undefined,
+    guarded.feedback.jobFit.requirements,
+    checked ? { pending: structured.pending, cvText: text, now, statedYears: statedTotalYears(text, answer.atsCompatibility.sectionsDetected) } : undefined,
   );
   const sourced = checked
-    ? withEvidenceSources(statuses.requirements, text, skills.feedback.atsCompatibility.sectionsDetected)
+    ? withEvidenceSources(statuses.requirements, text, guarded.feedback.atsCompatibility.sectionsDetected)
     : { requirements: statuses.requirements, interventions: [] };
   const requirements = sourced.requirements;
+  // After the statuses: a key term's verified CV word also proves a matched skill ("Postgres" for "PostgreSQL").
+  const skills = checked
+    ? guardMatchedSkills({ ...guarded.feedback, jobFit: { ...guarded.feedback.jobFit, requirements } }, text)
+    : { feedback: guarded.feedback, interventions: [] };
+  const roles = checked ? guardBulletRoles(skills.feedback, text) : { feedback: skills.feedback, interventions: [] };
   // The first sentence comes from the statuses, so the summary cannot contradict them.
-  const headline = requirementHeadline(requirements, language);
-  const summaryText = [headline, skills.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
-  const feedback: ResumeAnalysisFeedback = {
-    ...skills.feedback,
-    overall: { ...skills.feedback.overall, summaryText },
-    jobFit: { ...skills.feedback.jobFit, requirements },
-  };
+  const headline = requirementHeadline(requirements);
+  const summaryText = [headline, roles.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
+  const feedback = withoutControlCharacters<ResumeAnalysisFeedback>({
+    ...roles.feedback,
+    overall: { ...roles.feedback.overall, summaryText },
+    jobFit: { ...roles.feedback.jobFit, requirements },
+  });
   const guard = withInterventions(guarded.guard, [
     ...structured.interventions,
-    ...skills.interventions,
     ...statuses.interventions,
     ...sourced.interventions,
+    ...skills.interventions,
+    ...roles.interventions,
   ]);
 
   const note = describeCounts(guard.counts);

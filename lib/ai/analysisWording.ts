@@ -12,8 +12,7 @@ type Wording = {
   years: (min: number, about: string) => string;
   about: (value: string) => string;
   alternative: (absent: string, several: boolean, accepts: string) => string;
-  cvLanguage: (language: string) => string;
-  languageName: Record<AnalysisLanguage, string>;
+  languageLevel: (language: string) => string;
   coreGaps: (list: string) => string;
   partlyMet: (list: string) => string;
   allMet: string;
@@ -32,8 +31,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     about: (value) => `about ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} ${several ? "aren't" : "isn't"} in your CV; the posting accepts ${accepts} — say so in your cover letter.`,
-    cvLanguage: (language) => `Your CV is written in ${language}, which shows it.`,
-    languageName: { en: "English", es: "Spanish" },
+    languageLevel: (language) => `Your CV doesn't state your ${language} level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.`,
     coreGaps: (list) => `Core gaps: ${list}.`,
     partlyMet: (list) => `Partly met: ${list}.`,
     allMet: "You meet every required qualification.",
@@ -50,8 +48,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     about: (value) => `unos ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} no ${several ? "aparecen" : "aparece"} en tu CV; la oferta acepta ${accepts}: dilo en tu carta de presentación.`,
-    cvLanguage: (language) => `Tu CV está escrito en ${language}, y eso lo demuestra.`,
-    languageName: { en: "inglés", es: "español" },
+    languageLevel: (language) => `Tu CV no indica tu nivel de ${language}. Agrega una línea de idiomas, por ejemplo 'Español (nativo), inglés (C1)'.`,
     coreGaps: (list) => `Brechas principales: ${list}.`,
     partlyMet: (list) => `Cumplido en parte: ${list}.`,
     allMet: "Cumples todos los requisitos obligatorios.",

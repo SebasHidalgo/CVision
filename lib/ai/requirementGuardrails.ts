@@ -2,7 +2,8 @@ import { groundQuotes, loosen, mentionsTerm, normalizeWhitespace } from "@/lib/a
 import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import { spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
 import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
-import { candidateYears, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
+import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
+import { candidateYears, withoutDateRanges, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
   EvidenceSource,
   KeyTerms,
@@ -371,18 +372,15 @@ function alternativeNote(requirement: Requirement, alternative: string, language
   return WORDING[language].alternative(absent, several, accepts);
 }
 
-const LANGUAGE_NAME =
-  /(?<!\p{L})(?:english|spanish|german|french|portuguese|italian|dutch|polish|mandarin|chinese|japanese|korean|arabic|russian|hindi|ingl[eé]s|espa[nñ]ol|castellano|alem[aá]n|franc[eé]s|portugu[eé]s|italiano|neerland[eé]s|holand[eé]s|polaco|chino|japon[eé]s|coreano|[aá]rabe|ruso)(?!\p{L})/giu;
-const CV_LANGUAGE: Record<AnalysisLanguage, RegExp> = { en: /^(?:english|ingl[eé]s)$/i, es: /^(?:spanish|espa[nñ]ol|castellano)$/i };
-
-/** A requirement that names one language, the one the CV is written in: the CV itself shows it. */
-export function asksForCvLanguage(requirement: Requirement, cvLanguage: AnalysisLanguage): boolean {
-  const names = new Set(`${requirement.requirement} ${requirement.sourceQuote ?? ""}`.match(LANGUAGE_NAME)?.map((name) => name.toLowerCase()) ?? []);
-  return names.size > 0 && [...names].every((name) => CV_LANGUAGE[cvLanguage].test(name));
-}
-
-/** Context for the status rules: what the model read, the day it read it, and the language it wrote in. */
-export type StatusContext = { pending: PendingRequirement[]; cvText: string; now: Date; language?: AnalysisLanguage };
+/** Context for the status rules: what the model read, the day it read it, and the language it writes in. */
+export type StatusContext = {
+  pending: PendingRequirement[];
+  cvText: string;
+  now: Date;
+  language?: AnalysisLanguage;
+  /** The CV's own statement of its total years ("2+ years of experience"), from `statedTotalYears`. */
+  statedYears?: number | null;
+};
 
 /** After guardAnalysis, so evidence it dropped counts as none. */
 export function enforceRequirementStatuses(
@@ -392,7 +390,6 @@ export function enforceRequirementStatuses(
   const interventions: Intervention[] = [];
   const language = context?.language ?? "en";
   const words = WORDING[language];
-  const cvLanguage = context ? detectPostingLanguage(context.cvText) : null;
 
   const enforced = requirements.map((original, index) => {
     const requirement: Requirement = { ...original, ...(original.keyTerms ? { keyTerms: { ...original.keyTerms, terms: original.keyTerms.terms.map((term) => ({ ...term })) } } : {}) };
@@ -426,7 +423,10 @@ export function enforceRequirementStatuses(
     const min = assessable ? yearsIn(requirement.sourceQuote ?? "") : null;
     if (context && pending && min !== null) {
       const grounded = pending.yearsEvidence.filter((quote) => normalizeWhitespace(quote) && groundQuotes(context.cvText, [{ path: "", value: quote }]).length === 0);
-      const found = candidateYears([...grounded, requirement.evidence].filter(Boolean), context.now);
+      const quoted = candidateYears([...grounded, requirement.evidence].filter(Boolean), context.now);
+      // The CV's own total wins: one number per CV, whatever lines the model quoted.
+      const stated = context.statedYears ?? null;
+      const found = stated !== null ? { candidate: stated, source: "statement" as const } : quoted;
       if (!found) {
         interventions.push({ check: "years", action: "recorded", path, value: requirement.requirement, replacement: "undetermined" });
       } else {
@@ -441,7 +441,12 @@ export function enforceRequirementStatuses(
           // Left alone: the coercion below decides.
         } else if (RANK[requirement.status] > RANK[to]) {
           lower("years", to, note);
-        } else if (requirement.status === "partial" && RANK[to] > RANK.partial) {
+        } else if (
+          requirement.status === "partial" &&
+          RANK[to] > RANK.partial &&
+          // A total bounds any part of it from above: raising also needs the model's own quoted years.
+          (stated === null || (quoted !== null && RANK[yearsStatus(min, quoted.candidate)] >= RANK[to]))
+        ) {
           // Raised only from partial: a missing may be the model ruling the quoted roles irrelevant.
           interventions.push({ check: "years", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
           requirement.status = to;
@@ -496,12 +501,15 @@ export function enforceRequirementStatuses(
       requirement.status = "not_evident";
     }
 
-    // "Fluency in English" on a CV written in English: the CV itself is the evidence.
-    if (cvLanguage && (requirement.status === "missing" || requirement.status === "not_evident") && asksForCvLanguage(requirement, cvLanguage)) {
-      interventions.push({ check: "cv-language", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: "met" });
-      requirement.status = "met";
-      requirement.assessable = true;
-      requirement.note = words.cvLanguage(words.languageName[cvLanguage]);
+    // A language level only counts when the CV states it; the one not_evident a CV could show (owner decision, M8-D).
+    const unstated = context ? languagesAsked(requirement).filter((name) => !statesLevel(context.cvText, name)) : [];
+    if (unstated.length) {
+      if (requirement.status !== "not_evident") {
+        interventions.push({ check: "language-level", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: "not_evident" });
+      }
+      requirement.status = "not_evident";
+      requirement.evidence = "";
+      requirement.note = words.languageLevel(unstated.join(` ${words.and} `));
     }
     return requirement;
   });
@@ -648,17 +656,87 @@ export function guardMatchedSkills(
   cvText: string,
 ): { feedback: ResumeAnalysisFeedback; interventions: Intervention[] } {
   const interventions: Intervention[] = [];
+  // The requirements' verified CV words: "PostgreSQL" is shown by "Postgres".
+  const verified = feedback.jobFit.requirements.flatMap((requirement) => requirement.keyTerms?.terms ?? []).filter(shownTerm);
   const matchedSkills = feedback.skills.matchedSkills.filter((skill, i) => {
     const path = `skills.matchedSkills[${i}]`;
     if (!skill.evidence.trim()) {
       interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "no evidence" });
       return false;
     }
-    if (!containsTerm(skill.evidence, skill.name) && !containsTerm(cvText, skill.name)) {
-      interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "not in the CV" });
-      return false;
+    if (containsTerm(skill.evidence, skill.name) || containsTerm(cvText, skill.name)) return true;
+    const synonym = verified.find((term) => containsTerm(term.term, skill.name) || containsTerm(skill.name, term.term));
+    if (synonym && containsTerm(cvText, synonym.cvMatch)) {
+      interventions.push({ check: "matched-skill", action: "recorded", path, value: skill.name, replacement: `synonym: ${synonym.cvMatch}` });
+      return true;
     }
-    return true;
+    interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "not in the CV" });
+    return false;
   });
   return { feedback: { ...feedback, skills: { ...feedback.skills, matchedSkills } }, interventions };
+}
+
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+
+/** Every string in the value without control characters (the model once wrote U+0003 for "´"). */
+export function withoutControlCharacters<T>(value: T): T {
+  if (typeof value === "string") return value.replace(CONTROL_CHARACTERS, "") as T;
+  if (Array.isArray(value)) return value.map((item) => withoutControlCharacters(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutControlCharacters(item)])) as T;
+  }
+  return value;
+}
+
+/** The CV's own statement of its total years: the first one in its summary or above its first heading, outside parentheses. */
+export function statedTotalYears(cvText: string, headings: string[]): number | null {
+  let pastFirstHeading = false;
+  for (const line of cvLines(cvText, headings)) {
+    if (line.heading) {
+      pastFirstHeading = true;
+      continue;
+    }
+    if (pastFirstHeading && line.section !== "summary") continue;
+    // "Python (6 years)" is one skill's years, not the total.
+    const years = yearsIn(line.text.replace(/\([^)]*\)/g, " "));
+    if (years !== null) return years;
+  }
+  return null;
+}
+
+// Letters and digits only, accents and typography gone: "Asociaci´on" and "Asociación" read the same.
+const lettersOf = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const ROLE_SEPARATOR = /\s*(?:,|\||·|\s[-–—]\s|\sat\s|\sen\s|\s@\s)\s*/;
+
+/** A suggested bullet's role names a role and company the CV has; otherwise it becomes the CV's nearest role line. */
+export function guardBulletRoles(
+  feedback: ResumeAnalysisFeedback,
+  cvText: string,
+): { feedback: ResumeAnalysisFeedback; interventions: Intervention[] } {
+  const cvLetters = lettersOf(cvText);
+  const roleLines = cvLines(cvText, feedback.atsCompatibility.sectionsDetected)
+    .filter((line) => !line.heading && (line.section === "experience" || line.section === "projects") && line.text.trim() && !BULLET_START.test(line.text) && line.text.length <= 140)
+    .map((line) => normalizeWhitespace(withoutDateRanges(line.text)).replace(/[\s|,·–—-]+$/u, ""))
+    .filter(Boolean);
+  const wordsOf = (text: string) => new Set(text.split(/[^\p{L}\p{N}]+/u).map(lettersOf).filter((word) => word.length >= 3));
+  const interventions: Intervention[] = [];
+
+  const suggestedBullets = feedback.experienceAndImpact.suggestedBullets.map((bullet, i) => {
+    const role = normalizeWhitespace(withoutControlCharacters(bullet.role));
+    const parts = role.split(ROLE_SEPARATOR).filter(Boolean);
+    if (parts.length > 0 && parts.every((part) => lettersOf(part).length >= 2 && cvLetters.includes(lettersOf(part)))) {
+      return role === bullet.role ? bullet : { ...bullet, role };
+    }
+    const wanted = wordsOf(role);
+    let nearest: { line: string; shared: number } | null = null;
+    for (const line of roleLines) {
+      const shared = [...wordsOf(line)].filter((word) => wanted.has(word)).length;
+      if (shared > 0 && (!nearest || shared > nearest.shared)) nearest = { line, shared };
+    }
+    const replacement = nearest?.line ?? role;
+    interventions.push({ check: "bullet-role", action: "text-replaced", path: `experienceAndImpact.suggestedBullets[${i}].role`, value: bullet.role, replacement });
+    return { ...bullet, role: replacement };
+  });
+
+  return { feedback: { ...feedback, experienceAndImpact: { ...feedback.experienceAndImpact, suggestedBullets } }, interventions };
 }

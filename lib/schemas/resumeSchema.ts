@@ -243,7 +243,7 @@ export const resumeFeedbackSchema = z.object({
     ...sectionBase,
     highlights: z.array(z.string()),
     improvements: z.array(z.string()),
-    recommendedCerts: z.array(z.string()),
+    // recommendedCerts is gone (M8-D: the model invented certifications); a stored row's copy is stripped on read.
   }),
 
   // No score, and before it no readability number. Readability went first

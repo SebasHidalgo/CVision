@@ -47,7 +47,6 @@ function feedback(
       ...section,
       highlights: [],
       improvements: [],
-      recommendedCerts: [],
     },
     toneAndClarity: { description: "", suggestions: [] },
     jobFit: { description: "", requirements: [], strategicRecommendations: [] },

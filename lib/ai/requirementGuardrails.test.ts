@@ -8,15 +8,18 @@ import {
   DOWNGRADE_NOTE,
   enforceRequirementStatuses,
   evidenceSourceOf,
+  guardBulletRoles,
   guardMatchedSkills,
   headingKind,
   neededTerms,
   requirementHeadline,
+  statedTotalYears,
   structureRequirements,
   termGroups,
   unshowableAlternativeIn,
   withEvidenceSources,
   withoutClause,
+  withoutControlCharacters,
 } from "./requirementGuardrails";
 
 const POSTING = `Data Analyst
@@ -526,17 +529,72 @@ describe("guardMatchedSkills", () => {
           { name: "React", evidence: "Front end: React, Next.js" },
           { name: "Redis", evidence: "" },
           { name: "Python", evidence: "Databases: MongoDB, PostgreSQL, MySQL" },
+          { name: "Postgres 16", evidence: "Databases: MongoDB, PostgreSQL, MySQL" },
         ],
       },
+      jobFit: { requirements: [{ requirement: "Postgres 16", kind: "required", status: "met", evidence: "", note: "", keyTerms: terms("all", ["Postgres 16", "PostgreSQL"]) }] },
     } as unknown as ResumeAnalysisFeedback;
 
     const { feedback: kept, interventions } = guardMatchedSkills(feedback, CV);
 
-    expect(kept.skills.matchedSkills.map((one) => one.name)).toEqual(["React"]);
+    // "Postgres 16" is in no CV line, but a key term verified it through the CV's own word.
+    expect(kept.skills.matchedSkills.map((one) => one.name)).toEqual(["React", "Postgres 16"]);
     expect(interventions.map((one) => [one.value, one.replacement])).toEqual([
       ["Redis", "no evidence"],
       ["Python", "not in the CV"],
+      ["Postgres 16", "synonym: PostgreSQL"],
     ]);
+  });
+});
+
+describe("M8-D: control characters, bullet roles, the CV's own years", () => {
+  it("strips control characters from every string", () => {
+    expect(withoutControlCharacters({ role: "Asociaci\u0003on", list: ["a\u0000b"], n: 3, keep: "line\none" })).toEqual({ role: "Asociacion", list: ["ab"], n: 3, keep: "line\none" });
+  });
+
+  it("keeps a role label the CV has, and replaces one it does not with the nearest role line", () => {
+    const feedback = {
+      atsCompatibility: { sectionsDetected: ["Summary", "Experience", "Technical Skills"] },
+      experienceAndImpact: {
+        suggestedBullets: [
+          { role: "Full-Stack Developer, Asociaci\u0003on", examples: ["x"] },
+          { role: "Lead Architect, Globex", examples: ["y"] },
+          { role: "Senior Full-Stack Developer", examples: ["z"] },
+        ],
+      },
+    } as unknown as ResumeAnalysisFeedback;
+    const cv = CV.replace("Full-Stack Developer July 2021 – November 2021", "Full-Stack Developer July 2021 – November 2021\nAsociaci´on Ejemplo Springfield");
+
+    const { feedback: checked, interventions } = guardBulletRoles(feedback, cv);
+
+    expect(checked.experienceAndImpact.suggestedBullets.map((one) => one.role)).toEqual([
+      "Full-Stack Developer, Asociacion",
+      "Lead Architect, Globex",
+      "Full-Stack Developer",
+    ]);
+    expect(interventions.map((one) => one.replacement)).toEqual(["Lead Architect, Globex", "Full-Stack Developer"]);
+  });
+
+  it("reads the CV's own total from its summary, ignoring a skill's years in parentheses", () => {
+    expect(statedTotalYears(CV, ["Summary", "Experience", "Technical Skills"])).toBe(2);
+    expect(statedTotalYears("Jane Doe\nSKILLS\nPython (6 years), SQL\nSUMMARY\nData engineer with six years building pipelines", ["SKILLS", "SUMMARY"])).toBe(6);
+    expect(statedTotalYears("Jane Doe\nEXPERIENCE\nLed the team for three years", ["EXPERIENCE"])).toBeNull();
+  });
+
+  it("uses the CV's total over the lines the model quoted, lowers with it, and raises only when the quoted years agree", () => {
+    const fiveYears = "5+ years of experience in full stack software development";
+    const base = { kind: "required" as const, note: "model note", assessable: true, evidence: "Full-Stack Developer July 2021 – November 2021" };
+    const { requirements } = enforceRequirementStatuses(
+      [
+        { ...base, requirement: fiveYears, sourceQuote: fiveYears, status: "partial" },
+        { ...base, requirement: "1+ year of React", sourceQuote: "1+ year of React", status: "partial" },
+      ],
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: CV, now: NOW, statedYears: 2 },
+    );
+
+    expect(requirements[0]).toMatchObject({ status: "missing", years: { min: 5, candidate: 2, source: "statement" }, note: "The posting asks for 5+ years; your CV shows about 2." });
+    // The quoted role covers 5 months: the total alone does not raise a partial.
+    expect(requirements[1]).toMatchObject({ status: "partial", note: "model note" });
   });
 });
 
@@ -649,19 +707,24 @@ describe("M8-C measurement fixes", () => {
 describe("M8-C language", () => {
   const english = "Fluency to read, write and speak in English.";
 
-  it("meets a requirement for the language the CV is written in, and only that one", () => {
-    const { requirements, interventions } = enforceRequirementStatuses(
-      [
-        { requirement: english, kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: english },
-        { requirement: "Writes clearly in English and Spanish", kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: "writes clearly in English and Spanish" },
-        { requirement: "Fluent German", kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: "Fluent German" },
-      ],
-      { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }, { yearsEvidence: [] }], cvText: `${CV}\nWorked with the team and the clients in this role for two years.`, now: NOW },
-    );
+  it("calls a language requirement not shown, even when assessable, unless the CV states a level", () => {
+    const pending = [{ yearsEvidence: [] }, { yearsEvidence: [] }, { yearsEvidence: [] }];
+    const asked = [
+      { requirement: english, kind: "required" as const, status: "met" as const, evidence: "Worked in distributed international teams", note: "", assessable: true, sourceQuote: english },
+      { requirement: "Writes clearly in English and Spanish", kind: "required" as const, status: "missing" as const, evidence: "", note: "model note", assessable: true, sourceQuote: "writes clearly in English and Spanish" },
+      { requirement: "Fluent German", kind: "required" as const, status: "partial" as const, evidence: "German (A2)", note: "model note", assessable: true, sourceQuote: "Fluent German" },
+    ];
 
-    expect(requirements.map((one) => one.status)).toEqual(["met", "missing", "missing"]);
-    expect(requirements[0].note).toBe("Your CV is written in English, which shows it.");
-    expect(interventions).toContainEqual(expect.objectContaining({ check: "cv-language", replacement: "met" }));
+    // The owner's CV: written in English, no level stated anywhere.
+    const { requirements, interventions } = enforceRequirementStatuses(asked, { pending, cvText: CV, now: NOW });
+    expect(requirements.map((one) => one.status)).toEqual(["not_evident", "not_evident", "not_evident"]);
+    expect(requirements[0]).toMatchObject({ evidence: "", assessable: true, note: "Your CV doesn't state your English level. Add a Languages line, e.g. 'Spanish (native), English (C1)'." });
+    expect(requirements[1].note).toBe("Your CV doesn't state your English and Spanish level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.");
+    expect(interventions.filter((one) => one.check === "language-level")).toHaveLength(3);
+
+    // A Languages line: the model's judgement of the stated level stands.
+    const stated = enforceRequirementStatuses(asked, { pending, cvText: `${CV}\nLANGUAGES\nSpanish (native), English (C1), German (A2)`, now: NOW });
+    expect(stated.requirements.map((one) => one.status)).toEqual(["met", "missing", "partial"]);
   });
 
   it("names absent alternatives with 'or' and the rest with 'and'", () => {

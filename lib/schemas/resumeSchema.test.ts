@@ -47,7 +47,6 @@ function validFeedback() {
       description: 'Relevant degree.',
       highlights: ['Computer Science degree'],
       improvements: ['Add relevant coursework'],
-      recommendedCerts: [],
     },
     toneAndClarity: {
       description: 'Clear and concise.',
@@ -92,6 +91,16 @@ function parsedScore(path: ScorePath, value: unknown): unknown {
 describe("resumeFeedbackSchema: shape", () => {
   it("accepts a complete, well-formed analysis", () => {
     expect(resumeFeedbackSchema.safeParse(validFeedback()).success).toBe(true);
+  });
+
+  it("reads a stored analysis that still carries recommended certifications, and drops them", () => {
+    const stored = validFeedback();
+    const old = { ...stored, educationAndCertifications: { ...stored.educationAndCertifications, recommendedCerts: ["AWS Certified Developer"] } };
+
+    const parsed = resumeFeedbackSchema.safeParse(old);
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.educationAndCertifications).not.toHaveProperty("recommendedCerts");
   });
 
   it("rejects an analysis missing a section", () => {
@@ -348,7 +357,6 @@ describe("feedback stored before M2c-F", () => {
       description: "Relevant degree.",
       highlights: [],
       improvements: [],
-      recommendedCerts: [],
     },
     toneAndClarity: {
       score: 78,

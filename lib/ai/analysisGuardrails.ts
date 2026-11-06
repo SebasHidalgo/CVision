@@ -71,7 +71,8 @@ export type RequirementCheckName =
   | "requirement-text"
   | "matched-skill"
   | "evidence-source"
-  | "cv-language";
+  | "language-level"
+  | "bullet-role";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;

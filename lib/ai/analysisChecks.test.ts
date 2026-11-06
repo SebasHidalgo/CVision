@@ -59,7 +59,6 @@ function feedback(
       ...section,
       highlights: [],
       improvements: [],
-      recommendedCerts: [],
     },
     toneAndClarity: { description: '', suggestions: [] },
     jobFit: { description: '', requirements: [], strategicRecommendations: [] },
@@ -338,22 +337,6 @@ describe("checkFalseMissing", () => {
         path: "jobFit.requirements[0].requirement",
         value: "Scalability",
       }),
-    ]);
-  });
-
-  it("flags a recommended certification the CV already holds", () => {
-    const analysis = feedback({
-      educationAndCertifications: {
-        score: 70,
-        description: "",
-        highlights: [],
-        improvements: [],
-        recommendedCerts: ["AWS Certified Developer", "Certified Kubernetes Administrator"],
-      },
-    });
-
-    expect(checkFalseMissing(CV, analysis)).toEqual([
-      expect.objectContaining({ value: "AWS Certified Developer" }),
     ]);
   });
 

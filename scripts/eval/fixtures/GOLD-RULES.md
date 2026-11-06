@@ -127,6 +127,15 @@ report counts separately.
     it fast", "o disposición para aprenderlo"). An equivalence ("or
     equivalent practical experience") is not one: a CV shows experience.
 
+16. **A language level counts only when the CV states it (owner
+    decision, M8-D).** A requirement for a level of a language ("fluent
+    English", "inglés profesional", "Portugués") is `met` when the CV
+    states a level for it (C1, native, fluent, "professional working
+    proficiency", a test score) and the level answers the demand, and
+    `not_evident` when it states none, even though a level is assessable:
+    a CV written in English does not show the candidate's English. This is
+    the one `not_evident` without `assessable: false`.
+
 ## How the file is written
 
 ```json

@@ -122,8 +122,7 @@ function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
 }
 
 /**
- * Lists whose items are claimed to be absent from the CV. `recommendedCerts`
- * counts: recommending a certification the CV already lists is the same error.
+ * Lists whose items are claimed to be absent from the CV.
  *
  * `missingSkills` and `missingKeywords` are gone from the output, so the two
  * lists that produced most of this check's findings no longer exist. What
@@ -131,13 +130,6 @@ function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
  * way: the requirement text is the thing claimed to be absent.
  */
 function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
-  const certs = feedback.educationAndCertifications.recommendedCerts.map(
-    (value, i) => ({
-      path: `educationAndCertifications.recommendedCerts[${i}]`,
-      value,
-    }),
-  );
-
   const missing = feedback.jobFit.requirements
     .map((requirement, i) => ({ requirement, i }))
     .filter(({ requirement }) => requirement.status === "missing")
@@ -146,7 +138,7 @@ function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
       value: requirement.requirement,
     }));
 
-  return [...certs, ...missing];
+  return missing;
 }
 
 function suggestedBullets(feedback: ResumeAnalysisFeedback): Located[] {
