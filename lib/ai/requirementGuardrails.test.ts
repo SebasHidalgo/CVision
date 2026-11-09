@@ -713,7 +713,7 @@ Contoso Retail Shelbyville
     expect(isSkillYears({ sourceQuote: "3+ years writing production Python", keyTerms: terms("all", ["Python", ""]) })).toBe(true);
     expect(isSkillYears({ sourceQuote: "5+ years in infrastructure, platform or SRE roles", keyTerms: terms("any", ["infrastructure, platform or SRE roles", ""]) })).toBe(false);
     expect(isSkillYears({ sourceQuote: "Al menos 4 años de experiencia como analista de datos", keyTerms: terms("all", ["analista de datos", ""]) })).toBe(false);
-    expect(isSkillYears({ sourceQuote: "5+ years of experience in full stack software development" })).toBe(false);
+    expect(isSkillYears({ sourceQuote: "5+ years of experience building full stack web products" })).toBe(false);
   });
 });
 
