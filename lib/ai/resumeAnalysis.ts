@@ -12,7 +12,7 @@ import {
 } from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
 import { ENGLISH_RETRY, resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
-import { proseLanguage } from "@/lib/ai/postingLanguage";
+import { nonEnglishFields } from "@/lib/ai/postingLanguage";
 import {
   enforceRequirementStatuses,
   guardBulletRoles,
@@ -139,11 +139,11 @@ export async function analyzeResume({
 
   // Always English (owner decision, M8-D): prose in another language is asked for once more.
   const language: Intervention[] = [];
-  const firstLanguage = proseLanguage(analysisProse(answer));
-  if (firstLanguage !== "en") {
+  const firstFields = nonEnglishFields(analysisProse(answer));
+  if (firstFields > 0) {
     try {
       answer = await ask(`${prompt}\n\n${ENGLISH_RETRY}`);
-      language.push({ check: "language", action: "regenerated", path: "analysis", value: firstLanguage, replacement: proseLanguage(analysisProse(answer)) });
+      language.push({ check: "language", action: "regenerated", path: "analysis", value: `${firstFields} field(s) not in English`, replacement: `${nonEnglishFields(analysisProse(answer))} after asking again` });
     } catch (error) {
       // The first answer stands: the wrong language is better than no analysis.
       console.warn(`[CVision][ai] English retry failed: ${error instanceof Error ? error.name : "unknown"}`);
@@ -213,7 +213,7 @@ export async function analyzeResume({
 }
 
 /** The prose the model wrote, without quotes, names or the posting's own words: what the language check reads. */
-export function analysisProse(answer: AnalysisResponse): string {
+export function analysisProse(answer: AnalysisResponse): string[] {
   return [
     answer.jobFit.description,
     ...answer.jobFit.strategicRecommendations,
@@ -231,5 +231,5 @@ export function analysisProse(answer: AnalysisResponse): string {
     ...answer.educationAndCertifications.improvements,
     answer.toneAndClarity.description,
     ...answer.toneAndClarity.suggestions,
-  ].join("\n");
+  ];
 }

@@ -7,10 +7,12 @@ import {
   describeInterviewCounts,
   guardInterviewFeedback,
   type InterviewGuardReport,
+  type InterviewIntervention,
 } from "@/lib/ai/interviewGuardrails";
 import { computeInterviewStats, describeInterviewStats, isCandidateTurn } from "@/lib/ai/interviewStats";
-import { detectPostingLanguage, type InterviewLanguage } from "@/lib/ai/postingLanguage";
+import { detectPostingLanguage, nonEnglishFields, type InterviewLanguage } from "@/lib/ai/postingLanguage";
 import {
+  FEEDBACK_ENGLISH_RETRY,
   formatTranscript,
   interviewFeedbackPrompt,
   interviewFeedbackSystemPrompt,
@@ -32,7 +34,7 @@ import {
   type ClaimedInterview,
 } from "@/lib/database/interviewFeedbackJob";
 import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
-import { AppError, type ErrorCode } from "@/lib/error/errors";
+import { AiBillingError, AppError, type ErrorCode } from "@/lib/error/errors";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
@@ -196,12 +198,20 @@ export async function scoreTranscript({
   const stats: InterviewStats = computeInterviewStats(turns, durationSeconds, plannedSeconds);
   const prompt = interviewFeedbackPrompt({ ...context, turns, stats });
 
-  const answer = await generateJson({
-    system: interviewFeedbackSystemPrompt,
-    prompt,
-    schema: feedbackSchema,
-    timeoutMs,
-  });
+  const ask = (withPrompt: string) => generateJson({ system: interviewFeedbackSystemPrompt, prompt: withPrompt, schema: feedbackSchema, timeoutMs });
+  let answer = await ask(prompt);
+
+  // In English whatever the interview language (owner decision): asked for once more when it is not.
+  let regenerated: InterviewIntervention | null = null;
+  const firstFields = nonEnglishFields(feedbackProse(answer));
+  if (firstFields > 0) {
+    try {
+      answer = await ask(`${prompt}\n\n${FEEDBACK_ENGLISH_RETRY}`);
+      regenerated = { check: "language", action: "regenerated", path: "feedback", value: `${firstFields} field(s) not in English`, replacement: `${nonEnglishFields(feedbackProse(answer))} after asking again` };
+    } catch (error) {
+      console.warn(`[CVision][feedback] English retry failed: ${error instanceof Error ? error.name : "unknown"}`);
+    }
+  }
 
   // Quotes against the candidate's words only; numbers and terms against
   // everything the model was shown.
@@ -212,6 +222,10 @@ export async function scoreTranscript({
     feedback: answer,
     stats,
   });
+  if (regenerated) {
+    guard.interventions.push(regenerated);
+    guard.counts.regenerated += 1;
+  }
 
   return {
     feedback,
@@ -268,6 +282,12 @@ export async function generateInterviewFeedback(
     });
   } catch (error) {
     const code: ErrorCode = error instanceof AppError ? error.code : "UNKNOWN";
+    // A billing outage is ours, not this interview's: the attempt is given back and the lazy path retries.
+    if (error instanceof AiBillingError) {
+      await releaseInterviewFeedback({ interviewId, reason: FEEDBACK_FAILURE_REASONS.feedbackFailed, refundAttempt: true });
+      console.warn(`[CVision][feedback] interview=${interviewId} deferred: AI billing exhausted, attempt not counted`);
+      return { kind: "retry-later", code };
+    }
     console.error(`[CVision][feedback] interview=${interviewId} attempt ${row.feedbackAttempts} failed:`, error);
     if (row.feedbackAttempts >= FEEDBACK_MAX_ATTEMPTS) {
       return fail(FEEDBACK_FAILURE_REASONS.feedbackFailed, code);
@@ -298,4 +318,16 @@ export async function generateInterviewFeedback(
 
   console.info(`[CVision][feedback] interview=${interviewId} completed, total=${scored.report.totalScore}`);
   return { kind: "completed", feedbackId };
+}
+
+/** The debrief prose, without the candidate's quotes: what the language check reads. */
+function feedbackProse(answer: AiFeedback): string[] {
+  return [
+    answer.finalAssessment,
+    ...answer.categoryScores.map((score) => score.comment),
+    ...answer.gapFollowThrough.map((row) => row.note),
+    ...answer.notableAnswers.map((one) => one.why),
+    ...answer.strengths.map((one) => one.point),
+    ...answer.areasForImprovement.map((one) => one.point),
+  ];
 }

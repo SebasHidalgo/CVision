@@ -63,6 +63,11 @@ export function proseLanguage(text: string): InterviewLanguage {
   return countWords(sample, SPANISH_WORDS) > countWords(sample, ENGLISH_WORDS) ? "es" : "en";
 }
 
+/** How many prose fields long enough to judge read as another language than English. */
+export function nonEnglishFields(fields: string[], minChars = 60): number {
+  return fields.filter((field) => field.trim().length >= minChars && proseLanguage(field) !== "en").length;
+}
+
 export function detectPostingLanguage(text: string): InterviewLanguage {
   const sample = text.slice(0, SAMPLE_CHARS).toLowerCase();
 

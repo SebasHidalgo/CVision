@@ -1,9 +1,9 @@
 import InterviewFeedbackScreen from "@/screens/InterviewFeedback/InterviewFeedbackScreen";
 
 // Bounds the lazy feedback generation this page can start (after() while
-// pending, or inline from the retry action): a 45 s model call plus writes.
-// A literal, as Next requires.
-export const maxDuration = 60;
+// pending, or inline from the retry action): a 45 s model call, a second one
+// when the first was not in English, plus writes. A literal, as Next requires.
+export const maxDuration = 105;
 
 type InterviewFeedbackPageParams = Promise<{ id: string }>;
 type InterviewFeedbackPageSearch = Promise<{ ended?: string | string[] }>;

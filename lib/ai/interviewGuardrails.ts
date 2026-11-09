@@ -32,7 +32,9 @@ export type InterviewCheckName =
   /** A number in the prose that is in neither the transcript nor the posting. */
   | "fabricated-number"
   /** A technology-shaped term in the prose that is in neither. */
-  | "fabricated-term";
+  | "fabricated-term"
+  /** The prose came back in another language than English. */
+  | "language";
 
 export type InterviewCheckViolation = {
   check: InterviewCheckName;
@@ -50,7 +52,9 @@ export type InterviewInterventionAction =
   | "item-dropped"
   /** A gap row's requirement text restored from the issued gap, matched by position. */
   | "gap-name-repaired"
-  | "recorded";
+  | "recorded"
+  /** Asked again once because the prose was not in English. */
+  | "regenerated";
 
 export type InterviewIntervention = {
   check: InterviewCheckName;
@@ -94,6 +98,7 @@ const emptyCounts = (): InterviewInterventionCounts => ({
   "item-dropped": 0,
   "gap-name-repaired": 0,
   recorded: 0,
+  regenerated: 0,
 });
 
 function quoteFields(feedback: AiFeedback): Located[] {
@@ -346,6 +351,7 @@ export function countInterviewChecks(
     "gap-coverage": 0,
     "fabricated-number": 0,
     "fabricated-term": 0,
+    language: 0,
   };
   for (const violation of violations) counts[violation.check] += 1;
   return counts;

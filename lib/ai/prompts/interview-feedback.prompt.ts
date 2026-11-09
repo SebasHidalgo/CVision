@@ -183,6 +183,10 @@ const requirementLine = (requirement: Requirement, gap: boolean) =>
  * are restated in the field comments where they apply; nothing here repeats
  * the role.
  */
+/** Appended once when the first debrief's prose came back in another language. */
+export const FEEDBACK_ENGLISH_RETRY =
+  "Your previous answer was not written in English. Quotes stay in the language they were spoken in; everything else is written in English.";
+
 export const interviewFeedbackPrompt = (input: InterviewFeedbackPromptInput) => {
   const languageName = input.language === "es" ? "Spanish" : "English";
   const gapSet = new Set(input.gaps);

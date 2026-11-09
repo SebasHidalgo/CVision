@@ -80,11 +80,17 @@ export async function claimInterviewForFeedback(
 export async function releaseInterviewFeedback(params: {
   interviewId: string;
   reason: string;
+  /** The failure was not the interview's (provider billing): the claim's attempt is given back. */
+  refundAttempt?: boolean;
 }): Promise<boolean> {
   try {
     const result = await prisma.interview.updateMany({
       where: { id: params.interviewId, status: "GENERATING" },
-      data: { status: "FEEDBACK_PENDING", failureReason: params.reason },
+      data: {
+        status: "FEEDBACK_PENDING",
+        failureReason: params.reason,
+        ...(params.refundAttempt ? { feedbackAttempts: { decrement: 1 } } : {}),
+      },
     });
     return result.count === 1;
   } catch (error) {

@@ -289,7 +289,7 @@ describe("the analysis language", () => {
 
     expect(provider.requests).toHaveLength(2);
     expect(provider.requests[1].prompt).toContain("Your previous answer was not written in English.");
-    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", value: "es", replacement: "en" }));
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", value: "1 field(s) not in English", replacement: "0 after asking again" }));
   });
 
   it("keeps the first answer when the second call fails", async () => {

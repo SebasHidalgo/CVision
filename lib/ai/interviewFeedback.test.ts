@@ -212,6 +212,25 @@ describe("generateInterviewFeedback: failures", () => {
     expect(failInterviewFeedback).not.toHaveBeenCalled();
   });
 
+  it("gives the attempt back when the provider's billing is exhausted, even on the last one", async () => {
+    vi.mocked(claimInterviewForFeedback).mockResolvedValue(claimed({ feedbackAttempts: FEEDBACK_MAX_ATTEMPTS }));
+    installFakeProvider(() => reply.error(402));
+
+    expect(await generateInterviewFeedback(INTERVIEW_ID)).toEqual({ kind: "retry-later", code: "AI_BILLING" });
+    expect(releaseInterviewFeedback).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, reason: "FEEDBACK_FAILED", refundAttempt: true });
+    expect(failInterviewFeedback).not.toHaveBeenCalled();
+  });
+
+  it("asks once more when the debrief comes back in Spanish, and records it", async () => {
+    vi.mocked(claimInterviewForFeedback).mockResolvedValue(claimed({ feedbackAttempts: 1 }));
+    const spanish = { ...answer(), finalAssessment: "Tu entrevista demostró buenas capacidades técnicas y los ejemplos de tu experiencia en el equipo fueron claros para el puesto." };
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? spanish : answer()));
+
+    expect(await generateInterviewFeedback(INTERVIEW_ID)).toMatchObject({ kind: "completed" });
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].prompt).toContain("Your previous answer was not written in English.");
+  });
+
   it("gives up on the second failed attempt", async () => {
     vi.mocked(claimInterviewForFeedback).mockResolvedValue(claimed({ feedbackAttempts: FEEDBACK_MAX_ATTEMPTS }));
     installFakeProvider(() => reply.json({ not: "the schema" }));
