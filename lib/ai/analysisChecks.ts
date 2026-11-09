@@ -51,8 +51,10 @@ export const normalizeWhitespace = (text: string) =>
   text.replace(/\s+/g, " ").trim();
 
 /** Lowercase, letters and digits only: ignores case and typography. */
+// U+FFFD goes entirely: the model cannot write it, so "Gesti�n" comes back "Gestin".
 export const loosen = (text: string) =>
   text
+    .replace(/�/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();

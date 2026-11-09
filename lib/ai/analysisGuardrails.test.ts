@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
-import { describeCounts, guardAnalysis, structureAtsIssues } from "./analysisGuardrails";
+import { describeCounts, guardAnalysis, spanFor, structureAtsIssues } from "./analysisGuardrails";
 
 const CV = [
   "JANE DOE — Backend Engineer",
@@ -312,5 +312,13 @@ describe("structureAtsIssues", () => {
 
   it("keeps everything when there is no CV text to check against", () => {
     expect(structureAtsIssues([{ quote: "", problem: "p", fix: "f" }], "").problems).toEqual(["p"]);
+  });
+});
+
+describe("a replacement character the model cannot write", () => {
+  it("restores the CV's own quote and keeps the ATS issue that quotes it", () => {
+    const cv = "EXPERIENCE\n- Gesti�n de inventario: reconciled stock counts every week.";
+    expect(spanFor(cv, "Gestin de inventario")).toBe("Gesti�n de inventario:");
+    expect(structureAtsIssues([{ quote: "Gestin", problem: "A replacement character.", fix: "Re-export the PDF." }], cv).problems).toEqual(["A replacement character."]);
   });
 });
