@@ -578,7 +578,7 @@ describe("guardMatchedSkills", () => {
     // "Postgres 16" is in no CV line, but a key term verified it through the CV's own word.
     expect(kept.skills.matchedSkills.map((one) => one.name)).toEqual(["React", "Postgres 16"]);
     expect(interventions.map((one) => [one.value, one.replacement])).toEqual([
-      ["Redis", "no evidence"],
+      ["Redis", "not in the CV"],
       ["Python", "not in the CV"],
       ["Postgres 16", "synonym: PostgreSQL"],
     ]);
@@ -598,6 +598,16 @@ describe("guardMatchedSkills", () => {
       { name: "MySQL", evidence: "Databases: MongoDB, PostgreSQL, MySQL" },
     ]);
     expect(interventions.map((one) => one.action)).toEqual(["evidence-replaced", "evidence-replaced"]);
+  });
+
+  it("quotes the CV line for a skill whose quote the guardrail dropped", () => {
+    const feedback = {
+      atsCompatibility: { sectionsDetected: [] },
+      skills: { score: 70, description: "", actionPlan: [], matchedSkills: [{ name: "MySQL", evidence: "" }] },
+      jobFit: { requirements: [] },
+    } as unknown as ResumeAnalysisFeedback;
+
+    expect(guardMatchedSkills(feedback, CV).feedback.skills.matchedSkills).toEqual([{ name: "MySQL", evidence: "Databases: MongoDB, PostgreSQL, MySQL" }]);
   });
 });
 

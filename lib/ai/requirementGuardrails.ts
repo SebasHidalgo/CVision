@@ -740,7 +740,8 @@ export function requirementHeadline(requirements: Requirement[], language: Analy
 
 /**
  * Matched skills keep a name the CV has and a CV quote that names it (or its verified CV word). A quote
- * that does not becomes the CV line that does, experience first; a skill no line names is dropped.
+ * that does not, or that the guardrail dropped, becomes the CV line that does, experience first; a skill
+ * no line names is dropped.
  */
 export function guardMatchedSkills(
   feedback: ResumeAnalysisFeedback,
@@ -752,10 +753,6 @@ export function guardMatchedSkills(
   const lines = cvLines(cvText, feedback.atsCompatibility.sectionsDetected);
   const matchedSkills = feedback.skills.matchedSkills.flatMap((skill, i) => {
     const path = `skills.matchedSkills[${i}]`;
-    if (!skill.evidence.trim()) {
-      interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "no evidence" });
-      return [];
-    }
     const synonym = containsTerm(cvText, skill.name)
       ? undefined
       : verified.find((term) => (containsTerm(term.term, skill.name) || containsTerm(skill.name, term.term)) && containsTerm(cvText, term.cvMatch));
