@@ -1,6 +1,6 @@
-import { groundQuotes, loosen, mentionsTerm, normalizeWhitespace } from "@/lib/ai/analysisChecks";
+import { groundQuotes, loosen, mentionsTerm, normalizeWhitespace, numbersIn } from "@/lib/ai/analysisChecks";
 import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
-import { spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
+import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
 import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
 import { candidateYears, withoutDateRanges, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
@@ -717,34 +717,100 @@ export function statedTotalYears(cvText: string, headings: string[]): number | n
 const lettersOf = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 const ROLE_SEPARATOR = /\s*(?:,|\||·|\s[-–—]\s|\sat\s|\sen\s|\s@\s)\s*/;
 
-/** A suggested bullet's role names a role and company the CV has; otherwise it becomes the CV's nearest role line. */
+/** One experience or project entry: its title and company lines, then its bullets with their wrapped lines. */
+export type CvEntry = { header: string[]; bullets: string[] };
+
+/** The entries of the experience and projects sections, in CV order. */
+export function cvEntries(cvText: string, headings: string[]): CvEntry[] {
+  const lines = cvLines(cvText, headings);
+  const entries: CvEntry[] = [];
+  let current: CvEntry | null = null;
+  for (const [i, line] of lines.entries()) {
+    const text = normalizeWhitespace(line.text);
+    if (line.heading) current = null;
+    if (line.heading || !text || (line.section !== "experience" && line.section !== "projects")) continue;
+    if (BULLET_START.test(line.text)) {
+      if (!current) entries.push((current = { header: [], bullets: [] }));
+      current.bullets.push(normalizeWhitespace(lineSpan(lines, i)));
+      continue;
+    }
+    // A wrapped bullet line is already in its bullet.
+    if (/^\p{Ll}/u.test(text) && current?.bullets.length) continue;
+    if (!current || current.bullets.length > 0 || current.header.length >= 2) entries.push((current = { header: [], bullets: [] }));
+    current.header.push(text);
+  }
+  return entries.filter((entry) => entry.header.length > 0 || entry.bullets.length > 0);
+}
+
+const entryLabel = (entry: CvEntry) =>
+  entry.header
+    .map((line) => normalizeWhitespace(withoutDateRanges(line)).replace(/[\s|,·–—-]+$/u, ""))
+    .filter(Boolean)
+    .join(", ");
+
+const contentWords = (text: string) => new Set(text.split(/[^\p{L}\p{N}]+/u).map(lettersOf).filter((word) => word.length >= 3));
+const sharedWords = (a: Set<string>, b: string) => [...contentWords(b)].filter((word) => a.has(word)).length;
+
+// A suggested bullet sharing this many words with a CV bullet is a rewrite of it.
+const SOURCE_BULLET_WORDS = 3;
+
+/**
+ * A suggested bullet's role names a role and company the CV has; otherwise it
+ * becomes the CV entry's title and company lines. A figure in an example must
+ * be in the CV bullet it rewrites, or, without one, in its role's text;
+ * otherwise it becomes the placeholder ("reducing downtime by 40%" moved onto
+ * another bullet of the same role).
+ */
 export function guardBulletRoles(
   feedback: ResumeAnalysisFeedback,
   cvText: string,
 ): { feedback: ResumeAnalysisFeedback; interventions: Intervention[] } {
   const cvLetters = lettersOf(cvText);
-  const roleLines = cvLines(cvText, feedback.atsCompatibility.sectionsDetected)
-    .filter((line) => !line.heading && (line.section === "experience" || line.section === "projects") && line.text.trim() && !BULLET_START.test(line.text) && line.text.length <= 140)
-    .map((line) => normalizeWhitespace(withoutDateRanges(line.text)).replace(/[\s|,·–—-]+$/u, ""))
-    .filter(Boolean);
-  const wordsOf = (text: string) => new Set(text.split(/[^\p{L}\p{N}]+/u).map(lettersOf).filter((word) => word.length >= 3));
+  const entries = cvEntries(cvText, feedback.atsCompatibility.sectionsDetected);
   const interventions: Intervention[] = [];
+  const nearestEntry = (label: string) => {
+    const wanted = contentWords(label);
+    let nearest: { entry: CvEntry; shared: number } | null = null;
+    for (const entry of entries) {
+      const shared = sharedWords(wanted, entry.header.join(" "));
+      if (shared > 0 && (!nearest || shared > nearest.shared)) nearest = { entry, shared };
+    }
+    return nearest?.entry ?? null;
+  };
 
   const suggestedBullets = feedback.experienceAndImpact.suggestedBullets.map((bullet, i) => {
-    const role = normalizeWhitespace(withoutControlCharacters(bullet.role));
+    let role = normalizeWhitespace(withoutControlCharacters(bullet.role));
     const parts = role.split(ROLE_SEPARATOR).filter(Boolean);
-    if (parts.length > 0 && parts.every((part) => lettersOf(part).length >= 2 && cvLetters.includes(lettersOf(part)))) {
-      return role === bullet.role ? bullet : { ...bullet, role };
+    const known = parts.length > 0 && parts.every((part) => lettersOf(part).length >= 2 && cvLetters.includes(lettersOf(part)));
+    const entry = nearestEntry(role);
+    if (!known) {
+      const replacement = entry ? entryLabel(entry) : role;
+      interventions.push({ check: "bullet-role", action: "text-replaced", path: `experienceAndImpact.suggestedBullets[${i}].role`, value: bullet.role, replacement });
+      role = replacement;
     }
-    const wanted = wordsOf(role);
-    let nearest: { line: string; shared: number } | null = null;
-    for (const line of roleLines) {
-      const shared = [...wordsOf(line)].filter((word) => wanted.has(word)).length;
-      if (shared > 0 && (!nearest || shared > nearest.shared)) nearest = { line, shared };
-    }
-    const replacement = nearest?.line ?? role;
-    interventions.push({ check: "bullet-role", action: "text-replaced", path: `experienceAndImpact.suggestedBullets[${i}].role`, value: bullet.role, replacement });
-    return { ...bullet, role: replacement };
+    const examples = bullet.examples.map((example, j) => {
+      const numbers = [...new Set(numbersIn(example))];
+      if (numbers.length === 0) return example;
+      const words = contentWords(example);
+      const candidates = entry?.bullets.length ? entry.bullets : entries.flatMap((one) => one.bullets);
+      let source: { text: string; shared: number } | null = null;
+      for (const text of candidates) {
+        const shared = sharedWords(words, text);
+        if (shared >= SOURCE_BULLET_WORDS && (!source || shared > source.shared)) source = { text, shared };
+      }
+      const scope = source ? [source.text, ...(entry?.header ?? [])].join(" ") : entry ? [...entry.header, ...entry.bullets].join(" ") : cvText;
+      const allowed = new Set(numbersIn(scope));
+      let text = example;
+      for (const number of numbers) {
+        if (allowed.has(number)) continue;
+        const next = placeholderFor(text, number);
+        if (!next) continue;
+        text = next;
+        interventions.push({ check: "bullet-figure", action: "number-placeheld", path: `experienceAndImpact.suggestedBullets[${i}].examples[${j}]`, value: number, replacement: text });
+      }
+      return text;
+    });
+    return role === bullet.role && examples.every((example, j) => example === bullet.examples[j]) ? bullet : { ...bullet, role, examples };
   });
 
   return { feedback: { ...feedback, experienceAndImpact: { ...feedback.experienceAndImpact, suggestedBullets } }, interventions };

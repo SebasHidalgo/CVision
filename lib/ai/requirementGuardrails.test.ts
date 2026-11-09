@@ -5,6 +5,7 @@ import {
   alignToSource,
   clauseAsRequirement,
   coverageCap,
+  cvEntries,
   DOWNGRADE_NOTE,
   enforceRequirementStatuses,
   evidenceSourceOf,
@@ -575,7 +576,7 @@ describe("M8-D: control characters, bullet roles, the CV's own years", () => {
     expect(withoutControlCharacters({ role: "Asociaci\u0003on", list: ["a\u0000b"], n: 3, keep: "line\none" })).toEqual({ role: "Asociacion", list: ["ab"], n: 3, keep: "line\none" });
   });
 
-  it("keeps a role label the CV has, and replaces one it does not with the nearest role line", () => {
+  it("keeps a role label the CV has, and replaces one it does not with the entry's title and company lines", () => {
     const feedback = {
       atsCompatibility: { sectionsDetected: ["Summary", "Experience", "Technical Skills"] },
       experienceAndImpact: {
@@ -593,9 +594,49 @@ describe("M8-D: control characters, bullet roles, the CV's own years", () => {
     expect(checked.experienceAndImpact.suggestedBullets.map((one) => one.role)).toEqual([
       "Full-Stack Developer, Asociacion",
       "Lead Architect, Globex",
-      "Full-Stack Developer",
+      "Full-Stack Developer, Asociaci´on Ejemplo Springfield",
     ]);
-    expect(interventions.map((one) => one.replacement)).toEqual(["Lead Architect, Globex", "Full-Stack Developer"]);
+    expect(interventions.map((one) => one.replacement)).toEqual(["Lead Architect, Globex", "Full-Stack Developer, Asociaci´on Ejemplo Springfield"]);
+  });
+
+  const ROLES_CV = `Experience
+Help Desk Analyst March 2018 – January 2019
+Northwind Cooperative Springfield
+• Built an inventory sync service in Go, improving stock accuracy across the
+warehouses.
+• Ran help desk support, cutting downtime by about 40% during the migration.
+Data Analyst March 2021 – May 2022
+Contoso Retail Shelbyville
+• Cut report build time by 30% by moving 12 dashboards to dbt.`;
+
+  const withExamples = (role: string, examples: string[]) =>
+    ({ atsCompatibility: { sectionsDetected: ["Experience"] }, experienceAndImpact: { suggestedBullets: [{ role, examples }] } }) as unknown as ResumeAnalysisFeedback;
+
+  it("placeholds a figure moved onto another bullet of the same role, and keeps a bullet's own", () => {
+    const { feedback, interventions } = guardBulletRoles(
+      withExamples("Help Desk Analyst, Northwind Cooperative", [
+        "Built an inventory sync service in Go, improving stock accuracy and cutting downtime by about 40%.",
+        "Ran help desk support during the migration, cutting downtime by about 40%.",
+      ]),
+      ROLES_CV,
+    );
+    expect(feedback.experienceAndImpact.suggestedBullets[0].examples).toEqual([
+      "Built an inventory sync service in Go, improving stock accuracy and cutting downtime by about [X]%.",
+      "Ran help desk support during the migration, cutting downtime by about 40%.",
+    ]);
+    expect(interventions).toEqual([expect.objectContaining({ check: "bullet-figure", action: "number-placeheld", value: "40" })]);
+  });
+
+  it("checks a bullet with no source against its role, so another role's figure is placeheld", () => {
+    const { feedback } = guardBulletRoles(withExamples("Data Analyst, Contoso Retail", ["Owned 12 dashboards and halved support tickets by 40%."]), ROLES_CV);
+    expect(feedback.experienceAndImpact.suggestedBullets[0].examples).toEqual(["Owned 12 dashboards and halved support tickets by [X]%."]);
+  });
+
+  it("reads entries as title and company lines followed by bullets with their wrapped lines", () => {
+    expect(cvEntries(ROLES_CV, ["Experience"]).map((entry) => [entry.header, entry.bullets.length])).toEqual([
+      [["Help Desk Analyst March 2018 – January 2019", "Northwind Cooperative Springfield"], 2],
+      [["Data Analyst March 2021 – May 2022", "Contoso Retail Shelbyville"], 1],
+    ]);
   });
 
   it("reads the CV's own total from its summary, ignoring a skill's years in parentheses", () => {
