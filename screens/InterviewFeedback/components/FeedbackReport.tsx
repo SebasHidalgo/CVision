@@ -91,6 +91,8 @@ function PointList({
 
 export default function FeedbackReport({ feedback, transcript, date }: FeedbackReportProps) {
   const { report } = feedback;
+  // The guardrail empties a quote it could not find in the transcript; a "why" without its answer is hidden.
+  const answers = report.notableAnswers.filter((answer) => answer.quote.trim());
 
   return (
     <article className="wrap py-10 lg:py-14">
@@ -173,7 +175,7 @@ export default function FeedbackReport({ feedback, transcript, date }: FeedbackR
         )}
       </section>
 
-      {report.notableAnswers.length > 0 && (
+      {answers.length > 0 && (
         <section aria-labelledby="answers-title" className="border-b border-line py-10 lg:py-14">
           <Reveal>
             <Eyebrow tick>Answers worth hearing again</Eyebrow>
@@ -182,7 +184,7 @@ export default function FeedbackReport({ feedback, transcript, date }: FeedbackR
             </h2>
           </Reveal>
           <ul className="mt-8 grid gap-8 md:grid-cols-2">
-            {report.notableAnswers.map((answer, i) => (
+            {answers.map((answer, i) => (
               <Reveal key={i} delay={i * 0.06}>
                 <li className="flex h-full flex-col border-t border-line pt-5">
                   <span
@@ -193,12 +195,9 @@ export default function FeedbackReport({ feedback, transcript, date }: FeedbackR
                   >
                     {answer.worked ? "Worked" : "Didn't land"}
                   </span>
-                  {/* The guardrail empties a quote it could not find in the transcript. */}
-                  {answer.quote && (
-                    <blockquote className="mt-3 text-[15px] leading-relaxed text-ink">
-                      &ldquo;{answer.quote}&rdquo;
-                    </blockquote>
-                  )}
+                  <blockquote className="mt-3 text-[15px] leading-relaxed text-ink">
+                    &ldquo;{answer.quote}&rdquo;
+                  </blockquote>
                   <p className="mt-3 text-sm leading-relaxed text-ink-2">{answer.why}</p>
                 </li>
               </Reveal>
