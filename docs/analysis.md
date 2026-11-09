@@ -225,7 +225,7 @@ Status rules, after the CV quotes are checked, in this order:
    de aprender", … in `UNSHOWABLE_ALTERNATIVE`) makes the item `assessable:
    false`; `missing` becomes `not_evident`, and a `not_evident` item gets
    the note "Python isn't in your CV; the posting accepts willingness to
-   learn and work with it — say so in your cover letter." and no quote
+   learn it on the job — say so in your cover letter." and no quote
    (`unshowable-alternative`). M8-C measured a model field beside the
    pattern: the same 18 hits and 13 false alarms in 108 analyses, so the
    field was removed.

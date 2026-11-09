@@ -8,8 +8,8 @@ own one of those services end to end, alongside four other backend developers.
 
 Required qualifications
 - 3+ years of professional backend development experience.
-- Experience writing production code in languages including, but not limited to, C,
-  C++, C#, Java, JavaScript, or Python.
+- Experience writing production code in a language including, but not limited to,
+  Python, Java, JavaScript, C, C++, or C#.
 - Hands-on experience with relational databases and SQL.
 - Experience with containers and CI/CD pipelines.
 - Experience designing and maintaining REST APIs.

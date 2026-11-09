@@ -163,14 +163,14 @@ describe("checkEvidenceGrounding", () => {
     // Both halves are in the CV; the sentence is not.
     const violations = checkEvidenceGrounding(
       CV,
-      withEvidence("Built backend services using Node.js and Express.js"),
+      withEvidence("Built backend services with Express.js on Node.js"),
     );
 
     expect(violations).toEqual([
       expect.objectContaining({
         check: "evidence-grounding",
         path: "skills.matchedSkills[0].evidence",
-        value: "Built backend services using Node.js and Express.js",
+        value: "Built backend services with Express.js on Node.js",
         // Both halves are real, so it is a stitch, not an invention.
         kind: "altered",
       }),

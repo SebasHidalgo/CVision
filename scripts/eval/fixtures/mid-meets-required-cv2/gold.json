@@ -15,8 +15,8 @@
     {
       "id": "r2",
       "kind": "required",
-      "name": "Production code in C, C++, C#, Java, JavaScript or Python",
-      "spans": ["Experience writing production code in languages including, but not limited to, C, C++, C#, Java, JavaScript, or Python."],
+      "name": "Production code in Python, Java, JavaScript, C, C++ or C#",
+      "spans": ["Experience writing production code in a language including, but not limited to, Python, Java, JavaScript, C, C++, or C#."],
       "aliases": ["production code in one of the listed languages"],
       "status": "met",
       "why": "Python in production."

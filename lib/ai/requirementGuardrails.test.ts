@@ -273,17 +273,17 @@ Skills and Qualifications
 
 * 5+ years of experience building full stack web products
 * Deep knowledge of Ruby on Rails and MySQL on the server side
-* Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq
-* Working knowledge of Python or willingness to learn and work with it
+* Hands-on use of tools like Redis, Elasticsearch and Sidekiq
+* Working knowledge of Python or willingness to learn it on the job
 * TypeScript experience is a plus
 * Experience with a BI tool, preferably Power BI or Looker.`;
 
 const CV = `Summary
-Software Engineer with 2+ years of experience building internal tools for warehouses.
+Software Engineer with 2+ years of experience shipping internal tools for warehouses.
 Experience
 Full-Stack Developer July 2021 – November 2021
-• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to
-book volunteer shifts.
+• Built a shift-booking app on the MERN stack (Node.js, Express.js, MongoDB, React) so that
+volunteers could book their own shifts.
 Technical Skills
 Front end: React, Next.js
 Databases: MongoDB, PostgreSQL, MySQL`;
@@ -294,7 +294,7 @@ const terms = (mode: "all" | "any", ...pairs: [string, string][]) => ({ mode, te
 describe("structureRequirements: kind from the posting's own wording", () => {
   it("makes a plain bullet under a qualifications heading required, and keeps a softened one preferred", () => {
     const { requirements, interventions } = structureRequirements(ENCORA, [
-      entry({ sourceQuote: "Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis, Elasticsearch, Sidekiq", kind: "preferred" }),
+      entry({ sourceQuote: "Hands-on use of tools like Redis, Elasticsearch and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis, Elasticsearch, Sidekiq", kind: "preferred" }),
       entry({ sourceQuote: "TypeScript experience is a plus", heading: "Skills and Qualifications", requirement: "TypeScript", kind: "preferred" }),
     ]);
 
@@ -384,8 +384,8 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
   it("allows an 'any' requirement once one term is shown, and empties a CV match the CV does not have", () => {
     const { requirements, interventions } = enforceRequirementStatuses(
       [
-        stored({ sourceQuote: "tools such as Redis, Elasticsearch, and Sidekiq", keyTerms: terms("any", ["Redis", "Redis"], ["Elasticsearch", ""]) }),
-        stored({ sourceQuote: "tools such as Redis, Elasticsearch, and Sidekiq", keyTerms: terms("any", ["Redis", ""], ["MySQL", "MySQL"]) }),
+        stored({ sourceQuote: "tools like Redis, Elasticsearch and Sidekiq", keyTerms: terms("any", ["Redis", "Redis"], ["Elasticsearch", ""]) }),
+        stored({ sourceQuote: "tools like Redis, Elasticsearch and Sidekiq", keyTerms: terms("any", ["Redis", ""], ["MySQL", "MySQL"]) }),
       ],
       context(2),
     );
@@ -407,7 +407,7 @@ describe("enforceRequirementStatuses: years", () => {
     requirement: "5+ years of experience building full stack web products",
     kind: "required",
     status: "partial",
-    evidence: "Software Engineer with 2+ years of experience building internal tools for warehouses.",
+    evidence: "Software Engineer with 2+ years of experience shipping internal tools for warehouses.",
     note: "the model's note",
     assessable: true,
     sourceQuote: "5+ years of experience building full stack web products",
@@ -424,14 +424,14 @@ describe("enforceRequirementStatuses: years", () => {
   });
 
   it("raises a partial the numbers support, and quotes the years line when the evidence was empty", () => {
-    const { requirements } = run(stored({ sourceQuote: "1+ year(s) technical engineering experience", status: "partial", evidence: "" }), ["Software Engineer with 2+ years of experience building internal tools for warehouses."]);
+    const { requirements } = run(stored({ sourceQuote: "1+ year(s) professional software experience", status: "partial", evidence: "" }), ["Software Engineer with 2+ years of experience shipping internal tools for warehouses."]);
 
     expect(requirements[0]).toMatchObject({ status: "met", years: { min: 1, candidate: 2 } });
     expect(requirements[0].evidence).toContain("2+ years");
   });
 
   it("never raises a missing: the model may have ruled the quoted years irrelevant", () => {
-    const { requirements } = run(stored({ sourceQuote: "1+ year(s) of professional embedded C development", status: "missing", evidence: "" }), ["Software Engineer with 2+ years of experience building internal tools for warehouses."]);
+    const { requirements } = run(stored({ sourceQuote: "1+ year(s) of professional embedded C development", status: "missing", evidence: "" }), ["Software Engineer with 2+ years of experience shipping internal tools for warehouses."]);
 
     expect(requirements[0]).toMatchObject({ status: "missing", years: { min: 1, candidate: 2 } });
   });
@@ -451,7 +451,7 @@ describe("enforceRequirementStatuses: years", () => {
 
 describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   it.each([
-    ["Working knowledge of Python or willingness to learn and work with it", "or willingness to learn and work with it"],
+    ["Working knowledge of Python or willingness to learn it on the job", "or willingness to learn it on the job"],
     ["Experience with GraphQL schema design, or a clear appetite to learn it fast.", "or a clear appetite to learn it fast"],
     ["Conocimientos de Airflow o disposición para aprenderlo.", "o disposición para aprenderlo"],
     ["Kotlin, or eagerness to pick it up", "or eagerness to pick it up"],
@@ -460,16 +460,16 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   });
 
   it.each([
-    "Degree in Computer Science, Information Systems, or a related field, or equivalent practical experience",
+    "Degree in Computer Science, Information Systems, or a similar field, or equivalent hands-on experience",
     "You pick up one existing service, learn its failure modes on call",
     "Must be willing to travel to client sites",
-    "Continuously seeks new knowledge, adapts to emerging technologies",
+    "Keeps learning new tools and adapts to new technology",
   ])("finds none in %s", (quote) => {
     expect(unshowableAlternativeIn(quote)).toBeNull();
   });
 
   it("turns missing into not_evident with a note naming what is absent, and leaves met alone", () => {
-    const python = "Working knowledge of Python or willingness to learn and work with it";
+    const python = "Working knowledge of Python or willingness to learn it on the job";
     const { requirements, interventions } = enforceRequirementStatuses(
       [
         { requirement: python, kind: "required", status: "missing", evidence: "", note: "Python is absent", assessable: true, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) },
@@ -479,12 +479,12 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
     );
 
     expect(requirements.map((one) => [one.status, one.assessable])).toEqual([["not_evident", false], ["met", false]]);
-    expect(requirements[0].note).toBe("Python isn't in your CV; the posting accepts willingness to learn and work with it — say so in your cover letter.");
+    expect(requirements[0].note).toBe("Python isn't in your CV; the posting accepts willingness to learn it on the job — say so in your cover letter.");
     expect(interventions).toContainEqual(expect.objectContaining({ check: "unshowable-alternative", action: "recorded" }));
   });
 
   it("writes its own note when the model chose not_evident itself, and drops a quote that showed nothing", () => {
-    const python = "Working knowledge of Python or willingness to learn and work with it";
+    const python = "Working knowledge of Python or willingness to learn it on the job";
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: python, kind: "required", status: "not_evident", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "the unshowable alternative covers it", assessable: false, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) }],
       { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
@@ -493,7 +493,7 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
     expect(requirements[0]).toMatchObject({
       status: "not_evident",
       evidence: "",
-      note: "Python isn't in your CV; the posting accepts willingness to learn and work with it — say so in your cover letter.",
+      note: "Python isn't in your CV; the posting accepts willingness to learn it on the job — say so in your cover letter.",
     });
   });
 });
@@ -503,7 +503,7 @@ describe("evidenceSourceOf", () => {
 
   it("places a quote in the section above it, a wrapped bullet included", () => {
     expect(evidenceSourceOf(CV, "Front end: React, Next.js", headings)).toBe("skills");
-    expect(evidenceSourceOf(CV, "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts.", headings)).toBe("experience");
+    expect(evidenceSourceOf(CV, "• Built a shift-booking app on the MERN stack (Node.js, Express.js, MongoDB, React) so that volunteers could book their own shifts.", headings)).toBe("experience");
     expect(evidenceSourceOf(CV, "Software Engineer with 2+ years of experience", headings)).toBe("summary");
     expect(evidenceSourceOf(CV, "Not in the CV at all", headings)).toBe("other");
   });
@@ -754,7 +754,7 @@ describe("M8-C smoke fixes", () => {
     const { requirements, interventions } = structureRequirements(posting, [
       entry({ sourceQuote: "5+ years of experience building full stack web products", heading: "Skills and Qualifications", requirement: "5+ years", keyTerms: terms("all", ["5+ years of experience", "2+ years of experience"]) }),
       entry({ sourceQuote: "dbt and data contracts.", heading: "Skills and Qualifications", requirement: "dbt and data contracts", keyTerms: terms("any", ["dbt", ""], ["data contracts", "data contracts"]) }),
-      entry({ sourceQuote: "Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis", keyTerms: terms("any", ["Redis", ""], ["Sidekiq", ""]) }),
+      entry({ sourceQuote: "Hands-on use of tools like Redis, Elasticsearch and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis", keyTerms: terms("any", ["Redis", ""], ["Sidekiq", ""]) }),
     ]);
 
     expect(requirements.map((one) => one.keyTerms?.mode ?? null)).toEqual([null, "all", "any"]);
@@ -781,7 +781,7 @@ describe("M8-C smoke fixes", () => {
     );
 
     expect(requirements[0]).toMatchObject({
-      evidence: "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts.",
+      evidence: "• Built a shift-booking app on the MERN stack (Node.js, Express.js, MongoDB, React) so that volunteers could book their own shifts.",
       evidenceSource: "experience",
     });
     // Only in the skills list: it stays there, and the page says so.
@@ -815,7 +815,7 @@ describe("M8-C measurement fixes", () => {
     expect(termGroups("Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).", ["SQL", "BigQuery", "Snowflake"])).toEqual([[0], [1, 2]]);
     expect(termGroups("Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", ["Prometheus", "Grafana", "OpenTelemetry"])).toEqual([[0, 1, 2]]);
     expect(termGroups("Deep knowledge of Ruby on Rails and MySQL on the server side", ["Ruby on Rails", "MySQL"])).toEqual([[0], [1]]);
-    expect(termGroups("coding in C, C++, C#, Java, JavaScript, or Python", ["C++", "Java", "Python"])).toEqual([[0, 1, 2]]);
+    expect(termGroups("coding in Go, C, C++, C#, Java, or Python", ["C++", "Java", "Python"])).toEqual([[0, 1, 2]]);
   });
 
   it("counts a group as covered by one shown term, and drops the alternatives not needed", () => {
@@ -841,14 +841,14 @@ describe("M8-C measurement fixes", () => {
       [{ requirement: "React", kind: "required", status: "met", evidence: "", note: "", assessable: true, sourceQuote: "React", keyTerms: terms("all", ["React", "React"]) }],
       { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
     );
-    expect(requirements[0]).toMatchObject({ status: "met", evidence: "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts." });
+    expect(requirements[0]).toMatchObject({ status: "met", evidence: "• Built a shift-booking app on the MERN stack (Node.js, Express.js, MongoDB, React) so that volunteers could book their own shifts." });
     expect(interventions).toContainEqual(expect.objectContaining({ check: "evidence-source", action: "evidence-replaced", value: "" }));
   });
 
   it("keeps the model's note when its status is below what the numbers allow", () => {
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: "6+ years of backend", kind: "required", status: "missing", evidence: "", note: "The CV shows pastry work, not backend.", assessable: true, sourceQuote: "1+ year(s) of backend software development" }],
-      { pending: [{ yearsEvidence: ["Software Engineer with 2+ years of experience building internal tools for warehouses."] }], cvText: CV, now: NOW },
+      { pending: [{ yearsEvidence: ["Software Engineer with 2+ years of experience shipping internal tools for warehouses."] }], cvText: CV, now: NOW },
     );
     expect(requirements[0]).toMatchObject({ status: "missing", note: "The CV shows pastry work, not backend." });
   });
@@ -888,7 +888,7 @@ describe("M8-C language", () => {
     const { requirements } = enforceRequirementStatuses(
       [
         { requirement: quote, kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: quote, keyTerms: terms("any", ["Airflow", ""]) },
-        { requirement: "Al menos 4 años", kind: "required", status: "partial", evidence: "Software Engineer with 2+ years of experience building internal tools for warehouses.", note: "", assessable: true, sourceQuote: "Al menos 4 años de experiencia como analista" },
+        { requirement: "Al menos 4 años", kind: "required", status: "partial", evidence: "Software Engineer with 2+ years of experience shipping internal tools for warehouses.", note: "", assessable: true, sourceQuote: "Al menos 4 años de experiencia como analista" },
       ],
       { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: CV, now: NOW, language: "es" },
     );

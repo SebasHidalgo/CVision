@@ -209,7 +209,7 @@ describe("buildInterviewerContext: size", () => {
     const realistic = input(
       Array.from({ length: 12 }, (_, i) =>
         requirement({
-          requirement: `Requirement ${i}: ${"familiarity with distributed systems and cloud platforms ".repeat(3)}`,
+          requirement: `Requirement ${i}: ${"familiarity with distributed systems and public clouds ".repeat(3)}`,
           status: i % 2 ? "met" : "missing",
           evidence: i % 2 ? "Designed and operated services on AWS with CloudWatch telemetry".repeat(2) : "",
           note: "One sentence on why that status, naming the alternative the candidate has.".repeat(2),

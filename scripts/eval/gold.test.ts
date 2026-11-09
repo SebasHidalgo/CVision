@@ -8,7 +8,7 @@ What you will do
 
 Required qualifications
 - 3+ years of professional backend development experience.
-- Experience writing production code in C, C++, Java, JavaScript or Python.
+- Experience writing production code in Go, Java, JavaScript, C or Python.
 - Experience with containers and CI/CD pipelines.
 
 Preferred qualifications
@@ -21,7 +21,7 @@ const FILE: GoldFile = {
   status: "final",
   requirements: [
     { id: "r1", kind: "required", name: "3+ years of professional backend development", spans: ["3+ years of professional backend development experience."], status: "met" },
-    { id: "r2", kind: "required", name: "Production code in C, C++, Java, JavaScript or Python", spans: ["Experience writing production code in C, C++, Java, JavaScript or Python."], status: "met" },
+    { id: "r2", kind: "required", name: "Production code in Go, Java, JavaScript, C or Python", spans: ["Experience writing production code in Go, Java, JavaScript, C or Python."], status: "met" },
     {
       id: "r3",
       kind: "required",
@@ -85,7 +85,7 @@ describe("score", () => {
       { requirement: "CI/CD pipelines", kind: "required" },
       { requirement: "3+ years of professional backend development", kind: "required" },
       { requirement: "3+ years backend development experience", kind: "required" },
-      { requirement: "3+ years of professional backend development experience. Experience writing production code in C, C++, Java, JavaScript or Python.", kind: "required" },
+      { requirement: "3+ years of professional backend development experience. Experience writing production code in Go, Java, JavaScript, C or Python.", kind: "required" },
     ]);
     expect(items[0]).toMatchObject({ outcome: "match", goldIds: ["r3"], part: "containers", split: false });
     expect(items[1]).toMatchObject({ outcome: "match", goldIds: ["r3"], part: "CI/CD pipelines", split: false });
@@ -99,7 +99,7 @@ describe("score", () => {
 
   it("uses the source quote to locate an item when the arm supplies one", () => {
     const { items } = score(gold, [
-      { requirement: "Mastery of one of the listed programming languages", kind: "required", source: "Experience writing production code in C, C++, Java, JavaScript or Python." },
+      { requirement: "Mastery of one of the listed programming languages", kind: "required", source: "Experience writing production code in Go, Java, JavaScript, C or Python." },
     ]);
     expect(items[0]).toMatchObject({ outcome: "match", matcher: "span", goldIds: ["r2"] });
   });
@@ -130,7 +130,7 @@ describe("score", () => {
     );
     const { metrics, gold: verdicts } = score(soft, [
       { requirement: "3+ years of professional backend development experience", kind: "required", status: "met", assessable: true },
-      { requirement: "Experience writing production code in C, C++, Java, JavaScript or Python", kind: "required", status: "met", assessable: true },
+      { requirement: "Experience writing production code in Go, Java, JavaScript, C or Python", kind: "required", status: "met", assessable: true },
       { requirement: "Experience with containers and CI/CD pipelines", kind: "required", status: "missing", assessable: false },
     ]);
     expect(verdicts.map((one) => one.statusCorrect)).toEqual([false, true, false]);

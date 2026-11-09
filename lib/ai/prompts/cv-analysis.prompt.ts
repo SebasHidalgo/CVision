@@ -57,8 +57,8 @@ const AIResponseFormat = `
       demandsCapability: boolean;
 
       // The requirement in one line, as the posting puts it. When the posting
-      // offers alternatives, they belong INSIDE this one entry: "coding in C,
-      // C++, C#, Java, JavaScript, GO or Python" is ONE requirement, never one
+      // offers alternatives, they belong INSIDE this one entry: "coding in Go,
+      // C, C++, C#, Java or Python" is ONE requirement, never one
       // per language.
       requirement: string;
 
@@ -88,7 +88,7 @@ const AIResponseFormat = `
       // when the resume does not show it. mode "all" when the requirement
       // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
       // alternatives or examples ("C, C++ or Java", "tools such as Redis,
-      // Elasticsearch, and Sidekiq"). terms is empty when it names none.
+      // Kafka and Celery"). terms is empty when it names none.
       keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
 
       // "required" if the posting presents it as a minimum or required

@@ -120,7 +120,7 @@ export type KeyTerms = z.infer<typeof keyTermsSchema>;
  * One requirement from the posting, with how the resume answers it. This is
  * the unit the analysis is built on, and the reason is measured: while the
  * output asked for "missing keywords", every alternative in a list like
- * "C, C++, C#, Java, JavaScript, or Python" read as its own gap, and five
+ * "Python, Java, JavaScript, C, C++, or C#" read as its own gap, and five
  * phrasings of a rule telling the model otherwise never fixed it. One
  * requirement that any single alternative satisfies leaves the error nowhere
  * to live.

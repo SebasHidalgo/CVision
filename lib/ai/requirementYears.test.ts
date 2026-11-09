@@ -13,7 +13,7 @@ describe("yearsIn: the posting's minimum", () => {
     ["mínimo 4 años de experiencia", 4],
     ["más de 2 años en soporte", 2],
     ["has led a support team of at least five people for two or more years", 2],
-    ["1+ year(s) technical engineering experience", 1],
+    ["1+ year(s) professional software experience", 1],
     ["10+ years of backend engineering, with at least 3 at a senior or staff level", 10],
     ["4+ years of product management, at least 2 of them in payments", 4],
     ["Backend and platform engineer with sixteen years of experience", 16],
@@ -23,7 +23,7 @@ describe("yearsIn: the posting's minimum", () => {
   });
 
   it.each([
-    "pass the Microsoft Cloud background check upon hire/transfer and every two years thereafter",
+    "pass a cloud security background check at hire and again every two years",
     "a monthly mobility budget and a yearly offsite",
     "Strong SQL and a cloud warehouse",
   ])("finds none in %s", (text) => {
@@ -52,7 +52,7 @@ describe("dateRanges and yearsFromRanges", () => {
 
 describe("candidateYears", () => {
   it("prefers an explicit statement to the dates", () => {
-    expect(candidateYears(["Software Engineer with 2+ years of experience building", "January 2018 – March 2025"], NOW)).toEqual({ candidate: 2, source: "statement" });
+    expect(candidateYears(["Software Engineer with 2+ years of experience shipping", "January 2018 – March 2025"], NOW)).toEqual({ candidate: 2, source: "statement" });
     expect(candidateYears(["Analista de datos con cuatro años de experiencia en comercio electrónico"], NOW)).toEqual({ candidate: 4, source: "statement" });
   });
 

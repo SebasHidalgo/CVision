@@ -2,33 +2,32 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { findLeaks, guardedLines, normalizeLine } from "./realDataGuard";
+import { findLeaks, windowsOf, wordsOf } from "./realDataGuard";
 
 const ROOT = path.resolve(__dirname, "../..");
 const LOCAL = path.join(ROOT, "scripts/eval/fixtures.local");
 const BINARY = /\.(pdf|png|jpe?g|gif|ico|woff2?|ttf|otf|webp|zip|wasm)$/i;
 
 describe("realDataGuard", () => {
-  it("compares lines without list markers, closing punctuation or spacing differences", () => {
-    expect(normalizeLine("  • Led   the migration of the billing service.  ")).toBe("Led the migration of the billing service");
-    expect(guardedLines("Short line\n* Led the migration of the billing service;\nLed the migration of the billing service")).toEqual([
-      "Led the migration of the billing service",
-    ]);
+  it("compares words without accents, case, punctuation or spacing", () => {
+    expect(wordsOf("  • Asociaci´on   Voluntarios, de Corazón.")).toEqual(["asociacion", "voluntarios", "de", "corazon"]);
+    expect(windowsOf("one two three four five six seven")).toEqual(["one two three four five six", "two three four five six seven"]);
+    expect(windowsOf("one two three four five")).toEqual([]);
   });
 
-  it("finds a guarded line inside a file, across a line break, and nothing shorter", () => {
-    const sources = [{ path: "x/cv.txt", text: "Led the migration of the billing service\nPython, SQL" }];
+  it("finds six or more consecutive words inside a file, across a line break and a different accent, and nothing shorter", () => {
+    const sources = [{ path: "x/cv.txt", text: "Full-Stack Developer, Asociaci´on Ejemplo Springfield\nPython, SQL and more" }];
     const files = [
-      { path: "a.test.ts", text: 'const CV = `Led the migration of the\n  billing service`;' },
-      { path: "b.ts", text: "Python, SQL" },
+      { path: "a.test.ts", text: 'const CV = `Full-Stack Developer, Asociación\n  Ejemplo Springfield`;' },
+      { path: "b.ts", text: "Python, SQL and more" },
     ];
-    expect(findLeaks(sources, files)).toEqual([{ file: "a.test.ts", source: "x/cv.txt", line: "Led the migration of the billing service" }]);
+    expect(findLeaks(sources, files)).toEqual([{ file: "a.test.ts", source: "x/cv.txt", fragment: "full stack developer asociacion ejemplo springfield" }]);
   });
 });
 
-// The owner's real CVs and postings stay in fixtures.local/: no line of them in a tracked file.
+// The owner's real CVs and postings stay in fixtures.local/: no six consecutive words of them in a tracked file.
 describe.skipIf(!existsSync(LOCAL))("tracked files", () => {
-  it("contain no line of 25+ characters from a fixtures.local cv.txt or job.txt", () => {
+  it("share no run of six words with a fixtures.local cv.txt or job.txt", () => {
     const sources = readdirSync(LOCAL, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .flatMap((entry) => ["cv.txt", "job.txt"].map((name) => path.join(LOCAL, entry.name, name)))
@@ -42,6 +41,6 @@ describe.skipIf(!existsSync(LOCAL))("tracked files", () => {
       .map((file) => ({ path: path.relative(ROOT, file), text: readFileSync(file, "utf8") }));
 
     expect(sources.length).toBeGreaterThan(0);
-    expect(findLeaks(sources, files).map((leak) => `${leak.file}: ${leak.line}`)).toEqual([]);
+    expect(findLeaks(sources, files).map((leak) => `${leak.file}: ${leak.fragment}`)).toEqual([]);
   });
 });

@@ -55,8 +55,8 @@ report counts separately.
 
 6. **Alternatives are one requirement.** "Go, Java or Kotlin", "AWS or
    GCP", "a degree or equivalent experience", "Next.js or another SSR
-   framework", "Jest or Vitest", "including, but not limited to, C, C++,
-   Java or Python": each is one requirement that any one alternative
+   framework", "Jest or Vitest", "including, but not limited to, Java,
+   C or Python": each is one requirement that any one alternative
    satisfies. The gold name lists the alternatives; a model that emits
    one item per alternative has made a split.
 7. **An equivalence clause is part of its requirement.** "Bachelor's
@@ -123,7 +123,7 @@ report counts separately.
     below. A CV with nothing relevant has 0.
 15. **An alternative no CV can show makes the item `assessable: false`
     (rule 13) and is marked `"unshowableAlternative": true`** ("or
-    willingness to learn and work with it", "or a clear appetite to learn
+    willingness to learn it on the job", "or a clear appetite to learn
     it fast", "o disposición para aprenderlo"). An equivalence ("or
     equivalent practical experience") is not one: a CV shows experience.
 

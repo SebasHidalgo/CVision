@@ -45,7 +45,7 @@ describe("Requirements", () => {
 
   it("shows each term with what the CV has, the skills-only advice, and the quote without its bullet", () => {
     const requirement: Requirement = {
-      ...row("Strong expertise in Ruby on Rails and MySQL", "required", "partial"),
+      ...row("Deep knowledge of Ruby on Rails and MySQL", "required", "partial"),
       evidence: "• Databases: MongoDB, Postgres, MySQL",
       evidenceSource: "skills",
       skillsOnly: true,
