@@ -1,7 +1,8 @@
 # The CV analysis
 
-One model call per analysis, then code that checks what the model said
-before anything is stored. This page is the reference for the output shape,
+One model call per analysis (and a small second one when the analysis
+skipped a qualification line of the posting), then code that checks what
+the model said before anything is stored. This page is the reference for the output shape,
 the rules applied in code, and how a change to any of it is measured.
 
 ## The path of one analysis
@@ -28,7 +29,12 @@ the rules applied in code, and how a change to any of it is measured.
    intervention per document (the daily tally counts documents; it is not
    the guardrail firing).
 3. `lib/ai/resumeAnalysis.ts` sends the prompt (`lib/ai/prompts/cv-analysis.prompt.ts`)
-   with `analysisResponseSchema` as the constrained-decoding schema.
+   with `analysisResponseSchema` as the constrained-decoding schema. When a
+   qualification line of the posting is covered by no entry, one repair
+   call asks for entries for those lines only, and they join the list in
+   posting order before any rule below runs (see "Coverage").
+   Everything after the calls is `finishAnalysis`, pure apart from
+   count-only log lines, so the eval can replay stored answers through it.
 4. `structureRequirements` (`lib/ai/requirementGuardrails.ts`) applies the
    posting rules below.
 5. `guardAnalysis` (`lib/ai/analysisGuardrails.ts`) checks every CV quote
@@ -127,6 +133,57 @@ Stored besides, computed in code: `evidenceSource` (`experience`,
 or partial with its terms only on the skills list) and `years` (`{ min,
 candidate, source: "statement" | "dates" }`).
 
+## Coverage: no qualification line left out
+
+An omitted requirement is the worst failure the analysis has: the verdict
+is computed from an incomplete list and nothing says so. In M8-E the Encora
+degree was missing from 3 of 8 analyses and one run lost the posting's last
+four qualifications at once. `lib/ai/requirementCoverage.ts` checks the
+list in code:
+
+- **Qualification lines.** The posting is read line by line. A heading is
+  a short line (60 characters, 8 words at most) that is not a list item and
+  does not end like a sentence; markdown `#` and `**…**` and a closing
+  colon are ignored. It introduces qualifications when it carries the
+  words that decide `kind` ("Requirements", "Qualifications", "What you
+  bring", "What we are looking for", "Nice to have", "Bonus", "Requisitos",
+  "Valoramos", "Perfil", "Job Requirements: Other & Additional"…) and is not
+  "Additional information", benefits, salary or process. Under it, the items
+  are the marked lines (`-`, `*`, `•`, numbers) with their wrapped
+  continuations, or, in a list without markers, each line up to the next
+  heading (a line of more than 300 characters is a paragraph, not an item).
+  Prose after a marked list ends the block.
+- **Covered.** A line is covered when the `sourceQuote` or the softened
+  clause of any entry the model returned overlaps it (12 characters, or half
+  of a shorter line), including an entry the section rule later drops: the
+  model read that line and classified it. A quote the posting does not
+  have covers nothing, so a misquoted entry that `posting-source` drops
+  leaves its line uncovered.
+- **Counted and logged.** Each uncovered line is a `requirement-coverage /
+  requirement-uncovered` intervention, and the server logs
+  `[CVision][ai] requirement lines uncovered: N (<analysis id>)`.
+- **One repair, only then.** `lib/ai/prompts/requirement-repair.prompt.ts`
+  sends the posting, the CV, the uncovered lines numbered and the
+  requirements already listed, with the same entry fields and rules as the
+  analysis (dates, one requirement per requirement, quoted fields), and
+  `requirementRepairSchema` (`{ requirements: [...] }`). It is told to
+  answer the skipped lines only: the first version re-emitted all eight
+  Microsoft lines (1.3k output tokens) for one skipped line. An entry
+  counts only when its quote covers a skipped line; one whose requirement
+  copies a listed requirement's text is a restatement and covers its line
+  without adding an entry, and one with section `description` covers it and
+  is dropped by the section rule as usual. The kept entries go in posting
+  order, before every rule below, so all of them apply
+  (`requirement-recovered`, with "requirement added", "restates a listed
+  requirement" or "not a requirement"). Timeout 20 s
+  (`REPAIR_TIMEOUT_MS`); a failed repair keeps the analysis and is recorded
+  (`requirement-coverage / recorded`, "repair failed: <code>") and logged.
+  At most one repair per analysis; an analysis that covers every line
+  makes no second call.
+- **What it cannot see.** A requirement stated only in prose, outside a
+  qualifications heading (the `long-boilerplate` posting is all prose), and a
+  line covered by an entry about something else in the same span.
+
 ## The rules applied in code
 
 Posting rules, before the CV quotes are checked:
@@ -139,13 +196,15 @@ Posting rules, before the CV quotes are checked:
 - **Section.** An entry from `description` is dropped; one from
   `responsibilities` is dropped unless `demandsCapability` is true
   (`posting-section / requirement-dropped`). When that would leave no
-  requirement at all, the entries are kept and recorded instead
-  (`posting-section / recorded`, "kept: nothing else survived"): on
+  required entry, the entries are kept and recorded instead
+  (`posting-section / recorded`, "kept: nothing required survived"): on
   2026-11-05 the M8-C code labelled every entry of the `long-boilerplate`
-  posting a description in all three runs, and an empty analysis is worse
-  than an over-extracted one. Every time it fires the server logs
-  `[CVision][ai] requirements kept: the section rule would have left none`
-  with the analysis id (the fixture id in the eval).
+  posting a description in all three runs, and in M8-F one run labelled
+  its four required items a description while the preferred one survived,
+  which left an analysis with no required item. An analysis without its
+  requirements is worse than an over-extracted one. Every time it fires the
+  server logs `[CVision][ai] requirements kept: the section rule would have
+  left none required` with the analysis id (the fixture id in the eval).
 - **Kind, from the posting's own wording.** The heading counts only when it
   is in the posting and sits before the quote. A heading with a preference
   word ("Preferred", "Nice to have", "Bonus", "Valoramos") states
@@ -169,6 +228,20 @@ Posting rules, before the CV quotes are checked:
   differs from the posting's only in accents is respelled ("Português" →
   "Portugués"); a requirement written in another language than its quote is
   replaced by the quote (`requirement-text / text-replaced`).
+- **A preferred item is the clause its softening word is in** (M8-F). For a
+  `preferred` entry whose kind comes from its own words (not from a
+  preference heading), a quote that runs over a ";" or a sentence break
+  into a clause without a softening word keeps only the softened clause,
+  and the requirement becomes that clause's text, when the model named key
+  terms outside it (`softened-clause / text-replaced`). Those terms then
+  drop like any term outside the quote; if they were the only shown terms,
+  a `met` or `partial` resting on them becomes `missing`, with the
+  note "Your CV shows utilities and retail, but the posting mentions them
+  only as context, not as this requirement." (`softened-clause /
+  status-capped`). The case: "A background in telecommunications would
+  help but is not essential; most of our best leads came from retail,
+  hospitality or utilities." The posting prefers telecom; the industries
+  after the semicolon describe past hires.
 - **Key terms.** A term not in its `sourceQuote` is dropped, and so is a
   number of years (`key-term / term-dropped`); a term in the softened clause
   moves to the derived preferred entry. Mode `any` where the quote offers no
@@ -253,6 +326,9 @@ Status rules, after the CV quotes are checked, in this order:
    so no other rule overrides it (`language-level / status-coerced`). The
    rule does not judge whether the stated level is enough (B1 against
    "C1 required" stays the model's call).
+8. **"Not shown in your CV" quotes nothing.** A `not_evident` item's CV
+   quote is cleared (`not-evident / evidence-cleared`); the page also hides
+   the quote of a stored row that still has one.
 
 After the statuses:
 
@@ -262,12 +338,18 @@ After the statuses:
   line that shows its term in use (every group, for `all`) (`evidence-source
   / evidence-replaced`); when no such line exists it is `skillsOnly`, and
   the page says "Only listed in your skills — show it in an experience
-  bullet."
-- **Matched skills.** One with no quote after the guardrail is dropped. One
-  whose name is neither in its quote nor in the CV is kept when a
-  requirement's verified key term has that name and a CV match ("Postgres"
-  for "PostgreSQL"; `matched-skill / recorded`, "synonym: …"), and dropped
-  otherwise (`matched-skill / skill-dropped`).
+  bullet." A quote from the summary gets the same search; without a line
+  that shows the terms (or with no key terms to look for) it is
+  `summaryOnly`, and the page says "Only claimed in your summary — show it
+  in an experience bullet." The status does not change.
+- **Matched skills.** Its
+  name must be in the CV, or a requirement's verified key term must have
+  that name and a CV match ("Postgres" for "PostgreSQL"; `matched-skill /
+  recorded`, "synonym: …"); otherwise it is dropped (`matched-skill /
+  skill-dropped`). Its quote must name it (or the synonym): a quote that does
+  not, or one the guardrail dropped, becomes the CV line that does, an
+  experience or project line first (`matched-skill / evidence-replaced`),
+  and a skill no line names is dropped.
 - **Suggested bullets: role and figures.** The CV's experience and project
   sections are read as entries: a title line and a company line, then
   bullets with their wrapped lines (`cvEntries`). A `suggestedBullets[].role`
@@ -323,8 +405,8 @@ asked once more with one extra line ("Your previous answer was not written
 in English…"), recorded as `language / regenerated`; if that call fails,
 the first answer stands. The interview debrief gets the same check and
 retry. A retry is a second paid call and up to 30 s more (45 s for a
-debrief), so the upload route's `maxDuration` is 90 s and the feedback
-page's and the ElevenLabs webhook's 105 s.
+debrief), so the upload route's `maxDuration` is 100 s (with the 20 s
+repair) and the feedback page's and the ElevenLabs webhook's 105 s.
 
 ## Certifications
 
@@ -416,9 +498,12 @@ of their text. A drop in recall or precision, or a false "met", is a
 regression. A control runs from a git worktree of the commit it measures,
 with the same fixtures copied in. The real CVs and postings stay in
 `fixtures.local/`: `scripts/eval/realDataGuard.test.ts` fails `npm test`
-when a line of 25 characters or more from any of their `cv.txt` or
-`job.txt` appears in a tracked file (skipped where `fixtures.local/` does
-not exist), so tests use invented text. A fixture with a `cv.pdf` is read the way
+when six consecutive words of any of their `cv.txt` or `job.txt` appear in
+a tracked file, compared without accents, case or punctuation (skipped
+where `fixtures.local/` does not exist), so tests use invented text. Each
+record keeps the model's raw answers (`answers`) and the number of calls
+(`calls`; tokens are their sum), so a change to code after the model can be
+replayed over stored answers through `finishAnalysis` without a new call. A fixture with a `cv.pdf` is read the way
 production reads it, through the checkout's own `pdfParse`, so a control
 from an older commit extracts with its older code; text files are read with
 LF line endings (a checkout with `core.autocrlf` used to send the model CR
@@ -427,9 +512,11 @@ captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
 a difference means the model behind the alias moved. The reference is
-`m8e-final-s7` (the `es-posting` fixture read from its PDF, which exercises
+`m8f-final-s7` (the `es-posting` fixture read from its PDF, which exercises
 the English-only rule, the stated language levels and the years
-statement; captured 2026-11-09): `npm run eval -- canary m8e-final-s7`.
+statement): `npm run eval -- canary m8f-final-s7`. It is the seed-7 run of
+2026-11-09 replayed through the final M8-F code, because the key ran out of
+balance before a live capture; its first live run confirms it.
 
 The alias moves within days and sometimes within hours. On 2026-11-05 the
 M8-C code dropped every requirement of `long-boilerplate`, which it had
