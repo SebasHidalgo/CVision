@@ -73,7 +73,8 @@ const FIXTURES_DIR = path.join(EVAL_DIR, "fixtures-interview");
 type AssertionBase = { why?: string; expectedFailure?: string };
 
 type PatternAssertion = AssertionBase & { in: string; pattern: string };
-type ViolationAssertion = AssertionBase & { check: InterviewCheckName; max: number };
+/** At most this many violations of the check; `allow` names values approved for this fixture only. */
+type ViolationAssertion = AssertionBase & { check: InterviewCheckName; max: number; allow?: string[] };
 /** The rows for gaps matching the pattern must carry one of these outcomes. */
 type GapOutcomeAssertion = AssertionBase & { matching: string; outcome: GapOutcome[] };
 /** A category score, or the total, inside a band. */
@@ -364,11 +365,11 @@ function evaluateAssertions(
   });
 
   for (const assertion of expectations.maxViolations ?? []) {
-    const hits = violations.filter((v) => v.check === assertion.check);
+    const hits = violations.filter((v) => v.check === assertion.check && !(assertion.allow ?? []).includes(v.value));
     results.push({
       kind: "maxViolations",
       in: assertion.check,
-      expression: `at most ${assertion.max}`,
+      expression: `at most ${assertion.max}${assertion.allow?.length ? ` (allowing ${assertion.allow.join(", ")})` : ""}`,
       passed: hits.length <= assertion.max,
       found: hits.map((hit) => `${hit.path}: ${truncate(hit.value, 60)}`),
       why: assertion.why,

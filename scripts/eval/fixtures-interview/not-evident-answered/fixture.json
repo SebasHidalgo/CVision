@@ -30,7 +30,7 @@
     "maxViolations": [
       { "check": "evidence-grounding", "max": 0, "why": "Every quote must be a verbatim span of a candidate turn." },
       { "check": "fabricated-number", "max": 0, "why": "No number the candidate or the posting did not say." },
-      { "check": "fabricated-term", "max": 0, "why": "No technology the candidate or the posting did not name." }
+      { "check": "fabricated-term", "max": 0, "allow": ["SLA"], "why": "No technology the candidate or the posting did not name. SLA is allowed here (M8-E, owner-approved): it appears in advice, not as a claim about the candidate." }
     ]
   }
 }
