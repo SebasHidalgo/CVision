@@ -43,10 +43,10 @@ ${DATE_RULE(today)}
 RULE 2 - One requirement per requirement, and read its logic before judging it.
 ${REQUIREMENT_RULES}
 
-RULE 3 - Cover every skipped line.
-- Return at least one entry per skipped line, with its sourceQuote copied from that line.
-- A line that only restates or details a requirement already listed above gets one entry whose requirement copies that listed requirement word for word.
-- A line that is not a requirement at all (the company, the team, a benefit) gets one entry with section "description".
+RULE 3 - Cover the skipped lines, and only them.
+- Return entries for the numbered skipped lines only, each with its sourceQuote copied from its line. Never return an entry for a requirement already listed.
+- A skipped line that only restates or details a listed requirement (a specific check that a listed screening requirement names, a sentence repeating a listed skill) gets one entry whose requirement copies that listed requirement word for word.
+- A skipped line that is not a requirement at all (the company, the team, a benefit) gets one entry with section "description".
 
 RULE 4 - Quoted fields hold text copied out of the resume, or out of the job description for sourceQuote, heading, softenedClause.quote and keyTerms term.
 ${QUOTE_RULES}
