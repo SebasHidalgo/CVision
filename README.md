@@ -354,3 +354,9 @@ call's webhook round trip. Then:
   Try a change with `CSP_MODE=report-only` and the browser suite, which
   records every CSP message in `e2e/.artifacts/csp.log`.
 - **A dev server that survived its terminal**: `taskkill //F //IM node.exe //T`.
+- **A LaTeX CV whose accents came out split ("Jos´e", "Ingenier´ıa")**:
+  handled automatically. pdfTeX without `\usepackage[T1]{fontenc}` draws an
+  accent over its letter as two glyphs, and the parser puts them back
+  (`lib/pdfAccents.ts`, see [docs/analysis.md](docs/analysis.md#extraction-and-accents)).
+  The user does not need to change the CV. Text that is really broken
+  (mojibake such as "JosÃ©") is still reported as an artifact.

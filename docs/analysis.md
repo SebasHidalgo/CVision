@@ -22,6 +22,11 @@ the rules applied in code, and how a change to any of it is measured.
    The image check (pdf.js operator list) only runs on the refusal path, so
    a normal CV never pays for it. A CV with a photo has plenty of text and
    passes (the `marketing-match` fixture is that case, tested).
+
+   Split accents are composed here (see "Extraction and accents" below), and
+   the count goes to `guardStats` as one `pdf-text / accent-composed`
+   intervention per document (the daily tally counts documents; it is not
+   the guardrail firing).
 3. `lib/ai/resumeAnalysis.ts` sends the prompt (`lib/ai/prompts/cv-analysis.prompt.ts`)
    with `analysisResponseSchema` as the constrained-decoding schema.
 4. `structureRequirements` (`lib/ai/requirementGuardrails.ts`) applies the
@@ -41,6 +46,47 @@ the rules applied in code, and how a change to any of it is measured.
     wrote; one was seen in a role label ("Asociaci\u0003on").
 11. The row is stored with `guardStats`; `GuardStatDaily` gets the same
     counts, anonymously.
+
+## Extraction and accents
+
+pdfTeX with the default OT1 font encoding (Computer Modern, the usual
+LaTeX résumé templates without `\usepackage[T1]{fontenc}`) has no "é": it
+draws the accent, moves back, and draws the "e" under it. pdf.js reads the
+stream in order and gives "Jos´e", "Asociaci´on", "Ingenier´ıa" (with a
+dotless ı). `lib/pdfAccents.ts` puts them back, from where pdf.js says each
+piece was drawn: the accent ends one text item ("Jos´") and the next item
+starts with the letter, to the left of where the accent's item ended. A
+typed "´" ("don´t", "D´Angelo") advances like any glyph and is never drawn
+over, so it is left alone. Covered: acute, grave, circumflex, tilde,
+diaeresis, ring, cedilla, caron, macron (and breve, dot above, double
+acute, ogonek), spacing or combining, accent before or after the letter,
+dotless ı/ȷ as bases, upper and lower case; only a letter Unicode has as
+one code point is produced.
+
+One more step: pdf.js turns a forward move above about 0.1 em into a space,
+and the accent's centering shift over a wide capital is that big, so
+"GESTIÓN" came out "GESTI ÓN". When a composed accent has a space right
+before it, the page's operator list is read (glyph widths and moves) and
+the space is removed only if the letter touches the glyph before the
+accent (under 0.1 em apart); "Informatique, Être" keeps its real space.
+The two lists are matched in stream order and nothing is touched when they
+do not line up one to one.
+
+A text-only rule was measured beside geometry and rejected: composing any
+accent followed by a letter breaks "it´s" (ś) and "I´m" (ḿ); restricted to
+vowels it still breaks "D´Angelo" and "L´Oréal", and it cannot see the
+spurious spaces. Geometry: every expected word in every engine and no
+false positive. The corpus is `scripts/eval/accents/` (one Jake's-resume
+style CV compiled with pdfLaTeX OT1 with and without `\pdfgentounicode=1`,
+pdfLaTeX T1, XeLaTeX and LuaLaTeX, plus a Chromium page; `build.mjs`
+rebuilds it with MiKTeX), tested in `lib/pdfParse.accents.test.ts`. The
+text layer of every non-LaTeX fixture is byte-identical before and after.
+
+What extraction cannot fix is still the model's to report in
+`atsCompatibility.encodingArtifacts`: mojibake ("JosÃ©", "Ã±"), the
+replacement character (U+FFFD), letters missing from a word (the
+`mojibake-cv` fixture). A correctly accented letter is never an artifact,
+and the only advice for an artifact is to re-export the PDF.
 
 ## Generation order
 
@@ -97,7 +143,9 @@ Posting rules, before the CV quotes are checked:
   (`posting-section / recorded`, "kept: nothing else survived"): on
   2026-11-05 the M8-C code labelled every entry of the `long-boilerplate`
   posting a description in all three runs, and an empty analysis is worse
-  than an over-extracted one.
+  than an over-extracted one. Every time it fires the server logs
+  `[CVision][ai] requirements kept: the section rule would have left none`
+  with the analysis id (the fixture id in the eval).
 - **Kind, from the posting's own wording.** The heading counts only when it
   is in the posting and sits before the quote. A heading with a preference
   word ("Preferred", "Nice to have", "Bonus", "Valoramos") states
@@ -140,28 +188,31 @@ Status rules, after the CV quotes are checked, in this order:
    status-capped`). A requirement without key terms keeps the model's status.
 2. **Years.** The posting's minimum is parsed from `sourceQuote` ("5+",
    "3-5" takes 3, "at least 3", "two or more", "mínimo 4", "más de 2"; never
-   "every two years"). The candidate's years are, first, the CV's own
-   statement of its total: the first "N years" in the summary section or
-   above the first heading ("Software Engineer with 2+ years of
-   experience"; a parenthesised "Python (6 years)" is one skill's, not the
-   total). Without one, an explicit statement in the quoted lines
-   ("cuatro años") or else the sum of their date ranges, overlapping months
-   counted once. So a CV gets one number whatever lines the model quotes
-   (M8-C's notes said 1.3 or 2 for the same CV). `met` at or above the
-   minimum, `partial` from 75% of it, `missing` below; key-term coverage
-   still caps it. The status is lowered to that, or raised to it from
-   `partial` only: a `missing` may be the model ruling the quoted roles
-   irrelevant (a pastry chef's eight years for a backend role). A CV total
-   bounds a skill's years only from above, so raising with a total also
-   needs the model's quoted lines to reach the same status. The note states
-   both numbers ("The posting asks for 5+ years; your CV shows about 2.")
-   only when the years decided the status, never under a key-term cap
-   ("3+ years writing production Python" with no Python is about Python,
-   not about the CV's eight years) (`years / status-capped`,
-   `status-coerced`, `recorded` when undetermined). The CV's total is used
-   for an item about one skill or domain too, where it only bounds the
-   years from above: a model `met` for "3+ years of Python" on a CV with
-   eight years in total and two of Python is not lowered.
+   "every two years"). The CV's total is read only from an explicit
+   total-experience phrase in the summary or above the first heading ("2+
+   years of experience", "cuatro años de experiencia"); "eight years on JVM
+   services" or "3 years in fintech" is not one, and a parenthesised
+   "Python (6 years)" is one skill's. Then it depends on what the years
+   are of:
+   - **A role** ("5+ years of experience building full stack web
+     products", "5+ years in infrastructure, platform or SRE roles"):
+     the CV's total first, otherwise an explicit statement in the quoted
+     lines ("cuatro años") or the sum of their date ranges, overlapping
+     months counted once. One number per CV whatever lines the model
+     quotes.
+   - **One skill or domain** (a key term in the years clause that names no
+     role: "3+ years writing production Python"): the quoted lines' years,
+     capped by the total. With no quoted years, a total below the minimum
+     caps the status (75% rule; note "…your CV shows about 2 in total."),
+     and a total at or above it says nothing: the item is undetermined and
+     the model's status stands. The total never raises a status.
+   `met` at or above the minimum, `partial` from 75% of it, `missing`
+   below; key-term coverage still caps it. The status is lowered to that,
+   or raised to it from `partial` only: a `missing` may be the model ruling
+   the quoted roles irrelevant (a pastry chef's eight years for a backend
+   role). The note states both numbers only when the years decided the
+   status, never under a key-term cap (`years / status-capped`,
+   `status-coerced`, `recorded` when undetermined).
 3. **A verified match is evidence.** met or partial with no quote left but a
    CV match on file quotes the CV line that holds it (`evidence-source /
    evidence-replaced`).
@@ -184,8 +235,12 @@ Status rules, after the CV quotes are checked, in this order:
    M8-D; `lib/ai/requirementLanguages.ts`). A requirement that asks for a
    level of a language (it names English, Spanish, German, French,
    Portuguese, Italian, Dutch, Chinese or Japanese, in English or Spanish,
-   and is at most four words long or uses a proficiency word: fluent,
-   proficiency, level, spoken, written, professional, "nivel", "dominio", …)
+   and is the bare language with at most one other word, "Portugués." or
+   "Inglés profesional", or uses a proficiency word: fluent, fluency,
+   proficient, level, native, bilingual, a CEFR level, conversational,
+   intermediate, advanced, "nivel", "dominio", "avanzado"; since M8-E,
+   "writes clearly in English" or "good written English" is the model's
+   call)
    is `not_evident`, with no quote and the note "Your CV doesn't state your
    English level. Add a Languages line, e.g. 'Spanish (native), English
    (C1)'.", unless the CV states a level for that language: a CEFR level,
@@ -213,14 +268,23 @@ After the statuses:
   requirement's verified key term has that name and a CV match ("Postgres"
   for "PostgreSQL"; `matched-skill / recorded`, "synonym: …"), and dropped
   otherwise (`matched-skill / skill-dropped`).
-- **Role labels of the suggested bullets.** A `suggestedBullets[].role` is
-  kept when each of its parts (split on commas, "|", "·", spaced dashes,
-  "at", "en", "@") is in
-  the CV, letters only, so "Asociación" matches the CV's "Asociaci´on".
-  Otherwise it is replaced by the nearest experience or project line that
-  is not a bullet, by shared words with dates removed (`bullet-role /
-  text-replaced`). The replacement is one line: a CV that puts the title
-  and the company on two lines gets the title alone.
+- **Suggested bullets: role and figures.** The CV's experience and project
+  sections are read as entries: a title line and a company line, then
+  bullets with their wrapped lines (`cvEntries`). A `suggestedBullets[].role`
+  is kept when each of its parts (split on commas, "|", "·", spaced dashes,
+  "at", "en", "@") is in the CV, letters only; otherwise it becomes the
+  nearest entry's title and company lines, dates removed (`bullet-role /
+  text-replaced`). A figure in an example must be in the CV bullet the
+  example rewrites (three or more shared words), or, with no such bullet,
+  in its role's text; otherwise it becomes the placeholder (`bullet-figure
+  / number-placeheld`). That is what stops "reducing downtime by 40%" from
+  moving onto another bullet of the same role.
+- **ATS problems need a quote.** The model answers `issues: [{ quote,
+  problem, fix }]`, quote first; an issue whose quote is not in the CV text
+  (exactly or but for case and punctuation) is dropped with its fix
+  (`ats-problem / problem-dropped`). The stored shape is still `problems`
+  and `fixes`. The field comment also says en dashes, • bullets, accented
+  letters and the absence of icons are not problems.
 
 Every rule that fires is an intervention in `guardStats` (check, action,
 path, the text it acted on) and a count in `GuardStatDaily`; `npm run
@@ -249,6 +313,18 @@ Measured: prose in English on the Spanish posting in 3 of 3 runs (the M8-C
 code, 0 of 3). The sentences code writes (`lib/ai/analysisWording.ts`) are
 English; the Spanish set stays for when the user picks the analysis
 language.
+
+Since M8-E the language is also checked in code: every prose field of 60
+characters or more (notes, descriptions, advice; never quotes, requirement
+lines or role labels) is read with a function-word count
+(`proseLanguage`, which ignores accents so English prose quoting
+"Asociación" stays English). If any field reads as Spanish, the model is
+asked once more with one extra line ("Your previous answer was not written
+in English…"), recorded as `language / regenerated`; if that call fails,
+the first answer stands. The interview debrief gets the same check and
+retry. A retry is a second paid call and up to 30 s more (45 s for a
+debrief), so the upload route's `maxDuration` is 90 s and the feedback
+page's and the ElevenLabs webhook's 105 s.
 
 ## Certifications
 
@@ -307,6 +383,11 @@ misconfigured, unavailable, …), the fix, the provider, the model, the
 version the response names and the build the models listing names. It
 exits 1 unless the call answered.
 
+For the interview debrief an `AI_BILLING` failure does not spend one of
+its two attempts: the row goes back to `FEEDBACK_PENDING` with the attempt
+given back, the lazy path tries again, and the log says `deferred: AI
+billing exhausted, attempt not counted`.
+
 ## Measuring a change
 
 The extraction has a gold standard: `scripts/eval/fixtures/GOLD-RULES.md`
@@ -333,14 +414,22 @@ right, years determined, and evidence quoting the preferred line, synthetic
 and real apart. `--by-source` locates items by their `sourceQuote` instead
 of their text. A drop in recall or precision, or a false "met", is a
 regression. A control runs from a git worktree of the commit it measures,
-with the same fixtures copied in. `compare` and `stability` refuse runs
+with the same fixtures copied in. The real CVs and postings stay in
+`fixtures.local/`: `scripts/eval/realDataGuard.test.ts` fails `npm test`
+when a line of 25 characters or more from any of their `cv.txt` or
+`job.txt` appears in a tracked file (skipped where `fixtures.local/` does
+not exist), so tests use invented text. A fixture with a `cv.pdf` is read the way
+production reads it, through the checkout's own `pdfParse`, so a control
+from an older commit extracts with its older code; text files are read with
+LF line endings (a checkout with `core.autocrlf` used to send the model CR
+characters production never sends). `compare` and `stability` refuse runs
 captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
 a difference means the model behind the alias moved. The reference is
-`m8d-final-s7` (the `es-posting` fixture, which exercises the English-only
-rule, the stated language levels and the years statement): `npm run eval
--- canary m8d-final-s7`.
+`m8e-final-s7` (the `es-posting` fixture read from its PDF, which exercises
+the English-only rule, the stated language levels and the years
+statement; captured 2026-11-09): `npm run eval -- canary m8e-final-s7`.
 
 The alias moves within days and sometimes within hours. On 2026-11-05 the
 M8-C code dropped every requirement of `long-boilerplate`, which it had
