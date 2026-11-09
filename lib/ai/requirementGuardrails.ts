@@ -96,6 +96,17 @@ export function withoutClause(text: string, clause: string): string | null {
   return rest.length >= 3 ? rest : null;
 }
 
+// Clauses of one posting sentence: "…would help but is not essential; most of our best leads came from retail…".
+const CLAUSE_BREAK = /;\s+|(?<=[.!?])\s+(?=\p{Lu})/u;
+
+/** The one clause of a quote that holds a softening word, when the quote runs into other clauses; null otherwise. */
+export function softenedClauseOf(quote: string): string | null {
+  const clauses = quote.split(CLAUSE_BREAK).map((clause) => clause.trim()).filter(Boolean);
+  if (clauses.length < 2) return null;
+  const softened = clauses.filter((clause) => SOFTENING.test(clause));
+  return softened.length === 1 ? softened[0].replace(/[\s;,]+$/, "") : null;
+}
+
 /** "ideally in e-commerce." -> "Ideally in e-commerce". */
 export function clauseAsRequirement(clause: string): string {
   const text = clause.replace(/^[\s,;:.(–—-]+/, "").replace(/[\s,;:.)]+$/, "");
@@ -233,6 +244,20 @@ export function structureRequirements(
       }
     }
 
+    // A preferred item softened by its own words is that clause; terms from the clauses around it are context.
+    let contextTerms: string[] = [];
+    if (requirement.kind === "preferred" && stated !== "preferred") {
+      const own = softenedClauseOf(source.text);
+      const ownSource = own ? inPosting(posting, own) : null;
+      const outside = ownSource ? entry.keyTerms.terms.filter((term) => normalizeWhitespace(term.term) && !containsTerm(ownSource.text, term.term)) : [];
+      if (ownSource && outside.length > 0) {
+        record({ check: "softened-clause", action: "text-replaced", path: `${path}.sourceQuote`, value: source.text, replacement: ownSource.text });
+        requirement.sourceQuote = ownSource.text;
+        requirement.requirement = asRequirementText(ownSource.text);
+        contextTerms = outside.filter(shownTerm).map((term) => term.term);
+      }
+    }
+
     const text = alignToSource(requirement.requirement, requirement.sourceQuote ?? source.text);
     if (text !== requirement.requirement) {
       record({ check: "requirement-text", action: "text-replaced", path: `${path}.requirement`, value: requirement.requirement, replacement: text });
@@ -259,6 +284,13 @@ export function structureRequirements(
         record({ check: "key-term", action: "mode-changed", path: `${path}.keyTerms.mode`, value: requirement.sourceQuote ?? "", replacement: mode });
       }
       requirement.keyTerms = { mode, terms: own };
+    }
+    // The status rested only on terms the posting names as context: nothing the requirement asks for is shown.
+    if (contextTerms.length > 0 && !requirement.keyTerms?.terms.some(shownTerm) && (requirement.status === "met" || requirement.status === "partial")) {
+      record({ check: "softened-clause", action: "status-capped", path: `${path}.status`, value: `${requirement.status}: ${requirement.requirement}`, replacement: "missing" });
+      requirement.status = "missing";
+      requirement.evidence = "";
+      requirement.note = WORDING.en.contextOnly(joinTerms(contextTerms, WORDING.en.and), contextTerms.length > 1);
     }
     if (derived) {
       // A softened clause names preferred options: "preferably Power BI or Looker".

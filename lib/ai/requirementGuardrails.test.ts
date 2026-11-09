@@ -8,6 +8,7 @@ import {
   cvEntries,
   DOWNGRADE_NOTE,
   enforceRequirementStatuses,
+  softenedClauseOf,
   evidenceSourceOf,
   guardBulletRoles,
   guardMatchedSkills,
@@ -852,6 +853,49 @@ describe("M8-F: read problems", () => {
     expect(requirements[1]).toMatchObject({ evidenceSource: "experience" });
     expect(requirements[1].summaryOnly).toBeUndefined();
     expect(requirements[2].summaryOnly).toBeUndefined();
+  });
+});
+
+describe("M8-F: a preferred item is the clause its softening word is in", () => {
+  const ROLE = `Dispatch Lead
+
+The role
+You will lead the night desk. A background in shipping would help but is not essential; most of our leads came from aviation, rail or trucking.
+
+Bonus points
+- Air freight experience. Great for our cargo desk.`;
+  const wide = "A background in shipping would help but is not essential; most of our leads came from aviation, rail or trucking.";
+
+  it("splits a quote into clauses only when exactly one holds a softening word", () => {
+    expect(softenedClauseOf(wide)).toBe("A background in shipping would help but is not essential");
+    expect(softenedClauseOf("A background in shipping would help.")).toBeNull();
+    expect(softenedClauseOf("Kafka is a plus. Flink is a plus too.")).toBeNull();
+  });
+
+  it("keeps the softened clause and turns a status resting on the context's terms into missing", () => {
+    const { requirements, interventions } = structureRequirements(ROLE, [
+      entry({ sourceQuote: wide, heading: "The role", section: "preferred", kind: "preferred", requirement: "A background in shipping, aviation, rail or trucking", keyTerms: terms("any", ["aviation", "aviation"], ["trucking", "trucking"]), status: "met", evidence: "Dispatcher at a trucking firm" }),
+    ]);
+
+    expect(requirements[0]).toMatchObject({
+      sourceQuote: "A background in shipping would help but is not essential",
+      requirement: "A background in shipping would help but is not essential",
+      status: "missing",
+      evidence: "",
+      note: "Your CV shows aviation and trucking, but the posting mentions them only as context, not as this requirement.",
+    });
+    expect(requirements[0].keyTerms).toBeUndefined();
+    expect(interventions).toContainEqual(expect.objectContaining({ check: "softened-clause", action: "status-capped", replacement: "missing" }));
+  });
+
+  it("keeps the status when the softened clause's own term is shown, and leaves items under a preference heading alone", () => {
+    const { requirements } = structureRequirements(ROLE, [
+      entry({ sourceQuote: wide, heading: "The role", kind: "preferred", requirement: "Shipping or aviation", keyTerms: terms("any", ["shipping", "shipping"], ["aviation", "aviation"]), status: "met" }),
+      entry({ sourceQuote: "Air freight experience. Great for our cargo desk.", heading: "Bonus points", kind: "preferred", requirement: "Air freight", keyTerms: terms("all", ["Air freight", "air freight"]), status: "met" }),
+    ]);
+
+    expect(requirements[0]).toMatchObject({ status: "met", keyTerms: { terms: [{ term: "shipping", cvMatch: "shipping" }] } });
+    expect(requirements[1]).toMatchObject({ sourceQuote: "Air freight experience. Great for our cargo desk.", status: "met" });
   });
 });
 

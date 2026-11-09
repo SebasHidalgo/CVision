@@ -13,6 +13,7 @@ type Wording = {
   yearsTotal: (min: number, about: string) => string;
   about: (value: string) => string;
   alternative: (absent: string, several: boolean, accepts: string) => string;
+  contextOnly: (shown: string, several: boolean) => string;
   languageLevel: (language: string) => string;
   coreGaps: (list: string) => string;
   partlyMet: (list: string) => string;
@@ -34,6 +35,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     about: (value) => `about ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} ${several ? "aren't" : "isn't"} in your CV; the posting accepts ${accepts} — say so in your cover letter.`,
+    contextOnly: (shown, several) => `Your CV shows ${shown}, but the posting mentions ${several ? "them" : "it"} only as context, not as this requirement.`,
     languageLevel: (language) => `Your CV doesn't state your ${language} level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.`,
     coreGaps: (list) => `Core gaps: ${list}.`,
     partlyMet: (list) => `Partly met: ${list}.`,
@@ -53,6 +55,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     about: (value) => `unos ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} no ${several ? "aparecen" : "aparece"} en tu CV; la oferta acepta ${accepts}: dilo en tu carta de presentación.`,
+    contextOnly: (shown, several) => `Tu CV muestra ${shown}, pero la oferta ${several ? "los" : "lo"} menciona solo como contexto, no como este requisito.`,
     languageLevel: (language) => `Tu CV no indica tu nivel de ${language}. Agrega una línea de idiomas, por ejemplo 'Español (nativo), inglés (C1)'.`,
     coreGaps: (list) => `Brechas principales: ${list}.`,
     partlyMet: (list) => `Cumplido en parte: ${list}.`,
