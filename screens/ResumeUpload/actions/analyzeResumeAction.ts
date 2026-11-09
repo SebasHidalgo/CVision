@@ -15,7 +15,7 @@ import {
 } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
-import { extractTextFromPDFBytes, hasPdfHeader } from "@/lib/pdfParse";
+import { extractPdfText, hasPdfHeader } from "@/lib/pdfParse";
 import { analyzeResumeInputSchema } from "@/lib/schemas/resumeSchema";
 import { isResumeKeyOf } from "@/lib/supabase/resumeKey";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
@@ -88,12 +88,13 @@ export async function analyzeResumeAction(
     }
 
     // Rejects unreadable and text-less PDFs with their own codes.
-    const resumeText = await extractTextFromPDFBytes(bytes);
+    const { text: resumeText, accentsComposed } = await extractPdfText(bytes);
 
     const { feedback, guard } = await analyzeResume({
       jobTitle,
       jobDescription,
       resumeText,
+      accentsComposed,
     });
 
     await createResume({

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractTextFromPDFBytes } from "@/lib/pdfParse";
+import { extractPdfText } from "@/lib/pdfParse";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import golden from "./analysisRequest.golden.json";
 import { installFakeProvider, reply, type ProviderRequest } from "./client.stub";
@@ -18,7 +18,7 @@ vi.mock("@/lib/database/usage", () => ({
 }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
-  return { ...actual, extractTextFromPDFBytes: vi.fn() };
+  return { ...actual, extractPdfText: vi.fn() };
 });
 vi.mock("@/lib/supabase/server", () => ({
   // Bytes that begin as a PDF does; the parser itself is stubbed above.
@@ -60,7 +60,7 @@ function viaHarnessPath(resumeText: string) {
 }
 
 function viaActionPath(resumeText: string) {
-  vi.mocked(extractTextFromPDFBytes).mockResolvedValue(resumeText);
+  vi.mocked(extractPdfText).mockResolvedValue({ text: resumeText, accentsComposed: 0 });
 
   return requestFrom(() =>
     analyzeResumeAction({

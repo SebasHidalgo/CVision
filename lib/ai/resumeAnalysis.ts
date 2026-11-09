@@ -4,6 +4,7 @@ import {
   describeCounts,
   emptyGuardReport,
   guardAnalysis,
+  withAccentCompositions,
   withInterventions,
   type GuardReport,
 } from "@/lib/ai/analysisGuardrails";
@@ -52,6 +53,8 @@ export type AnalyzeResumeInput = {
   inputMode?: AnalysisInputMode;
   /** scripts/eval only: the date the prompt states, so the canary can replay its reference's day. */
   now?: Date;
+  /** Split accents the PDF parser composed, recorded in guardStats. */
+  accentsComposed?: number;
 };
 
 /** What stands in for the CV text when only the PDF is attached. */
@@ -101,6 +104,7 @@ export async function analyzeResume({
   pdf,
   inputMode = pdf ? "pdf" : "text",
   now = new Date(),
+  accentsComposed = 0,
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
   const { text, ...sent } = truncateResumeText(resumeText);
   if (inputMode !== "text" && !pdf) throw new Error(`inputMode ${inputMode} needs the PDF bytes`);
@@ -160,13 +164,16 @@ export async function analyzeResume({
     overall: { ...roles.feedback.overall, summaryText },
     jobFit: { ...roles.feedback.jobFit, requirements },
   });
-  const guard = withInterventions(guarded.guard, [
-    ...structured.interventions,
-    ...statuses.interventions,
-    ...sourced.interventions,
-    ...skills.interventions,
-    ...roles.interventions,
-  ]);
+  const guard = withAccentCompositions(
+    withInterventions(guarded.guard, [
+      ...structured.interventions,
+      ...statuses.interventions,
+      ...sourced.interventions,
+      ...skills.interventions,
+      ...roles.interventions,
+    ]),
+    accentsComposed,
+  );
 
   const note = describeCounts(guard.counts);
   if (note) {

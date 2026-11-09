@@ -55,7 +55,9 @@ export type InterventionAction =
   /** Key terms marked as alternatives where the posting offers none: they all count. */
   | "mode-changed"
   /** A skills-list quote replaced by the experience or project line that shows the same term. */
-  | "evidence-replaced";
+  | "evidence-replaced"
+  /** Split accents the PDF parser put back on their letters ("Jos´e" → "José"); counted per document. */
+  | "accent-composed";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
@@ -72,7 +74,10 @@ export type RequirementCheckName =
   | "matched-skill"
   | "evidence-source"
   | "language-level"
-  | "bullet-role";
+  | "bullet-role"
+  | "bullet-figure"
+  /** The PDF text itself, before the model: lib/pdfAccents.ts. */
+  | "pdf-text";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;
@@ -118,6 +123,7 @@ const emptyCounts = (): InterventionCounts => ({
   "skill-dropped": 0,
   "mode-changed": 0,
   "evidence-replaced": 0,
+  "accent-composed": 0,
 });
 
 /** The report with more interventions in it, counted. */
@@ -125,6 +131,13 @@ export function withInterventions(report: GuardReport, more: Intervention[]): Gu
   const counts = { ...report.counts };
   for (const intervention of more) counts[intervention.action] += 1;
   return { ...report, interventions: [...more, ...report.interventions], counts };
+}
+
+/** One intervention per document, the count in it: how many split accents extraction composed. */
+export function withAccentCompositions(report: GuardReport, composed: number): GuardReport {
+  if (composed <= 0) return report;
+  const intervention: Intervention = { check: "pdf-text", action: "accent-composed", path: "resumeText", value: String(composed) };
+  return { ...report, interventions: [...report.interventions, intervention], counts: { ...report.counts, "accent-composed": composed } };
 }
 
 /**
@@ -154,7 +167,7 @@ export function spanFor(cvText: string, quote: string): string | null {
 }
 
 /** `40%` -> `[X]%`, `1,200 users` -> `[N] users`, `$2m` -> `[$X]`. */
-function placeholderFor(bullet: string, number: string): string | null {
+export function placeholderFor(bullet: string, number: string): string | null {
   // The digits as the bullet writes them, which may carry separators the
   // normalized value lost. Separators go BETWEEN digits only: allowing one
   // after the last digit swallowed the sentence's full stop.

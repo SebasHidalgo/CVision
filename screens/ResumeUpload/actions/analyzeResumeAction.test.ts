@@ -15,7 +15,7 @@ import {
   PdfUnreadableError,
   RateLimitedError,
 } from "@/lib/error/errors";
-import { extractTextFromPDFBytes } from "@/lib/pdfParse";
+import { extractPdfText } from "@/lib/pdfParse";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 import { analyzeResumeAction } from "./analyzeResumeAction";
@@ -27,7 +27,7 @@ vi.mock("@/lib/database/usage", () => ({ reserveUsage: vi.fn(), refundUsage: vi.
 vi.mock("@/lib/supabase/server", () => ({ downloadObject: vi.fn(), removeObject: vi.fn(async () => true) }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
-  return { ...actual, extractTextFromPDFBytes: vi.fn() };
+  return { ...actual, extractPdfText: vi.fn() };
 });
 vi.mock("@/lib/ai/resumeAnalysis", () => ({ analyzeResume: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => "resume_1") }));
@@ -61,7 +61,7 @@ beforeEach(() => {
   vi.mocked(refundUsage).mockResolvedValue(true);
   vi.mocked(createResume).mockImplementation(async (data) => data.id);
   vi.mocked(downloadObject).mockResolvedValue(pdfBytes());
-  vi.mocked(extractTextFromPDFBytes).mockResolvedValue("Jane Doe. Frontend engineer.");
+  vi.mocked(extractPdfText).mockResolvedValue({ text: "Jane Doe. Frontend engineer.", accentsComposed: 0 });
   vi.mocked(analyzeResume).mockResolvedValue({
     feedback: {} as never,
     resumeText: { chars: 10, charsSent: 10, truncated: false },
@@ -156,10 +156,10 @@ describe("analyzeResumeAction: every failure refunds", () => {
     vi.mocked(downloadObject).mockResolvedValueOnce(new TextEncoder().encode("PK\u0003\u0004 a docx renamed"));
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "NOT_A_PDF" });
 
-    vi.mocked(extractTextFromPDFBytes).mockRejectedValueOnce(new PdfNoTextError());
+    vi.mocked(extractPdfText).mockRejectedValueOnce(new PdfNoTextError());
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_NO_TEXT" });
 
-    vi.mocked(extractTextFromPDFBytes).mockRejectedValueOnce(new PdfUnreadableError());
+    vi.mocked(extractPdfText).mockRejectedValueOnce(new PdfUnreadableError());
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_UNREADABLE" });
 
     vi.mocked(downloadObject).mockResolvedValueOnce(pdfBytes(MAX_RESUME_BYTES + 1));
@@ -181,7 +181,7 @@ describe("analyzeResumeAction: every failure refunds", () => {
     const actual = await vi.importActual<typeof import("@/lib/pdfParse")>("@/lib/pdfParse");
     const scan = new Uint8Array(readFileSync(path.join(process.cwd(), "scripts/eval/fixtures/scanned-cv/cv.pdf")));
     vi.mocked(downloadObject).mockResolvedValueOnce(scan);
-    vi.mocked(extractTextFromPDFBytes).mockImplementationOnce(actual.extractTextFromPDFBytes);
+    vi.mocked(extractPdfText).mockImplementationOnce(actual.extractPdfText);
 
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_SCANNED" });
     expect(refundUsage).toHaveBeenCalledWith("evt_1", "PDF_SCANNED");
