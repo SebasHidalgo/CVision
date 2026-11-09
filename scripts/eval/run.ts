@@ -49,6 +49,7 @@ import {
 import {
   analyzeResume,
   ANALYSIS_TIMEOUT_MS,
+  finishAnalysis,
   MAX_RESUME_TEXT_CHARS,
   truncateResumeText,
   type AnalysisInputMode,
@@ -223,6 +224,7 @@ Usage:
                       [--by-source] [--drop-responsibilities]
   npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
+  npm run eval -- replay <label> <newLabel>
   npm run eval -- canary <reference-label> [--only <id>]
   npm run eval -- stability <label> <label> [...] [--force]
   npm run eval -- list
@@ -233,6 +235,10 @@ Usage:
 recheck re-runs the content checks and the fixture assertions over a stored
 run and rewrites it. No model calls, nothing billed: use it after changing a
 check or an assertion, so old runs stay comparable with new ones.
+
+replay runs a stored run's raw model answers (recorded since M8-F) through
+this checkout's code after the model, finishAnalysis, into a new run. No
+model calls: use it to measure a change to a rule, then score it with gold.
 
 stability compares two or more stored runs and reports whether each posting was
 split into the same required/preferred partition each time, and whether the
@@ -339,6 +345,8 @@ async function main(argv: string[]) {
       return compareCommand(rest);
     case "recheck":
       return recheckCommand(rest);
+    case "replay":
+      return replayCommand(rest);
     case "canary":
       return canaryCommand(rest);
     case "stability":
@@ -843,6 +851,52 @@ async function recheckCommand(args: string[]) {
  * with nothing to roll back to. Since M2d the output is reproducible, which
  * makes "did anything change?" answerable with one call and a byte compare.
  */
+async function replayCommand(args: string[]) {
+  const [from, to] = parseFlags(args).positional;
+  if (!from || !to || !/^[\w.-]+$/.test(to)) fail(`replay needs a stored label and a new one.\n\n${USAGE}`);
+  const source = path.join(RUNS_DIR, from);
+  if (!existsSync(source)) fail(`No run named "${from}" in ${display(RUNS_DIR)}.`);
+  const target = path.join(RUNS_DIR, to);
+  if (existsSync(target)) fail(`${display(target)} already exists.`);
+  await mkdir(target, { recursive: true });
+
+  const fixtures = new Map((await loadFixtures()).map((f) => [f.id, f]));
+  let replayed = 0;
+  for (const file of (await readdir(source)).sort()) {
+    if (!file.endsWith(".json")) continue;
+    const record = JSON.parse(await readFile(path.join(source, file), "utf8")) as RunRecord;
+    if (file === "_run.json") {
+      await writeJson(path.join(target, file), { ...record, label: to, replayOf: from });
+      continue;
+    }
+    const fixture = fixtures.get(record.fixture);
+    if (!record.result.ok || !record.answers || !fixture) continue;
+    // The text that run's model read, not what today's limit would send.
+    const cvText = fixture.cvText.slice(0, record.input.cvCharsSent);
+    const { feedback, guard } = finishAnalysis({
+      jobDescription: fixture.jobDescription,
+      resumeText: cvText,
+      answer: record.answers.answer,
+      repair: record.answers.repair,
+      now: new Date(record.generatedAt),
+      accentsComposed: fixture.cvAccentsComposed,
+      logId: fixture.id,
+    });
+    const replay: RunRecord = {
+      ...record,
+      label: to,
+      result: { ok: true, feedback },
+      checks: { counts: countByCheck(guard.violations), grounding: countGrounding(guard.violations), violations: guard.violations },
+      guardrail: { counts: guard.counts, interventions: guard.interventions },
+      assertions: evaluateAssertions(feedback, fixture.expect, guard.violations),
+    };
+    replay.requirementScore = fixture.gold ? scoreRecord(fixture.gold, replay) : undefined;
+    await writeJson(path.join(target, file), replay);
+    replayed += 1;
+  }
+  console.log(`${replayed} record(s) replayed from ${from} into ${to}.`);
+}
+
 async function canaryCommand(args: string[]) {
   const { positional, flags } = parseFlags(args);
   const [reference] = positional;
