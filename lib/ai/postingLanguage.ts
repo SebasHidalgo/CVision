@@ -53,6 +53,16 @@ function countWords(sample: string, words: readonly string[]): number {
  * with few function words falls back to English. English wins ties, which is
  * the configured default.
  */
+/**
+ * The language our own prose came back in: function words over the whole
+ * text, without the accent count, because English prose quotes Spanish names
+ * ("Asociación Corazón Abierto") and must still read as English.
+ */
+export function proseLanguage(text: string): InterviewLanguage {
+  const sample = text.toLowerCase();
+  return countWords(sample, SPANISH_WORDS) > countWords(sample, ENGLISH_WORDS) ? "es" : "en";
+}
+
 export function detectPostingLanguage(text: string): InterviewLanguage {
   const sample = text.slice(0, SAMPLE_CHARS).toLowerCase();
 

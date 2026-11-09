@@ -4,12 +4,15 @@ import {
   describeCounts,
   emptyGuardReport,
   guardAnalysis,
+  structureAtsIssues,
   withAccentCompositions,
   withInterventions,
   type GuardReport,
+  type Intervention,
 } from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
-import { resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { ENGLISH_RETRY, resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { proseLanguage } from "@/lib/ai/postingLanguage";
 import {
   enforceRequirementStatuses,
   guardBulletRoles,
@@ -20,7 +23,7 @@ import {
   withEvidenceSources,
   withoutControlCharacters,
 } from "@/lib/ai/requirementGuardrails";
-import { analysisResponseSchema, type ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
+import { analysisResponseSchema, type AnalysisResponse, type ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 
 /**
  * Bounds the prompt: a CV longer than this is cut, not rejected. Set well
@@ -116,24 +119,46 @@ export async function analyzeResume({
     );
   }
 
-  const answer = await generateJson({
-    prompt: resumeAnalysisPrompt({
-      jobTitle,
-      jobDescription,
-      resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
-      // Resolved per call (the default above): the model has to judge end
-      // dates against the day of the request, not the day of the last deploy.
-      now,
-      pdfAttached: inputMode === "pdf+text",
-    }),
-    schema: analysisResponseSchema,
-    timeoutMs,
-    ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
+  const prompt = resumeAnalysisPrompt({
+    jobTitle,
+    jobDescription,
+    resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
+    // Resolved per call (the default above): the model has to judge end
+    // dates against the day of the request, not the day of the last deploy.
+    now,
+    pdfAttached: inputMode === "pdf+text",
   });
+  const ask = (withPrompt: string) =>
+    generateJson({
+      prompt: withPrompt,
+      schema: analysisResponseSchema,
+      timeoutMs,
+      ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
+    });
+  let answer = await ask(prompt);
+
+  // Always English (owner decision, M8-D): prose in another language is asked for once more.
+  const language: Intervention[] = [];
+  const firstLanguage = proseLanguage(analysisProse(answer));
+  if (firstLanguage !== "en") {
+    try {
+      answer = await ask(`${prompt}\n\n${ENGLISH_RETRY}`);
+      language.push({ check: "language", action: "regenerated", path: "analysis", value: firstLanguage, replacement: proseLanguage(analysisProse(answer)) });
+    } catch (error) {
+      // The first answer stands: the wrong language is better than no analysis.
+      console.warn(`[CVision][ai] English retry failed: ${error instanceof Error ? error.name : "unknown"}`);
+    }
+  }
 
   // Posting quote, section, softened clause and key terms, against the posting the model read.
   const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
-  const shaped: ResumeAnalysisFeedback = { ...answer, jobFit: { ...answer.jobFit, requirements: structured.requirements } };
+  const ats = structureAtsIssues(answer.atsCompatibility.issues, text);
+  const { issues: _issues, ...atsFields } = answer.atsCompatibility;
+  const shaped: ResumeAnalysisFeedback = {
+    ...answer,
+    atsCompatibility: { ...atsFields, problems: ats.problems, fixes: ats.fixes },
+    jobFit: { ...answer.jobFit, requirements: structured.requirements },
+  };
 
   // After the schema, before anything persists it. The checks run against the
   // CV text, which is what the model was given in production and what an ATS
@@ -171,6 +196,8 @@ export async function analyzeResume({
       ...sourced.interventions,
       ...skills.interventions,
       ...roles.interventions,
+      ...ats.interventions,
+      ...language,
     ]),
     accentsComposed,
   );
@@ -183,4 +210,26 @@ export async function analyzeResume({
   }
 
   return { feedback, resumeText: sent, guard };
+}
+
+/** The prose the model wrote, without quotes, names or the posting's own words: what the language check reads. */
+export function analysisProse(answer: AnalysisResponse): string {
+  return [
+    answer.jobFit.description,
+    ...answer.jobFit.strategicRecommendations,
+    ...answer.jobFit.requirements.map((requirement) => requirement.note),
+    answer.overall.summaryText,
+    ...answer.overall.prioritizedFixes.flatMap((fix) => [fix.title, fix.action]),
+    answer.atsCompatibility.description,
+    ...answer.atsCompatibility.issues.flatMap((issue) => [issue.problem, issue.fix]),
+    answer.experienceAndImpact.description,
+    ...answer.experienceAndImpact.strengths,
+    ...answer.experienceAndImpact.weaknesses,
+    answer.skills.description,
+    ...answer.skills.actionPlan,
+    answer.educationAndCertifications.description,
+    ...answer.educationAndCertifications.improvements,
+    answer.toneAndClarity.description,
+    ...answer.toneAndClarity.suggestions,
+  ].join("\n");
 }

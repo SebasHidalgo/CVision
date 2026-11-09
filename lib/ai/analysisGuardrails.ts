@@ -1,5 +1,6 @@
 import {
   checkAnalysis,
+  groundQuotes,
   loosen,
   normalizeWhitespace,
   type CheckName,
@@ -57,7 +58,11 @@ export type InterventionAction =
   /** A skills-list quote replaced by the experience or project line that shows the same term. */
   | "evidence-replaced"
   /** Split accents the PDF parser put back on their letters ("Jos´e" → "José"); counted per document. */
-  | "accent-composed";
+  | "accent-composed"
+  /** An ATS problem without a quote from the CV, dropped with its fix. */
+  | "problem-dropped"
+  /** The analysis came back in another language and was asked again once. */
+  | "regenerated";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
@@ -77,7 +82,9 @@ export type RequirementCheckName =
   | "bullet-role"
   | "bullet-figure"
   /** The PDF text itself, before the model: lib/pdfAccents.ts. */
-  | "pdf-text";
+  | "pdf-text"
+  | "ats-problem"
+  | "language";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;
@@ -124,6 +131,8 @@ const emptyCounts = (): InterventionCounts => ({
   "mode-changed": 0,
   "evidence-replaced": 0,
   "accent-composed": 0,
+  "problem-dropped": 0,
+  regenerated: 0,
 });
 
 /** The report with more interventions in it, counted. */
@@ -131,6 +140,32 @@ export function withInterventions(report: GuardReport, more: Intervention[]): Gu
   const counts = { ...report.counts };
   for (const intervention of more) counts[intervention.action] += 1;
   return { ...report, interventions: [...more, ...report.interventions], counts };
+}
+
+export type AtsIssue = { quote: string; problem: string; fix: string };
+
+/**
+ * The model's ATS issues as the stored problems and fixes: an issue whose
+ * quote is not in the CV text is dropped with its fix ("Lack of traditional
+ * contact icons" had nothing to quote). Without a CV text, all are kept.
+ */
+export function structureAtsIssues(
+  issues: AtsIssue[],
+  cvText: string,
+): { problems: string[]; fixes: string[]; interventions: Intervention[] } {
+  const interventions: Intervention[] = [];
+  const kept = issues.filter((issue, i) => {
+    if (!cvText.trim()) return true;
+    const miss = groundQuotes(cvText, [{ path: "", value: issue.quote }])[0];
+    if (normalizeWhitespace(issue.quote) && (!miss || miss.kind === "case-or-punctuation")) return true;
+    interventions.push({ check: "ats-problem", action: "problem-dropped", path: `atsCompatibility.issues[${i}]`, value: issue.problem, replacement: issue.quote ? "quote not in the CV" : "no quote" });
+    return false;
+  });
+  return {
+    problems: kept.map((issue) => issue.problem.trim()).filter(Boolean),
+    fixes: [...new Set(kept.map((issue) => issue.fix.trim()).filter(Boolean))],
+    interventions,
+  };
 }
 
 /** One intervention per document, the count in it: how many split accents extraction composed. */

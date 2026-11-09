@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
-import { describeCounts, guardAnalysis } from "./analysisGuardrails";
+import { describeCounts, guardAnalysis, structureAtsIssues } from "./analysisGuardrails";
 
 const CV = [
   "JANE DOE — Backend Engineer",
@@ -286,5 +286,31 @@ describe("the measurement the guardrail must not destroy", () => {
     expect(guard.violations).toEqual([]);
     expect(guard.interventions).toEqual([]);
     expect(describeCounts(guard.counts)).toBe("");
+  });
+});
+
+describe("structureAtsIssues", () => {
+  const CV_TEXT = "Jane Doe\nEXPERIENCE\nData Analyst 09/2019 - present\n• Built the sales dashboard";
+
+  it("keeps an issue whose quote is in the CV, and drops one without a quote with its fix", () => {
+    const { problems, fixes, interventions } = structureAtsIssues(
+      [
+        { quote: "09/2019 - present", problem: "Your dates use two formats.", fix: "Use one date format." },
+        { quote: "", problem: "Your CV lacks contact icons.", fix: "Add icons." },
+        { quote: "Built the sales dashboard in Looker", problem: "Vague bullet.", fix: "Add a figure." },
+        { quote: "BUILT THE SALES DASHBOARD", problem: "Your bullet is vague.", fix: "Use one date format." },
+      ],
+      CV_TEXT,
+    );
+    expect(problems).toEqual(["Your dates use two formats.", "Your bullet is vague."]);
+    expect(fixes).toEqual(["Use one date format."]);
+    expect(interventions.map((one) => [one.check, one.action, one.replacement])).toEqual([
+      ["ats-problem", "problem-dropped", "no quote"],
+      ["ats-problem", "problem-dropped", "quote not in the CV"],
+    ]);
+  });
+
+  it("keeps everything when there is no CV text to check against", () => {
+    expect(structureAtsIssues([{ quote: "", problem: "p", fix: "f" }], "").problems).toEqual(["p"]);
   });
 });

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { detectPostingLanguage } from "./postingLanguage";
+import { detectPostingLanguage, proseLanguage } from "./postingLanguage";
 
 // The versioned eval postings: written in English except the one Spanish
 // posting; one English posting is paired with a Spanish CV, which must not
@@ -51,5 +51,16 @@ describe("detectPostingLanguage", () => {
 
     expect(detectPostingLanguage(english + spanish)).toBe("en");
     expect(detectPostingLanguage(spanish + english)).toBe("es");
+  });
+});
+
+describe("proseLanguage", () => {
+  it("reads English prose that names Spanish places and companies as English", () => {
+    expect(proseLanguage("Your role at Asociación Corazón Abierto in Valparaíso shows the React work the posting asks for, and your degree from the Universidad de España is relevant.")).toBe("en");
+  });
+
+  it("reads Spanish prose as Spanish, whatever its length", () => {
+    expect(proseLanguage(`${"Your skills section is clear. ".repeat(30)} Tu experiencia es sólida para el puesto y los proyectos de la empresa muestran que trabajas con el equipo en las funciones del cargo y con los clientes de la región.`)).toBe("en");
+    expect(proseLanguage("Tu experiencia es sólida para el puesto y los proyectos de la empresa muestran que trabajas con el equipo.")).toBe("es");
   });
 });

@@ -236,7 +236,8 @@ describe("resumeFeedbackSchema: requirements", () => {
   it("requires the model to fill every requirement field, the softened clause included", () => {
     const answer = (entry: Record<string, unknown>) => {
       const input = validFeedback();
-      return analysisResponseSchema.safeParse({ ...input, jobFit: { ...input.jobFit, requirements: [entry] } });
+      const { problems: _problems, fixes: _fixes, ...ats } = input.atsCompatibility;
+      return analysisResponseSchema.safeParse({ ...input, atsCompatibility: { ...ats, issues: [] }, jobFit: { ...input.jobFit, requirements: [entry] } });
     };
     const full = {
       ...requirement(),

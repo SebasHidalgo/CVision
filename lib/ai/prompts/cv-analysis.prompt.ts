@@ -129,16 +129,20 @@ const AIResponseFormat = `
       // one the candidate has. For "partial", say what is there and what is
       // not. Never describe an alternative the candidate lacks as a gap when
       // another alternative in the same requirement is met.
+      // Addressed to the candidate: "Your CV shows…", never "The candidate…".
       note: string;
     }[];
 
     // At least 150 characters on how the resume answers this posting as a
     // whole: where the experience is closest to the role and what would close
     // the gaps. The requirements list states each status; do not restate them.
+    // Addressed to the candidate: "Your experience…", never "The candidate…".
     description: string;
 
     // 3 specific strategic recommendations to better align the resume
-    // with the target role (e.g., “Add a Key Achievements section”, “Reorder skills”).
+    // with the target role (e.g., “Move the React project above older roles”).
+    // Never suggest adding a section the resume already has.
+    // Never ask to highlight what the resume does not show; condition it ("If you have Azure experience, …").
     strategicRecommendations: string[];
   };
 
@@ -162,11 +166,13 @@ const AIResponseFormat = `
     // 2-3 sentences. The app opens the summary with the requirement statuses,
     // so do not restate which requirements are met, partial or missing: say
     // how the experience reads for this role and what would most improve the
-    // document itself.
+    // document itself. Addressed to the candidate ("Your experience…").
     summaryText: string;
 
     // A short, prioritized roadmap of the main fixes to make.
     // Each item should describe one concrete action and its expected impact.
+    // Never suggest adding a section the resume already has.
+    // Never ask to highlight what the resume does not show; condition it ("If you have Azure experience, …").
     prioritizedFixes: {
       // Short title describing what to improve (e.g., “Add measurable results”)
       title: string;
@@ -187,25 +193,30 @@ const AIResponseFormat = `
     // document parses. Ground every statement in the text above.
     description: string;
 
-    // Characters that came out of the PDF broken or mis-encoded, each quoted
-    // exactly as it appears in the resume text, with enough of the surrounding
-    // word to find it. Empty if the text layer is clean.
+    // Characters the text layer itself gets wrong, each quoted exactly as it
+    // appears in the resume text, with enough of the word to find it: mojibake
+    // ("JosÃ©", "Ã±"), the replacement character (�), letters missing from a
+    // word. A correctly accented letter is never an artifact. Empty if the
+    // text layer is clean.
     encodingArtifacts: string[];
 
     // The section headings present in the resume text, copied as written.
     // Empty if the text has no recognizable headings.
     sectionsDetected: string[];
 
-    // 2-4 problems that affect parsing, each one visible in the text above.
-    // Do not list a problem the text does not show.
-    problems: string[];
+    // 0-4 problems that affect parsing. A problem you cannot quote does not exist.
+    // Not problems: en dashes in date ranges, • bullets, accented letters, no icons.
+    issues: {
+      // The exact text from the resume that shows the problem.
+      quote: string;
 
-    // 2-4 actionable fixes for the problems listed. One per problem where you
-    // can. Must not repeat recommendations from other sections. Never advise
-    // removing accents from names, places or companies; when encodingArtifacts
-    // shows split accents ("´e", "e´"), advise re-exporting the PDF, and for a
-    // LaTeX resume adding \\usepackage[T1]{fontenc}.
-    fixes: string[];
+      // The problem, in one sentence, in second person ("Your dates…").
+      problem: string;
+
+      // How to fix it. Never advise removing accents; for encodingArtifacts,
+      // advise re-exporting the PDF from the original document.
+      fix: string;
+    }[];
 
     // 1-3 short snippets copied from the resume that back up the analysis.
     evidence: string[];
@@ -267,6 +278,7 @@ const AIResponseFormat = `
 
     // 2-4 clear and actionable steps explaining how to improve the skills section.
     // Example: “Group technical skills by category”, “Add proficiency levels”.
+    // Never ask to add a skill the resume does not show; condition it ("If you use Redis, …").
     actionPlan: string[];
   };
 
@@ -376,7 +388,8 @@ jobFit.requirements is the only place a gap may appear in this analysis.
 
 RULE 5 - Quoted fields hold text copied out of the resume and nothing else.
 This covers atsCompatibility.evidence, atsCompatibility.encodingArtifacts,
-atsCompatibility.sectionsDetected, the evidence of every entry in
+atsCompatibility.sectionsDetected, the quote of every atsCompatibility.issues
+entry, the evidence of every entry in
 skills.matchedSkills and jobFit.requirements (its softenedClause included),
 the cvMatch and yearsEvidence of jobFit.requirements, and the quote of every
 entry in experienceAndImpact.quantifiedAchievements. The sourceQuote,
@@ -408,6 +421,10 @@ const formatToday = (now: Date) =>
 // Experiment block (M8-A, scripts/eval only). Absent, the prompt is byte-identical to production's.
 const PDF_ATTACHED_NOTE = `
   The resume is also attached as a PDF so you can see its layout and formatting. Every quoted field must still be copied from the resume text above, which is what an ATS extracts, never from the PDF.`;
+
+/** Appended once when the first answer's prose came back in another language. */
+export const ENGLISH_RETRY =
+  "Your previous answer was not written in English. Write every field in English, whatever language the resume or the job description is in; quoted fields stay verbatim in their own language.";
 
 export const resumeAnalysisPrompt = ({
   jobTitle,

@@ -80,8 +80,7 @@ const VALID_FEEDBACK = {
     description: "",
     encodingArtifacts: [],
     sectionsDetected: [],
-    problems: [],
-    fixes: [],
+    issues: [],
     evidence: [],
   },
   experienceAndImpact: {
@@ -275,5 +274,29 @@ describe("truncation at the limit", () => {
       charsSent: MAX_RESUME_TEXT_CHARS,
       truncated: true,
     });
+  });
+});
+
+describe("the analysis language", () => {
+  const SPANISH = {
+    ...VALID_FEEDBACK,
+    overall: { ...VALID_FEEDBACK.overall, summaryText: "Tu experiencia es sólida para el puesto y los proyectos de la empresa muestran que trabajas con el equipo." },
+  };
+
+  it("asks once more, with the English line, when the prose comes back in Spanish", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? SPANISH : VALID_FEEDBACK));
+    const { guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].prompt).toContain("Your previous answer was not written in English.");
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", value: "es", replacement: "en" }));
+  });
+
+  it("keeps the first answer when the second call fails", async () => {
+    const provider = installFakeProvider(() => (provider.requests.length === 1 ? reply.json(SPANISH) : reply.error(503)));
+    const { feedback } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(feedback.overall.summaryText).toContain("Tu experiencia");
   });
 });

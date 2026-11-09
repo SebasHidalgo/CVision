@@ -279,7 +279,14 @@ export const analysisResponseSchema = z.object({
     strategicRecommendations: resumeFeedbackSchema.shape.jobFit.shape.strategicRecommendations,
   }),
   overall: resumeFeedbackSchema.shape.overall,
-  atsCompatibility: resumeFeedbackSchema.shape.atsCompatibility,
+  // Each problem with the resume text that shows it, quote first; code keeps only quotes the CV has.
+  atsCompatibility: z.object({
+    description: z.string(),
+    encodingArtifacts: z.array(z.string()),
+    sectionsDetected: z.array(z.string()),
+    issues: z.array(z.object({ quote: z.string(), problem: z.string(), fix: z.string() })),
+    evidence: z.array(z.string()),
+  }),
   experienceAndImpact: resumeFeedbackSchema.shape.experienceAndImpact,
   skills: resumeFeedbackSchema.shape.skills,
   educationAndCertifications: resumeFeedbackSchema.shape.educationAndCertifications,
