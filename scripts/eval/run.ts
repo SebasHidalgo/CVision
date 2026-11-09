@@ -52,6 +52,7 @@ import {
   MAX_RESUME_TEXT_CHARS,
   truncateResumeText,
   type AnalysisInputMode,
+  type ModelAnswers,
 } from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
@@ -185,6 +186,10 @@ type RunRecord = {
     mode: AnalysisInputMode;
   };
   tokens: { input: number | null; output: number | null };
+  /** Model calls behind the tokens (analysis, English retry, repair); absent before M8-F. */
+  calls?: number;
+  /** The model's raw answers before any guard (M8-F), so post-model code can be replayed offline. */
+  answers?: ModelAnswers;
   /** The extracted list scored against the fixture's gold, when it has one. */
   requirementScore?: RequirementScore;
   /**
@@ -504,6 +509,7 @@ async function runFixture(
 
   let result: RunRecord["result"];
   let guard: GuardReport | undefined;
+  let answers: ModelAnswers | undefined;
 
   const aiLog = captureAiLog();
   try {
@@ -518,6 +524,7 @@ async function runFixture(
       ...(now ? { now } : {}),
     });
     guard = analysis.guard;
+    answers = analysis.model;
     result = { ok: true, feedback: analysis.feedback };
   } catch (error) {
     result = { ok: false, error: describeError(error) };
@@ -546,6 +553,8 @@ async function runFixture(
       seed: aiLog.meta.seed,
     },
     tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
+    calls: aiLog.meta.calls,
+    ...(answers ? { answers } : {}),
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     checks: violations && {

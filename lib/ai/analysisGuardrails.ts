@@ -62,7 +62,11 @@ export type InterventionAction =
   /** An ATS problem without a quote from the CV, dropped with its fix. */
   | "problem-dropped"
   /** The analysis came back in another language and was asked again once. */
-  | "regenerated";
+  | "regenerated"
+  /** A qualification line of the posting no extracted entry covers. */
+  | "requirement-uncovered"
+  /** An uncovered line the repair call covered: a requirement added, a restatement or a non-requirement. */
+  | "requirement-recovered";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
@@ -81,6 +85,8 @@ export type RequirementCheckName =
   | "language-level"
   | "bullet-role"
   | "bullet-figure"
+  /** Every qualification line of the posting covered by an entry: lib/ai/requirementCoverage.ts. */
+  | "requirement-coverage"
   /** The PDF text itself, before the model: lib/pdfAccents.ts. */
   | "pdf-text"
   | "ats-problem"
@@ -133,6 +139,8 @@ const emptyCounts = (): InterventionCounts => ({
   "accent-composed": 0,
   "problem-dropped": 0,
   regenerated: 0,
+  "requirement-uncovered": 0,
+  "requirement-recovered": 0,
 });
 
 /** The report with more interventions in it, counted. */

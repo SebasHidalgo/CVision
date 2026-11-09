@@ -570,6 +570,7 @@ describe("guardMatchedSkills", () => {
       ["Postgres 16", "synonym: PostgreSQL"],
     ]);
   });
+
 });
 
 describe("M8-D: control characters, bullet roles, the CV's own years", () => {

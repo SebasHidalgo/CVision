@@ -175,6 +175,9 @@ export const modelRequirementSchema = z.object({
 
 export type ModelRequirement = z.infer<typeof modelRequirementSchema>;
 
+/** The repair call's answer: entries for the qualification lines the analysis skipped. */
+export const requirementRepairSchema = z.object({ requirements: z.array(modelRequirementSchema) });
+
 /** A measured outcome the resume already states, and the line it comes from. */
 const quantifiedAchievementSchema = z.object({
   figure: z.string(),

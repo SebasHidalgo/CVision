@@ -1,33 +1,5 @@
-/**
- * The field comments below are instructions the model follows, not
- * documentation. M2c-F audited them against the rules and removed three that
- * licensed what a rule forbids: `weaknesses` offered "No metrics provided" as
- * an example of a good weakness, which is the exact absolute rule 2 bans;
- * `suggestedBullets` asked for "quantifiable results", which is an invitation
- * to invent the figure rule 3 bans; and `improvements` offered "Add graduation
- * year" for a resume that may already have one. Adding an example here is
- * adding an instruction - check it against the rules first.
- *
- * M2c-I measured what they are worth by removing this whole block for one
- * run set: 3 of 27 analyses then failed the schema outright, the encoding
- * artifact guard stopped firing, quantifiedAchievements lost its verbatim
- * contract, and the prose halved in length. They are not redundant with the
- * rules above them - they carry cardinality, minimum lengths and the
- * restatement of a general rule at the point of use. The block is the only
- * place field semantics live, because the Zod schema has no .describe()
- * calls and the generated JSON Schema therefore carries names and types
- * only. Moving them into Zod descriptions, so one source feeds both the
- * prompt and the response schema, is open debt rather than a plan.
- */
-const AIResponseFormat = `
-{
-  // The headline of the analysis: what the posting asks for, one entry per
-  // requirement, and how this resume answers each one.
-  jobFit: {
-    // One entry per requirement in the posting: every required and every
-    // preferred qualification, met or not.
-    requirements: {
-      // The sentence or bullet of the job description this requirement comes
+/** The fields of one requirement entry; the repair prompt asks for the same. */
+export const REQUIREMENT_FIELDS = `      // The sentence or bullet of the job description this requirement comes
       // from, copied word for word from the job description, never from the
       // resume: one continuous span, the shortest that holds the requirement.
       // An entry whose sourceQuote is not in the job description is discarded.
@@ -130,7 +102,76 @@ const AIResponseFormat = `
       // not. Never describe an alternative the candidate lacks as a gap when
       // another alternative in the same requirement is met.
       // Addressed to the candidate: "Your CV shows…", never "The candidate…".
-      note: string;
+      note: string;`;
+
+/** How dates are judged against today; shared with the repair prompt. */
+export const DATE_RULE = (today: string) => `Today is ${today}. Before calling any degree, course, certification or role
+ongoing, current, in progress, expected or unfinished, compare its end date
+with today's date. An end date on or before today is finished, however recent
+it is. Only an end date after today, or the words "Present", "Current" or "to
+date" in the resume itself, mean ongoing. An entry with no end date at all is
+missing its end date: say that, and do not infer that it is ongoing.`;
+
+/** How posting text becomes requirements; shared with the repair prompt. */
+export const REQUIREMENT_RULES = `- "A, B, C, or D", "one of A, B, C" and "including, but not limited to, A, B,
+  C" are ONE requirement that any single item satisfies. If the resume has one
+  of them, that requirement is "met", and the alternatives the candidate lacks
+  are not gaps: they must not appear as their own requirement, and nothing
+  anywhere in the analysis may call them missing.
+- "A and B" is one requirement that needs both. It is "partial" when only one
+  is there.
+- The posting's own framing decides "kind". Preferred, desired, a plus, a
+  bonus and nice to have are all "preferred", never "required".
+- Cover every required qualification the posting states. A requirement the
+  resume genuinely does not answer is "missing" - report those plainly, the
+  goal is accuracy, not a short list.`;
+
+/** How a quoted field is copied; shared with the repair prompt. */
+export const QUOTE_RULES = `- Copy one continuous span of the resume character for character: same words,
+  same order, same case, same punctuation, same spelling. Prefer the shortest
+  span that makes the point, usually a single line.
+- Do not paraphrase, summarize or explain. "Listed under Databases", "Also
+  mentioned in the Languages section" and "Demonstrated through API ownership"
+  are descriptions, not quotes, and do not belong in these fields.
+- Add nothing of your own: no ellipsis, no "...", no square brackets, no label
+  before the text, no comment after it.
+- Never join text from two different places into one quote.
+- Never clean the text up. If a character is broken or mis-encoded in the
+  resume text, reproduce it exactly as it is; repairing it hides the problem
+  from the candidate and makes the quote false.
+- If there is nothing you can copy, use an empty string. An empty quoted field
+  is better than a description.`;
+
+/**
+ * The field comments below are instructions the model follows, not
+ * documentation. M2c-F audited them against the rules and removed three that
+ * licensed what a rule forbids: `weaknesses` offered "No metrics provided" as
+ * an example of a good weakness, which is the exact absolute rule 2 bans;
+ * `suggestedBullets` asked for "quantifiable results", which is an invitation
+ * to invent the figure rule 3 bans; and `improvements` offered "Add graduation
+ * year" for a resume that may already have one. Adding an example here is
+ * adding an instruction - check it against the rules first.
+ *
+ * M2c-I measured what they are worth by removing this whole block for one
+ * run set: 3 of 27 analyses then failed the schema outright, the encoding
+ * artifact guard stopped firing, quantifiedAchievements lost its verbatim
+ * contract, and the prose halved in length. They are not redundant with the
+ * rules above them - they carry cardinality, minimum lengths and the
+ * restatement of a general rule at the point of use. The block is the only
+ * place field semantics live, because the Zod schema has no .describe()
+ * calls and the generated JSON Schema therefore carries names and types
+ * only. Moving them into Zod descriptions, so one source feeds both the
+ * prompt and the response schema, is open debt rather than a plan.
+ */
+const AIResponseFormat = `
+{
+  // The headline of the analysis: what the posting asks for, one entry per
+  // requirement, and how this resume answers each one.
+  jobFit: {
+    // One entry per requirement in the posting: every required and every
+    // preferred qualification, met or not.
+    requirements: {
+${REQUIREMENT_FIELDS}
     }[];
 
     // At least 150 characters on how the resume answers this posting as a
@@ -341,12 +382,7 @@ in the response format below. An answer that breaks one of them is wrong even
 if every field is filled in.
 
 RULE 1 - Classify dates by comparing them with today, never by how they are phrased.
-Today is ${today}. Before calling any degree, course, certification or role
-ongoing, current, in progress, expected or unfinished, compare its end date
-with today's date. An end date on or before today is finished, however recent
-it is. Only an end date after today, or the words "Present", "Current" or "to
-date" in the resume itself, mean ongoing. An entry with no end date at all is
-missing its end date: say that, and do not infer that it is ongoing.
+${DATE_RULE(today)}
 
 RULE 2 - Search the resume before claiming anything is absent from it.
 Saying the resume lacks something is a claim about the whole resume, so read
@@ -373,18 +409,7 @@ digits or in words, that the resume does not contain.
 
 RULE 4 - One requirement per requirement, and read its logic before judging it.
 jobFit.requirements is the only place a gap may appear in this analysis.
-- "A, B, C, or D", "one of A, B, C" and "including, but not limited to, A, B,
-  C" are ONE requirement that any single item satisfies. If the resume has one
-  of them, that requirement is "met", and the alternatives the candidate lacks
-  are not gaps: they must not appear as their own requirement, and nothing
-  anywhere in the analysis may call them missing.
-- "A and B" is one requirement that needs both. It is "partial" when only one
-  is there.
-- The posting's own framing decides "kind". Preferred, desired, a plus, a
-  bonus and nice to have are all "preferred", never "required".
-- Cover every required qualification the posting states. A requirement the
-  resume genuinely does not answer is "missing" - report those plainly, the
-  goal is accuracy, not a short list.
+${REQUIREMENT_RULES}
 
 RULE 5 - Quoted fields hold text copied out of the resume and nothing else.
 This covers atsCompatibility.evidence, atsCompatibility.encodingArtifacts,
@@ -395,24 +420,11 @@ the cvMatch and yearsEvidence of jobFit.requirements, and the quote of every
 entry in experienceAndImpact.quantifiedAchievements. The sourceQuote,
 softenedClause.quote and keyTerms term of jobFit.requirements follow the same
 rules, copied out of the job description instead.
-- Copy one continuous span of the resume character for character: same words,
-  same order, same case, same punctuation, same spelling. Prefer the shortest
-  span that makes the point, usually a single line.
-- Do not paraphrase, summarize or explain. "Listed under Databases", "Also
-  mentioned in the Languages section" and "Demonstrated through API ownership"
-  are descriptions, not quotes, and do not belong in these fields.
-- Add nothing of your own: no ellipsis, no "...", no square brackets, no label
-  before the text, no comment after it.
-- Never join text from two different places into one quote.
-- Never clean the text up. If a character is broken or mis-encoded in the
-  resume text, reproduce it exactly as it is; repairing it hides the problem
-  from the candidate and makes the quote false.
-- If there is nothing you can copy, use an empty string. An empty quoted field
-  is better than a description.
+${QUOTE_RULES}
 `;
 
 /** UTC, unambiguous in both directions: a machine date and a written one. */
-const formatToday = (now: Date) =>
+export const formatToday = (now: Date) =>
   `${now.toISOString().slice(0, 10)} (${now.toLocaleDateString("en-US", {
     dateStyle: "long",
     timeZone: "UTC",

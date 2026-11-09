@@ -30,7 +30,7 @@ const PREFERRED_HEADING =
   /prefer|nice[\s-]to[\s-]have|bonus|plus|desirabl|desired|ideal|advantage|additional|valoramos|valorable|deseable|se valora|ventaja|great if/i;
 const REQUIRED_WORD = /requir|must|minimum|mandatory|essential|requisitos|imprescindible|obligatori/i;
 const QUALIFICATIONS_HEADING =
-  /qualif|skills|what you (?:need|bring|have)|you (?:have|bring)|who you are|about you|buscamos|perfil/i;
+  /qualif|skills|what you (?:need|bring|have)|you (?:have|bring)|you(?:'ll| will) need|who you are|about you|looking for|we need|we expect|buscamos|necesitas|perfil/i;
 
 /** The kind a verified heading states, or null when it states none or both ("Other & Additional Requirements"). */
 export function headingKind(heading: string): "required" | "preferred" | null {
@@ -42,13 +42,17 @@ export function headingKind(heading: string): "required" | "preferred" | null {
   return null;
 }
 
+/** A heading naming qualifications of either kind, or both ("Job Requirements: Other & Additional"). */
+export const namesQualifications = (heading: string) =>
+  PREFERRED_HEADING.test(heading) || REQUIRED_WORD.test(heading) || QUALIFICATIONS_HEADING.test(heading);
+
 /** A posting's way of offering a choice or examples; without one, named terms are all required. */
 const ALTERNATIVE_WORD = /(?:^|[^\p{L}])(?:or|o|u|either|such as|e\.g\.|for example|for instance|like|including|similar|equivalent|comparable|por ejemplo|como|similar|equivalente)(?:[^\p{L}]|$)|\//iu;
 
 type Found = { text: string; normalized: boolean };
 
 /** The quote as the posting has it: verbatim, or rewritten when only case or punctuation differ. */
-function inPosting(posting: string, quote: string): Found | null {
+export function inPosting(posting: string, quote: string): Found | null {
   const text = normalizeWhitespace(quote);
   if (!text) return null;
   const [violation] = groundQuotes(posting, [{ path: "", value: text }]);

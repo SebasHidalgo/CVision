@@ -300,3 +300,62 @@ describe("the analysis language", () => {
     expect(feedback.overall.summaryText).toContain("Tu experiencia");
   });
 });
+
+describe("the requirement repair", () => {
+  const POSTING = "Frontend Engineer\n\nRequirements\n- 3+ years with React and TypeScript.\n- A degree in Computer Science or equivalent experience.";
+  const clause = { quote: "", status: "missing", evidence: "", note: "" };
+  const entry = (sourceQuote: string, requirement: string) => ({
+    sourceQuote,
+    heading: "Requirements",
+    section: "requirements",
+    demandsCapability: true,
+    requirement,
+    softenedClause: clause,
+    keyTerms: { mode: "all", terms: [] },
+    kind: "required",
+    assessable: true,
+    yearsEvidence: [],
+    evidence: "",
+    status: "missing",
+    note: "",
+  });
+  const REACT = entry("3+ years with React and TypeScript.", "3+ years with React and TypeScript");
+  const DEGREE = entry("A degree in Computer Science or equivalent experience.", "A degree in Computer Science or equivalent experience");
+  const answer = (requirements: unknown[]) => ({ ...VALID_FEEDBACK, jobFit: { ...VALID_FEEDBACK.jobFit, requirements } });
+
+  it("makes no second call when every qualification line is covered", async () => {
+    const provider = installFakeProvider(() => reply.json(answer([REACT, DEGREE])));
+    const { model } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(1);
+    expect(model?.repair).toBeUndefined();
+  });
+
+  it("asks once for the skipped line and merges the entry before the guards", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [DEGREE] }));
+    const { feedback, guard, model } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9" });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].prompt).toContain("1. A degree in Computer Science or equivalent experience.");
+    expect(provider.requests[1].prompt).toContain("1. 3+ years with React and TypeScript");
+    expect(feedback.jobFit.requirements.map((one) => one.requirement)).toEqual([
+      "3+ years with React and TypeScript",
+      "A degree in Computer Science or equivalent experience",
+    ]);
+    expect(guard.counts).toMatchObject({ "requirement-uncovered": 1, "requirement-recovered": 1 });
+    expect(model?.repair?.requirements).toHaveLength(1);
+    // Counts and the id only: the line itself is posting text.
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement lines uncovered: 1 (resume_9)");
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair: 1 of 1 line(s) covered (resume_9)");
+  });
+
+  it("keeps the analysis when the repair fails, and records it", async () => {
+    const provider = installFakeProvider(() => (provider.requests.length === 1 ? reply.json(answer([REACT])) : reply.error(503)));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9" });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(feedback.jobFit.requirements).toHaveLength(1);
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "requirement-coverage", action: "recorded", replacement: "repair failed: AI_UNAVAILABLE" }));
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair failed: AI_UNAVAILABLE (resume_9)");
+  });
+});

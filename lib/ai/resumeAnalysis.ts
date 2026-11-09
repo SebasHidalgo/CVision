@@ -11,8 +11,10 @@ import {
   type Intervention,
 } from "@/lib/ai/analysisGuardrails";
 import { generateJson } from "@/lib/ai/client";
-import { ENGLISH_RETRY, resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { ENGLISH_RETRY, formatToday, resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
+import { requirementRepairPrompt } from "@/lib/ai/prompts/requirement-repair.prompt";
 import { nonEnglishFields } from "@/lib/ai/postingLanguage";
+import { mergeRepair, uncoveredBullets, type RepairAnswer } from "@/lib/ai/requirementCoverage";
 import {
   enforceRequirementStatuses,
   guardBulletRoles,
@@ -23,7 +25,13 @@ import {
   withEvidenceSources,
   withoutControlCharacters,
 } from "@/lib/ai/requirementGuardrails";
-import { analysisResponseSchema, type AnalysisResponse, type ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
+import {
+  analysisResponseSchema,
+  requirementRepairSchema,
+  type AnalysisResponse,
+  type ResumeAnalysisFeedback,
+} from "@/lib/schemas/resumeSchema";
+import { AppError } from "@/lib/error/errors";
 
 /**
  * Bounds the prompt: a CV longer than this is cut, not rejected. Set well
@@ -38,6 +46,9 @@ export const MAX_RESUME_TEXT_CHARS = 150_000;
 // Measured at 5.6-7.0 s across the scripts/eval runs; 30 s is over 4x the
 // slowest. The maxDuration of app/(root)/resume/upload is sized on top of this.
 export const ANALYSIS_TIMEOUT_MS = 30_000;
+
+// The repair answers a few entries: about a third of the analysis' latency.
+export const REPAIR_TIMEOUT_MS = 20_000;
 
 /** Experimental (scripts/eval only): what the model is given as the CV. */
 export type AnalysisInputMode = "text" | "pdf" | "pdf+text";
@@ -84,7 +95,12 @@ export type AnalyzeResumeResult = {
    * would read zero violations forever.
    */
   guard: GuardReport;
+  /** What the model answered before any guard, for scripts/eval replays. Never stored. */
+  model?: ModelAnswers;
 };
+
+/** The model's raw answers: the analysis, and the repair when it ran. */
+export type ModelAnswers = { answer: AnalysisResponse; repair?: RepairAnswer };
 
 export function truncateResumeText(resumeText: string): TruncatedText {
   const text = resumeText.slice(0, MAX_RESUME_TEXT_CHARS);
@@ -153,6 +169,69 @@ export async function analyzeResume({
     }
   }
 
+  // Qualification lines no entry covers: one repair call, merged before any guard runs (M8-F).
+  const uncovered = uncoveredBullets(jobDescription, answer.jobFit.requirements);
+  let repair: RepairAnswer | undefined;
+  if (uncovered.length > 0) {
+    console.warn(`[CVision][ai] requirement lines uncovered: ${uncovered.length} (${logId ?? "no id"})`);
+    try {
+      const repaired = await generateJson({
+        prompt: requirementRepairPrompt({
+          jobTitle,
+          jobDescription,
+          resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
+          lines: uncovered.map((line) => line.text),
+          listed: answer.jobFit.requirements.map((entry) => entry.requirement),
+          today: formatToday(now),
+        }),
+        schema: requirementRepairSchema,
+        timeoutMs: Math.min(REPAIR_TIMEOUT_MS, timeoutMs),
+        ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
+      });
+      repair = { requirements: repaired.requirements };
+    } catch (error) {
+      // The analysis stands without the repair: an incomplete list is better than none.
+      const code = error instanceof AppError ? error.code : "UNKNOWN";
+      console.warn(`[CVision][ai] requirement repair failed: ${code} (${logId ?? "no id"})`);
+      repair = { requirements: null, error: code };
+    }
+  }
+
+  const finished = finishAnalysis({ jobDescription, resumeText: text, answer, repair, now, accentsComposed, logId, before: language });
+  return { ...finished, resumeText: sent, model: { answer, ...(repair ? { repair } : {}) } };
+}
+
+export type FinishInput = {
+  jobDescription: string;
+  /** The CV text the model was given (truncated); empty leaves the quotes unchecked. */
+  resumeText: string;
+  answer: AnalysisResponse;
+  repair?: RepairAnswer;
+  now: Date;
+  accentsComposed?: number;
+  logId?: string;
+  /** Interventions recorded before the guards (the language retry). */
+  before?: Intervention[];
+};
+
+/** Everything after the model calls, pure apart from its count-only log lines: scripts/eval replays stored answers through it. */
+export function finishAnalysis({
+  jobDescription,
+  resumeText: text,
+  answer: firstAnswer,
+  repair,
+  now,
+  accentsComposed = 0,
+  logId,
+  before = [],
+}: FinishInput): { feedback: ResumeAnalysisFeedback; guard: GuardReport } {
+  const coverage = mergeRepair(jobDescription, firstAnswer.jobFit.requirements, repair);
+  if (repair?.requirements) {
+    const recovered = coverage.interventions.filter((one) => one.action === "requirement-recovered").length;
+    console.warn(`[CVision][ai] requirement repair: ${recovered} of ${coverage.uncovered.length} line(s) covered (${logId ?? "no id"})`);
+  }
+  const answer: AnalysisResponse = { ...firstAnswer, jobFit: { ...firstAnswer.jobFit, requirements: coverage.requirements } };
+
   // Posting quote, section, softened clause and key terms, against the posting the model read.
   const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
   if (structured.interventions.some((one) => one.check === "posting-section" && one.action === "recorded")) {
@@ -203,7 +282,8 @@ export async function analyzeResume({
       ...skills.interventions,
       ...roles.interventions,
       ...ats.interventions,
-      ...language,
+      ...before,
+      ...coverage.interventions,
     ]),
     accentsComposed,
   );
@@ -215,7 +295,7 @@ export async function analyzeResume({
     console.warn(`[CVision][ai] analysis guardrail fired: ${note}`);
   }
 
-  return { feedback, resumeText: sent, guard };
+  return { feedback, guard };
 }
 
 /** The prose the model wrote, without quotes, names or the posting's own words: what the language check reads. */
