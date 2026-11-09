@@ -5,7 +5,7 @@ const ask = (requirement: string, sourceQuote = requirement) => languagesAsked({
 
 describe("languagesAsked", () => {
   it.each([
-    ["Fluency to read, write and speak in English.", ["English"]],
+    ["Fluency to speak, read and write in English.", ["English"]],
     ["Working proficiency in written and spoken English.", ["English"]],
     ["good written English", ["English"]],
     ["Español nativo o C2 e inglés profesional.", ["English", "Spanish"]],

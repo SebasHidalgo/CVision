@@ -102,9 +102,9 @@ Posting rules, before the CV quotes are checked:
   is in the posting and sits before the quote. A heading with a preference
   word ("Preferred", "Nice to have", "Bonus", "Valoramos") states
   `preferred`; one with a requirement word ("Required", "Minimum",
-  "Requisitos") or a plain qualifications heading ("Qualifications and
-  Skills") states `required`; one with both ("Job Requirements: Other &
-  Additional") states nothing. A `preferred` entry whose quote has no
+  "Requisitos") or a plain qualifications heading ("Skills and
+  Qualifications") states `required`; one with both ("Other & Additional
+  Requirements") states nothing. A `preferred` entry whose quote has no
   softening word, under a heading that states `required` (or under none, in
   the `requirements` section), becomes `required`; a `required` entry under
   a heading that states `preferred` becomes `preferred` (`posting-kind /

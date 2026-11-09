@@ -32,7 +32,7 @@ const REQUIRED_WORD = /requir|must|minimum|mandatory|essential|requisitos|impres
 const QUALIFICATIONS_HEADING =
   /qualif|skills|what you (?:need|bring|have)|you (?:have|bring)|who you are|about you|buscamos|perfil/i;
 
-/** The kind a verified heading states, or null when it states none or both ("Job Requirements: Other & Additional"). */
+/** The kind a verified heading states, or null when it states none or both ("Other & Additional Requirements"). */
 export function headingKind(heading: string): "required" | "preferred" | null {
   const preferred = PREFERRED_HEADING.test(heading);
   const required = REQUIRED_WORD.test(heading);

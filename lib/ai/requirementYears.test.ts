@@ -5,7 +5,7 @@ const NOW = new Date("2026-11-04T00:00:00Z");
 
 describe("yearsIn: the posting's minimum", () => {
   it.each([
-    ["5+ years of experience in full stack software development", 5],
+    ["5+ years of experience building full stack web products", 5],
     ["at least 3 years of production Python", 3],
     ["3-5 years as an analyst", 3],
     ["3 to 5 years as an analyst", 3],

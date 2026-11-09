@@ -263,17 +263,17 @@ describe("enforceRequirementStatuses", () => {
 });
 
 // M8-C: the Encora posting the owner analysed, cut to what the rules need.
-const ENCORA = `Responsibilities and Duties
+const ENCORA = `Duties and Responsibilities
 
-* Build and enhance frontend components using React to deliver seamless user experiences
+* Ship React front-end features for the merchant dashboard and its reports
 
-Qualifications and Skills
+Skills and Qualifications
 
-* 5+ years of experience in full stack software development
-* Strong expertise in Ruby on Rails and MySQL for backend development
-* Experience working with tools such as Redis, Elasticsearch, and Sidekiq
-* Intermediate experience with Python or willingness to learn and work with it
-* Familiarity with TypeScript is a plus
+* 5+ years of experience building full stack web products
+* Deep knowledge of Ruby on Rails and MySQL on the server side
+* Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq
+* Working knowledge of Python or willingness to learn and work with it
+* TypeScript experience is a plus
 * Experience with a BI tool, preferably Power BI or Looker.`;
 
 const CV = `Summary
@@ -292,8 +292,8 @@ const terms = (mode: "all" | "any", ...pairs: [string, string][]) => ({ mode, te
 describe("structureRequirements: kind from the posting's own wording", () => {
   it("makes a plain bullet under a qualifications heading required, and keeps a softened one preferred", () => {
     const { requirements, interventions } = structureRequirements(ENCORA, [
-      entry({ sourceQuote: "Experience working with tools such as Redis, Elasticsearch, and Sidekiq", heading: "Qualifications and Skills", requirement: "Redis, Elasticsearch, Sidekiq", kind: "preferred" }),
-      entry({ sourceQuote: "Familiarity with TypeScript is a plus", heading: "Qualifications and Skills", requirement: "TypeScript", kind: "preferred" }),
+      entry({ sourceQuote: "Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis, Elasticsearch, Sidekiq", kind: "preferred" }),
+      entry({ sourceQuote: "TypeScript experience is a plus", heading: "Skills and Qualifications", requirement: "TypeScript", kind: "preferred" }),
     ]);
 
     expect(requirements.map((one) => one.kind)).toEqual(["required", "preferred"]);
@@ -302,22 +302,22 @@ describe("structureRequirements: kind from the posting's own wording", () => {
 
   it("ignores a heading that comes after the quote", () => {
     const { requirements } = structureRequirements(ENCORA, [
-      entry({ sourceQuote: "Build and enhance frontend components using React", heading: "Qualifications and Skills", section: "responsibilities", demandsCapability: true, requirement: "React", kind: "preferred" }),
+      entry({ sourceQuote: "Ship React front-end features for the merchant dashboard", heading: "Skills and Qualifications", section: "responsibilities", demandsCapability: true, requirement: "React", kind: "preferred" }),
     ]);
 
     expect(requirements[0].kind).toBe("preferred");
   });
 
   it("reads headings", () => {
-    expect(headingKind("Qualifications and Skills")).toBe("required");
-    expect(headingKind("Preferred/Additional Qualifications")).toBe("preferred");
+    expect(headingKind("Skills and Qualifications")).toBe("required");
+    expect(headingKind("Additional/Preferred Qualifications")).toBe("preferred");
     expect(headingKind("Nice to have")).toBe("preferred");
     expect(headingKind("Valoramos")).toBe("preferred");
     expect(headingKind("Requisitos")).toBe("required");
     expect(headingKind("About Encora")).toBeNull();
-    expect(headingKind("Required/Minimum Qualifications")).toBe("required");
+    expect(headingKind("Minimum/Required Qualifications")).toBe("required");
     // The Microsoft posting's own heading over its background check: it states no kind, so the model's stands.
-    expect(headingKind("Job Requirements: Other & Additional")).toBeNull();
+    expect(headingKind("Other & Additional Requirements")).toBeNull();
   });
 });
 
@@ -326,7 +326,7 @@ describe("structureRequirements: key terms", () => {
     const { requirements, interventions } = structureRequirements(ENCORA, [
       entry({
         sourceQuote: "Experience with a BI tool, preferably Power BI or Looker.",
-        heading: "Qualifications and Skills",
+        heading: "Skills and Qualifications",
         requirement: "Experience with a BI tool, preferably Power BI or Looker",
         softenedClause: { ...NO_CLAUSE, quote: "preferably Power BI or Looker" },
         keyTerms: terms("any", ["BI tool", "Power BI"], ["Power BI", "Power BI"], ["Looker", ""], ["Tableau", ""]),
@@ -359,7 +359,7 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
     evidence: "Databases: MongoDB, PostgreSQL, MySQL",
     note: "the model's note",
     assessable: true,
-    sourceQuote: "Strong expertise in Ruby on Rails and MySQL for backend development",
+    sourceQuote: "Deep knowledge of Ruby on Rails and MySQL on the server side",
     ...overrides,
   });
   const context = (count: number) => ({ pending: Array.from({ length: count }, () => ({ yearsEvidence: [] })), cvText: CV, now: NOW });
@@ -402,13 +402,13 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
 
 describe("enforceRequirementStatuses: years", () => {
   const stored = (overrides: Partial<Requirement>): Requirement => ({
-    requirement: "5+ years of experience in full stack software development",
+    requirement: "5+ years of experience building full stack web products",
     kind: "required",
     status: "partial",
     evidence: "Software Engineer with 2+ years of experience building internal tools for warehouses.",
     note: "the model's note",
     assessable: true,
-    sourceQuote: "5+ years of experience in full stack software development",
+    sourceQuote: "5+ years of experience building full stack web products",
     ...overrides,
   });
   const run = (requirement: Requirement, yearsEvidence: string[] = []) =>
@@ -449,7 +449,7 @@ describe("enforceRequirementStatuses: years", () => {
 
 describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   it.each([
-    ["Intermediate experience with Python or willingness to learn and work with it", "or willingness to learn and work with it"],
+    ["Working knowledge of Python or willingness to learn and work with it", "or willingness to learn and work with it"],
     ["Experience with GraphQL schema design, or a clear appetite to learn it fast.", "or a clear appetite to learn it fast"],
     ["Conocimientos de Airflow o disposición para aprenderlo.", "o disposición para aprenderlo"],
     ["Kotlin, or eagerness to pick it up", "or eagerness to pick it up"],
@@ -458,7 +458,7 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   });
 
   it.each([
-    "Bachelor’s degree in Computer Science, Software Engineering, or a related field, or equivalent practical experience",
+    "Degree in Computer Science, Information Systems, or a related field, or equivalent practical experience",
     "You pick up one existing service, learn its failure modes on call",
     "Must be willing to travel to client sites",
     "Continuously seeks new knowledge, adapts to emerging technologies",
@@ -467,7 +467,7 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   });
 
   it("turns missing into not_evident with a note naming what is absent, and leaves met alone", () => {
-    const python = "Intermediate experience with Python or willingness to learn and work with it";
+    const python = "Working knowledge of Python or willingness to learn and work with it";
     const { requirements, interventions } = enforceRequirementStatuses(
       [
         { requirement: python, kind: "required", status: "missing", evidence: "", note: "Python is absent", assessable: true, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) },
@@ -482,7 +482,7 @@ describe("enforceRequirementStatuses: an alternative a CV cannot show", () => {
   });
 
   it("writes its own note when the model chose not_evident itself, and drops a quote that showed nothing", () => {
-    const python = "Intermediate experience with Python or willingness to learn and work with it";
+    const python = "Working knowledge of Python or willingness to learn and work with it";
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: python, kind: "required", status: "not_evident", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "the unshowable alternative covers it", assessable: false, sourceQuote: python, keyTerms: terms("any", ["Python", ""]) }],
       { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
@@ -605,7 +605,7 @@ describe("M8-D: control characters, bullet roles, the CV's own years", () => {
   });
 
   it("uses the CV's total over the lines the model quoted, lowers with it, and raises only when the quoted years agree", () => {
-    const fiveYears = "5+ years of experience in full stack software development";
+    const fiveYears = "5+ years of experience building full stack web products";
     const base = { kind: "required" as const, note: "model note", assessable: true, evidence: "Full-Stack Developer July 2021 – November 2021" };
     const { requirements } = enforceRequirementStatuses(
       [
@@ -653,9 +653,9 @@ describe("M8-C smoke fixes", () => {
   it("drops a number of years from the key terms, and reads 'and' as all", () => {
     const posting = `${ENCORA}\n* dbt and data contracts.`;
     const { requirements, interventions } = structureRequirements(posting, [
-      entry({ sourceQuote: "5+ years of experience in full stack software development", heading: "Qualifications and Skills", requirement: "5+ years", keyTerms: terms("all", ["5+ years of experience", "2+ years of experience"]) }),
-      entry({ sourceQuote: "dbt and data contracts.", heading: "Qualifications and Skills", requirement: "dbt and data contracts", keyTerms: terms("any", ["dbt", ""], ["data contracts", "data contracts"]) }),
-      entry({ sourceQuote: "Experience working with tools such as Redis, Elasticsearch, and Sidekiq", heading: "Qualifications and Skills", requirement: "Redis", keyTerms: terms("any", ["Redis", ""], ["Sidekiq", ""]) }),
+      entry({ sourceQuote: "5+ years of experience building full stack web products", heading: "Skills and Qualifications", requirement: "5+ years", keyTerms: terms("all", ["5+ years of experience", "2+ years of experience"]) }),
+      entry({ sourceQuote: "dbt and data contracts.", heading: "Skills and Qualifications", requirement: "dbt and data contracts", keyTerms: terms("any", ["dbt", ""], ["data contracts", "data contracts"]) }),
+      entry({ sourceQuote: "Hands-on use of tools such as Redis, Elasticsearch, and Sidekiq", heading: "Skills and Qualifications", requirement: "Redis", keyTerms: terms("any", ["Redis", ""], ["Sidekiq", ""]) }),
     ]);
 
     expect(requirements.map((one) => one.keyTerms?.mode ?? null)).toEqual([null, "all", "any"]);
@@ -715,7 +715,7 @@ describe("M8-C measurement fixes", () => {
   it("groups terms the posting joins with 'or', or lists in one parenthesis", () => {
     expect(termGroups("Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).", ["SQL", "BigQuery", "Snowflake"])).toEqual([[0], [1, 2]]);
     expect(termGroups("Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", ["Prometheus", "Grafana", "OpenTelemetry"])).toEqual([[0, 1, 2]]);
-    expect(termGroups("Strong expertise in Ruby on Rails and MySQL for backend development", ["Ruby on Rails", "MySQL"])).toEqual([[0], [1]]);
+    expect(termGroups("Deep knowledge of Ruby on Rails and MySQL on the server side", ["Ruby on Rails", "MySQL"])).toEqual([[0], [1]]);
     expect(termGroups("coding in C, C++, C#, Java, JavaScript, or Python", ["C++", "Java", "Python"])).toEqual([[0, 1, 2]]);
   });
 
@@ -731,7 +731,7 @@ describe("M8-C measurement fixes", () => {
   it("keeps examples in a parenthesis as alternatives when the model says 'any'", () => {
     const posting = `${ENCORA}\n* Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).`;
     const { requirements, interventions } = structureRequirements(posting, [
-      entry({ sourceQuote: "Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", heading: "Qualifications and Skills", requirement: "Observability tooling", keyTerms: terms("any", ["Prometheus", "Prometheus"], ["OpenTelemetry", ""]) }),
+      entry({ sourceQuote: "Experience with observability tooling (Prometheus, Grafana, OpenTelemetry).", heading: "Skills and Qualifications", requirement: "Observability tooling", keyTerms: terms("any", ["Prometheus", "Prometheus"], ["OpenTelemetry", ""]) }),
     ]);
     expect(requirements[0].keyTerms?.mode).toBe("any");
     expect(interventions.some((one) => one.action === "mode-changed")).toBe(false);
@@ -756,7 +756,7 @@ describe("M8-C measurement fixes", () => {
 });
 
 describe("M8-C language", () => {
-  const english = "Fluency to read, write and speak in English.";
+  const english = "Fluency to speak, read and write in English.";
 
   it("calls a language requirement not shown, even when assessable, unless the CV states a level", () => {
     const pending = [{ yearsEvidence: [] }, { yearsEvidence: [] }, { yearsEvidence: [] }];
