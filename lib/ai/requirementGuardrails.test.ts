@@ -854,6 +854,23 @@ describe("M8-F: read problems", () => {
     expect(requirements[1].summaryOnly).toBeUndefined();
     expect(requirements[2].summaryOnly).toBeUndefined();
   });
+
+  it("never flags years the summary states, nor a claim an experience line shares a word with", () => {
+    const summary = "Software Engineer with 2+ years of experience shipping internal tools for warehouses.";
+    const { requirements } = withEvidenceSources(
+      [
+        { requirement: "2+ years of experience", kind: "required", status: "met", evidence: summary, note: "", sourceQuote: "2+ years of experience" },
+        { requirement: "Tools for volunteers", kind: "preferred", status: "met", evidence: summary, note: "" },
+      ],
+      CV,
+      ["Summary", "Experience", "Technical Skills"],
+    );
+
+    expect(requirements[0]).toMatchObject({ evidenceSource: "summary" });
+    expect(requirements[0].summaryOnly).toBeUndefined();
+    // "volunteers" is in the experience bullet: the summary is not the only place.
+    expect(requirements[1]).toMatchObject({ evidenceSource: "summary", summaryOnly: false });
+  });
 });
 
 describe("M8-F: a preferred item is the clause its softening word is in", () => {

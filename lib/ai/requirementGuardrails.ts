@@ -651,6 +651,15 @@ export function experienceLineFor(lines: CvLine[], keyTerms: KeyTerms | undefine
   return best ? { text: lineSpan(lines, best.at), hits: best.hits, of: matches.length } : null;
 }
 
+// Words too common in requirements to tie one to an experience line.
+const GENERIC_WORDS = new Set(["experience", "experiences", "strong", "understanding", "knowledge", "ability", "skills", "working", "software", "development", "developer", "engineering", "engineer", "professional", "familiarity", "excellent", "proven", "including", "related", "practical", "equivalent"]);
+
+/** Whether an experience or project line has one of the requirement's own longer words ("architecture", "regulated"). */
+function experienceSharesWordWith(lines: CvLine[], requirement: string): boolean {
+  const words = [...contentWords(requirement)].filter((word) => word.length >= 6 && !GENERIC_WORDS.has(word));
+  return lines.some((line) => !line.heading && (line.section === "experience" || line.section === "projects") && words.some((word) => contentWords(line.text).has(word)));
+}
+
 /**
  * Each requirement's evidence placed in its CV section. A skills-list or summary quote gives way to an
  * experience or project line that shows the term in use (every term, for an "all" requirement);
@@ -675,8 +684,12 @@ export function withEvidenceSources(
       interventions.push({ check: "evidence-source", action: "evidence-replaced", path: `jobFit.requirements[${index}].evidence`, value: requirement.evidence, replacement: line.text });
       return { ...requirement, evidence: line.text, evidenceSource: evidenceSourceOf(cvText, line.text, headings) };
     }
-    // A summary claim with nothing to look for still rests on the summary alone.
-    if (source === "summary") return { ...requirement, evidenceSource: source, summaryOnly: requirement.keyTerms?.terms.length ? !line : true };
+    if (source === "summary") {
+      // Years are the years rule's: a summary's total and the dated roles agree.
+      if (yearsIn(requirement.sourceQuote ?? "") !== null) return { ...requirement, evidenceSource: source };
+      const shown = requirement.keyTerms?.terms.length ? Boolean(line) : experienceSharesWordWith(lines, requirement.requirement);
+      return { ...requirement, evidenceSource: source, summaryOnly: !shown };
+    }
     // Without key terms there is nothing to look for; the quote stays, unflagged.
     return { ...requirement, evidenceSource: source, ...(requirement.keyTerms ? { skillsOnly: !line } : {}) };
   });
