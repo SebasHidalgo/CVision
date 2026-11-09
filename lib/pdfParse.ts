@@ -103,7 +103,8 @@ export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfTex
 const nonBlank = (text: string) => text.replace(/\s/g, "").length;
 
 async function readDocument(bytes: Uint8Array): Promise<{ text: string; scannedPages: number; accentsComposed: number }> {
-  const pdf = await getDocumentProxy(bytes);
+  // pdf.js transfers the buffer it is given: a copy leaves the caller's bytes intact.
+  const pdf = await getDocumentProxy(bytes.slice());
 
   try {
     const pages: string[] = [];

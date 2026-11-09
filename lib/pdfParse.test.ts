@@ -89,6 +89,14 @@ describe("extractTextFromPDFFile", () => {
     expect(flat(text)).toBe(CV_TEXT);
   });
 
+  it("leaves the caller's bytes intact: the eval's PDF arm sends them after parsing", async () => {
+    const bytes = pdfBytes(textPage(CV_TEXT));
+    const length = bytes.byteLength;
+    await extractTextFromPDFBytes(bytes);
+
+    expect(bytes.byteLength).toBe(length);
+  });
+
   it("gives back the lines of the page, not one run of text", async () => {
     const page = ["EXPERIENCE", "- Shipped the checkout rewrite.", "- Mentored two engineers."];
     const text = await extractTextFromPDFFile(

@@ -72,6 +72,8 @@ export function captureAiLog() {
     seed: string | null;
     inputTokens: number | null;
     outputTokens: number | null;
+    /** Model calls seen: the analysis, its English retry, its repair. Tokens are their sum. */
+    calls: number;
   } = {
     provider: null,
     model: null,
@@ -80,6 +82,7 @@ export function captureAiLog() {
     seed: null,
     inputTokens: null,
     outputTokens: null,
+    calls: 0,
   };
 
   const count = (value: string) => (value === "?" ? null : Number(value));
@@ -92,8 +95,10 @@ export function captureAiLog() {
     meta.modelVersion = match[3] === "?" ? null : match[3];
     meta.temperature = match[4];
     meta.seed = match[5];
-    meta.inputTokens = count(match[6]);
-    meta.outputTokens = count(match[7]);
+    const add = (sum: number | null, value: number | null) => (value === null ? sum : (sum ?? 0) + value);
+    meta.inputTokens = add(meta.inputTokens, count(match[6]));
+    meta.outputTokens = add(meta.outputTokens, count(match[7]));
+    meta.calls += 1;
   };
 
   return {
