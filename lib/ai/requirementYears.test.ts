@@ -33,7 +33,7 @@ describe("yearsIn: the posting's minimum", () => {
 
 describe("dateRanges and yearsFromRanges", () => {
   it("reads month names in English and Spanish, numeric months, bare years and present", () => {
-    expect(dateRanges("Full-Stack Developer July 2024 – November 2024", NOW)).toEqual([[2024 * 12 + 6, 2024 * 12 + 11]]);
+    expect(dateRanges("Full-Stack Developer July 2021 – November 2021", NOW)).toEqual([[2021 * 12 + 6, 2021 * 12 + 11]]);
     expect(dateRanges("Analista · enero 2020 - actualidad", NOW)).toEqual([[2020 * 12, 2026 * 12 + 11]]);
     expect(dateRanges("09/2023 - 07/2024", NOW)).toEqual([[2023 * 12 + 8, 2024 * 12 + 7]]);
     expect(dateRanges("Analista Junior 2020 - 2022", NOW)).toEqual([[2020 * 12, 2022 * 12]]);
@@ -52,14 +52,14 @@ describe("dateRanges and yearsFromRanges", () => {
 
 describe("candidateYears", () => {
   it("prefers an explicit statement to the dates", () => {
-    expect(candidateYears(["Full-Stack Developer with 2+ years of experience building", "January 2018 – March 2025"], NOW)).toEqual({ candidate: 2, source: "statement" });
+    expect(candidateYears(["Software Engineer with 2+ years of experience building", "January 2018 – March 2025"], NOW)).toEqual({ candidate: 2, source: "statement" });
     expect(candidateYears(["Analista de datos con cuatro años de experiencia en comercio electrónico"], NOW)).toEqual({ candidate: 4, source: "statement" });
   });
 
   it("sums the quoted roles' date ranges otherwise", () => {
-    const found = candidateYears(["Open-Source Software Contributor January 2025 – October 2025", "Full-Stack Developer July 2024 – November 2024", "Full-Stack Developer September 2023 – July 2024"], NOW);
+    const found = candidateYears(["Volunteer Tutor January 2022 – October 2022", "Full-Stack Developer July 2021 – November 2021", "Full-Stack Developer September 2020 – July 2021"], NOW);
     expect(found?.source).toBe("dates");
-    // July 2024 is in both of the last two roles: 25 months, not 26.
+    // July 2021 is in both of the last two roles: 25 months, not 26.
     expect(found?.candidate).toBe(2.1);
   });
 

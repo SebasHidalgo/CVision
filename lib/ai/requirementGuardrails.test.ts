@@ -259,13 +259,13 @@ Qualifications and Skills
 * Experience with a BI tool, preferably Power BI or Looker.`;
 
 const CV = `Summary
-Full-Stack Developer with 2+ years of experience building scalable web applications.
+Software Engineer with 2+ years of experience building internal tools for warehouses.
 Experience
-Full-Stack Developer July 2024 – November 2024
-• Designed and developed a full-stack web platform using the MERN stack (MongoDB, Express.js, React, Node.js) to
-manage pet adoption.
+Full-Stack Developer July 2021 – November 2021
+• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to
+book volunteer shifts.
 Technical Skills
-Frontend development: React, Next.js
+Front end: React, Next.js
 Databases: MongoDB, PostgreSQL, MySQL`;
 
 const NOW = new Date("2026-11-04T00:00:00Z");
@@ -387,7 +387,7 @@ describe("enforceRequirementStatuses: years", () => {
     requirement: "5+ years of experience in full stack software development",
     kind: "required",
     status: "partial",
-    evidence: "Full-Stack Developer with 2+ years of experience building scalable web applications.",
+    evidence: "Software Engineer with 2+ years of experience building internal tools for warehouses.",
     note: "the model's note",
     assessable: true,
     sourceQuote: "5+ years of experience in full stack software development",
@@ -404,14 +404,14 @@ describe("enforceRequirementStatuses: years", () => {
   });
 
   it("raises a partial the numbers support, and quotes the years line when the evidence was empty", () => {
-    const { requirements } = run(stored({ sourceQuote: "1+ year(s) technical engineering experience", status: "partial", evidence: "" }), ["Full-Stack Developer with 2+ years of experience building scalable web applications."]);
+    const { requirements } = run(stored({ sourceQuote: "1+ year(s) technical engineering experience", status: "partial", evidence: "" }), ["Software Engineer with 2+ years of experience building internal tools for warehouses."]);
 
     expect(requirements[0]).toMatchObject({ status: "met", years: { min: 1, candidate: 2 } });
     expect(requirements[0].evidence).toContain("2+ years");
   });
 
   it("never raises a missing: the model may have ruled the quoted years irrelevant", () => {
-    const { requirements } = run(stored({ sourceQuote: "1+ year(s) of professional embedded C development", status: "missing", evidence: "" }), ["Full-Stack Developer with 2+ years of experience building scalable web applications."]);
+    const { requirements } = run(stored({ sourceQuote: "1+ year(s) of professional embedded C development", status: "missing", evidence: "" }), ["Software Engineer with 2+ years of experience building internal tools for warehouses."]);
 
     expect(requirements[0]).toMatchObject({ status: "missing", years: { min: 1, candidate: 2 } });
   });
@@ -482,9 +482,9 @@ describe("evidenceSourceOf", () => {
   const headings = ["Summary", "Experience", "Technical Skills"];
 
   it("places a quote in the section above it, a wrapped bullet included", () => {
-    expect(evidenceSourceOf(CV, "Frontend development: React, Next.js", headings)).toBe("skills");
-    expect(evidenceSourceOf(CV, "• Designed and developed a full-stack web platform using the MERN stack (MongoDB, Express.js, React, Node.js) to manage pet adoption.", headings)).toBe("experience");
-    expect(evidenceSourceOf(CV, "Full-Stack Developer with 2+ years of experience", headings)).toBe("summary");
+    expect(evidenceSourceOf(CV, "Front end: React, Next.js", headings)).toBe("skills");
+    expect(evidenceSourceOf(CV, "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts.", headings)).toBe("experience");
+    expect(evidenceSourceOf(CV, "Software Engineer with 2+ years of experience", headings)).toBe("summary");
     expect(evidenceSourceOf(CV, "Not in the CV at all", headings)).toBe("other");
   });
 
@@ -523,7 +523,7 @@ describe("guardMatchedSkills", () => {
         description: "",
         actionPlan: [],
         matchedSkills: [
-          { name: "React", evidence: "Frontend development: React, Next.js" },
+          { name: "React", evidence: "Front end: React, Next.js" },
           { name: "Redis", evidence: "" },
           { name: "Python", evidence: "Databases: MongoDB, PostgreSQL, MySQL" },
         ],
@@ -565,7 +565,7 @@ describe("M8-C smoke fixes", () => {
   it("swaps a skills-list quote for the experience bullet that shows the term, wrapped lines joined", () => {
     const { requirements, interventions } = withEvidenceSources(
       [
-        { requirement: "React", kind: "required", status: "met", evidence: "Frontend development: React, Next.js", note: "", keyTerms: terms("all", ["React", "React"]) },
+        { requirement: "React", kind: "required", status: "met", evidence: "Front end: React, Next.js", note: "", keyTerms: terms("all", ["React", "React"]) },
         { requirement: "MySQL", kind: "required", status: "partial", evidence: "Databases: MongoDB, PostgreSQL, MySQL", note: "", keyTerms: terms("all", ["Ruby on Rails", ""], ["MySQL", "MySQL"]) },
       ],
       CV,
@@ -573,7 +573,7 @@ describe("M8-C smoke fixes", () => {
     );
 
     expect(requirements[0]).toMatchObject({
-      evidence: "• Designed and developed a full-stack web platform using the MERN stack (MongoDB, Express.js, React, Node.js) to manage pet adoption.",
+      evidence: "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts.",
       evidenceSource: "experience",
     });
     // Only in the skills list: it stays there, and the page says so.
@@ -633,14 +633,14 @@ describe("M8-C measurement fixes", () => {
       [{ requirement: "React", kind: "required", status: "met", evidence: "", note: "", assessable: true, sourceQuote: "React", keyTerms: terms("all", ["React", "React"]) }],
       { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
     );
-    expect(requirements[0]).toMatchObject({ status: "met", evidence: "• Designed and developed a full-stack web platform using the MERN stack (MongoDB, Express.js, React, Node.js) to manage pet adoption." });
+    expect(requirements[0]).toMatchObject({ status: "met", evidence: "• Built a full-stack scheduling platform using the MERN stack (MongoDB, Express.js, React, Node.js) to book volunteer shifts." });
     expect(interventions).toContainEqual(expect.objectContaining({ check: "evidence-source", action: "evidence-replaced", value: "" }));
   });
 
   it("keeps the model's note when its status is below what the numbers allow", () => {
     const { requirements } = enforceRequirementStatuses(
       [{ requirement: "6+ years of backend", kind: "required", status: "missing", evidence: "", note: "The CV shows pastry work, not backend.", assessable: true, sourceQuote: "1+ year(s) of backend software development" }],
-      { pending: [{ yearsEvidence: ["Full-Stack Developer with 2+ years of experience building scalable web applications."] }], cvText: CV, now: NOW },
+      { pending: [{ yearsEvidence: ["Software Engineer with 2+ years of experience building internal tools for warehouses."] }], cvText: CV, now: NOW },
     );
     expect(requirements[0]).toMatchObject({ status: "missing", note: "The CV shows pastry work, not backend." });
   });
@@ -675,7 +675,7 @@ describe("M8-C language", () => {
     const { requirements } = enforceRequirementStatuses(
       [
         { requirement: quote, kind: "required", status: "missing", evidence: "", note: "", assessable: true, sourceQuote: quote, keyTerms: terms("any", ["Airflow", ""]) },
-        { requirement: "Al menos 4 años", kind: "required", status: "partial", evidence: "Full-Stack Developer with 2+ years of experience building scalable web applications.", note: "", assessable: true, sourceQuote: "Al menos 4 años de experiencia como analista" },
+        { requirement: "Al menos 4 años", kind: "required", status: "partial", evidence: "Software Engineer with 2+ years of experience building internal tools for warehouses.", note: "", assessable: true, sourceQuote: "Al menos 4 años de experiencia como analista" },
       ],
       { pending: [{ yearsEvidence: [] }, { yearsEvidence: [] }], cvText: CV, now: NOW, language: "es" },
     );
