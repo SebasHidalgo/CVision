@@ -1,0 +1,18 @@
+Mariana PeÃ±alosa Ruiz
+Data Analyst | BogotÃ¡, Colombia | mariana.ruiz@example.com
+
+SUMMARY
+Data analyst with 4 years of experience in retail reporting and SQL.
+
+EXPERIENCE
+Data Analyst, Tiendas Norte SÃ¡nchez March 2021 - present
+- Built the weekly sales dashboards in Power BI for 30 stores.
+- Cut the month-end report from two days to four hours by moving it to SQL views.
+Junior Analyst, Grupo Andino January 2020 - February 2021
+- Gesti�n de inventario: reconciled stock counts against the ERP every week.
+
+EDUCATION
+IngenierÃ­a Industrial, Universidad del Norte, 2019
+
+SKILLS
+SQL, Power BI, Excel, Python (pandas)

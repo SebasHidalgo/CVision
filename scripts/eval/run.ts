@@ -146,6 +146,8 @@ type Fixture = Omit<FixtureMeta, "pdf"> & {
   id: string;
   source: "synthetic" | "local";
   cvText: string;
+  /** Split accents the parser composed while reading cv.pdf; 0 for a cv.txt fixture. */
+  cvAccentsComposed: number;
   jobDescription: string;
   /** Present when the fixture folder holds a cv.pdf, for the PDF arms. */
   pdf?: Uint8Array;
@@ -509,6 +511,8 @@ async function runFixture(
       jobTitle: fixture.jobTitle,
       jobDescription: fixture.jobDescription,
       resumeText: fixture.cvText,
+      accentsComposed: fixture.cvAccentsComposed,
+      logId: fixture.id,
       timeoutMs,
       ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
       ...(now ? { now } : {}),
@@ -1349,7 +1353,8 @@ async function loadFixtures(): Promise<Fixture[]> {
       const meta = JSON.parse(
         await readFile(path.join(base, "fixture.json"), "utf8"),
       ) as FixtureMeta;
-      const jobDescription = (await readFile(path.join(base, "job.txt"), "utf8")).trim();
+      // Production never sends a CR: a checkout with core.autocrlf would put one in every line.
+      const jobDescription = lf(await readFile(path.join(base, "job.txt"), "utf8")).trim();
 
       if (!meta.jobTitle?.trim()) fail(`${display(base)}/fixture.json needs a jobTitle.`);
 
@@ -1372,16 +1377,18 @@ async function loadFixtures(): Promise<Fixture[]> {
       }
 
       const { pdf: pdfMeta, ...rest } = meta;
+      const pdfBytes = existsSync(path.join(base, "cv.pdf")) ? new Uint8Array(await readFile(path.join(base, "cv.pdf"))) : undefined;
+      // The CV as production reads it, from the PDF, when the fixture has one; a scan keeps its cv.txt for the refusal.
+      const extracted = pdfBytes && !pdfMeta?.scanned ? await (await import("@/lib/pdfParse")).extractPdfText(pdfBytes) : null;
       fixtures.push({
         ...rest,
         jobTitle: meta.jobTitle.trim(),
         id: source === "local" ? `local-${name}` : name,
         source,
-        cvText: await readFile(path.join(base, "cv.txt"), "utf8"),
+        cvText: extracted?.text ?? lf(await readFile(path.join(base, "cv.txt"), "utf8")),
+        cvAccentsComposed: extracted?.accentsComposed ?? 0,
         // Optional: only fixtures holding a PDF can run the PDF arms.
-        pdf: existsSync(path.join(base, "cv.pdf"))
-          ? new Uint8Array(await readFile(path.join(base, "cv.pdf")))
-          : undefined,
+        pdf: pdfBytes,
         pdfMeta,
         gold: await loadGold(base, jobDescription),
         jobDescription,
@@ -1405,4 +1412,9 @@ if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
     console.error(error);
     process.exitCode = 1;
   });
+}
+
+/** Line endings as production has them. */
+function lf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }

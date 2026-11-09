@@ -1,0 +1,11 @@
+Data Analyst
+
+We are a grocery chain looking for a data analyst to own our store reporting.
+
+Requirements
+- 3+ years of experience as a data analyst.
+- Strong SQL.
+- Experience with a BI tool such as Power BI or Tableau.
+
+Nice to have
+- Python for analysis.

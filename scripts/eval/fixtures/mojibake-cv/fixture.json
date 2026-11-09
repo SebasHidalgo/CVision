@@ -1,0 +1,20 @@
+{
+  "jobTitle": "Data Analyst",
+  "purpose": "A CV whose text layer really is broken: UTF-8 read as Latin-1 (mojibake) and a replacement character. Extraction cannot fix these, so the analysis must still report them (M8-E).",
+  "expect": {
+    "mustMatch": [
+      {
+        "in": "atsCompatibility.encodingArtifacts",
+        "pattern": "Ã|�",
+        "why": "The mojibake and the replacement character are real artifacts the reader sees; they must be quoted."
+      }
+    ],
+    "mustNotMatch": [
+      {
+        "in": "atsCompatibility",
+        "pattern": "fontenc",
+        "why": "The LaTeX advice is gone: this is not a split accent."
+      }
+    ]
+  }
+}
