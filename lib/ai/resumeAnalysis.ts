@@ -235,7 +235,7 @@ export function finishAnalysis({
   // Posting quote, section, softened clause and key terms, against the posting the model read.
   const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
   if (structured.interventions.some((one) => one.check === "posting-section" && one.action === "recorded")) {
-    console.warn(`[CVision][ai] requirements kept: the section rule would have left none (${logId ?? "no id"})`);
+    console.warn(`[CVision][ai] requirements kept: the section rule would have left none required (${logId ?? "no id"})`);
   }
   const ats = structureAtsIssues(answer.atsCompatibility.issues, text);
   const { issues: _issues, ...atsFields } = answer.atsCompatibility;

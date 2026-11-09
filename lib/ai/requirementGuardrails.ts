@@ -155,8 +155,8 @@ export function structureRequirements(
   // Company, team, stack and offer never; the work only when it demands a capability.
   const describesOnly = (entry: ModelRequirement) =>
     entry.section === "description" || (entry.section === "responsibilities" && !entry.demandsCapability);
-  // A model that labels every entry a description would leave an empty analysis: keep them instead.
-  const keepDescriptions = !model.some((entry) => !describesOnly(entry) && inPosting(posting, entry.sourceQuote));
+  // A model that labels every required entry a description would leave no required item: keep them instead.
+  const keepDescriptions = !model.some((entry) => entry.kind === "required" && !describesOnly(entry) && inPosting(posting, entry.sourceQuote));
 
   model.forEach((entry, index) => {
     const path = `jobFit.requirements[${index}]`;
@@ -183,7 +183,7 @@ export function structureRequirements(
         record({ check: "posting-section", action: "requirement-dropped", path: `${path}.section`, value: entry.requirement, replacement: entry.section });
         return;
       }
-      record({ check: "posting-section", action: "recorded", path: `${path}.section`, value: entry.requirement, replacement: `${entry.section}, kept: nothing else survived` });
+      record({ check: "posting-section", action: "recorded", path: `${path}.section`, value: entry.requirement, replacement: `${entry.section}, kept: nothing required survived` });
     }
 
     // Kind from the posting's own wording: its heading, or a softening word in the quote.

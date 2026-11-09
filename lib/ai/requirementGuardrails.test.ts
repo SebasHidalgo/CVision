@@ -104,10 +104,21 @@ describe("structureRequirements: the section", () => {
 
     expect(requirements.map((one) => one.requirement)).toEqual(["3+ years as a data or business analyst", "Fluent English"]);
     expect(interventions.map((one) => [one.check, one.action, one.replacement])).toEqual([
-      ["posting-section", "recorded", "description, kept: nothing else survived"],
-      ["posting-section", "recorded", "description, kept: nothing else survived"],
+      ["posting-section", "recorded", "description, kept: nothing required survived"],
+      ["posting-section", "recorded", "description, kept: nothing required survived"],
       ["posting-source", "requirement-dropped", undefined],
     ]);
+  });
+
+  it("keeps them too when only a preferred entry would survive, and drops them when a required one does", () => {
+    const onlyPreferred = structureRequirements(POSTING, [
+      entry({ section: "description" }),
+      entry({ sourceQuote: "Fluent English", section: "preferred", kind: "preferred", requirement: "Fluent English" }),
+    ]);
+    expect(onlyPreferred.requirements.map((one) => one.requirement)).toEqual(["3+ years as a data or business analyst", "Fluent English"]);
+
+    const withRequired = structureRequirements(POSTING, [entry({ section: "description" }), entry({ sourceQuote: "Fluent English", requirement: "Fluent English" })]);
+    expect(withRequired.requirements.map((one) => one.requirement)).toEqual(["Fluent English"]);
   });
 });
 
