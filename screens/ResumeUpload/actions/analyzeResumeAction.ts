@@ -95,6 +95,7 @@ export async function analyzeResumeAction(
       jobDescription,
       resumeText,
       accentsComposed,
+      logId: resumeId,
     });
 
     await createResume({

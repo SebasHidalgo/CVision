@@ -58,6 +58,8 @@ export type AnalyzeResumeInput = {
   now?: Date;
   /** Split accents the PDF parser composed, recorded in guardStats. */
   accentsComposed?: number;
+  /** For log lines only: the analysis id, or the eval fixture. */
+  logId?: string;
 };
 
 /** What stands in for the CV text when only the PDF is attached. */
@@ -108,6 +110,7 @@ export async function analyzeResume({
   inputMode = pdf ? "pdf" : "text",
   now = new Date(),
   accentsComposed = 0,
+  logId,
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
   const { text, ...sent } = truncateResumeText(resumeText);
   if (inputMode !== "text" && !pdf) throw new Error(`inputMode ${inputMode} needs the PDF bytes`);
@@ -152,6 +155,9 @@ export async function analyzeResume({
 
   // Posting quote, section, softened clause and key terms, against the posting the model read.
   const structured = structureRequirements(jobDescription, answer.jobFit.requirements);
+  if (structured.interventions.some((one) => one.check === "posting-section" && one.action === "recorded")) {
+    console.warn(`[CVision][ai] requirements kept: the section rule would have left none (${logId ?? "no id"})`);
+  }
   const ats = structureAtsIssues(answer.atsCompatibility.issues, text);
   const { issues: _issues, ...atsFields } = answer.atsCompatibility;
   const shaped: ResumeAnalysisFeedback = {

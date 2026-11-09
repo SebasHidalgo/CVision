@@ -10,6 +10,7 @@ type Wording = {
   noneOf: (absent: string) => string;
   notShown: (absent: string) => string;
   years: (min: number, about: string) => string;
+  yearsTotal: (min: number, about: string) => string;
   about: (value: string) => string;
   alternative: (absent: string, several: boolean, accepts: string) => string;
   languageLevel: (language: string) => string;
@@ -29,6 +30,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     noneOf: (absent) => `Your CV doesn't show any of ${absent}.`,
     notShown: (absent) => `Your CV doesn't show ${absent}.`,
     years: (min, about) => `The posting asks for ${min}+ years; your CV shows ${about}.`,
+    yearsTotal: (min, about) => `The posting asks for ${min}+ years; your CV shows ${about} in total.`,
     about: (value) => `about ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} ${several ? "aren't" : "isn't"} in your CV; the posting accepts ${accepts} — say so in your cover letter.`,
@@ -47,6 +49,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     noneOf: (absent) => `Tu CV no muestra ninguno de estos: ${absent}.`,
     notShown: (absent) => `Tu CV no muestra ${absent}.`,
     years: (min, about) => `La oferta pide ${min}+ años; tu CV muestra ${about}.`,
+    yearsTotal: (min, about) => `La oferta pide ${min}+ años; tu CV muestra ${about} en total.`,
     about: (value) => `unos ${value}`,
     alternative: (absent, several, accepts) =>
       `${absent} no ${several ? "aparecen" : "aparece"} en tu CV; la oferta acepta ${accepts}: dilo en tu carta de presentación.`,

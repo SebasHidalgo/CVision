@@ -41,6 +41,34 @@ export function yearsIn(text: string): number | null {
   return null;
 }
 
+// After the figure: "of (professional) experience"; before it: "experience of".
+const EXPERIENCE_AFTER = /^\s*(?:of\s+|de\s+)?(?:[\p{L}-]+\s+){0,2}?(?:experience|experiencia)(?![\p{L}])/iu;
+const EXPERIENCE_BEFORE = /(?:experience|experiencia)\s+(?:of|de)\s*$/iu;
+
+/** A total stated in words ("2+ years of experience", "cuatro años de experiencia"); not "six years on JVM services". */
+export function totalExperienceIn(text: string): number | null {
+  for (const match of text.matchAll(YEARS_PATTERN)) {
+    if (match[1] || match.index === undefined) continue;
+    const after = text.slice(match.index + match[0].length, match.index + match[0].length + 60);
+    const before = text.slice(Math.max(0, match.index - 30), match.index);
+    if (!EXPERIENCE_AFTER.test(after) && !EXPERIENCE_BEFORE.test(before)) continue;
+    const value = toNumber(match[2]);
+    if (value !== null && value > 0 && value < 60) return value;
+  }
+  return null;
+}
+
+/** The clause a requirement's years figure sits in: from the figure to the next comma, semicolon or sentence end. */
+export function yearsClauseIn(text: string): string {
+  for (const match of text.matchAll(YEARS_PATTERN)) {
+    if (match[1] || match.index === undefined) continue;
+    const rest = text.slice(match.index);
+    const end = rest.search(/[,;]|\.(?:\s|$)/);
+    return end < 0 ? rest : rest.slice(0, end);
+  }
+  return "";
+}
+
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6,
   jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11,

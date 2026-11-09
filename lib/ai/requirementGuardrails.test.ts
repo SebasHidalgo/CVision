@@ -12,6 +12,7 @@ import {
   guardBulletRoles,
   guardMatchedSkills,
   headingKind,
+  isSkillYears,
   neededTerms,
   requirementHeadline,
   statedTotalYears,
@@ -641,7 +642,9 @@ Contoso Retail Shelbyville
 
   it("reads the CV's own total from its summary, ignoring a skill's years in parentheses", () => {
     expect(statedTotalYears(CV, ["Summary", "Experience", "Technical Skills"])).toBe(2);
-    expect(statedTotalYears("Jane Doe\nSKILLS\nPython (6 years), SQL\nSUMMARY\nData engineer with six years building pipelines", ["SKILLS", "SUMMARY"])).toBe(6);
+    expect(statedTotalYears("Jane Doe\nSKILLS\nPython (6 years), SQL\nSUMMARY\nData engineer with six years of experience building pipelines", ["SKILLS", "SUMMARY"])).toBe(6);
+    // Only an explicit total: "eight years on JVM services" or "3 years in fintech" is not one.
+    expect(statedTotalYears("SUMMARY\nSenior engineer with eight years on JVM services, 3 years in fintech", ["SUMMARY"])).toBeNull();
     expect(statedTotalYears("Jane Doe\nEXPERIENCE\nLed the team for three years", ["EXPERIENCE"])).toBeNull();
   });
 
@@ -686,7 +689,31 @@ Contoso Retail Shelbyville
       { pending: [{ yearsEvidence: [] }], cvText: "SUMMARY\nEngineer with two years of experience.\nBuilt the ETL in Python", now: NOW, statedYears: 2 },
     );
 
-    expect(requirements[0]).toMatchObject({ status: "missing", note: "The posting asks for 5+ years; your CV shows about 2." });
+    expect(requirements[0]).toMatchObject({ status: "missing", note: "The posting asks for 5+ years; your CV shows about 2 in total." });
+  });
+
+  it("caps a skill's years by the total but never confirms them with it, and takes the skill's own quoted years", () => {
+    const python = "3+ years writing production Python";
+    const base = { kind: "required" as const, assessable: true, requirement: python, sourceQuote: python, keyTerms: terms("all", ["Python", "Python"]) };
+    const cv = "SUMMARY\nEngineer with 8 years of experience.\nEXPERIENCE\nData Engineer March 2025 – March 2026\n• Built the ETL in Python";
+    const { requirements } = enforceRequirementStatuses(
+      [
+        { ...base, status: "met", evidence: "• Built the ETL in Python", note: "Python at the data team." },
+        { ...base, status: "met", evidence: "• Built the ETL in Python", note: "Python at the data team." },
+      ],
+      { pending: [{ yearsEvidence: [] }, { yearsEvidence: ["Data Engineer March 2025 – March 2026"] }], cvText: cv, now: NOW, statedYears: 8 },
+    );
+    // Eight years in total say nothing about Python: undetermined, the model's status stands.
+    expect(requirements[0]).toMatchObject({ status: "met", note: "Python at the data team." });
+    // The quoted Python role is one year: below 75% of three.
+    expect(requirements[1]).toMatchObject({ status: "missing", note: "The posting asks for 3+ years; your CV shows about 1." });
+  });
+
+  it("tells a skill's years from a role's", () => {
+    expect(isSkillYears({ sourceQuote: "3+ years writing production Python", keyTerms: terms("all", ["Python", ""]) })).toBe(true);
+    expect(isSkillYears({ sourceQuote: "5+ years in infrastructure, platform or SRE roles", keyTerms: terms("any", ["infrastructure, platform or SRE roles", ""]) })).toBe(false);
+    expect(isSkillYears({ sourceQuote: "Al menos 4 años de experiencia como analista de datos", keyTerms: terms("all", ["analista de datos", ""]) })).toBe(false);
+    expect(isSkillYears({ sourceQuote: "5+ years of experience in full stack software development" })).toBe(false);
   });
 });
 
@@ -807,12 +834,12 @@ describe("M8-C language", () => {
       { requirement: "Fluent German", kind: "required" as const, status: "partial" as const, evidence: "German (A2)", note: "model note", assessable: true, sourceQuote: "Fluent German" },
     ];
 
-    // The owner's CV: written in English, no level stated anywhere.
+    // A CV written in English with no level stated anywhere; "writes clearly" is not a level, so the model decides it.
     const { requirements, interventions } = enforceRequirementStatuses(asked, { pending, cvText: CV, now: NOW });
-    expect(requirements.map((one) => one.status)).toEqual(["not_evident", "not_evident", "not_evident"]);
+    expect(requirements.map((one) => one.status)).toEqual(["not_evident", "missing", "not_evident"]);
     expect(requirements[0]).toMatchObject({ evidence: "", assessable: true, note: "Your CV doesn't state your English level. Add a Languages line, e.g. 'Spanish (native), English (C1)'." });
-    expect(requirements[1].note).toBe("Your CV doesn't state your English and Spanish level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.");
-    expect(interventions.filter((one) => one.check === "language-level")).toHaveLength(3);
+    expect(requirements[1].note).toBe("model note");
+    expect(interventions.filter((one) => one.check === "language-level")).toHaveLength(2);
 
     // A Languages line: the model's judgement of the stated level stands.
     const stated = enforceRequirementStatuses(asked, { pending, cvText: `${CV}\nLANGUAGES\nSpanish (native), English (C1), German (A2)`, now: NOW });

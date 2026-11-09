@@ -3,7 +3,7 @@ import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
 import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
-import { candidateYears, withoutDateRanges, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
+import { candidateYears, describeYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
   EvidenceSource,
   KeyTerms,
@@ -430,9 +430,19 @@ export function enforceRequirementStatuses(
     if (context && pending && min !== null) {
       const grounded = pending.yearsEvidence.filter((quote) => normalizeWhitespace(quote) && groundQuotes(context.cvText, [{ path: "", value: quote }]).length === 0);
       const quoted = candidateYears([...grounded, requirement.evidence].filter(Boolean), context.now);
-      // The CV's own total wins: one number per CV, whatever lines the model quoted.
       const stated = context.statedYears ?? null;
-      const found = stated !== null ? { candidate: stated, source: "statement" as const } : quoted;
+      // A role's years are the CV's own total; a skill's are its quoted roles, and the total only bounds them from above.
+      const skill = isSkillYears(requirement);
+      const totalOnly = skill && !quoted && stated !== null && yearsStatus(min, stated) !== "met";
+      const found: { candidate: number; source: "statement" | "dates" } | null = skill
+        ? quoted
+          ? { candidate: stated !== null ? Math.min(quoted.candidate, stated) : quoted.candidate, source: quoted.source }
+          : totalOnly
+            ? { candidate: stated, source: "statement" }
+            : null
+        : stated !== null
+          ? { candidate: stated, source: "statement" }
+          : quoted;
       if (!found) {
         interventions.push({ check: "years", action: "recorded", path, value: requirement.requirement, replacement: "undetermined" });
       } else {
@@ -442,7 +452,7 @@ export function enforceRequirementStatuses(
         // Years decide the years; key terms still cap the rest.
         const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
         const to = cap && RANK[cap] < RANK[byYears] ? cap : byYears;
-        const note = yearsNote(min, found.candidate, language);
+        const note = totalOnly ? words.yearsTotal(min, describeYears(found.candidate, language)) : yearsNote(min, found.candidate, language);
         if (requirement.status === "not_evident") {
           // Left alone: the coercion below decides.
         } else if (RANK[requirement.status] > RANK[to]) {
@@ -450,6 +460,7 @@ export function enforceRequirementStatuses(
         } else if (
           requirement.status === "partial" &&
           RANK[to] > RANK.partial &&
+          !totalOnly &&
           // A total bounds any part of it from above: raising also needs the model's own quoted years.
           (stated === null || (quoted !== null && RANK[yearsStatus(min, quoted.candidate)] >= RANK[to]))
         ) {
@@ -457,7 +468,7 @@ export function enforceRequirementStatuses(
           interventions.push({ check: "years", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
           requirement.status = to;
           requirement.note = note;
-        } else if (requirement.status === byYears && to === byYears) {
+        } else if (requirement.status === byYears && to === byYears && !(cap && RANK[cap] <= RANK[byYears])) {
           // Only when the years decided: under a key-term cap the note is about the missing term.
           requirement.note = note;
         }
@@ -629,8 +640,18 @@ export function withEvidenceSources(
 
 const SHORT_LABEL = 60;
 
+// A key term naming a role ("SRE roles", "analista de datos", "product management") makes the years the role's.
+const ROLE_TERM = /(?<![\p{L}])(?:roles?|positions?|engineer\w*|develop\w*|analyst\w*|analista\w*|manag\w*|lead\w*|experience|experiencia|ingenier\w*|desarrollador\w*|consultant\w*|consultor\w*|programmer\w*|programador\w*)(?![\p{L}])/iu;
+
+/** "3+ years writing production Python": years of one skill or domain, which a CV's total only bounds from above. */
+export function isSkillYears(requirement: Pick<Requirement, "keyTerms" | "sourceQuote">): boolean {
+  const clause = yearsClauseIn(requirement.sourceQuote ?? "").toLowerCase();
+  if (!clause) return false;
+  return (requirement.keyTerms?.terms ?? []).some((term) => term.term.trim() && clause.includes(term.term.trim().toLowerCase()) && !ROLE_TERM.test(term.term));
+}
+
 function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
-  if (requirement.years && requirement.years.candidate < requirement.years.min) return WORDING[language].yearsLabel(requirement.years.min);
+  if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return WORDING[language].yearsLabel(requirement.years.min);
   const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
   if (terms) return terms;
   const text = requirement.requirement.replace(/[.;:,\s]+$/, "");
@@ -706,8 +727,8 @@ export function statedTotalYears(cvText: string, headings: string[]): number | n
       continue;
     }
     if (pastFirstHeading && line.section !== "summary") continue;
-    // "Python (6 years)" is one skill's years, not the total.
-    const years = yearsIn(line.text.replace(/\([^)]*\)/g, " "));
+    // "Python (6 years)" is one skill's years, and "eight years on JVM services" is not said to be the total.
+    const years = totalExperienceIn(line.text.replace(/\([^)]*\)/g, " "));
     if (years !== null) return years;
   }
   return null;

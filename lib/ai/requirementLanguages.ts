@@ -23,18 +23,21 @@ export const LANGUAGE_LEVEL = word(
   "[abc][12]\\+?|native|nativ[oa]|mother tongue|lengua materna|fluent|fluency|fluid[oa]|bilingual|biling[uü]e|advanced|avanzad[oa]|upper[- ]intermediate|intermediate|intermedi[oa]|basic|b[aá]sic[oa]|beginner|elementary|proficient|proficiency|conversational|conversacional|toefl|ielts|toeic|cambridge|fce|cae|cpe|dele|first certificate",
 );
 
-// Words that make a mention of a language a demand on its level.
+// Words that make a mention of a language a demand on its level; "writes clearly in English" is not one.
 const PROFICIENCY =
-  /fluen|proficien|level|nivel|nativ|bilingu|biling|speak|spoken|written|writ|read|communicat|comunica|(?<![\p{L}])[abc][12](?![\p{L}])|dominio|habla|escrit|conversation|conversaci|profesional|professional|working|advanced|avanzad|intermedi|basic|b[aá]sic|good|excellent|strong|buen|excelente/iu;
+  /fluen|proficien|level|nivel|nativ|bilingu|biling|(?<![\p{L}])[abc][12](?![\p{L}])|dominio|conversational|conversacional|advanced|avanzad|intermedi/iu;
 
 /** The languages a requirement asks a level of; empty when it is not a language-proficiency requirement. */
 export function languagesAsked(requirement: Pick<Requirement, "requirement" | "sourceQuote">): string[] {
   const text = `${requirement.requirement} ${requirement.sourceQuote ?? ""}`;
   const named = LANGUAGES.filter((language) => word(language.pattern).test(text));
   if (named.length === 0) return [];
-  // "Portugués." alone asks for the language; a longer sentence has to say it is about a level.
-  const short = requirement.requirement.trim().split(/\s+/).length <= 4;
-  return short || PROFICIENCY.test(text) ? named.map((language) => language.name) : [];
+  // "Portugués." or "Inglés profesional" asks for the language; anything longer has to say it is about a level.
+  const others = named
+    .reduce((rest, language) => rest.replace(word(language.pattern, "giu"), " "), requirement.requirement)
+    .split(/[^\p{L}]+/u)
+    .filter(Boolean);
+  return others.length <= 1 || PROFICIENCY.test(text) ? named.map((language) => language.name) : [];
 }
 
 /** The text after a language name up to the next separator outside parentheses: "(B2, written and spoken)". */

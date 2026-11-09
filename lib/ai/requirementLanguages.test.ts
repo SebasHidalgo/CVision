@@ -7,15 +7,21 @@ describe("languagesAsked", () => {
   it.each([
     ["Fluency to speak, read and write in English.", ["English"]],
     ["Working proficiency in written and spoken English.", ["English"]],
-    ["good written English", ["English"]],
     ["Español nativo o C2 e inglés profesional.", ["English", "Spanish"]],
     ["Portugués.", ["Portuguese"]],
+    ["Inglés profesional", ["English"]],
     ["German at a conversational level.", ["German"]],
   ])("%s asks for %j", (requirement, languages) => {
     expect(ask(requirement)).toEqual(languages);
   });
 
-  it.each(["A second European language besides English, which our partners in Rotterdam use daily.", "Strong experience with Go, Java or another statically typed language."])(
+  it.each([
+    "A second European language besides English, which our partners in Rotterdam use daily.",
+    "Strong experience with Go, Java or another statically typed language.",
+    // Writing in a language is not a level (M8-E scope): the model judges it.
+    "writes clearly in English and Spanish",
+    "good written English",
+  ])(
     "%s is not about a level",
     (requirement) => {
       expect(ask(requirement)).toEqual([]);
