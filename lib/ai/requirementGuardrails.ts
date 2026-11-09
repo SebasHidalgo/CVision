@@ -741,6 +741,14 @@ const ROLE_SEPARATOR = /\s*(?:,|\||·|\s[-–—]\s|\sat\s|\sen\s|\s@\s)\s*/;
 /** One experience or project entry: its title and company lines, then its bullets with their wrapped lines. */
 export type CvEntry = { header: string[]; bullets: string[] };
 
+// Title and company lines are short and unpunctuated; a sentence is a bullet even without a marker.
+const BULLET_SENTENCE_CHARS = 80;
+function isBulletLine(lines: CvLine[], at: number): boolean {
+  const text = normalizeWhitespace(lines[at].text);
+  const next = normalizeWhitespace(lines[at + 1]?.text ?? "");
+  return BULLET_START.test(lines[at].text) || /[.;]$/.test(text) || /^\p{Ll}/u.test(next) || text.length >= BULLET_SENTENCE_CHARS;
+}
+
 /** The entries of the experience and projects sections, in CV order. */
 export function cvEntries(cvText: string, headings: string[]): CvEntry[] {
   const lines = cvLines(cvText, headings);
@@ -750,13 +758,13 @@ export function cvEntries(cvText: string, headings: string[]): CvEntry[] {
     const text = normalizeWhitespace(line.text);
     if (line.heading) current = null;
     if (line.heading || !text || (line.section !== "experience" && line.section !== "projects")) continue;
-    if (BULLET_START.test(line.text)) {
+    // A wrapped bullet line is already in its bullet.
+    if (/^\p{Ll}/u.test(text) && current?.bullets.length) continue;
+    if (isBulletLine(lines, i)) {
       if (!current) entries.push((current = { header: [], bullets: [] }));
       current.bullets.push(normalizeWhitespace(lineSpan(lines, i)));
       continue;
     }
-    // A wrapped bullet line is already in its bullet.
-    if (/^\p{Ll}/u.test(text) && current?.bullets.length) continue;
     if (!current || current.bullets.length > 0 || current.header.length >= 2) entries.push((current = { header: [], bullets: [] }));
     current.header.push(text);
   }
@@ -809,7 +817,9 @@ export function guardBulletRoles(
       interventions.push({ check: "bullet-role", action: "text-replaced", path: `experienceAndImpact.suggestedBullets[${i}].role`, value: bullet.role, replacement });
       role = replacement;
     }
-    const examples = bullet.examples.map((example, j) => {
+    const examples = bullet.examples.map((raw, j) => {
+      // The page draws its own marker: "• Designed…" would show two.
+      const example = raw.replace(BULLET_START, "");
       const numbers = [...new Set(numbersIn(example))];
       if (numbers.length === 0) return example;
       const words = contentWords(example);

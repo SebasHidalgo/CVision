@@ -633,6 +633,37 @@ Contoso Retail Shelbyville
     expect(feedback.experienceAndImpact.suggestedBullets[0].examples).toEqual(["Owned 12 dashboards and halved support tickets by [X]%."]);
   });
 
+  const PLAIN_CV = `EXPERIENCIA
+Analista de Precios · Mercados Lumen · Valencia
+2021 - Actualidad
+Mantengo 18 tableros en Looker sobre precios y márgenes que consultan 45
+personas de compras.
+Automaticé la carga diaria de tarifas con Python, ahorrando 6 horas por semana.
+Analista Junior · Distribuciones Turia · Paterna
+2019 - 2021
+Preparé informes semanales de devoluciones con SQL.`;
+
+  it("reads bullets without a marker: sentences, wrapped or not, are bullets; short unpunctuated lines are titles", () => {
+    expect(cvEntries(PLAIN_CV, ["EXPERIENCIA"]).map((entry) => [entry.header, entry.bullets.length])).toEqual([
+      [["Analista de Precios · Mercados Lumen · Valencia", "2021 - Actualidad"], 2],
+      [["Analista Junior · Distribuciones Turia · Paterna", "2019 - 2021"], 1],
+    ]);
+    const { feedback, interventions } = guardBulletRoles(
+      {
+        atsCompatibility: { sectionsDetected: ["EXPERIENCIA"] },
+        experienceAndImpact: { suggestedBullets: [{ role: "Analista de Precios · Mercados Lumen", examples: ["Diseñé y mantengo 18 tableros en Looker sobre precios y márgenes para 45 personas de compras."] }] },
+      } as unknown as ResumeAnalysisFeedback,
+      PLAIN_CV,
+    );
+    expect(feedback.experienceAndImpact.suggestedBullets[0].examples[0]).toContain("18 tableros");
+    expect(interventions).toEqual([]);
+  });
+
+  it("drops a list marker the model put in front of a suggested bullet", () => {
+    const { feedback } = guardBulletRoles(withExamples("Data Analyst, Contoso Retail", ["• Cut report build time by 30% with dbt.", "- Owned the dashboards."]), ROLES_CV);
+    expect(feedback.experienceAndImpact.suggestedBullets[0].examples).toEqual(["Cut report build time by 30% with dbt.", "Owned the dashboards."]);
+  });
+
   it("reads entries as title and company lines followed by bullets with their wrapped lines", () => {
     expect(cvEntries(ROLES_CV, ["Experience"]).map((entry) => [entry.header, entry.bullets.length])).toEqual([
       [["Help Desk Analyst March 2018 – January 2019", "Northwind Cooperative Springfield"], 2],
