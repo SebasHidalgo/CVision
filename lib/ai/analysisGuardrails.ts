@@ -66,7 +66,9 @@ export type InterventionAction =
   /** A qualification line of the posting no extracted entry covers. */
   | "requirement-uncovered"
   /** An uncovered line the repair call covered: a requirement added, a restatement or a non-requirement. */
-  | "requirement-recovered";
+  | "requirement-recovered"
+  /** A not_evident requirement's CV quote, cleared: "Not shown in your CV" cannot quote the CV. */
+  | "evidence-cleared";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
@@ -141,6 +143,7 @@ const emptyCounts = (): InterventionCounts => ({
   regenerated: 0,
   "requirement-uncovered": 0,
   "requirement-recovered": 0,
+  "evidence-cleared": 0,
 });
 
 /** The report with more interventions in it, counted. */

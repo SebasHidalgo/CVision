@@ -177,6 +177,8 @@ ${REQUIREMENT_FIELDS}
     // At least 150 characters on how the resume answers this posting as a
     // whole: where the experience is closest to the role and what would close
     // the gaps. The requirements list states each status; do not restate them.
+    // Describe only what the requirements list shows: an alternative the posting
+    // accepts for one requirement ("or willingness to learn") applies to no other.
     // Addressed to the candidate: "Your experience…", never "The candidate…".
     description: string;
 
@@ -207,7 +209,8 @@ ${REQUIREMENT_FIELDS}
     // 2-3 sentences. The app opens the summary with the requirement statuses,
     // so do not restate which requirements are met, partial or missing: say
     // how the experience reads for this role and what would most improve the
-    // document itself. Addressed to the candidate ("Your experience…").
+    // document itself. Describe only what the requirements list shows.
+    // Addressed to the candidate ("Your experience…").
     summaryText: string;
 
     // A short, prioritized roadmap of the main fixes to make.

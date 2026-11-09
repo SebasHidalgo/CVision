@@ -143,6 +143,8 @@ const requirementSchema = z.object({
   evidenceSource: lowerEnum(EVIDENCE_SOURCES).optional(),
   /** Met or partial on the skills list alone: no experience or project line shows its terms. */
   skillsOnly: z.boolean().optional(),
+  /** Met or partial on the summary alone (M8-F): no experience or project line shows it. */
+  summaryOnly: z.boolean().optional(),
   /** The years rule's inputs, when the posting asks for a number of years and the CV shows one. */
   years: z
     .object({ min: z.number(), candidate: z.number(), source: z.enum(["statement", "dates"]) })

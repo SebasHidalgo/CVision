@@ -350,10 +350,14 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
 }
 
 export const SKILLS_ONLY_ADVICE = "Only listed in your skills — show it in an experience bullet.";
+export const SUMMARY_ONLY_ADVICE = "Only claimed in your summary — show it in an experience bullet.";
 
 function RequirementRow({ requirement, label }: { requirement: Requirement; label: string }) {
-  const onlyListed =
-    (requirement.status === "met" || requirement.status === "partial") && requirement.skillsOnly === true;
+  const claimed = requirement.status === "met" || requirement.status === "partial";
+  const onlyListed = claimed && requirement.skillsOnly === true;
+  const onlyClaimed = claimed && requirement.summaryOnly === true;
+  // A stored "Not shown in your CV" row may still carry the quote cleared since M8-F.
+  const evidence = requirement.status === "not_evident" ? "" : requirement.evidence;
 
   return (
     <li className="py-4">
@@ -368,12 +372,13 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
           {requirement.note && (
             <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
           )}
-          {requirement.evidence && (
+          {evidence && (
             <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
-              {displayQuote(requirement.evidence)}
+              {displayQuote(evidence)}
             </p>
           )}
           {onlyListed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{SKILLS_ONLY_ADVICE}</p>}
+          {onlyClaimed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{SUMMARY_ONLY_ADVICE}</p>}
         </div>
       </div>
     </li>

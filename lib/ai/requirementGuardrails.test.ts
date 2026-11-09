@@ -546,6 +546,7 @@ describe("requirementHeadline", () => {
 describe("guardMatchedSkills", () => {
   it("drops a skill with no quote, or one the CV does not name", () => {
     const feedback = {
+      atsCompatibility: { sectionsDetected: [] },
       skills: {
         score: 70,
         description: "",
@@ -571,6 +572,21 @@ describe("guardMatchedSkills", () => {
     ]);
   });
 
+  it("replaces a quote that does not name its skill with the CV line that does, experience first", () => {
+    const feedback = {
+      atsCompatibility: { sectionsDetected: [] },
+      skills: { score: 70, description: "", actionPlan: [], matchedSkills: [{ name: "React", evidence: "Databases: MongoDB, PostgreSQL, MySQL" }, { name: "MySQL", evidence: "Front end: React, Next.js" }] },
+      jobFit: { requirements: [] },
+    } as unknown as ResumeAnalysisFeedback;
+
+    const { feedback: kept, interventions } = guardMatchedSkills(feedback, CV);
+
+    expect(kept.skills.matchedSkills).toEqual([
+      { name: "React", evidence: "• Built a shift-booking app on the MERN stack (Node.js, Express.js, MongoDB, React) so that volunteers could book their own shifts." },
+      { name: "MySQL", evidence: "Databases: MongoDB, PostgreSQL, MySQL" },
+    ]);
+    expect(interventions.map((one) => one.action)).toEqual(["evidence-replaced", "evidence-replaced"]);
+  });
 });
 
 describe("M8-D: control characters, bullet roles, the CV's own years", () => {
@@ -808,6 +824,34 @@ Python, Looker, SQL`;
 
     expect(requirements[0]).toMatchObject({ evidence: "Python, Looker, SQL", evidenceSource: "skills", skillsOnly: false });
     expect(requirements[1]).toMatchObject({ evidence: "Maintained the PostgreSQL reporting replica and the Python ETL scripts that fed it.", evidenceSource: "experience" });
+  });
+});
+
+describe("M8-F: read problems", () => {
+  it("clears the CV quote of a not_evident requirement", () => {
+    const { requirements, interventions } = enforceRequirementStatuses(
+      [{ requirement: "Comfortable saying no", kind: "required", status: "not_evident", evidence: "Front end: React, Next.js", note: "", assessable: false, sourceQuote: "Comfortable saying no" }],
+      { pending: [{ yearsEvidence: [] }], cvText: CV, now: NOW },
+    );
+    expect(requirements[0]).toMatchObject({ status: "not_evident", evidence: "" });
+    expect(interventions).toContainEqual(expect.objectContaining({ check: "not-evident", action: "evidence-cleared" }));
+  });
+
+  it("flags a claim only the summary makes, and moves one an experience line shows", () => {
+    const { requirements } = withEvidenceSources(
+      [
+        { requirement: "Software architecture", kind: "required", status: "met", evidence: "Software Engineer with 2+ years of experience shipping internal tools for warehouses.", note: "" },
+        { requirement: "React", kind: "required", status: "met", evidence: "Software Engineer with 2+ years of experience shipping internal tools for warehouses.", note: "", keyTerms: terms("all", ["React", "React"]) },
+        { requirement: "Warehouse domain", kind: "preferred", status: "missing", evidence: "", note: "" },
+      ],
+      CV,
+      ["Summary", "Experience", "Technical Skills"],
+    );
+
+    expect(requirements[0]).toMatchObject({ evidenceSource: "summary", summaryOnly: true });
+    expect(requirements[1]).toMatchObject({ evidenceSource: "experience" });
+    expect(requirements[1].summaryOnly).toBeUndefined();
+    expect(requirements[2].summaryOnly).toBeUndefined();
   });
 });
 

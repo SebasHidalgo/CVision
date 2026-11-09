@@ -533,6 +533,12 @@ export function enforceRequirementStatuses(
       requirement.evidence = "";
       requirement.note = words.languageLevel(unstated.join(` ${words.and} `));
     }
+
+    // "Not shown in your CV" beside a CV quote contradicts itself.
+    if (requirement.status === "not_evident" && requirement.evidence.trim()) {
+      interventions.push({ check: "not-evident", action: "evidence-cleared", path: `${at}.evidence`, value: requirement.evidence });
+      requirement.evidence = "";
+    }
     return requirement;
   });
 
@@ -614,9 +620,10 @@ export function experienceLineFor(lines: CvLine[], keyTerms: KeyTerms | undefine
 }
 
 /**
- * Each requirement's evidence placed in its CV section. A skills-list quote gives way to an
+ * Each requirement's evidence placed in its CV section. A skills-list or summary quote gives way to an
  * experience or project line that shows the term in use (every term, for an "all" requirement);
- * `skillsOnly` marks a met or partial whose terms no such line shows.
+ * `skillsOnly` marks a met or partial whose terms no such line shows, and `summaryOnly` one that rests
+ * on the summary alone.
  */
 export function withEvidenceSources(
   requirements: Requirement[],
@@ -628,7 +635,7 @@ export function withEvidenceSources(
   const placed = requirements.map((requirement, index) => {
     if (!requirement.evidence.trim()) return requirement;
     const source = evidenceSourceOf(cvText, requirement.evidence, headings);
-    if (source !== "skills" || (requirement.status !== "met" && requirement.status !== "partial")) {
+    if ((source !== "skills" && source !== "summary") || (requirement.status !== "met" && requirement.status !== "partial")) {
       return { ...requirement, evidenceSource: source };
     }
     const line = experienceLineFor(lines, requirement.keyTerms);
@@ -636,6 +643,8 @@ export function withEvidenceSources(
       interventions.push({ check: "evidence-source", action: "evidence-replaced", path: `jobFit.requirements[${index}].evidence`, value: requirement.evidence, replacement: line.text });
       return { ...requirement, evidence: line.text, evidenceSource: evidenceSourceOf(cvText, line.text, headings) };
     }
+    // A summary claim with nothing to look for still rests on the summary alone.
+    if (source === "summary") return { ...requirement, evidenceSource: source, summaryOnly: requirement.keyTerms?.terms.length ? !line : true };
     // Without key terms there is nothing to look for; the quote stays, unflagged.
     return { ...requirement, evidenceSource: source, ...(requirement.keyTerms ? { skillsOnly: !line } : {}) };
   });
@@ -684,7 +693,10 @@ export function requirementHeadline(requirements: Requirement[], language: Analy
     .join(" ");
 }
 
-/** Matched skills keep a CV quote and a name the CV has; the rest are dropped. */
+/**
+ * Matched skills keep a name the CV has and a CV quote that names it (or its verified CV word). A quote
+ * that does not becomes the CV line that does, experience first; a skill no line names is dropped.
+ */
 export function guardMatchedSkills(
   feedback: ResumeAnalysisFeedback,
   cvText: string,
@@ -692,20 +704,33 @@ export function guardMatchedSkills(
   const interventions: Intervention[] = [];
   // The requirements' verified CV words: "PostgreSQL" is shown by "Postgres".
   const verified = feedback.jobFit.requirements.flatMap((requirement) => requirement.keyTerms?.terms ?? []).filter(shownTerm);
-  const matchedSkills = feedback.skills.matchedSkills.filter((skill, i) => {
+  const lines = cvLines(cvText, feedback.atsCompatibility.sectionsDetected);
+  const matchedSkills = feedback.skills.matchedSkills.flatMap((skill, i) => {
     const path = `skills.matchedSkills[${i}]`;
     if (!skill.evidence.trim()) {
       interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "no evidence" });
-      return false;
+      return [];
     }
-    if (containsTerm(skill.evidence, skill.name) || containsTerm(cvText, skill.name)) return true;
-    const synonym = verified.find((term) => containsTerm(term.term, skill.name) || containsTerm(skill.name, term.term));
-    if (synonym && containsTerm(cvText, synonym.cvMatch)) {
-      interventions.push({ check: "matched-skill", action: "recorded", path, value: skill.name, replacement: `synonym: ${synonym.cvMatch}` });
-      return true;
+    const synonym = containsTerm(cvText, skill.name)
+      ? undefined
+      : verified.find((term) => (containsTerm(term.term, skill.name) || containsTerm(skill.name, term.term)) && containsTerm(cvText, term.cvMatch));
+    const words = synonym ? [synonym.cvMatch] : containsTerm(cvText, skill.name) ? [skill.name] : [];
+    if (words.length === 0) {
+      interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "not in the CV" });
+      return [];
     }
-    interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "not in the CV" });
-    return false;
+    if (synonym) interventions.push({ check: "matched-skill", action: "recorded", path, value: skill.name, replacement: `synonym: ${synonym.cvMatch}` });
+    if (words.some((word) => containsTerm(skill.evidence, word))) return [skill];
+    const names = (line: CvLine) => !line.heading && words.some((word) => containsTerm(line.text, word));
+    const inUse = lines.findIndex((line) => (line.section === "experience" || line.section === "projects") && names(line));
+    const at = inUse >= 0 ? inUse : lines.findIndex(names);
+    if (at < 0) {
+      interventions.push({ check: "matched-skill", action: "skill-dropped", path, value: skill.name, replacement: "no line names it" });
+      return [];
+    }
+    const evidence = lineSpan(lines, at);
+    interventions.push({ check: "matched-skill", action: "evidence-replaced", path: `${path}.evidence`, value: skill.evidence, replacement: evidence });
+    return [{ ...skill, evidence }];
   });
   return { feedback: { ...feedback, skills: { ...feedback.skills, matchedSkills } }, interventions };
 }

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { NOT_SHOWN_ADVICE, Requirements, SKILLS_ONLY_ADVICE } from "./SectionParts";
+import { NOT_SHOWN_ADVICE, Requirements, SKILLS_ONLY_ADVICE, SUMMARY_ONLY_ADVICE } from "./SectionParts";
 
 const row = (requirement: string, kind: Requirement["kind"], status: Requirement["status"]): Requirement => ({
   requirement,
@@ -80,5 +80,30 @@ describe("Requirements", () => {
     expect(text).toContain("C++shown in your CV");
     expect(text).not.toContain("not in your CV");
     expect(text).not.toContain(SKILLS_ONLY_ADVICE);
+  });
+
+  it("shows the summary-only advice on a claim the summary alone makes", () => {
+    const requirement: Requirement = {
+      ...row("Strong understanding of software architecture", "required", "met"),
+      evidence: "Engineer focused on clean architecture and scalable systems.",
+      evidenceSource: "summary",
+      summaryOnly: true,
+    };
+    const tally = { required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain(SUMMARY_ONLY_ADVICE);
+    expect(text).not.toContain(SKILLS_ONLY_ADVICE);
+  });
+
+  it("never quotes the CV under a stored 'Not shown in your CV' row", () => {
+    const requirement: Requirement = { ...row("Comfortable saying no to senior stakeholders", "required", "not_evident"), evidence: "Pushed back on a launch date", assessable: false };
+    const tally = { required: { total: 0, met: 0, partial: 0, notShown: 1 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("Comfortable saying no");
+    expect(text).not.toContain("Pushed back on a launch date");
   });
 });
