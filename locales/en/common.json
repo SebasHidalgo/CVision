@@ -76,5 +76,12 @@
     "cancel": "Cancel",
     "close": "Close",
     "back": "Back"
+  },
+  "translation": {
+    "pending": "Translating…",
+    "pendingBody": "Translating. It takes a few seconds, and only happens once.",
+    "unavailable": "Translation unavailable; showing the original.",
+    "partial": "Some parts couldn't be translated and are shown in the original.",
+    "showOriginal": "Show the original"
   }
 }

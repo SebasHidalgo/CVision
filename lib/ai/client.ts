@@ -116,6 +116,15 @@ export async function generateJson<T>(options: GenerateJsonOptions<T>): Promise<
   return (await generateJsonWithMeta(options)).value;
 }
 
+/** A call's answer and what produced it, for callers that store the model beside the output (translations). */
+export type ReportedJson<T> = { value: T; model: string; modelVersion: string | null; input: number | null; output: number | null };
+
+/** generateJson, plus the model and the version that answered and the token counts. Same errors. */
+export async function generateJsonReported<T>(options: GenerateJsonOptions<T>): Promise<ReportedJson<T>> {
+  const { value, meta, config } = await generateJsonWithMeta(options);
+  return { value, model: config.model, modelVersion: meta.modelVersion, input: meta.input ?? null, output: meta.output ?? null };
+}
+
 /** What one call reports about itself; for `npm run ai:doctor`. */
 export type ModelPing = { provider: string; model: string; modelVersion: string | null; ms: number; input: number | null; output: number | null };
 

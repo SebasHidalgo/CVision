@@ -145,5 +145,6 @@ describe("the npm scripts", () => {
     expect(failures).toEqual([]);
     // Skipping main() means a loaded entry prints nothing at all.
     for (const { script, stdout } of results) expect(stdout.trim(), `${script.name} ran its main()`).toBe("");
-  }, 240_000);
+    // Every script loads in its own tsx process, all at once: 166-214 s alone on the owner's Windows machine, past 240 s under the full suite.
+  }, 480_000);
 });

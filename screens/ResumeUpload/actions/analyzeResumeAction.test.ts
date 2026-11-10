@@ -18,6 +18,8 @@ import {
 import { extractPdfText } from "@/lib/pdfParse";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
+import { translateAnalysis } from "@/lib/ai/contentTranslation";
+import { getLocale } from "@/lib/i18n/server";
 import { analyzeResumeAction } from "./analyzeResumeAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -31,6 +33,8 @@ vi.mock("@/lib/pdfParse", async (importOriginal) => {
 });
 vi.mock("@/lib/ai/resumeAnalysis", () => ({ analyzeResume: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => "resume_1") }));
+vi.mock("@/lib/i18n/server", () => ({ getLocale: vi.fn(async () => "en") }));
+vi.mock("@/lib/ai/contentTranslation", () => ({ translateAnalysis: vi.fn(async () => "ready") }));
 
 const OWN_KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
 const OTHER_OWN_KEY = "cv/user_1/22222222-2222-4333-8444-555555555555.pdf";
@@ -72,6 +76,8 @@ beforeEach(() => {
     },
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.mocked(getLocale).mockResolvedValue("en");
+  vi.mocked(translateAnalysis).mockResolvedValue("ready");
 });
 
 describe("analyzeResumeAction: the key and the unit", () => {
@@ -222,6 +228,30 @@ describe("analyzeResumeAction: after the download", () => {
 
   it("keeps the object once the row points at it", async () => {
     await analyzeResumeAction(input());
+    expect(removeObject).not.toHaveBeenCalled();
+  });
+});
+
+describe("analyzeResumeAction: the interface language", () => {
+  it("translates a saved analysis for a Spanish interface, once, after the row exists", async () => {
+    vi.mocked(getLocale).mockResolvedValue("es");
+    const result = await analyzeResumeAction(input());
+    expect(result.ok).toBe(true);
+    const resumeId = vi.mocked(createResume).mock.calls[0][0].id;
+    expect(translateAnalysis).toHaveBeenCalledWith("user_1", expect.objectContaining({ id: resumeId, companyName: "Northwind", jobTitle: "Frontend Engineer" }), "es", expect.any(Number));
+    expect(vi.mocked(createResume).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(translateAnalysis).mock.invocationCallOrder[0]);
+  });
+
+  it("never translates English, and a translation problem never fails a saved analysis", async () => {
+    await analyzeResumeAction(input());
+    expect(translateAnalysis).not.toHaveBeenCalled();
+
+    vi.mocked(getLocale).mockResolvedValue("es");
+    vi.mocked(translateAnalysis).mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await analyzeResumeAction(input());
+    expect(result.ok).toBe(true);
+    expect(refundUsage).not.toHaveBeenCalled();
     expect(removeObject).not.toHaveBeenCalled();
   });
 });

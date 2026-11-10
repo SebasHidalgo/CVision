@@ -6,7 +6,7 @@ import InterviewFeedbackScreen from "@/screens/InterviewFeedback/InterviewFeedba
 export const maxDuration = 105;
 
 type InterviewFeedbackPageParams = Promise<{ id: string }>;
-type InterviewFeedbackPageSearch = Promise<{ ended?: string | string[] }>;
+type InterviewFeedbackPageSearch = Promise<{ ended?: string | string[]; original?: string | string[] }>;
 
 export default async function InterviewFeedbackPage({
   params,
@@ -15,7 +15,7 @@ export default async function InterviewFeedbackPage({
   params: InterviewFeedbackPageParams;
   searchParams: InterviewFeedbackPageSearch;
 }) {
-  const [{ id }, { ended }] = await Promise.all([params, searchParams]);
+  const [{ id }, { ended, original }] = await Promise.all([params, searchParams]);
 
-  return <InterviewFeedbackScreen interviewId={id} justEnded={ended === "1"} />;
+  return <InterviewFeedbackScreen interviewId={id} justEnded={ended === "1"} original={original === "1"} />;
 }

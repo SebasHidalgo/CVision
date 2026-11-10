@@ -16,6 +16,9 @@ const LANGUAGES: Language[] = [
   { name: "Japanese", pattern: "japanese|japon[eé]s" },
 ];
 
+/** The language names the code knows, in English: a translation must translate them ("English" → "inglés"). */
+export const LANGUAGE_NAMES: readonly string[] = LANGUAGES.map((language) => language.name);
+
 const word = (pattern: string, flags = "iu") => new RegExp(`(?<![\\p{L}])(?:${pattern})(?![\\p{L}])`, flags);
 
 /** A stated level: CEFR, a named level, or a test. */

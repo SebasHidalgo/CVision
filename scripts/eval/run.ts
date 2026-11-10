@@ -250,6 +250,9 @@ Usage:
   npm run eval -- recheck <label>
   npm run eval -- replay <label> <newLabel>
   npm run eval -- canary <reference-label> [--only <id>]
+  npm run eval -- translate <label>... --to <new-label> [--only ids] [--twice ids]
+      (Spanish translation of stored analyses, replayed, and of interview
+      feedback runs; production call and guards, routed tiers, spend caps)
   npm run eval -- stability <label> <label> [...] [--force]
   npm run eval -- list
   npm run eval -- interview <run|compare|recheck|canary|list> ...   (the
@@ -395,6 +398,9 @@ async function main(argv: string[]) {
       return recheckCommand(rest);
     case "replay":
       return replayCommand(rest);
+    case "translate":
+      // Loaded on demand: it pulls in every locale file, which no other command needs.
+      return (await import("./translate")).translateCommand(rest, { loadFixtures });
     case "canary":
       return canaryCommand(rest);
     case "stability":

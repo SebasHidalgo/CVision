@@ -42,5 +42,6 @@ describe.skipIf(!existsSync(LOCAL))("tracked files", () => {
 
     expect(sources.length).toBeGreaterThan(0);
     expect(findLeaks(sources, files).map((leak) => `${leak.file}: ${leak.fragment}`)).toEqual([]);
-  });
+    // Reads every tracked file: about 4 s alone, past the 5 s default while the full suite runs.
+  }, 60_000);
 });
