@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
+import { sentencesSchema } from "@/lib/ai/sentences";
 import type { ScoreTone } from "@/lib/score";
 import { RESUME_KEY_PATTERN } from "@/lib/supabase/resumeKey";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
@@ -148,7 +149,10 @@ const requirementSchema = z.object({
   status: lowerEnum(REQUIREMENT_STATUSES),
   /** Verbatim from the resume, or empty when there is nothing to quote. */
   evidence: z.string(),
+  /** The model's note; "" when code wrote it (noteSentences). */
   note: z.string(),
+  /** A note code wrote, as data rendered per language; absent when the model's note stands or the row predates it. */
+  noteSentences: sentencesSchema.optional(),
   // Optional: analyses stored before M8-B do not have them.
   /** Verbatim from the posting, checked in code. */
   sourceQuote: z.string().optional(),
@@ -226,7 +230,10 @@ export const resumeFeedbackSchema = z.object({
     // its own anchor put at 50-69. `deriveFitVerdict` computes it instead, the
     // same move that fixed the date anchor: compute the fact, do not ask.
     qualityScore: scoreSchema,
+    /** The model's summary; on rows with `headline`, without the headline code wrote before it. */
     summaryText: z.string(),
+    /** The first sentences, from the statuses, as data rendered per language; absent on rows stored before it. */
+    headline: sentencesSchema.optional(),
     prioritizedFixes: z.array(
       z.object({
         title: z.string(),
@@ -289,7 +296,10 @@ export const resumeFeedbackSchema = z.object({
   // No score of its own: the verdict is derived from the breakdown below, so a
   // number here could only disagree with it.
   jobFit: z.object({
+    // On rows with `outcomes`, only the model's prose that survived the outcome filter.
     ...evidenceSectionBase,
+    /** The outcome sentences that open the description, as data rendered per language; absent on rows stored before it. */
+    outcomes: sentencesSchema.optional(),
     requirements: z.array(requirementSchema),
     strategicRecommendations: z.array(z.string()),
   }),
@@ -305,7 +315,8 @@ export const analysisResponseSchema = z.object({
     description: resumeFeedbackSchema.shape.jobFit.shape.description,
     strategicRecommendations: resumeFeedbackSchema.shape.jobFit.shape.strategicRecommendations,
   }),
-  overall: resumeFeedbackSchema.shape.overall,
+  // The model writes no headline: code does, after the statuses.
+  overall: resumeFeedbackSchema.shape.overall.omit({ headline: true }),
   // Each problem with the resume text that shows it, quote first; code keeps only quotes the CV has.
   atsCompatibility: z.object({
     description: z.string(),

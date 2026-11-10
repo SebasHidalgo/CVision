@@ -20,7 +20,7 @@ import {
   enforceRequirementStatuses,
   guardBulletRoles,
   guardMatchedSkills,
-  requirementHeadline,
+  requirementHeadlineSentences,
   statedTotalYears,
   structureRequirements,
   withEvidenceSources,
@@ -299,15 +299,21 @@ export function finishAnalysis({
     : { feedback: guarded.feedback, interventions: [] };
   const roles = checked ? guardBulletRoles(skills.feedback, text) : { feedback: skills.feedback, interventions: [] };
   // The first sentence comes from the statuses, so the summary cannot contradict them.
-  const headline = requirementHeadline(requirements);
+  const headline = requirementHeadlineSentences(requirements);
   // So do the outcome sentences of the job-fit paragraph, and no recommendation may argue another status (M8-G).
   const prose = withOutcomeProse(roles.feedback.jobFit.description, requirements);
   const moves = guardRecommendations(roles.feedback.jobFit.strategicRecommendations, requirements);
-  const summaryText = [headline, roles.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
+  // Stored as data, rendered per language on display (lib/i18n/analysisView.ts): code-made sentences are never stored as text.
   const feedback = withoutControlCharacters<ResumeAnalysisFeedback>({
     ...roles.feedback,
-    overall: { ...roles.feedback.overall, summaryText },
-    jobFit: { ...roles.feedback.jobFit, requirements, description: prose.description, strategicRecommendations: moves.recommendations },
+    overall: { ...roles.feedback.overall, summaryText: roles.feedback.overall.summaryText.trim(), headline },
+    jobFit: {
+      ...roles.feedback.jobFit,
+      requirements: requirements.map((requirement) => (requirement.noteSentences ? { ...requirement, note: "" } : requirement)),
+      outcomes: prose.outcomes,
+      description: prose.prose,
+      strategicRecommendations: moves.recommendations,
+    },
   });
   const guard = withAccentCompositions(
     withInterventions(guarded.guard, [

@@ -78,7 +78,10 @@ describe("the years rule", () => {
 
   it("states both numbers", () => {
     expect(yearsNote(5, 2)).toBe("The posting asks for 5+ years; your CV shows about 2.");
-    expect(describeYears(2.2)).toBe("about 2");
-    expect(describeYears(2.3)).toBe("about 2.5");
+    expect(describeYears(2.2)).toBe("2");
+    expect(describeYears(2.3)).toBe("2.5");
+    // es-419 writes the decimal point, as CLDR has it for Latin America.
+    expect(describeYears(2.3, "es")).toBe("2.5");
+    expect(yearsNote(5, 2.3, "es")).toBe("La oferta pide 5+ años; tu CV muestra unos 2.5.");
   });
 });

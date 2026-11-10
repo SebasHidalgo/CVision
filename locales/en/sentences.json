@@ -1,1 +1,44 @@
-{}
+{
+  "conj": {
+    "and": "and",
+    "or": "or"
+  },
+  "languages": {
+    "English": "English",
+    "Spanish": "Spanish",
+    "German": "German",
+    "French": "French",
+    "Portuguese": "Portuguese",
+    "Italian": "Italian",
+    "Dutch": "Dutch",
+    "Chinese": "Chinese",
+    "Japanese": "Japanese"
+  },
+  "downgrade": "No line in your CV could be quoted for this, so it isn't counted as met.",
+  "shownButNot": "Your CV shows {{shown}} but not {{absent}}.",
+  "noneOf": "Your CV doesn't show any of {{absent}}.",
+  "notShown": "Your CV doesn't show {{absent}}.",
+  "years": "The posting asks for {{min}}+ years; your CV shows about {{value}}.",
+  "yearsTotal": "The posting asks for {{min}}+ years; your CV shows about {{value}} in total.",
+  "alternative": "{{absent}} isn't in your CV; the posting accepts {{accepts}} — say so in your cover letter.",
+  "alternative_several": "{{absent}} aren't in your CV; the posting accepts {{accepts}} — say so in your cover letter.",
+  "contextOnly": "Your CV shows {{shown}}, but the posting mentions it only as context, not as this requirement.",
+  "contextOnly_several": "Your CV shows {{shown}}, but the posting mentions them only as context, not as this requirement.",
+  "languageLevel": "Your CV doesn't state your {{language}} level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.",
+  "coreGaps": "Core gaps: {{list}}",
+  "partlyMet": "Partly met: {{list}}",
+  "allMet": "You meet every required qualification.",
+  "noGapsNotShown_one": "No core gaps; {{count}} required item isn't shown in your CV.",
+  "noGapsNotShown_other": "No core gaps; {{count}} required items aren't shown in your CV.",
+  "yearsLabel": "{{min}}+ years of experience",
+  "showsOne": "Your CV doesn't fully show the one required qualification a CV can show.",
+  "showsOne_met": "Your CV fully shows the one required qualification a CV can show.",
+  "showsOf": "Your CV fully shows {{met}} of the {{total}} required qualifications a CV can show.",
+  "moreInList_one": "{{count}} more gap is in the list below.",
+  "moreInList_other": "{{count}} more gaps are in the list below.",
+  "forInterview_one": "One required item no CV can show is under \"Not shown in your CV\"; expect it in the interview or the hiring process.",
+  "forInterview_other": "{{count}} required items no CV can show are under \"Not shown in your CV\"; expect them in the interview or the hiring process.",
+  "preferredNotShown": "Preferred and not shown: {{list}}",
+  "notShownAsAsked": "Not shown as asked: {{label}}",
+  "relatedOnly": "It shows {{shown}}, which is related but not the same."
+}

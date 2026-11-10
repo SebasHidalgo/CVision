@@ -39,7 +39,7 @@ import {
 } from "@/lib/ai/schemas";
 import { countGrounding, type GroundingKind } from "@/lib/ai/analysisChecks";
 import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
-import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
+import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 import {
   captureAiLog,
@@ -122,7 +122,7 @@ const fixtureMetaSchema = z.object({
     company: z.string().min(1),
     jobDescription: z.string().min(1),
     analysisSummary: z.string(),
-    requirements: interviewContextSchema.shape.jobFit.shape.requirements,
+    requirements: resumeFeedbackSchema.shape.jobFit.shape.requirements,
   }),
   expect: z.custom<InterviewExpectations>().optional(),
 });

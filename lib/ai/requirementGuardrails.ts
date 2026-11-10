@@ -1,9 +1,11 @@
 import { groundQuotes, loosen, mentionsTerm, normalizeWhitespace, numbersIn } from "@/lib/ai/analysisChecks";
-import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
+import { codeNote, type AnalysisLanguage } from "@/lib/ai/analysisWording";
+import { and, or, say, type Phrase, type Sentence } from "@/lib/ai/sentences";
+import { renderPhrase, renderSentence, renderSentences } from "@/lib/i18n/sentences";
 import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
 import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
 import { exampleSpans, locateTerm, withQuoteAlternatives, withRelatedField } from "@/lib/ai/requirementAlternatives";
-import { candidateYears, describeYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
+import { candidateYears, roundYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
   EvidenceSource,
   KeyTerms,
@@ -16,7 +18,7 @@ import type {
 // M8-B and M8-C: the requirement fields the model fills, checked in code. Pure; tested.
 
 /** Replaces the model's note when a status is downgraded, so the note never argues for the old one. */
-export const DOWNGRADE_NOTE = WORDING.en.downgrade;
+export const DOWNGRADE_NOTE = renderSentence(say.downgrade(), "en");
 
 /** The posting's own softening words; a clause without one is an example, an alternative or a remark, not a preferred item. */
 const SOFTENING =
@@ -304,7 +306,7 @@ export function structureRequirements(
       record({ check: "softened-clause", action: "status-capped", path: `${path}.status`, value: `${requirement.status}: ${requirement.requirement}`, replacement: "missing" });
       requirement.status = "missing";
       requirement.evidence = "";
-      requirement.note = WORDING.en.contextOnly(joinTerms(contextTerms, WORDING.en.and), contextTerms.length > 1);
+      Object.assign(requirement, codeNote([say.contextOnly(and(contextTerms), contextTerms.length > 1)]));
     }
     if (derived) {
       // A softened clause names preferred options: "preferably Power BI or Looker".
@@ -438,25 +440,25 @@ export function coverageCap(keyTerms: KeyTerms | undefined, quote = ""): Require
   return covered > 0 || adjacent ? "partial" : "missing";
 }
 
-const joinTerms = (terms: string[], word: string) =>
-  terms.length <= 1 ? (terms[0] ?? "") : `${terms.slice(0, -1).join(", ")} ${word} ${terms[terms.length - 1]}`;
-
 /**
  * The terms a requirement names that the CV does not show, as one phrase: "Ruby on Rails",
  * "Redis, Elasticsearch or Sidekiq", "Kubernetes and AWS or GCP" (alternatives joined by "or", the rest by "and").
  */
 export function absentTerms(keyTerms: KeyTerms | undefined, quote = "", language: AnalysisLanguage = "en"): string {
+  return renderPhrase(absentTermsPhrase(keyTerms, quote), language);
+}
+
+/** absentTerms as data: the terms verbatim, the conjunctions left to the language that renders it. */
+export function absentTermsPhrase(keyTerms: KeyTerms | undefined, quote = ""): Phrase {
   if (!keyTerms) return "";
-  const words = WORDING[language];
   const { groups, example } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
   const shown = (group: TermGroup) => group.members.some((i) => shownTerm(keyTerms.terms[i]));
   // An example is never named as missing: the category it illustrates is.
   const named = (group: TermGroup) => group.members.filter((i) => !example[i]).map((i) => keyTerms.terms[i].term);
   const counted = groups.filter((group) => !group.examplesOnly);
   // One shown alternative answers an "any" requirement: the others are not gaps.
-  if (keyTerms.mode === "any") return groups.some(shown) ? "" : joinTerms(counted.flatMap(named), words.or);
-  const phrases = counted.filter((group) => !shown(group)).map((group) => joinTerms(named(group), words.or));
-  return joinTerms(phrases, words.and);
+  if (keyTerms.mode === "any") return groups.some(shown) ? "" : or(counted.flatMap(named));
+  return and(counted.filter((group) => !shown(group)).map((group) => or(named(group))));
 }
 
 /** One term as the page lists it; `joiner` is the word before it ("or" between alternatives). */
@@ -482,12 +484,11 @@ export function termDisplay(keyTerms: KeyTerms, quote = ""): { terms: TermChip[]
   return { terms, examples };
 }
 
-function coverageNote(keyTerms: KeyTerms, to: RequirementStatus, quote: string, language: AnalysisLanguage): string {
-  const words = WORDING[language];
+function coverageNote(keyTerms: KeyTerms, to: RequirementStatus, quote: string): Sentence {
   const shown = keyTerms.terms.filter(shownTerm).map((term) => term.term);
-  const absent = absentTerms(keyTerms, quote, language);
-  if (to === "partial" && shown.length) return words.shownButNot(joinTerms(shown, words.and), absent);
-  return keyTerms.mode === "any" && keyTerms.terms.length > 1 ? words.noneOf(absent) : words.notShown(absent);
+  const absent = absentTermsPhrase(keyTerms, quote);
+  if (to === "partial" && shown.length) return say.shownButNot(and(shown), absent);
+  return keyTerms.mode === "any" && keyTerms.terms.length > 1 ? say.noneOf(absent) : say.notShown(absent);
 }
 
 /** The alternative a CV cannot show, from the posting's own words; null when there is none. */
@@ -497,11 +498,16 @@ export function unshowableAlternativeIn(sourceQuote: string): string | null {
 }
 
 export function alternativeNote(requirement: Requirement, alternative: string, language: AnalysisLanguage): string {
-  const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
-  const absent = terms || (withoutClause(requirement.requirement, alternative) ?? requirement.requirement);
+  return renderSentence(alternativeSentence(requirement, alternative), language);
+}
+
+/** What is absent and what the posting accepts instead, as data. */
+export function alternativeSentence(requirement: Requirement, alternative: string): Sentence {
+  const terms = absentTermsPhrase(requirement.keyTerms, requirement.sourceQuote);
+  const absent = renderPhrase(terms, "en") ? terms : (withoutClause(requirement.requirement, alternative) ?? requirement.requirement);
   const several = requirement.keyTerms?.mode === "all" && requirement.keyTerms.terms.filter((term) => !shownTerm(term)).length > 1;
   const accepts = alternative.replace(/^(?:or|o|u)\s+/i, "");
-  return WORDING[language].alternative(absent, several, accepts);
+  return say.alternative(absent, several, accepts);
 }
 
 /** Context for the status rules: what the model read, the day it read it, and the language it writes in. */
@@ -523,7 +529,8 @@ export function enforceRequirementStatuses(
 ): { requirements: Requirement[]; interventions: Intervention[] } {
   const interventions: Intervention[] = [];
   const language = context?.language ?? "en";
-  const words = WORDING[language];
+  // Code-made notes are data; the pipeline also renders them, for its checks and its tests.
+  const writeNote = (requirement: Requirement, sentences: Sentence[]) => Object.assign(requirement, codeNote(sentences, language));
 
   const enforced = requirements.map((original, index) => {
     const requirement: Requirement = { ...original, ...(original.keyTerms ? { keyTerms: { ...original.keyTerms, terms: original.keyTerms.terms.map((term) => ({ ...term })) } } : {}) };
@@ -532,10 +539,10 @@ export function enforceRequirementStatuses(
     const pending = context?.pending[index];
     // Analyses stored before the field existed read as assessable.
     let assessable = requirement.assessable !== false;
-    const lower = (check: "key-term" | "years", to: RequirementStatus, note: string) => {
+    const lower = (check: "key-term" | "years", to: RequirementStatus, note: Sentence[]) => {
       interventions.push({ check, action: "status-capped", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
       requirement.status = to;
-      requirement.note = note;
+      writeNote(requirement, note);
     };
 
     // Alternatives of the quote the code could not look for: while one is left, key terms cap nothing.
@@ -556,7 +563,7 @@ export function enforceRequirementStatuses(
       for (const [i, term] of related.keyTerms.terms.entries()) {
         if (!normalizeWhitespace(term.cvMatch) || term.relation === undefined || SHOWS_TERM.has(term.relation) || containsTerm(term.cvMatch, term.term)) continue;
         interventions.push({ check: "key-term", action: "match-dropped", path: `${at}.keyTerms.terms[${i}].cvMatch`, value: `${term.term}: ${term.cvMatch}`, replacement: term.relation });
-        if (term.relation === "related") nearby.push(`"${normalizeWhitespace(term.cvMatch)}"`);
+        if (term.relation === "related") nearby.push(normalizeWhitespace(term.cvMatch));
         term.cvMatch = "";
       }
       const offered = withQuoteAlternatives(related.keyTerms, quote, context.cvText, context.crossLanguage ?? false, `${at}.keyTerms`);
@@ -570,8 +577,7 @@ export function enforceRequirementStatuses(
           interventions.push({ check: "key-term", action: "cap-skipped", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: unexamined.join(", ") });
         } else {
           // The related experience is named, not counted.
-          const near = nearby.length ? ` ${words.relatedOnly(joinTerms(nearby, words.and))}` : "";
-          lower("key-term", cap, `${coverageNote(requirement.keyTerms, cap, quote, language)}${near}`);
+          lower("key-term", cap, [coverageNote(requirement.keyTerms, cap, quote), ...(nearby.length ? [say.relatedOnly(nearby)] : [])]);
           // Nothing the requirement names is in the CV, so the quote showed something else.
           if (cap === "missing") requirement.evidence = "";
         }
@@ -604,7 +610,7 @@ export function enforceRequirementStatuses(
         // Years decide the years; key terms still cap the rest.
         const cap = keyTermCap();
         const to = cap && RANK[cap] < RANK[byYears] ? cap : byYears;
-        const note = totalOnly ? words.yearsTotal(min, describeYears(found.candidate, language)) : yearsNote(min, found.candidate, language);
+        const note = [totalOnly ? say.yearsTotal(min, roundYears(found.candidate)) : say.years(min, roundYears(found.candidate))];
         if (requirement.status === "not_evident") {
           // Left alone: the coercion below decides.
         } else if (RANK[requirement.status] > RANK[to]) {
@@ -619,10 +625,10 @@ export function enforceRequirementStatuses(
           // Raised only from partial: a missing may be the model ruling the quoted roles irrelevant.
           interventions.push({ check: "years", action: "status-coerced", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
           requirement.status = to;
-          requirement.note = note;
+          writeNote(requirement, note);
         } else if (requirement.status === byYears && to === byYears && !(cap && RANK[cap] <= RANK[byYears])) {
           // Only when the years decided: under a key-term cap the note is about the missing term.
-          requirement.note = note;
+          writeNote(requirement, note);
         }
         // Lower than the numbers allow: the model's note gives its other reason, and the numbers would contradict it.
       }
@@ -643,7 +649,7 @@ export function enforceRequirementStatuses(
       const to = assessable ? "missing" : "not_evident";
       interventions.push({ check: "met-without-evidence", action: "status-downgraded", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: to });
       requirement.status = to;
-      requirement.note = words.downgrade;
+      writeNote(requirement, [say.downgrade()]);
     }
 
     // From the posting's words (M8-C measured a model field beside it: same hits, 13 false alarms in 108 analyses).
@@ -658,7 +664,7 @@ export function enforceRequirementStatuses(
       }
       // The note says what is absent and what the posting accepts, whoever chose not_evident.
       if (requirement.status === "not_evident") {
-        requirement.note = alternativeNote(requirement, alternative, language);
+        writeNote(requirement, [alternativeSentence(requirement, alternative)]);
         requirement.evidence = "";
       }
     }
@@ -679,7 +685,7 @@ export function enforceRequirementStatuses(
       }
       requirement.status = "not_evident";
       requirement.evidence = "";
-      requirement.note = words.languageLevel(unstated.join(` ${words.and} `));
+      writeNote(requirement, [say.languageLevel(unstated)]);
     }
 
     // "Not shown in your CV" beside a CV quote contradicts itself.
@@ -829,12 +835,17 @@ export function isSkillYears(requirement: Pick<Requirement, "keyTerms" | "source
 }
 
 export function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
-  if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return WORDING[language].yearsLabel(requirement.years.min);
-  const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
-  if (terms) return terms;
+  return renderPhrase(gapLabelPhrase(requirement), language);
+}
+
+/** A gap's short name as data: its years, its absent terms or examples, or the posting's words cut short. */
+export function gapLabelPhrase(requirement: Requirement): Phrase {
+  if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return say.yearsLabel(requirement.years.min);
+  const terms = absentTermsPhrase(requirement.keyTerms, requirement.sourceQuote);
+  if (renderPhrase(terms, "en")) return terms;
   // Named only by examples: the examples the CV lacks are the clearest label.
-  const examples = absentExamples(requirement.keyTerms, requirement.sourceQuote, language);
-  if (examples) return examples;
+  const examples = absentExamplesPhrase(requirement.keyTerms, requirement.sourceQuote);
+  if (renderPhrase(examples, "en")) return examples;
   const text = requirement.requirement.replace(/[.;:,\s]+$/, "");
   if (text.length <= SHORT_LABEL) return text;
   return `${text.slice(0, SHORT_LABEL).replace(/\s+\S*$/, "").replace(/[\s,;:.]+$/, "")}…`;
@@ -842,31 +853,35 @@ export function gapLabel(requirement: Requirement, language: AnalysisLanguage): 
 
 /** The unshown examples of a requirement that names nothing but examples ("tools such as Redis or Sidekiq"); "" otherwise. */
 export function absentExamples(keyTerms: KeyTerms | undefined, quote = "", language: AnalysisLanguage = "en"): string {
+  return renderPhrase(absentExamplesPhrase(keyTerms, quote), language);
+}
+
+function absentExamplesPhrase(keyTerms: KeyTerms | undefined, quote = ""): Phrase {
   if (!keyTerms || keyTerms.terms.length === 0) return "";
   const { groups, example } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
   if (!groups.every((group) => group.examplesOnly)) return "";
-  return joinTerms(keyTerms.terms.filter((term, i) => example[i] && !shownTerm(term)).map((term) => term.term), WORDING[language].or);
+  return or(keyTerms.terms.filter((term, i) => example[i] && !shownTerm(term)).map((term) => term.term));
 }
 
 /** The analysis' first sentence, from the statuses, so it cannot contradict them; in the language the model wrote in. */
 export function requirementHeadline(requirements: Requirement[], language: AnalysisLanguage = "en"): string {
-  const words = WORDING[language];
+  return renderSentences(requirementHeadlineSentences(requirements), language);
+}
+
+/** The headline as data. */
+export function requirementHeadlineSentences(requirements: Requirement[]): Sentence[] {
   const required = requirements.filter((requirement) => requirement.kind === "required" && requirement.status !== "not_evident");
   const notShown = requirements.filter((requirement) => requirement.kind === "required" && requirement.status === "not_evident").length;
-  if (required.length === 0 && notShown === 0) return "";
-  const absent = (requirement: Requirement) => absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
+  if (required.length === 0 && notShown === 0) return [];
+  const absent = (requirement: Requirement) => absentTerms(requirement.keyTerms, requirement.sourceQuote);
   // A partial whose named terms are absent is a gap in those terms; one without terms is partly met.
   const gaps = required
     .filter((requirement) => requirement.status === "missing" || (requirement.status === "partial" && absent(requirement)))
-    .map((requirement) => gapLabel(requirement, language));
-  const partly = required
-    .filter((requirement) => requirement.status === "partial" && !absent(requirement))
-    .map((requirement) => gapLabel(requirement, language));
+    .map(gapLabelPhrase);
+  const partly = required.filter((requirement) => requirement.status === "partial" && !absent(requirement)).map(gapLabelPhrase);
   // "Every required qualification" would contradict the "Not shown in your CV" group below it.
-  if (gaps.length === 0 && partly.length === 0) return notShown ? words.noGapsNotShown(notShown) : words.allMet;
-  return [gaps.length ? words.coreGaps(gaps.join("; ")) : "", partly.length ? words.partlyMet(partly.join("; ")) : ""]
-    .filter(Boolean)
-    .join(" ");
+  if (gaps.length === 0 && partly.length === 0) return [notShown ? say.noGapsNotShown(notShown) : say.allMet()];
+  return [...(gaps.length ? [say.coreGaps(gaps)] : []), ...(partly.length ? [say.partlyMet(partly)] : [])];
 }
 
 /**

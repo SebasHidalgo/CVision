@@ -7,6 +7,7 @@
  * Skips everything that isn't the model: PDF extraction, storage, DB and auth.
  * Run it through `npm run eval`, which resolves `server-only` the way Next does.
  */
+import { englishView } from "@/lib/i18n/analysisView";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -704,7 +705,8 @@ async function runFixture(
     });
     guard = analysis.guard;
     answers = analysis.model;
-    result = { ok: true, feedback: analysis.feedback };
+    // Records keep the analysis as English text: every metric, the gold and the canary read it that way.
+    result = { ok: true, feedback: englishView(analysis.feedback) };
   } catch (error) {
     result = { ok: false, error: describeError(error) };
   } finally {
@@ -1049,7 +1051,7 @@ async function replayRun(from: string | undefined, to: string | undefined, only?
     if (!record.result.ok || !record.answers || !fixture || (only && !only.has(record.fixture))) continue;
     // The text that run's model read, not what today's limit would send.
     const cvText = fixture.cvText.slice(0, record.input.cvCharsSent);
-    const { feedback, guard } = finishAnalysis({
+    const { feedback: stored, guard } = finishAnalysis({
       jobDescription: fixture.jobDescription,
       resumeText: cvText,
       answer: record.answers.answer,
@@ -1058,6 +1060,7 @@ async function replayRun(from: string | undefined, to: string | undefined, only?
       accentsComposed: fixture.cvAccentsComposed,
       logId: fixture.id,
     });
+    const feedback = englishView(stored);
     const replay: RunRecord = {
       ...record,
       label: to,

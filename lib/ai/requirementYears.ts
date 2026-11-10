@@ -1,4 +1,6 @@
-import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
+import type { AnalysisLanguage } from "@/lib/ai/analysisWording";
+import { say } from "@/lib/ai/sentences";
+import { renderPhrase, renderSentence } from "@/lib/i18n/sentences";
 import type { RequirementStatus } from "@/lib/schemas/resumeSchema";
 
 // M8-C: years thresholds decided in code. Pure; tested.
@@ -158,14 +160,18 @@ export function yearsStatus(min: number, candidate: number): RequirementStatus {
   return "missing";
 }
 
-/** "about 2", "about 2.5": halves are the precision a CV supports. */
+/** Halves are the precision a CV supports. */
+export function roundYears(value: number): number {
+  return Math.round(value * 2) / 2;
+}
+
+/** "2", "2.5" (in Spanish "2,5"): a candidate's years as the notes print them. */
 export function describeYears(value: number, language: AnalysisLanguage = "en"): string {
-  const rounded = Math.round(value * 2) / 2;
-  return WORDING[language].about(rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1));
+  return renderPhrase({ number: roundYears(value) }, language);
 }
 
 export function yearsNote(min: number, candidate: number, language: AnalysisLanguage = "en"): string {
-  return WORDING[language].years(min, describeYears(candidate, language));
+  return renderSentence(say.years(min, roundYears(candidate)), language);
 }
 
 /** The text without its date ranges: a role line "Full-Stack Developer July 2021 – November 2021" reads "Full-Stack Developer". */

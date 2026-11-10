@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderAnalysis } from "@/lib/i18n/analysisView";
 import { extractPdfText } from "@/lib/pdfParse";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import golden from "./analysisRequest.golden.json";
@@ -256,8 +257,15 @@ describe("truncation at the limit", () => {
       ["Testing", "required", "missing"],
     ]);
     expect(guard.counts).toMatchObject({ "requirement-dropped": 1, "requirement-split": 1, "quote-dropped": 1, "status-downgraded": 1 });
-    // The headline comes from the statuses, ahead of the model's summary.
-    expect(feedback.overall.summaryText).toBe("Core gaps: Testing.");
+    // The headline comes from the statuses, ahead of the model's summary: stored as data, rendered per language.
+    expect(feedback.overall.headline).toEqual([{ key: "coreGaps", params: { list: { stop: { list: ["Testing"], join: "semicolon" } } } }]);
+    expect(feedback.overall.summaryText).toBe("");
+    expect(renderAnalysis(feedback, "en").overall.summaryText).toBe("Core gaps: Testing.");
+    expect(renderAnalysis(feedback, "es").overall.summaryText).toBe("Brechas principales: Testing.");
+    // A code-made note is stored only as data.
+    const downgraded = feedback.jobFit.requirements[2];
+    expect(downgraded.note).toBe("");
+    expect(downgraded.noteSentences).toEqual([{ key: "downgrade" }]);
   });
 
   it("reports what the model read on a successful analysis", async () => {

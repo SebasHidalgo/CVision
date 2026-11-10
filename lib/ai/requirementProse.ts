@@ -1,9 +1,19 @@
 import { normalizeWhitespace } from "@/lib/ai/analysisChecks";
 import type { Intervention } from "@/lib/ai/analysisGuardrails";
-import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
-import { absentTerms, alternativeNote, containsTerm, gapLabel, isSkillYears, unshowableAlternativeIn } from "@/lib/ai/requirementGuardrails";
+import type { AnalysisLanguage } from "@/lib/ai/analysisWording";
+import {
+  absentTerms,
+  absentTermsPhrase,
+  alternativeSentence,
+  containsTerm,
+  gapLabelPhrase,
+  isSkillYears,
+  unshowableAlternativeIn,
+} from "@/lib/ai/requirementGuardrails";
 import { languagesAsked } from "@/lib/ai/requirementLanguages";
-import { yearsNote } from "@/lib/ai/requirementYears";
+import { roundYears } from "@/lib/ai/requirementYears";
+import { chain, say, type Phrase, type Sentence } from "@/lib/ai/sentences";
+import { renderSentences } from "@/lib/i18n/sentences";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 
 // M8-G: the prose that states requirement outcomes, written from the final statuses like the headline. Pure; tested.
@@ -14,40 +24,45 @@ const MAX_GAP_SENTENCES = 4;
 const shown = (requirement: Requirement) => (requirement.keyTerms?.terms ?? []).filter((term) => normalizeWhitespace(term.cvMatch)).map((term) => term.term);
 
 /** One sentence on a required item that is missing or partly shown, from its terms or years. */
-function gapSentence(requirement: Requirement, language: AnalysisLanguage): string {
-  const words = WORDING[language];
+function gapSentence(requirement: Requirement): Sentence {
   const years = requirement.years;
-  if (years && years.candidate < years.min && !isSkillYears(requirement)) return yearsNote(years.min, years.candidate, language);
-  const absent = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
+  if (years && years.candidate < years.min && !isSkillYears(requirement)) return say.years(years.min, roundYears(years.candidate));
+  const absent = absentTermsPhrase(requirement.keyTerms, requirement.sourceQuote);
   const has = shown(requirement);
-  if (absent && has.length) return words.shownButNot(has.join(` ${words.and} `), absent);
-  if (absent) return (requirement.keyTerms?.mode === "any" && (requirement.keyTerms?.terms.length ?? 0) > 1 ? words.noneOf : words.notShown)(absent);
-  const label = gapLabel(requirement, language);
-  return requirement.status === "partial" ? words.partlyMet(label) : words.notShownAsAsked(label);
+  if (absentTerms(requirement.keyTerms, requirement.sourceQuote) && has.length) return say.shownButNot(chain(has), absent);
+  if (absentTerms(requirement.keyTerms, requirement.sourceQuote)) {
+    return (requirement.keyTerms?.mode === "any" && (requirement.keyTerms?.terms.length ?? 0) > 1 ? say.noneOf : say.notShown)(absent);
+  }
+  const label = gapLabelPhrase(requirement);
+  return requirement.status === "partial" ? say.partlyMet([label]) : say.notShownAsAsked(label);
 }
 
-/** The outcome sentences of jobFit.description: how many required items are shown, the gaps, and what no CV shows. */
+/** The outcome sentences of jobFit.description, rendered: how many required items are shown, the gaps, and what no CV shows. */
 export function outcomeSentences(requirements: Requirement[], language: AnalysisLanguage = "en"): string[] {
-  const words = WORDING[language];
+  return outcomeSentenceData(requirements).map((sentence) => renderSentences([sentence], language));
+}
+
+/** The outcome sentences as data, stored beside the model's prose and rendered per language. */
+export function outcomeSentenceData(requirements: Requirement[]): Sentence[] {
   const required = requirements.filter((requirement) => requirement.kind === "required");
   const judged = required.filter((requirement) => requirement.status !== "not_evident");
   if (required.length === 0) return [];
-  const sentences: string[] = [];
-  if (judged.length) sentences.push(words.showsOf(judged.filter((requirement) => requirement.status === "met").length, judged.length));
+  const sentences: Sentence[] = [];
+  if (judged.length) sentences.push(say.showsOf(judged.filter((requirement) => requirement.status === "met").length, judged.length));
   const gaps = judged.filter((requirement) => requirement.status === "missing" || requirement.status === "partial");
-  sentences.push(...gaps.slice(0, MAX_GAP_SENTENCES).map((requirement) => gapSentence(requirement, language)));
-  if (gaps.length > MAX_GAP_SENTENCES) sentences.push(words.moreInList(gaps.length - MAX_GAP_SENTENCES));
+  sentences.push(...gaps.slice(0, MAX_GAP_SENTENCES).map(gapSentence));
+  if (gaps.length > MAX_GAP_SENTENCES) sentences.push(say.moreInList(gaps.length - MAX_GAP_SENTENCES));
   let forInterview = 0;
   for (const requirement of required.filter((one) => one.status === "not_evident")) {
     const alternative = unshowableAlternativeIn(requirement.sourceQuote ?? "");
-    if (alternative) sentences.push(alternativeNote(requirement, alternative, language));
+    if (alternative) sentences.push(alternativeSentence(requirement, alternative));
     // A language level is the one thing here a CV can state: the same advice as its note.
-    else if (languagesAsked(requirement).length) sentences.push(words.languageLevel(languagesAsked(requirement)[0]));
+    else if (languagesAsked(requirement).length) sentences.push(say.languageLevel([languagesAsked(requirement)[0]]));
     else forInterview += 1;
   }
-  if (forInterview) sentences.push(words.forInterview(forInterview));
-  const preferred = requirements.filter((requirement) => requirement.kind === "preferred" && requirement.status === "missing").map((requirement) => preferredLabel(requirement, language));
-  if (preferred.length) sentences.push(words.preferredNotShown(preferred.join("; ")));
+  if (forInterview) sentences.push(say.forInterview(forInterview));
+  const preferred = requirements.filter((requirement) => requirement.kind === "preferred" && requirement.status === "missing").map(preferredLabel);
+  if (preferred.length) sentences.push(say.preferredNotShown(preferred));
   return sentences;
 }
 
@@ -94,10 +109,15 @@ function adviceConflict(sentence: string, requirements: Requirement[]): string |
 /**
  * jobFit.description with the outcomes written in code first. Of the model's prose, the sentences that state an
  * outcome go, and advice stays unless it contradicts the statuses, so the paragraph cannot contradict the list under it.
+ * `outcomes` and `prose` are what is stored: the outcomes as data, and the model's prose that stayed.
  */
-export function withOutcomeProse(description: string, requirements: Requirement[], language: AnalysisLanguage = "en"): { description: string; interventions: Intervention[] } {
-  const outcomes = outcomeSentences(requirements, language);
-  if (outcomes.length === 0) return { description, interventions: [] };
+export function withOutcomeProse(
+  description: string,
+  requirements: Requirement[],
+  language: AnalysisLanguage = "en",
+): { description: string; outcomes: Sentence[]; prose: string; interventions: Intervention[] } {
+  const outcomes = outcomeSentenceData(requirements);
+  if (outcomes.length === 0) return { description, outcomes, prose: description, interventions: [] };
   const interventions: Intervention[] = [];
   const kept: string[] = [];
   let dropped = false;
@@ -116,7 +136,8 @@ export function withOutcomeProse(description: string, requirements: Requirement[
     kept.push(dropped ? sentence.replace(CONNECTIVE, "").replace(/^\p{Ll}/u, (letter) => letter.toUpperCase()) : sentence);
     dropped = false;
   }
-  return { description: [...outcomes, ...kept].join(" "), interventions };
+  const prose = kept.join(" ");
+  return { description: [renderSentences(outcomes, language), prose].filter(Boolean).join(" "), outcomes, prose, interventions };
 }
 
 // Words that treat a thing as absent; "your certification" or "highlight" do not.
@@ -159,8 +180,8 @@ export function guardRecommendations(recommendations: string[], requirements: Re
 const SOFTENING_TAIL = /\s+(?:would (?:help|be (?:a plus|great|nice|an advantage))|is (?:a (?:plus|bonus)|nice to have|an advantage|preferred|desirable)|(?:es|sería) (?:un plus|deseable|valorable))\b.*$/iu;
 
 /** A preferred item's short name: its absent terms, or its text up to its softening words. */
-function preferredLabel(requirement: Requirement, language: AnalysisLanguage): string {
-  if (absentTerms(requirement.keyTerms, requirement.sourceQuote, language)) return gapLabel(requirement, language);
+function preferredLabel(requirement: Requirement): Phrase {
+  if (absentTerms(requirement.keyTerms, requirement.sourceQuote)) return gapLabelPhrase(requirement);
   const text = requirement.requirement.replace(SOFTENING_TAIL, "");
-  return gapLabel({ ...requirement, requirement: text }, language);
+  return gapLabelPhrase({ ...requirement, requirement: text });
 }
