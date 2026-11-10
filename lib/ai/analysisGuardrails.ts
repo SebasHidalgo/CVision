@@ -68,7 +68,17 @@ export type InterventionAction =
   /** An uncovered line the repair call covered: a requirement added, a restatement or a non-requirement. */
   | "requirement-recovered"
   /** A not_evident requirement's CV quote, cleared: "Not shown in your CV" cannot quote the CV. */
-  | "evidence-cleared";
+  | "evidence-cleared"
+  /** A repaired line that details or restates an item already listed, merged into it instead of added. */
+  | "requirement-merged"
+  /** An alternative the posting's quote offers and the key terms left out, added with the CV word that shows it. */
+  | "alternative-added"
+  /** A cap to missing not applied: an alternative in the quote could not be examined (another language, an elided noun). */
+  | "cap-skipped"
+  /** A recommendation that contradicts the final statuses, dropped. */
+  | "recommendation-dropped"
+  /** A sentence of the description stating requirement outcomes, replaced by the sentences written from the statuses. */
+  | "sentence-dropped";
 
 /** The requirement rules of lib/ai/requirementGuardrails.ts. */
 export type RequirementCheckName =
@@ -144,6 +154,11 @@ const emptyCounts = (): InterventionCounts => ({
   "requirement-uncovered": 0,
   "requirement-recovered": 0,
   "evidence-cleared": 0,
+  "requirement-merged": 0,
+  "alternative-added": 0,
+  "cap-skipped": 0,
+  "recommendation-dropped": 0,
+  "sentence-dropped": 0,
 });
 
 /** The report with more interventions in it, counted. */

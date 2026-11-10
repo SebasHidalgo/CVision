@@ -177,8 +177,13 @@ export const modelRequirementSchema = z.object({
 
 export type ModelRequirement = z.infer<typeof modelRequirementSchema>;
 
+/** One repair entry: a new requirement (detailOf 0), or a detail of listed requirement N, decided first. */
+export const repairEntrySchema = z.object({ detailOf: z.number().int(), ...modelRequirementSchema.shape });
+
+export type RepairEntry = z.infer<typeof repairEntrySchema>;
+
 /** The repair call's answer: entries for the qualification lines the analysis skipped. */
-export const requirementRepairSchema = z.object({ requirements: z.array(modelRequirementSchema) });
+export const requirementRepairSchema = z.object({ requirements: z.array(repairEntrySchema) });
 
 /** A measured outcome the resume already states, and the line it comes from. */
 const quantifiedAchievementSchema = z.object({

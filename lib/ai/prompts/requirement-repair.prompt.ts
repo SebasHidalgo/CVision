@@ -45,8 +45,8 @@ ${REQUIREMENT_RULES}
 
 RULE 3 - Cover the skipped lines, and only them.
 - Return entries for the numbered skipped lines only, each with its sourceQuote copied from its line. Never return an entry for a requirement already listed.
-- A skipped line that only restates or details a listed requirement (a specific check that a listed screening requirement names, a sentence repeating a listed skill) gets one entry whose requirement copies that listed requirement word for word.
-- A skipped line that is not a requirement at all (the company, the team, a benefit) gets one entry with section "description".
+- detailOf comes first. It is the number of the listed requirement a skipped line only details or restates (a specific check that a listed screening requirement names, a sentence repeating a listed skill), and 0 when the line states a requirement of its own or none.
+- A skipped line that is not a requirement at all (the company, the team, a benefit) gets one entry with detailOf 0 and section "description".
 
 RULE 4 - Quoted fields hold text copied out of the resume, or out of the job description for sourceQuote, heading, softenedClause.quote and keyTerms term.
 ${QUOTE_RULES}
@@ -55,6 +55,9 @@ Write every field in English, whatever language the resume or the job descriptio
 Return a JSON object in exactly this format, with the exact field names and types:
 {
   requirements: {
+      // 0 for a requirement of its own or none; N when the line only details listed requirement N.
+      detailOf: number;
+
 ${REQUIREMENT_FIELDS}
   }[];
 }

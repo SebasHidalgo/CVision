@@ -28,6 +28,7 @@ import {
 import {
   analysisResponseSchema,
   requirementRepairSchema,
+  type RepairEntry,
   type AnalysisResponse,
   type ResumeAnalysisFeedback,
 } from "@/lib/schemas/resumeSchema";
@@ -98,6 +99,12 @@ export type AnalyzeResumeResult = {
   /** What the model answered before any guard, for scripts/eval replays. Never stored. */
   model?: ModelAnswers;
 };
+
+// Below this the English retry of a repair is skipped: it would not finish inside the repair's budget.
+const MIN_RETRY_MS = 5_000;
+
+/** The repair's prose: the notes its entries carry. */
+const repairNotes = (entries: RepairEntry[]) => entries.flatMap((entry) => [entry.note, entry.softenedClause.note]);
 
 /** The model's raw answers: the analysis, and the repair when it ran. */
 export type ModelAnswers = { answer: AnalysisResponse; repair?: RepairAnswer };
@@ -174,20 +181,36 @@ export async function analyzeResume({
   let repair: RepairAnswer | undefined;
   if (uncovered.length > 0) {
     console.warn(`[CVision][ai] requirement lines uncovered: ${uncovered.length} (${logId ?? "no id"})`);
-    try {
-      const repaired = await generateJson({
-        prompt: requirementRepairPrompt({
-          jobTitle,
-          jobDescription,
-          resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
-          lines: uncovered.map((line) => line.text),
-          listed: answer.jobFit.requirements.map((entry) => entry.requirement),
-          today: formatToday(now),
-        }),
+    const repairPrompt = requirementRepairPrompt({
+      jobTitle,
+      jobDescription,
+      resumeText: inputMode === "pdf" ? PDF_INSTEAD_OF_TEXT : text,
+      lines: uncovered.map((line) => line.text),
+      listed: answer.jobFit.requirements.map((entry) => entry.requirement),
+      today: formatToday(now),
+    });
+    // The repair and its English retry share one budget, so the route's maxDuration holds.
+    const deadline = Date.now() + Math.min(REPAIR_TIMEOUT_MS, timeoutMs);
+    const askRepair = (withPrompt: string) =>
+      generateJson({
+        prompt: withPrompt,
         schema: requirementRepairSchema,
-        timeoutMs: Math.min(REPAIR_TIMEOUT_MS, timeoutMs),
+        timeoutMs: Math.max(1, deadline - Date.now()),
         ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
       });
+    try {
+      let repaired = await askRepair(repairPrompt);
+      const notEnglish = nonEnglishFields(repairNotes(repaired.requirements));
+      if (notEnglish > 0 && deadline - Date.now() >= MIN_RETRY_MS) {
+        try {
+          repaired = await askRepair(`${repairPrompt}
+
+${ENGLISH_RETRY}`);
+          language.push({ check: "language", action: "regenerated", path: "repair", value: `${notEnglish} note(s) not in English`, replacement: `${nonEnglishFields(repairNotes(repaired.requirements))} after asking again` });
+        } catch (error) {
+          console.warn(`[CVision][ai] repair English retry failed: ${error instanceof Error ? error.name : "unknown"}`);
+        }
+      }
       repair = { requirements: repaired.requirements };
     } catch (error) {
       // The analysis stands without the repair: an incomplete list is better than none.

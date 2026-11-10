@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModelRequirement } from "@/lib/schemas/resumeSchema";
-import { headingOf, introducesQualifications, mergeRepair, postingBullets, uncoveredBullets } from "./requirementCoverage";
+import { headingOf, introducesQualifications, mergeRepair, postingBullets, restates, uncoveredBullets } from "./requirementCoverage";
 
 const POSTING = `Platform Engineer
 Lumen Rail · Remote
@@ -163,5 +163,74 @@ describe("mergeRepair", () => {
     const merged = mergeRepair(POSTING, first, { requirements: null, error: "AI_UNAVAILABLE" });
     expect(merged.requirements).toBe(first);
     expect(merged.interventions).toContainEqual(expect.objectContaining({ action: "recorded", replacement: "repair failed: AI_UNAVAILABLE" }));
+  });
+});
+
+describe("M8-G: restatements", () => {
+  const SCREENED = `Field Technician
+Northline Grid
+
+Requirements
+- A valid driving licence.
+
+Additional requirements
+
+Ability to pass the utility's safety and site-access screenings required for this role, which include: Grid Site Access Check:
+
+You will pass the Northline Grid Site Access Check on hire and every three years thereafter.
+
+- Night shifts once a month.`;
+
+  it("joins what an item's closing colon announces, across a blank line", () => {
+    expect(postingBullets(SCREENED).map((bullet) => bullet.text)).toEqual([
+      "A valid driving licence.",
+      "Ability to pass the utility's safety and site-access screenings required for this role, which include: Grid Site Access Check: You will pass the Northline Grid Site Access Check on hire and every three years thereafter.",
+      "Night shifts once a month.",
+    ]);
+  });
+
+  it("covers the announced paragraph with the item that quotes its first line", () => {
+    const entries = [entry("A valid driving licence."), entry("Ability to pass the utility's safety and site-access screenings required for this role"), entry("Night shifts once a month.")];
+    expect(uncoveredBullets(SCREENED, entries)).toEqual([]);
+  });
+
+  it("keeps a top-level bullet after a colon as its own item", () => {
+    const posting = "Analyst\n\nYou bring\n- One of the following:\n- Strong SQL.";
+    expect(postingBullets(posting).map((bullet) => bullet.text)).toEqual(["One of the following:", "Strong SQL."]);
+  });
+
+  const first = [entry("4+ years in platform or infrastructure roles."), entry("Experience in transport or logistics.", { kind: "preferred" })];
+
+  it("merges an entry the repair marks as a detail of a listed requirement", () => {
+    const merged = mergeRepair(POSTING, first, {
+      requirements: [
+        { ...entry("A degree in Computer Science or equivalent experience."), detailOf: 1 },
+        { ...entry("Terraform, or another infrastructure-as-code tool,"), detailOf: 0 },
+      ],
+    });
+    expect(merged.requirements.map((one) => one.sourceQuote)).toEqual([
+      "4+ years in platform or infrastructure roles.",
+      "Terraform, or another infrastructure-as-code tool,",
+      "Experience in transport or logistics.",
+    ]);
+    expect(merged.interventions).toContainEqual(expect.objectContaining({ action: "requirement-merged", replacement: "4+ years in platform or infrastructure roles." }));
+    expect(merged.interventions.filter((one) => one.action === "requirement-recovered").map((one) => one.replacement)).toEqual(["detail of requirement 1", "requirement added"]);
+    expect(merged.requirements.some((one) => "detailOf" in one)).toBe(false);
+  });
+
+  it("merges a repaired line that shares a run of three content words with a listed quote", () => {
+    expect(restates("You will pass the Northline Grid Site Access Check on hire.", "screenings required for this role, which include: Grid Site Access Check:")).toBe(true);
+    expect(restates("Kafka, RabbitMQ and NATS in production.", "Kafka in production.")).toBe(false);
+  });
+
+  it("never merges on boilerplate: 'including, but not limited to' and years of experience", () => {
+    expect(restates("Tools including, but not limited to, Jira and Confluence.", "Languages including, but not limited to, Go and Rust.")).toBe(false);
+    expect(restates("3+ years of experience building web apps.", "5+ years of experience building data pipelines.")).toBe(false);
+  });
+
+  it("does not merge into an item whose quote is not in the posting", () => {
+    const paraphrased = [entry("A degree in computing or similar"), ...first];
+    const merged = mergeRepair(POSTING, paraphrased, { requirements: [entry("A degree in Computer Science or equivalent experience.", { requirement: "A degree in computing" })] });
+    expect(merged.requirements.map((one) => one.sourceQuote)).toContain("A degree in Computer Science or equivalent experience.");
   });
 });

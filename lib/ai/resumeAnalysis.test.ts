@@ -332,7 +332,7 @@ describe("the requirement repair", () => {
   });
 
   it("asks once for the skipped line and merges the entry before the guards", async () => {
-    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [DEGREE] }));
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [{ detailOf: 0, ...DEGREE }] }));
     const { feedback, guard, model } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9" });
 
     expect(provider.requests).toHaveLength(2);
@@ -347,6 +347,29 @@ describe("the requirement repair", () => {
     // Counts and the id only: the line itself is posting text.
     expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement lines uncovered: 1 (resume_9)");
     expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair: 1 of 1 line(s) covered (resume_9)");
+  });
+
+  it("merges a repair entry marked as a detail of a listed requirement instead of adding it", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [{ detailOf: 1, ...DEGREE }] }));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests[1].prompt).toContain("detailOf comes first");
+    expect(feedback.jobFit.requirements.map((one) => one.requirement)).toEqual(["3+ years with React and TypeScript"]);
+    expect(guard.counts).toMatchObject({ "requirement-recovered": 1, "requirement-merged": 1 });
+  });
+
+  it("asks the repair once more when its notes come back in another language", async () => {
+    const spanish = { detailOf: 0, ...DEGREE, note: "No se encuentra ninguna mención de una titulación en el currículum, y el puesto la pide." };
+    const english = { detailOf: 0, ...DEGREE, note: "Your CV does not mention a degree, and the posting asks for one." };
+    const provider = installFakeProvider(() =>
+      reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [provider.requests.length === 2 ? spanish : english] }),
+    );
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(3);
+    expect(provider.requests[2].prompt).toContain("Write every field in English");
+    expect(feedback.jobFit.requirements[1].note).toBe(english.note);
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", path: "repair", replacement: "0 after asking again" }));
   });
 
   it("keeps the analysis when the repair fails, and records it", async () => {

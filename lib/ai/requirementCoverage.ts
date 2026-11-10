@@ -1,7 +1,7 @@
 import { loosen, normalizeWhitespace } from "@/lib/ai/analysisChecks";
 import type { Intervention } from "@/lib/ai/analysisGuardrails";
 import { inPosting, namesQualifications } from "@/lib/ai/requirementGuardrails";
-import type { ModelRequirement } from "@/lib/schemas/resumeSchema";
+import type { ModelRequirement, RepairEntry } from "@/lib/schemas/resumeSchema";
 
 // M8-F: every bullet under a qualifications heading must be covered by an extracted entry. Pure; tested.
 
@@ -64,9 +64,12 @@ export function postingBullets(posting: string): PostingBullet[] {
     const hasMarker = MARKER.test(line);
     const previous = current ? current[current.length - 1] : "";
     // A wrapped item: indented, lowercase, or after a line that cannot end one.
-    const continues =
+    const wrapped =
       current !== null && !hasMarker && !blankSince &&
       (/^\s/.test(line) || /^\p{Ll}/u.test(text) || /(?:[,;:–—-]|\b(?:and|or|to|of|in|with|for|y|o|de|en|con|para))$/iu.test(previous));
+    // What an item's closing colon announces is part of it, across a blank line: "screenings: Background Check:" then the check.
+    const announced = current !== null && /:$/.test(previous) && (!hasMarker || /^\s/.test(line)) && !headingOf(line);
+    const continues = wrapped || announced;
     if (continues) {
       current!.push(text);
       return;
@@ -140,13 +143,41 @@ export function uncoveredBullets(posting: string, entries: Pick<ModelRequirement
   return postingBullets(posting).filter((bullet) => !spans.some((span) => covers(span, bullet)));
 }
 
-/** The repair call's outcome: its entries, or null when it failed. */
-export type RepairAnswer = { requirements: ModelRequirement[] | null; error?: string };
+/** The repair call's outcome: its entries, or null when it failed. Answers stored before M8-G have no detailOf. */
+export type RepairAnswer = { requirements: (ModelRequirement & Partial<Pick<RepairEntry, "detailOf">>)[] | null; error?: string };
+
+// Function and boilerplate words that say nothing about which requirement a line states.
+const STOPWORDS = new Set(
+  "the and for with this that are will from upon into your our you all any per its has have been must able ability every each such other than then their them they which while when where who what but not nor yet also include includes including limited following required require requires requirement requirements role position years year experience strong proven solid good knowledge familiarity understanding working las los del que con para por una uno como sus más años experiencia".split(" "),
+);
+
+/** Content words in posting order: three letters or more, no function words. */
+export const contentWords = (text: string) =>
+  loosen(text)
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}+#]+/u)
+    .filter((word) => word.length >= 3 && !STOPWORDS.has(word));
+
+// A repaired line restates a listed item when they share this many consecutive content words, or this share of its words.
+export const SHARED_RUN_WORDS = 3;
+export const SHARED_WORD_SHARE = 0.6;
+
+/** Whether a repaired quote restates another item: a shared run of content words, or most of its words. */
+export function restates(quote: string, other: string): boolean {
+  const mine = contentWords(quote);
+  const theirs = contentWords(other);
+  if (mine.length === 0 || theirs.length === 0) return false;
+  const runs = new Set<string>();
+  for (let i = 0; i + SHARED_RUN_WORDS <= theirs.length; i += 1) runs.add(theirs.slice(i, i + SHARED_RUN_WORDS).join(" "));
+  for (let i = 0; i + SHARED_RUN_WORDS <= mine.length; i += 1) if (runs.has(mine.slice(i, i + SHARED_RUN_WORDS).join(" "))) return true;
+  const set = new Set(theirs);
+  return mine.filter((word) => set.has(word)).length / mine.length >= SHARED_WORD_SHARE;
+}
 
 /**
  * The model's entries with the repair's merged in, in posting order. A repair entry counts only when
- * it covers a skipped line; one that copies a listed requirement's text is a restatement and covers
- * its line without adding an entry.
+ * it covers a skipped line. One the repair marks as a detail of listed requirement N, or whose quote
+ * restates an item already in the list, covers its line without adding an entry.
  */
 export function mergeRepair(
   posting: string,
@@ -174,16 +205,32 @@ export function mergeRepair(
   const listed = new Set(entries.map((entry) => loosen(entry.requirement)).filter(Boolean));
   const merged = [...entries];
   const how = new Map<PostingBullet, string>();
-  for (const entry of repair.requirements) {
+  for (const { detailOf, ...entry } of repair.requirements) {
     const spans = coveredSpans(posting, [entry]);
     const lines = uncovered.filter((bullet) => spans.some((span) => covers(span, bullet)));
     if (lines.length === 0) {
       interventions.push({ check: "requirement-coverage", action: "recorded", path: "jobFit.requirements", value: entry.sourceQuote, replacement: "repair entry outside the skipped lines" });
       continue;
     }
-    const restated = listed.has(loosen(entry.requirement));
-    const kind = restated ? "restates a listed requirement" : entry.section === "description" ? "not a requirement" : "requirement added";
+    const detailed = typeof detailOf === "number" && detailOf >= 1 && detailOf <= entries.length ? entries[detailOf - 1] : null;
+    // Only into an item whose quote is in the posting: one the source rule drops would take the line with it.
+    const same = detailed ? null : merged.find((other) => at(other) >= 0 && restates(entry.sourceQuote, other.sourceQuote)) ?? null;
+    const restated = !detailed && !same && listed.has(loosen(entry.requirement));
+    const kind = detailed
+      ? `detail of requirement ${detailOf}`
+      : same
+        ? "restates a listed requirement (shared words)"
+        : restated
+          ? "restates a listed requirement"
+          : entry.section === "description"
+            ? "not a requirement"
+            : "requirement added";
     for (const line of lines) if (!how.has(line)) how.set(line, kind);
+    const into = detailed ?? same;
+    if (into) {
+      interventions.push({ check: "requirement-coverage", action: "requirement-merged", path: "jobFit.requirements", value: entry.sourceQuote, replacement: into.requirement });
+      continue;
+    }
     if (restated) continue;
     const position = at(entry);
     const before = merged.findIndex((other) => at(other) > position);
