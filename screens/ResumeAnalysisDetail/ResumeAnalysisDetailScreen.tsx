@@ -3,6 +3,7 @@ import HistoryNotice from "@/components/billing/HistoryNotice";
 import ClientMessages from "@/components/i18n/ClientMessages";
 import { fetchResumeAccess } from "@/lib/database/resume";
 import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
+import { renderAnalysis } from "@/lib/i18n/analysisView";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
 import { formatLongDate } from "@/lib/format";
@@ -30,8 +31,10 @@ export default async function ResumeAnalysisDetailScreen({
   const { analysis } = access;
 
   // Stored feedback no longer matches the schema, so there is nothing to render.
-  const { feedback } = analysis;
-  if (!feedback) redirect("/resume/analyses");
+  const { feedback: stored } = analysis;
+  if (!stored) redirect("/resume/analyses");
+  // The code-made sentences (headline, outcomes, notes) are data: rendered here, in the page's language.
+  const feedback = renderAnalysis(stored, locale);
 
   const scores = dimensionScores(feedback);
   const navItems = DIMENSION_IDS.map((id) => ({
