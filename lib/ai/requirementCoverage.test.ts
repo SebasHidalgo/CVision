@@ -224,7 +224,7 @@ You will pass the Northline Grid Site Access Check on hire and every three years
   });
 
   it("never merges on boilerplate: 'including, but not limited to' and years of experience", () => {
-    expect(restates("Tools including, but not limited to, Jira and Confluence.", "Languages including, but not limited to, Go and Rust.")).toBe(false);
+    expect(restates("Tools including, but not limited to, Jira and Confluence.", "Runtimes including, but not limited to, Go and Rust.")).toBe(false);
     expect(restates("3+ years of experience building web apps.", "5+ years of experience building data pipelines.")).toBe(false);
   });
 

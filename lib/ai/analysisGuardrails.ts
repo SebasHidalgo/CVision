@@ -102,7 +102,9 @@ export type RequirementCheckName =
   /** The PDF text itself, before the model: lib/pdfAccents.ts. */
   | "pdf-text"
   | "ats-problem"
-  | "language";
+  | "language"
+  /** Prose that states requirement outcomes, written from the statuses: lib/ai/requirementProse.ts. */
+  | "prose";
 
 export type Intervention = {
   check: CheckName | RequirementCheckName;

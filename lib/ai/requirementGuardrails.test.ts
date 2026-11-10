@@ -404,7 +404,9 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
 
     expect(requirements.map((one) => one.status)).toEqual(["missing", "met"]);
     expect(requirements[0].keyTerms?.terms[0].cvMatch).toBe("");
-    expect(requirements[0].note).toBe("Your CV doesn't show any of Redis or Elasticsearch.");
+    // The model left Sidekiq out of the list; the code adds it from the quote.
+    expect(requirements[0].note).toBe("Your CV doesn't show any of Redis, Elasticsearch or Sidekiq.");
+    expect(interventions).toContainEqual(expect.objectContaining({ action: "alternative-added", value: "Sidekiq", replacement: "not shown" }));
     expect(interventions).toContainEqual(expect.objectContaining({ check: "key-term", action: "match-dropped", value: "Redis: Redis" }));
   });
 

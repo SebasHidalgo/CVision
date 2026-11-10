@@ -3,6 +3,7 @@ import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
 import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
+import { withQuoteAlternatives, withRelatedField } from "@/lib/ai/requirementAlternatives";
 import { candidateYears, describeYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
   EvidenceSource,
@@ -406,7 +407,7 @@ export function unshowableAlternativeIn(sourceQuote: string): string | null {
   return match ? match[1].trim().replace(/[\s,]+$/, "") : null;
 }
 
-function alternativeNote(requirement: Requirement, alternative: string, language: AnalysisLanguage): string {
+export function alternativeNote(requirement: Requirement, alternative: string, language: AnalysisLanguage): string {
   const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
   const absent = terms || (withoutClause(requirement.requirement, alternative) ?? requirement.requirement);
   const several = requirement.keyTerms?.mode === "all" && requirement.keyTerms.terms.filter((term) => !shownTerm(term)).length > 1;
@@ -422,6 +423,8 @@ export type StatusContext = {
   language?: AnalysisLanguage;
   /** The CV's own statement of its total years ("2+ years of experience"), from `statedTotalYears`. */
   statedYears?: number | null;
+  /** The CV and the posting are in different languages: a term the code cannot find verbatim may still be there. */
+  crossLanguage?: boolean;
 };
 
 /** After guardAnalysis, so evidence it dropped counts as none. */
@@ -446,6 +449,9 @@ export function enforceRequirementStatuses(
       requirement.note = note;
     };
 
+    // Alternatives of the quote the code could not look for: while one is left, key terms cap nothing.
+    let unexamined: string[] = [];
+    const keyTermCap = () => (unexamined.length ? null : coverageCap(requirement.keyTerms, requirement.sourceQuote));
     if (context && requirement.keyTerms) {
       for (const [i, term] of requirement.keyTerms.terms.entries()) {
         if (normalizeWhitespace(term.cvMatch) && !containsTerm(context.cvText, term.cvMatch)) {
@@ -453,12 +459,21 @@ export function enforceRequirementStatuses(
           term.cvMatch = "";
         }
       }
-      requirement.keyTerms = neededTerms(requirement.keyTerms, requirement.sourceQuote ?? "");
+      const quote = requirement.sourceQuote ?? "";
+      const related = withRelatedField(requirement.keyTerms, quote, `${at}.keyTerms`);
+      const offered = withQuoteAlternatives(related.keyTerms, quote, context.cvText, context.crossLanguage ?? false, `${at}.keyTerms`);
+      interventions.push(...related.interventions, ...offered.interventions);
+      unexamined = offered.unexamined;
+      requirement.keyTerms = neededTerms(offered.keyTerms, quote);
       const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
       if (cap && RANK[requirement.status] > RANK[cap]) {
-        lower("key-term", cap, coverageNote(requirement.keyTerms, cap, requirement.sourceQuote ?? "", language));
-        // Nothing the requirement names is in the CV, so the quote showed something else.
-        if (cap === "missing") requirement.evidence = "";
+        if (unexamined.length) {
+          interventions.push({ check: "key-term", action: "cap-skipped", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: unexamined.join(", ") });
+        } else {
+          lower("key-term", cap, coverageNote(requirement.keyTerms, cap, quote, language));
+          // Nothing the requirement names is in the CV, so the quote showed something else.
+          if (cap === "missing") requirement.evidence = "";
+        }
       }
     }
 
@@ -486,7 +501,7 @@ export function enforceRequirementStatuses(
         if (!requirement.evidence.trim() && grounded[0]) requirement.evidence = grounded[0];
         const byYears = yearsStatus(min, found.candidate);
         // Years decide the years; key terms still cap the rest.
-        const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
+        const cap = keyTermCap();
         const to = cap && RANK[cap] < RANK[byYears] ? cap : byYears;
         const note = totalOnly ? words.yearsTotal(min, describeYears(found.candidate, language)) : yearsNote(min, found.candidate, language);
         if (requirement.status === "not_evident") {
@@ -708,7 +723,7 @@ export function isSkillYears(requirement: Pick<Requirement, "keyTerms" | "source
   return (requirement.keyTerms?.terms ?? []).some((term) => term.term.trim() && clause.includes(term.term.trim().toLowerCase()) && !ROLE_TERM.test(term.term));
 }
 
-function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
+export function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
   if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return WORDING[language].yearsLabel(requirement.years.min);
   const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
   if (terms) return terms;

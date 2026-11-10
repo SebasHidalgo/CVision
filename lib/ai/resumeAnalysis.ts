@@ -13,8 +13,9 @@ import {
 import { generateJson } from "@/lib/ai/client";
 import { ENGLISH_RETRY, formatToday, resumeAnalysisPrompt } from "@/lib/ai/prompts/cv-analysis.prompt";
 import { requirementRepairPrompt } from "@/lib/ai/prompts/requirement-repair.prompt";
-import { nonEnglishFields } from "@/lib/ai/postingLanguage";
+import { detectPostingLanguage, nonEnglishFields } from "@/lib/ai/postingLanguage";
 import { mergeRepair, uncoveredBullets, type RepairAnswer } from "@/lib/ai/requirementCoverage";
+import { guardRecommendations, withOutcomeProse } from "@/lib/ai/requirementProse";
 import {
   enforceRequirementStatuses,
   guardBulletRoles,
@@ -278,7 +279,15 @@ export function finishAnalysis({
   // Statuses last: a CV quote the guardrail dropped is no evidence. The analysis is written in English (owner decision, M8-D).
   const statuses = enforceRequirementStatuses(
     guarded.feedback.jobFit.requirements,
-    checked ? { pending: structured.pending, cvText: text, now, statedYears: statedTotalYears(text, answer.atsCompatibility.sectionsDetected) } : undefined,
+    checked
+      ? {
+          pending: structured.pending,
+          cvText: text,
+          now,
+          statedYears: statedTotalYears(text, answer.atsCompatibility.sectionsDetected),
+          crossLanguage: detectPostingLanguage(jobDescription) !== detectPostingLanguage(text),
+        }
+      : undefined,
   );
   const sourced = checked
     ? withEvidenceSources(statuses.requirements, text, guarded.feedback.atsCompatibility.sectionsDetected)
@@ -291,11 +300,14 @@ export function finishAnalysis({
   const roles = checked ? guardBulletRoles(skills.feedback, text) : { feedback: skills.feedback, interventions: [] };
   // The first sentence comes from the statuses, so the summary cannot contradict them.
   const headline = requirementHeadline(requirements);
+  // So do the outcome sentences of the job-fit paragraph, and no recommendation may argue another status (M8-G).
+  const prose = withOutcomeProse(roles.feedback.jobFit.description, requirements);
+  const moves = guardRecommendations(roles.feedback.jobFit.strategicRecommendations, requirements);
   const summaryText = [headline, roles.feedback.overall.summaryText.trim()].filter(Boolean).join(" ");
   const feedback = withoutControlCharacters<ResumeAnalysisFeedback>({
     ...roles.feedback,
     overall: { ...roles.feedback.overall, summaryText },
-    jobFit: { ...roles.feedback.jobFit, requirements },
+    jobFit: { ...roles.feedback.jobFit, requirements, description: prose.description, strategicRecommendations: moves.recommendations },
   });
   const guard = withAccentCompositions(
     withInterventions(guarded.guard, [
@@ -307,6 +319,8 @@ export function finishAnalysis({
       ...ats.interventions,
       ...before,
       ...coverage.interventions,
+      ...prose.interventions,
+      ...moves.interventions,
     ]),
     accentsComposed,
   );

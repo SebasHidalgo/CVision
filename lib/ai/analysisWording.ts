@@ -20,6 +20,10 @@ type Wording = {
   allMet: string;
   noGapsNotShown: (count: number) => string;
   yearsLabel: (min: number) => string;
+  showsOf: (met: number, total: number) => string;
+  moreInList: (count: number) => string;
+  forInterview: (count: number) => string;
+  preferredNotShown: (list: string) => string;
 };
 
 export const WORDING: Record<AnalysisLanguage, Wording> = {
@@ -42,6 +46,13 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     allMet: "You meet every required qualification.",
     noGapsNotShown: (count) => `No core gaps; ${count} required ${count === 1 ? "item isn't" : "items aren't"} shown in your CV.`,
     yearsLabel: (min) => `${min}+ years of experience`,
+    showsOf: (met, total) =>
+      total === 1
+        ? `Your CV ${met ? "fully shows" : "doesn't fully show"} the one required qualification a CV can show.`
+        : `Your CV fully shows ${met} of the ${total} required qualifications a CV can show.`,
+    moreInList: (count) => `${count} more ${count === 1 ? "gap is" : "gaps are"} in the list below.`,
+    forInterview: (count) => `${count === 1 ? "One required item" : `${count} required items`} no CV can show ${count === 1 ? "is" : "are"} under "Not shown in your CV"; expect ${count === 1 ? "it" : "them"} in the interview or the hiring process.`,
+    preferredNotShown: (list) => `Preferred and not shown: ${list}.`,
   },
   es: {
     and: "y",
@@ -63,5 +74,12 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     noGapsNotShown: (count) =>
       `Sin brechas principales; ${count} ${count === 1 ? "requisito obligatorio no aparece" : "requisitos obligatorios no aparecen"} en tu CV.`,
     yearsLabel: (min) => `${min}+ años de experiencia`,
+    showsOf: (met, total) =>
+      total === 1
+        ? `Tu CV ${met ? "muestra por completo" : "no muestra por completo"} el único requisito obligatorio que un CV puede mostrar.`
+        : `Tu CV muestra por completo ${met} de los ${total} requisitos obligatorios que un CV puede mostrar.`,
+    moreInList: (count) => `${count} ${count === 1 ? "brecha más está" : "brechas más están"} en la lista de abajo.`,
+    forInterview: (count) => `${count === 1 ? "Un requisito obligatorio" : `${count} requisitos obligatorios`} que ningún CV puede mostrar ${count === 1 ? "está" : "están"} en "No aparece en tu CV"; espéralos en la entrevista o en el proceso de selección.`,
+    preferredNotShown: (list) => `Deseables que no aparecen: ${list}.`,
   },
 };

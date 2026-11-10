@@ -50,14 +50,21 @@ export const REQUIREMENT_FIELDS = `      // The sentence or bullet of the job de
         note: string;
       };
 
-      // The named technologies, tools, industries, certifications and
-      // languages this requirement asks for (not general skills such as
-      // "scalability" or "communication", not years), each copied word for
-      // word from sourceQuote, with
-      // cvMatch: the word or phrase in the resume that shows it, copied word
-      // for word, also when it is a synonym or in another language
-      // ("Postgres" for "PostgreSQL", "estadística" for "Statistics"), or ""
-      // when the resume does not show it. mode "all" when the requirement
+      // The named technologies, tools, industries, fields of study,
+      // certifications and languages this requirement asks for (not general
+      // skills such as "scalability" or "communication", not years), each
+      // copied word for word from sourceQuote: every alternative the posting
+      // offers, also the ones the resume lacks, and "related field" when the
+      // posting accepts one. With each,
+      // cvMatch: the word or phrase in the resume that shows that same thing,
+      // copied word for word: the term itself, a synonym, an abbreviation, a
+      // translation ("Postgres" for "PostgreSQL", "estadística" for
+      // "Statistics"), or a product of the kind the term names ("PostgreSQL"
+      // for "relational databases"). Never a related concept: another
+      // discipline ("Electrical Engineering" is not "Computer Science"; it
+      // shows "related field"), a quality ("scalable" is not "system
+      // design"), a broader term ("data modeling" is not "dimensional
+      // modeling"). "" when the resume does not show it. mode "all" when the requirement
       // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
       // alternatives or examples ("C, C++ or Java", "tools such as Redis,
       // Kafka and Celery"). terms is empty when it names none.
@@ -174,11 +181,11 @@ const AIResponseFormat = `
 ${REQUIREMENT_FIELDS}
     }[];
 
-    // At least 150 characters on how the resume answers this posting as a
-    // whole: where the experience is closest to the role and what would close
-    // the gaps. The requirements list states each status; do not restate them.
-    // Describe only what the requirements list shows: an alternative the posting
-    // accepts for one requirement ("or willingness to learn") applies to no other.
+    // At least 150 characters on how the resume presents itself for this
+    // posting: which experience reads closest to the role and how the document
+    // could bring it forward. Never say which requirements are met, partly
+    // met, missing or not shown, nor call anything a gap: code writes those
+    // sentences from the requirements list.
     // Addressed to the candidate: "Your experience…", never "The candidate…".
     description: string;
 
