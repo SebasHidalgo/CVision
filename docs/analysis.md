@@ -122,7 +122,7 @@ What the model fills for each entry of `jobFit.requirements`, in order:
 | `demandsCapability` | whether the sentence asks the candidate to already have it | no |
 | `requirement` | the requirement in one line | yes |
 | `softenedClause` | `{ quote, status, evidence, note }`: the softened part of a required bullet ("ideally in e-commerce"), judged as its own preferred item; `quote` "" when there is none | no (becomes an entry) |
-| `keyTerms` | `{ mode: "all" \| "any", terms: [{ term, cvMatch }] }`: the named technologies, tools, industries, certifications and languages, each verbatim from `sourceQuote`, with the CV word that shows it (a synonym or another language counts) or "" | yes |
+| `keyTerms` | `{ mode: "all" \| "any", terms: [{ term, cvMatch, relation }] }`: the subjects, the category a list of examples illustrates, the examples, the alternatives, technologies, tools, industries, certifications and languages, each verbatim from `sourceQuote`; the CV word that shows it or ""; and how that word relates to the term (`same` (or an instance of the kind named), `synonym`, `abbreviation`, `translation`, `related`, `none`; M8-H) | yes |
 | `kind` | `required` or `preferred`, by the posting's framing | yes |
 | `assessable` | `false` when no CV could show it (an attitude, a trait judged by its manner, availability, a hiring condition) | yes |
 | `yearsEvidence` | for a years requirement, the CV lines that state the years or date the relevant roles | no (becomes `years`) |
@@ -239,10 +239,18 @@ Posting rules, before the CV quotes are checked:
   requirement-split`). A clause that is the whole entry turns the entry
   `preferred`. A clause without a softening word is recorded and adds
   nothing.
-- **The requirement keeps the posting's spelling and language.** A word that
-  differs from the posting's only in accents is respelled ("Português" →
-  "Portugués"); a requirement written in another language than its quote is
-  replaced by the quote (`requirement-text / text-replaced`).
+- **The requirement is the posting's own line** (M8-H). The row's title is
+  the part of `sourceQuote` the model's line covers, as the posting writes
+  it ("You should have 1+ years testing web apps" → "1+ years testing web
+  apps"), or the whole quote when the model rewrote it ("Strong SQL; …" for
+  "Strong SQL and …", a translation, another discipline's name). A part of
+  under three words that is neither half the quote nor a whole clause is a
+  label ("TypeScript" of "TypeScript experience is a plus") and the quote
+  wins. A softened clause split off below never reaches the parent's title,
+  even when it sits mid-line. No closing punctuation; the first letter as
+  the model wrote that word, otherwise as the posting does
+  (`requirement-text / text-replaced`). The model's text is used only when
+  no quote survived, which since M8-B means never for a new analysis.
 - **A preferred item is the clause its softening word is in** (M8-F). For a
   `preferred` entry whose kind comes from its own words (not from a
   preference heading), a quote that runs over a ";" or a sentence break
@@ -261,19 +269,43 @@ Posting rules, before the CV quotes are checked:
   number of years (`key-term / term-dropped`); a term in the softened clause
   moves to the derived preferred entry. Mode `any` where the quote offers no
   choice (no "or", "such as", "e.g.", no parenthesised list) becomes `all`
-  ("dbt and data contracts") (`key-term / mode-changed`).
+  ("dbt and data contracts"), and so does `any` over subjects the quote
+  joins with "and" or "including" and never "or" outside its examples
+  ("data pipelines and message queues (e.g., Kafka), including alerting")
+  (`key-term / mode-changed`, M8-H).
 
 Status rules, after the CV quotes are checked, in this order:
 
 1. **Key-term coverage.** A `cvMatch` that is not in the CV is emptied
-   (`key-term / match-dropped`). Terms joined by "or" in the posting, or
-   listed in one parenthesis, form a group that one shown term satisfies;
-   the alternatives not needed are removed from the stored list. Mode
-   `all`: every group shown allows the model's status, some caps it at
-   `partial`, none forces `missing` and clears the quote. Mode `any`: one
-   shown term allows the model's status, none forces `missing`. The note is
-   rewritten ("Your CV shows MySQL but not Ruby on Rails.") (`key-term /
-   status-capped`). A requirement without key terms keeps the model's status.
+   (`key-term / match-dropped`). So is one whose `relation` is `related` or
+   `none` (M8-H): an AI-powered product does not show "AI development
+   tools", a line about remote teams does not show "distributed systems",
+   unless the CV word contains the term itself (`key-term / match-dropped`,
+   the relation as replacement). A missing or unknown relation parses as
+   `none`; answers recorded before M8-H have none at all and replay as
+   before. A group whose only match was `related` is adjacent: it caps the
+   status at `partial`, never `missing`, the status's own definition
+   ("something adjacent but not the thing asked for"). Terms joined by "or" in the posting, or listed in one
+   parenthesis, form a group that one shown term satisfies. **Examples are
+   not the requirement** (M8-H): terms in a list after "e.g.", "for
+   example", "such as", "like" or "como" before a name, "including" before
+   a comma list or "including, but not limited to", "por ejemplo", "tales
+   como", or a parenthesised list of two or more, join the group of the
+   category they illustrate when the category is a term (the term ending
+   right where the list starts); without one they form a group that caps
+   nothing unless one of them is shown, which shows the category. Mode
+   `all`: every counted group shown allows the model's status, some caps it
+   at `partial`, none forces `missing` and clears the quote. Mode `any`: one
+   shown term allows the model's status, none forces `missing` when a
+   non-example term exists. Terms are matched as whole tokens: "C" is never
+   the "c" of "technical". The note is rewritten ("Your CV shows MySQL but
+   not Ruby on Rails."), never naming an example (an item named only by
+   examples is labelled by the examples it lacks: "Redis, Elasticsearch or
+   Sidekiq"), and names related experience without counting it ("… It shows "an AI-powered product",
+   which is related but not the same.") (`key-term / status-capped`). Every
+   term stays in the stored list, alternatives not needed and examples
+   included, for the page. A requirement without key terms keeps the
+   model's status.
    Before the cap (M8-G, `lib/ai/requirementAlternatives.ts`): the
    alternatives the quote itself offers are read in code (items joined by
    "or"/"o"/"u" with the comma-listed items before them, a parenthesised
@@ -308,7 +340,9 @@ Status rules, after the CV quotes are checked, in this order:
      months counted once. One number per CV whatever lines the model
      quotes.
    - **One skill or domain** (a key term in the years clause that names no
-     role: "3+ years writing production Python"): the quoted lines' years,
+     role and is not an example, M8-H: "3+ years writing production
+     Python", never "1+ years of engineering experience coding in languages
+     such as …"): the quoted lines' years,
      capped by the total. With no quoted years, a total below the minimum
      caps the status (75% rule; note "…your CV shows about 2 in total."),
      and a total at or above it says nothing: the item is undetermined and
@@ -433,12 +467,24 @@ the model's paragraph only the sentences that state no outcome stay: a
 sentence with an outcome word (gap, lacks, missing, meets, aligns, covers,
 years…) that names a requirement's key term, a number of years or the fit
 as a whole is dropped (`prose / sentence-dropped`), and a connective left
-dangling ("Furthermore, …") goes with it. The field comment now asks the
-model for document commentary only. A strategic recommendation is dropped
-(`prose / recommendation-dropped`) when it treats a met requirement as a gap
-("gain experience with Docker" for a CV that shows it) or offers
-willingness to learn for a requirement whose posting accepts no such
-alternative (Ruby on Rails on the Encora posting).
+dangling ("Furthermore, …") goes with it. **Advice stays** (M8-H): a
+sentence that opens with what to do ("To better align with this role,
+emphasize…", "Consider…", "Bringing… forward") is dropped only when it
+contradicts the statuses, with the reason as replacement: it calls a met
+or partial requirement absent ("…since Ruby on Rails is absent" for a
+skills-only Rails), calls a requirement whose every named term is met a
+gap, calls an item under "Not shown in your CV" a gap (Python on the Encora
+posting), claims a strong fit when a required item is missing or two are
+partial, or offers willingness to learn where the posting accepts none.
+The field comment asks the model for document commentary only. A
+strategic recommendation is dropped (`prose / recommendation-dropped`) when
+it treats a met requirement as a gap ("gain experience with Docker" for a
+CV that shows it), calls a requirement under "Not shown in your CV" a gap,
+or offers willingness to learn for a requirement whose posting accepts no
+such alternative.
+ A requirement is named in prose by one
+of its key terms in full: since M8-H "Ruby" alone no longer names "Ruby on
+Rails".
 
 The analysis is written in English, whatever the language of the CV or the
 posting (owner decision, M8-D; one line of the prompt). Quotes stay
@@ -483,10 +529,15 @@ shown in your CV" when there are any.
 The analysis page lists `not_evident` items in their own group, "Not shown
 in your CV", with "Mention it in your cover letter or be ready to talk about
 it in the interview." The required and preferred groups and their counts
-leave them out. Under each requirement it lists the key terms with ✓ or ✗
-and the CV word when it differs ("PostgreSQL ✓ (Postgres)"); for an `any`
-requirement with a match, only the shown terms. Quotes are shown without a
+leave them out. Under each requirement it lists every key term with ✓ or ✗
+and the CV word when it differs ("PostgreSQL ✓ (Postgres)"), alternatives
+joined by "or" ("C# ✓ or Python ✗") and the rest by "·"; the posting's
+examples go on a line of their own after "e.g." ("e.g. Kafka ✗ · SQS ✓"),
+where they cannot read as the requirement (M8-H). A row under "Not shown in
+your CV" lists no terms: no CV can show those, and "English ✓" there
+contradicted the group (M8-H); its note stays. Quotes are shown without a
 leading bullet marker; the stored quote stays verbatim.
+
 
 The interviewer gets `not_evident` items as `{{requirements_not_evident}}`,
 a list apart from the gaps that the agent may ask about once the gaps are
@@ -591,13 +642,14 @@ captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
 a difference means the model behind the alias moved. The reference is
-`m8g-final-s7` (the `es-posting` fixture read from its PDF, which exercises
-the English-only rule, the stated language levels, the years statement and
-the outcome sentences): `npm run eval -- canary m8g-final-s7`. It was
-captured live on the paid standard tier on 2026-11-10, the tier production
-uses, and a second call matched it byte for byte; the canary runs on the
-tier its reference was captured on (`--tier` overrides it), so it costs
-one standard call (about USD 0.013).
+`m8h-final-s7` (the `es-posting` fixture read from its PDF, which exercises
+the English-only rule, the stated language levels, the years statement,
+the outcome sentences, key-term relations and posting-word titles): `npm
+run eval -- canary m8h-final-s7`. It was captured live on the paid standard
+tier on 2026-11-10, the tier production uses, and a second call on the free
+tier (`--tier free`, no cost) matched it byte for byte; the canary runs on
+the tier its reference was captured on unless `--tier` says otherwise, so
+by default it costs one standard call (about USD 0.014).
 
 The alias moves within days and sometimes within hours. On 2026-11-05 the
 M8-C code dropped every requirement of `long-boilerplate`, which it had

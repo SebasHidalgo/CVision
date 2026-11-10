@@ -119,13 +119,17 @@ synthetic fixtures free, about USD 0.0075 per real analysis at Flex).
    plain responsibilities drop; kind from the posting's heading and
    softening words; a softened clause of a required item becomes its own
    preferred item; a preferred item is the clause its softening word is in
-   (M8-F); the requirement keeps the posting's spelling and language; key
-   terms must be in the quote.
+   (M8-F); the row's title is the posting's own line, cut to the part the
+   model's line covers (M8-H); key terms must be in the quote; `any` over
+   subjects joined by "and" or "including" becomes `all` (M8-H).
 3. **CV quotes**: every quote is checked against the CV text; an invented
    figure in a suggested bullet becomes a placeholder.
 4. **Statuses**, in order: key-term coverage caps, after the quote's own
    alternatives are added and with no cap while one cannot be looked up
-   (M8-G), and with a degree's match moved to the posting's "related field";
+   (M8-G), with a degree's match moved to the posting's "related field",
+   with a match the model calls `related` dropped (an adjacent group caps
+   at `partial`), and with examples apart: they never cap by themselves,
+   and one shown shows its category (M8-H);
    years (the CV's stated
    total for a role, the quoted roles for a skill, never raising a
    `missing`); a verified match is evidence; met and partial need a quote;
@@ -140,8 +144,9 @@ synthetic fixtures free, about USD 0.0075 per real analysis at Flex).
    their own figures; ATS problems need a CV quote; the headline and the
    outcome sentences of the job-fit paragraph are written from the
    statuses, and a recommendation that argues another status is dropped
-   (M8-G); prose in another language is asked for again once; control
-   characters go.
+   (M8-G); the model's advice stays unless it contradicts a status, and a
+   requirement is named in prose by a full key term (M8-H); prose in
+   another language is asked for again once; control characters go.
 
 ## Tried and rejected
 
@@ -167,6 +172,15 @@ synthetic fixtures free, about USD 0.0075 per real analysis at Flex).
   outside degrees at 32 → 38; the comment stays because its other half,
   "every alternative the posting offers", took gold key terms named from
   14/17 to 17/17.
+- **Capping on "related" as "missing"** (M8-H, the first form of the
+  relation rule). Live, it turned a met "4+ years building web
+  applications" into missing because the model called a patient portal
+  "related"; a related-only group now caps at `partial`.
+- **A second wording of the relation comment** (M8-H). "A case of the term
+  is same; a neighbour, a quality or a wider field is related" changed
+  none of the over-strict labels it was written for (A/B tests for
+  experiment design, in both Spanish fixtures). It stays: the first live
+  run had no direction at all.
 - **Asking the repair to copy the listed requirement** for a restating line
   (M8-F): ignored 6 of 6. The detector reads a colon-announced line as part
   of its item, and the repair says `detailOf` instead (M8-G).
@@ -188,6 +202,7 @@ each step bought.
 | M8-E | LaTeX accents at extraction, ATS quotes, skill years | artifacts on the owner's CV 2 → 0; real recall 100 → 97% (the Encora degree) |
 | M8-F | coverage detector and repair, the preferred-clause rule, read fixes | real recall 97 → 100%, telecom false met 5/6 → 0/6; real precision 100 → 94% |
 | M8-G | spend caps; restatements merged; quote alternatives and related fields; outcome prose in code | below |
+| M8-H | a relation per key term; examples apart from the requirement; rows in the posting's words; advice kept | below |
 
 M8-F, control `a730eb1` against the final code, 2026-11-09: seed 7 on all
 18 fixtures plus five unseeded runs of the two real postings and the six
@@ -270,19 +285,76 @@ alternative and finding loose matches for some ("distributed systems ✓
 (scalable)"). The live phase spent USD 0.25 (Flex 0.23, standard 0.03 for
 the canary, 107 free calls).
 
+M8-H, 2026-11-10. First every rule after the model was replayed over
+M8-G's 124 stored answers of both arms (no calls). Those answers carry no
+relation, so they measure the examples rule, the titles and the prose
+filters: synthetic precision 98 → 100% (the seven "splits" were the
+scorer reading the model's rewritten titles), synthetic status 339 →
+339/341 on the new arm's answers and 334 → 333/335 on the control's (the
+`linkedin-mixed` cloud-warehouse item, whose terms were only examples:
+missing → partial), real status 108 → 108/112 and 107 → 111/112 (the
+Microsoft cloud item, missing → partial, which the gold now holds). A
+replay with each stored ✓ labelled as M8-G's reading would label it
+moved 16 statuses from met to partial, none against a gold status but
+two artifacts of answers that never matched the other alternative.
+Then live, because the prompt and the schema changed: control `853236b`
+against the final code, the `quick` suite plus seed 7 on the other 12
+synthetic fixtures and two unseeded runs of each real posting, 22
+analyses per arm; synthetic on the free key, real on Flex. The new arm's
+rules are scored on a replay of its live answers through the final
+commit, whose prompt is the same.
+
+| | control | M8-H |
+|---|---|---|
+| synthetic recall (uncontested) / hidden | 99% (100%) / 2/2 | 99% (100%) / 2/2 |
+| precision | 98% (2 splits, 2 merges) | 100% (none) |
+| kind | 129/129 + 51/51 | 129/129 + 51/51 |
+| synthetic status | 120/121 | 114/121, 0 swaps |
+| real status | 40/42 | 42/42 |
+| real gold key terms named / judged right | 36/51 / 32 | 43/51 / 42 |
+| stretched ✓ (read one by one) | 11, plus one unread | 1 |
+| matches dropped as `related` (read) | none | 21: 11 right, 9 wrong, 1 debatable |
+| real years within half a year | 6/6 | 6/6 |
+| Microsoft "Not shown" items per run | 2 in 3 of 3 | 2 in 3 of 3 |
+| repairs | none | 1 (Encora skipped 4 lines; all recovered) |
+| cost at standard prices / latency | USD 0.0123 / 10.7 s | USD 0.0124 / 10.1 s |
+
+The seven synthetic errors are all "partial" where the gold says met: five
+matches the model wrongly called `related` (A/B tests for experiment
+design twice, "zero-downtime migrations" for migrations at scale, "Wrote
+copy" for written communication, a patient portal for web applications)
+and two subjects the model now names but cannot match ("analysts" in
+"explain trade-offs to analysts and product managers", "schema design").
+The relation label is about as reliable as the match it replaced: of 21
+drops, 11 removed a real stretch and 9 removed a real match. The
+examples rule avoided one cap on the control's own answers (the
+Microsoft cloud item, now right). Of the 155 sentences M8-G dropped from
+the stored answers, 30 were advice that contradicted nothing and stay;
+9 advice sentences are dropped for a contradiction (an item under "Not
+shown" called a gap, 7; Rails called absent while partial, 1;
+willingness for Rails, 1) and 115 outcome sentences stay dropped. In the
+live runs 13 outcome sentences and one recommendation (Python called a
+gap) were dropped, none of them useful advice. The live phase spent USD
+0.107 (Flex 0.093 over 16 calls, standard 0.014 for the canary, 37 free
+calls); the UTC day it shared with M8-G closed at USD 0.392 of the
+phase's 0.40 cap.
+
 ## Open
 
 - **A requirement in prose outside a qualifications heading** is invisible
   to the detector: the whole `long-boilerplate` posting is prose.
-- **Stretched matches outside degrees.** "large-scale system design ✓
-  (scalable)", "security fundamentals ✓ (authentication)", "distributed
-  systems ✓ (a line about remote teams)", "modelado dimensional ✓
-  (modelado de datos)": 38 in 62 analyses, mostly on preferred items with no
-  gold status, so the totals do not show them; the user does. Words cannot
-  tell them apart (a stretch usually shares a word with its term), and the
-  field comment did not move them. A per-term field saying how the CV word
-  relates (same, synonym, translation, instance, related) with code
-  dropping "related" is the next thing to measure.
+- **The relation label is half right** (M8-H). Stretched ✓ went 11 → 1,
+  but 9 of 21 `related` labels were wrong and cost 5 synthetic statuses
+  (met read as partial). With a perfect labeller the rule costs nothing on
+  the gold (replayed). The choice to make: keep the cap (honest ✓, some
+  false "partly met"), or show related matches without capping (honest ✓,
+  rows that say "Met" above a ✗). One stretch survived as "same": AI
+  development tools ✓ from a CV line about the candidate's own AI product,
+  1 of 3 Microsoft runs.
+- **Subjects the model does not name.** On the Microsoft cloud item it
+  named "cloud platforms" in 1 of 3 runs and "monitoring" and "telemetry"
+  in none; when it does name a subject it cannot match ("analysts",
+  "schema design"), the item reads partial.
 - **The job-fit paragraph can shrink to one sentence** when every sentence
   the model wrote states an outcome (`es-cv-en-job`: "Your CV fully shows 6
   of the 6 required qualifications a CV can show.").
@@ -293,5 +365,7 @@ the canary, 107 free calls).
   in every run of both arms.
 - **The model behind the alias moves.** The interview fixture
   `dodges-two-of-three` scores 70 against its cap of 69 with M8-D, M8-F and
-  M8-G code alike. The canary reference is `m8g-final-s7`, captured live on
-  the standard tier on 2026-11-10 and confirmed unchanged by a second call.
+  M8-G code alike. The canary reference is `m8h-final-s7`, captured live on
+  the standard tier on 2026-11-10 and confirmed unchanged by a second call
+  on the free tier.
+
