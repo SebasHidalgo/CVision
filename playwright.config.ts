@@ -8,7 +8,8 @@ import { BASE_URL, loadEnv } from "./e2e/support/env";
  * ElevenLabs workspace. Webhooks reach the server through the tunnel in
  * E2E_PUBLIC_URL, which must be up for the billing specs.
  *
- *   npm run e2e          the suite (billing, free account, sign-up); no call
+ *   npm run e2e          the suite (billing, free account, sign-up, language),
+ *                        once in English and once in Spanish; no call
  *   npm run e2e:voice    one real voice start, opt-in: it spends seconds of
  *                        platform time and prints the cost
  *   npm run e2e:cleanup  delete every +clerk_test account left behind
@@ -42,6 +43,13 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...chrome },
+      testIgnore: /voice\.spec\.ts/,
+    },
+    {
+      // The same flows with a Spanish browser: the interface, Clerk and the checkout in Spanish,
+      // and an analysis translated at creation. The specs read their copy from locales/.
+      name: "chromium-es",
+      use: { ...chrome, locale: "es-ES" },
       testIgnore: /voice\.spec\.ts/,
     },
     {

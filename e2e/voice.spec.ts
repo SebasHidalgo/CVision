@@ -3,7 +3,11 @@ import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
 import { accountText, mainText, openRoom, runAnalysis, warmRoutes } from "./support/app";
 import { db } from "./support/db";
+import { copyFor } from "./support/copy";
 import { assertSandbox, required } from "./support/env";
+
+// The voice spec runs in English only: the interview's spoken language is not part of the interface switch.
+const t = copyFor("en");
 
 /**
  * One real Start, opt-in (`npm run e2e:voice`): it may spend seconds of
@@ -54,7 +58,7 @@ async function awaitOutcome(page: Parameters<typeof signIn>[0], timeoutMs: numbe
 test("one start on the trial: refused before any charge, failed by the platform and given back, or live and ended at once", async ({ page }) => {
   await signIn(page, account);
   await runAnalysis(page);
-  await openRoom(page);
+  await openRoom(page, t);
   const startedAt = Date.now();
   await page.getByRole("button", { name: /start the interview/i }).click();
 
@@ -65,7 +69,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
     const status = (await page.getByRole("status").first().textContent()) ?? "";
     expect(status).toContain("Voice interviews are temporarily unavailable. Nothing was charged.");
     await expect(page.getByRole("button", { name: /start the interview/i })).toBeEnabled();
-    const text = await accountText(page);
+    const text = await accountText(page, t);
     expect(text).toContain("One free 5-minute practice interview.");
     expect(text).not.toContain("pending return");
     const row = await db.interview.findFirst({ where: { userId: account.id }, orderBy: { createdAt: "desc" } });
@@ -134,10 +138,10 @@ test("one start on the trial: refused before any charge, failed by the platform 
 
 async function waitForAccountTrial(page: Parameters<typeof signIn>[0]): Promise<string> {
   const until = Date.now() + 150_000;
-  let text = await accountText(page);
+  let text = await accountText(page, t);
   while (!/One free 5-minute practice interview\./.test(text) && Date.now() < until) {
     await page.waitForTimeout(5_000);
-    text = await accountText(page);
+    text = await accountText(page, t);
   }
   return text;
 }
