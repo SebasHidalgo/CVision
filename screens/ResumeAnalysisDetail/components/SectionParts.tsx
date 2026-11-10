@@ -1,6 +1,7 @@
 import { Check, Plus, X } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
+import { termDisplay, type TermChip } from "@/lib/ai/requirementGuardrails";
 import { ordinal } from "@/lib/format";
 import type {
   KeyTerms,
@@ -366,8 +367,9 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
         <div className="min-w-0 flex-1">
           <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
           <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
-          {requirement.keyTerms && requirement.keyTerms.terms.length > 0 && (
-            <KeyTermList keyTerms={requirement.keyTerms} />
+          {/* No CV can show these by definition: a ✓ or ✗ here would contradict the group they sit in. */}
+          {requirement.status !== "not_evident" && requirement.keyTerms && requirement.keyTerms.terms.length > 0 && (
+            <KeyTermList keyTerms={requirement.keyTerms} quote={requirement.sourceQuote ?? ""} />
           )}
           {requirement.note && (
             <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
@@ -385,32 +387,45 @@ function RequirementRow({ requirement, label }: { requirement: Requirement; labe
   );
 }
 
-/** "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)": what the posting names, and what the CV shows. */
-function KeyTermList({ keyTerms }: { keyTerms: KeyTerms }) {
-  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-  const shownAny = keyTerms.terms.filter((term) => term.cvMatch.trim() !== "");
-  // Alternatives the candidate does not need are not gaps: once one is shown, only the shown ones are listed.
-  const terms = keyTerms.mode === "any" && shownAny.length > 0 ? shownAny : keyTerms.terms;
+/**
+ * "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)", "C# ✓ or Python ✗", and the posting's examples on a line
+ * of their own ("e.g. Azure ✗ · AWS ✗"): every term the posting names, and what the CV shows.
+ */
+function KeyTermList({ keyTerms, quote }: { keyTerms: KeyTerms; quote: string }) {
+  const { terms, examples } = termDisplay(keyTerms, quote);
 
   return (
-    <ul aria-label="Terms the posting names" className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-2">
-      {terms.map((term, i) => {
-        const shown = term.cvMatch.trim() !== "";
-        return (
-          <li key={`${term.term}-${i}`} className="inline-flex items-center gap-1">
-            {i > 0 && <span aria-hidden className="pr-0.5 text-ink-3">·</span>}
-            <span className="text-ink">{term.term}</span>
-            {shown ? (
-              <Check aria-hidden className="size-3.5 text-strong" />
-            ) : (
-              <X aria-hidden className="size-3.5 text-signal" />
-            )}
-            <span className="sr-only">{shown ? "shown in your CV" : "not in your CV"}</span>
-            {shown && !same(term.cvMatch, term.term) && <span className="text-ink-3">({term.cvMatch})</span>}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="mt-2 space-y-1 text-[13px] text-ink-2">
+      {terms.length > 0 && (
+        <ul aria-label="Terms the posting names" className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          {terms.map((term, i) => (
+            <TermItem key={`${term.term}-${i}`} term={term} />
+          ))}
+        </ul>
+      )}
+      {examples.length > 0 && (
+        <ul aria-label="Examples the posting gives" className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <li className="text-ink-3">e.g.</li>
+          {examples.map((term, i) => (
+            <TermItem key={`${term.term}-${i}`} term={term} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TermItem({ term }: { term: TermChip }) {
+  const same = term.cvMatch.toLowerCase() === term.term.trim().toLowerCase();
+  return (
+    <li className="inline-flex items-center gap-1">
+      {term.joiner === "and" && <span aria-hidden className="pr-0.5 text-ink-3">·</span>}
+      {term.joiner === "or" && <span className="pr-0.5 text-ink-3">or</span>}
+      <span className="text-ink">{term.term}</span>
+      {term.shown ? <Check aria-hidden className="size-3.5 text-strong" /> : <X aria-hidden className="size-3.5 text-signal" />}
+      <span className="sr-only">{term.shown ? "shown in your CV" : "not in your CV"}</span>
+      {term.shown && !same && <span className="text-ink-3">({term.cvMatch})</span>}
+    </li>
   );
 }
 

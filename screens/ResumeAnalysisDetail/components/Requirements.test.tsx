@@ -65,9 +65,10 @@ describe("Requirements", () => {
     expect(text).not.toContain("• Databases");
   });
 
-  it("lists only the shown alternatives of an 'any' requirement, and the advice only when flagged", () => {
+  it("lists every alternative of an 'any' requirement joined by 'or', and the advice only when flagged", () => {
     const requirement: Requirement = {
       ...row("Coding in C, C++ or Python", "required", "met"),
+      sourceQuote: "Coding in C, C++ or Python.",
       evidence: "Languages: C++",
       evidenceSource: "skills",
       skillsOnly: false,
@@ -77,9 +78,48 @@ describe("Requirements", () => {
 
     const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
 
-    expect(text).toContain("C++shown in your CV");
-    expect(text).not.toContain("not in your CV");
+    expect(text).toContain("Cnot in your CVorC++shown in your CVorPythonnot in your CV");
     expect(text).not.toContain(SKILLS_ONLY_ADVICE);
+  });
+
+  it("shows the posting's examples on their own line, after 'e.g.' (M8-H)", () => {
+    const quote = "Familiarity with message queues (e.g., Kafka, RabbitMQ, SQS), including alerting.";
+    const requirement: Requirement = {
+      ...row(quote, "preferred", "partial"),
+      sourceQuote: quote,
+      keyTerms: {
+        mode: "all",
+        terms: [
+          { term: "message queues", cvMatch: "NATS" },
+          { term: "alerting", cvMatch: "" },
+          { term: "Kafka", cvMatch: "" },
+          { term: "SQS", cvMatch: "" },
+        ],
+      },
+    };
+    const tally = { required: { total: 0, met: 0, partial: 0, notShown: 0 }, preferred: { total: 1, met: 0, partial: 1, notShown: 0 } };
+
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+    const text = html.replace(/<[^>]+>/g, "");
+
+    expect(html).toContain('aria-label="Examples the posting gives"');
+    expect(text).toContain("message queuesshown in your CV(NATS)·alertingnot in your CV");
+    expect(text).toContain("e.g.Kafkanot in your CV·SQSnot in your CV");
+  });
+
+  it("shows no ✓ or ✗ under 'Not shown in your CV', and keeps its note", () => {
+    const requirement: Requirement = {
+      ...row("Fluency in English", "required", "not_evident"),
+      note: "Your CV doesn't state your English level.",
+      keyTerms: { mode: "any", terms: [{ term: "English", cvMatch: "English" }] },
+    };
+    const tally = { required: { total: 0, met: 0, partial: 0, notShown: 1 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+
+    expect(html).not.toContain("Terms the posting names");
+    expect(html).not.toContain('class="sr-only">shown in your CV');
+    expect(html).toContain("Your CV doesn&#x27;t state your English level.");
   });
 
   it("shows the summary-only advice on a claim the summary alone makes", () => {
