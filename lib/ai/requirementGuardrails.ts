@@ -307,7 +307,7 @@ export function structureRequirements(
 const RANK: Record<RequirementStatus, number> = { missing: 0, partial: 1, met: 2, not_evident: -1 };
 
 // Between two terms: list items ending in "or" ("C#, Java, JavaScript, or "), or a comma list without "and".
-const OR_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))[^;.()]*?(?:^|[\s,])(?:or|o|u|\/)\s*$/iu;
+const OR_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))[^;.()]*?(?:^|[\s,])(?:or|o|u|\/)(?:\s+(?:a|an|the|un|una))?\s*$/iu;
 const COMMA_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))\s*,[^;.()]*$/iu;
 
 /**

@@ -134,3 +134,16 @@ describe("open alternatives", () => {
     expect(out.unexamined).toEqual([]);
   });
 });
+
+describe("a related field in an 'all' list", () => {
+  it("is one group with the disciplines it stands for, so it satisfies the degree", () => {
+    const quote = "Master's degree in Chemistry, Biology, or a related field.";
+    const moved = withRelatedField({ mode: "all", terms: [{ term: "Chemistry", cvMatch: "Biochemical Engineering" }] }, quote, "p");
+    const { requirements } = enforceRequirementStatuses(
+      [{ requirement: quote, sourceQuote: quote, kind: "required", status: "met", evidence: "MSc Biochemical Engineering", note: "", assessable: true, keyTerms: moved.keyTerms }],
+      { pending: [{ yearsEvidence: [] }], cvText: "MSc Biochemical Engineering, 2020.", now: new Date("2026-11-10T00:00:00Z") },
+    );
+    expect(requirements[0].status).toBe("met");
+    expect(requirements[0].keyTerms?.terms).toEqual([{ term: "related field", cvMatch: "Biochemical Engineering" }]);
+  });
+});

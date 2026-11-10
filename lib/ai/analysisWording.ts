@@ -24,6 +24,7 @@ type Wording = {
   moreInList: (count: number) => string;
   forInterview: (count: number) => string;
   preferredNotShown: (list: string) => string;
+  notShownAsAsked: (label: string) => string;
 };
 
 export const WORDING: Record<AnalysisLanguage, Wording> = {
@@ -53,6 +54,7 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     moreInList: (count) => `${count} more ${count === 1 ? "gap is" : "gaps are"} in the list below.`,
     forInterview: (count) => `${count === 1 ? "One required item" : `${count} required items`} no CV can show ${count === 1 ? "is" : "are"} under "Not shown in your CV"; expect ${count === 1 ? "it" : "them"} in the interview or the hiring process.`,
     preferredNotShown: (list) => `Preferred and not shown: ${list}.`,
+    notShownAsAsked: (label) => `Not shown as asked: ${label}.`,
   },
   es: {
     and: "y",
@@ -81,5 +83,6 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
     moreInList: (count) => `${count} ${count === 1 ? "brecha más está" : "brechas más están"} en la lista de abajo.`,
     forInterview: (count) => `${count === 1 ? "Un requisito obligatorio" : `${count} requisitos obligatorios`} que ningún CV puede mostrar ${count === 1 ? "está" : "están"} en "No aparece en tu CV"; espéralos en la entrevista o en el proceso de selección.`,
     preferredNotShown: (list) => `Deseables que no aparecen: ${list}.`,
+    notShownAsAsked: (label) => `No aparece como se pide: ${label}.`,
   },
 };

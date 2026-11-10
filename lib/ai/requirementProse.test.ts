@@ -77,3 +77,10 @@ describe("guardRecommendations", () => {
     expect(interventions.map((one) => one.replacement)).toEqual(["willingness the posting does not accept", "a met requirement as a gap"]);
   });
 });
+
+describe("guardRecommendations: other willingness", () => {
+  it("keeps willingness to relocate: only willingness to learn is an alternative", () => {
+    const relocation = item({ requirement: "Relocation to Lyon", sourceQuote: "Relocation to Lyon.", status: "not_evident", assessable: false, keyTerms: { mode: "all", terms: [{ term: "Lyon", cvMatch: "" }] } });
+    expect(guardRecommendations(["State your willingness to relocate to Lyon in the summary."], [relocation]).recommendations).toHaveLength(1);
+  });
+});

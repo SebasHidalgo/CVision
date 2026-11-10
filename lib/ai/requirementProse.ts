@@ -23,7 +23,7 @@ function gapSentence(requirement: Requirement, language: AnalysisLanguage): stri
   if (absent && has.length) return words.shownButNot(has.join(` ${words.and} `), absent);
   if (absent) return (requirement.keyTerms?.mode === "any" && (requirement.keyTerms?.terms.length ?? 0) > 1 ? words.noneOf : words.notShown)(absent);
   const label = gapLabel(requirement, language);
-  return requirement.status === "partial" ? words.partlyMet(label) : words.notShown(label);
+  return requirement.status === "partial" ? words.partlyMet(label) : words.notShownAsAsked(label);
 }
 
 /** The outcome sentences of jobFit.description: how many required items are shown, the gaps, and what no CV shows. */
@@ -99,7 +99,9 @@ export function withOutcomeProse(description: string, requirements: Requirement[
 
 // Words that treat a thing as absent; "your certification" or "highlight" do not.
 const IMPLIES_GAP = /\b(?:gaps?|lacks?|lacking|missing|(?:start|begin) learning|learn (?:it|them|the basics)|take a course|gain (?:experience|exposure|skills)|build (?:experience|skills) (?:in|with)|get (?:experience|certified)|upskill\w*|close the gap|no experience)\b/i;
-const OFFERS_WILLINGNESS = /\b(?:willing\w*|eager to learn|open to learn\w*|keen to learn|readiness to learn|disposici\p{L}+|ganas de aprender)\b/iu;
+// Willingness to learn, not to relocate or travel: only the first is an alternative a posting may accept.
+const OFFERS_WILLINGNESS =
+  /\b(?:willing(?:ness)? to (?:learn|pick up|work with)|eager to learn|open to learn\w*|keen to learn|readiness to learn|disposici\p{L}+ (?:a|para) aprender|ganas de aprender)\b/iu;
 
 /**
  * Drops a recommendation that contradicts the statuses: one that treats a met requirement as a gap,
