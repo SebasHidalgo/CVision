@@ -15,6 +15,8 @@ import { rateLimitDetails } from "@/lib/ai/client";
 import { costOf, type Tier } from "./pricing";
 import { fail, RUNS_DIR } from "./shared";
 
+type Env = Record<string, string | undefined>;
+
 export const FREE_KEY_ENV = "GOOGLE_GENERATIVE_AI_API_KEY_FREE";
 export const DEFAULT_BUDGET = { perRunUsd: 0.5, perDayUsd: 1 } as const;
 // Free-tier limits for this model are not published; one call every 6 s stays under 10 RPM.
@@ -43,7 +45,7 @@ export type SpendRow = {
 export const utcDay = (date = new Date()) => date.toISOString().slice(0, 10);
 
 /** The roadmap phase a label belongs to: EVAL_PHASE, else its "m8g"-style prefix. */
-export function phaseOf(label: string, env: Record<string, string | undefined> = process.env): string {
+export function phaseOf(label: string, env: Env = process.env): string {
   const set = env.EVAL_PHASE?.trim();
   if (set) return set;
   const canary = label.replace(/^canary-/, "");
@@ -66,7 +68,7 @@ export function appendLedger(rows: SpendRow[], file = ledgerFile()) {
 
 export type Budget = { perRunUsd: number; perDayUsd: number };
 
-export function readBudget(env: NodeJS.ProcessEnv = process.env): Budget {
+export function readBudget(env: Env = process.env): Budget {
   const read = (name: string, fallback: number) => {
     const raw = env[name]?.trim();
     if (!raw) return fallback;
@@ -145,7 +147,7 @@ export function estimateUsd(rows: SpendRow[], fixture: string, workload: Workloa
 
 // ---------------------------------------------------------------- routing
 
-export function paidTier(env: NodeJS.ProcessEnv = process.env): Tier {
+export function paidTier(env: Env = process.env): Tier {
   const raw = env.EVAL_PAID_TIER?.trim() || "flex";
   if (raw !== "flex" && raw !== "standard") fail(`EVAL_PAID_TIER must be flex or standard, not "${raw}".`);
   return raw;
@@ -161,7 +163,7 @@ export function parseTier(raw: string | true | undefined): Tier | undefined {
 export function planTier(
   source: string,
   override: Tier | undefined,
-  env: NodeJS.ProcessEnv = process.env,
+  env: Env = process.env,
 ): { tier: Tier; note?: string } {
   const hasFree = Boolean(env[FREE_KEY_ENV]?.trim());
   if (source !== "synthetic") {
