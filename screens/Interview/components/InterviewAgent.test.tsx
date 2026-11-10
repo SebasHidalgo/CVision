@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
+import { createI18n } from "@/lib/i18n/instance";
+import { RESOURCES } from "@/lib/i18n/resources";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DisconnectionDetails } from "@elevenlabs/react";
+import { I18nextProvider } from "react-i18next";
 import InterviewAgent, { type InterviewAgentProps } from "./InterviewAgent";
 
 /**
@@ -347,9 +350,10 @@ describe("InterviewAgent: during the call", () => {
     expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("counts down from the session's limit, warning at one minute and again in the last ten seconds, in the session's language", async () => {
+  it("counts down from the session's limit, warning at one minute and again in the last ten seconds, in the interface language", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    // A Spanish session in an English interface: the warnings are interface copy.
     respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 75 } });
     render(<InterviewAgent {...props} />);
     await clickStart();
@@ -364,18 +368,40 @@ describe("InterviewAgent: during the call", () => {
       vi.advanceTimersByTime(15_000);
     });
     expect(screen.getByLabelText("Time left").textContent).toBe("1:00");
-    expect(screen.getByRole("status").textContent).toMatch(/queda un minuto/i);
+    expect(screen.getByRole("status").textContent).toMatch(/one minute left/i);
 
     act(() => {
       vi.advanceTimersByTime(50_000);
     });
     expect(screen.getByLabelText("Time left").textContent).toBe("0:10");
-    expect(screen.getByRole("status").textContent).toMatch(/se acabó el tiempo/i);
+    expect(screen.getByRole("status").textContent).toMatch(/time is up/i);
 
     act(() => {
       vi.advanceTimersByTime(30_000);
     });
     expect(screen.getByLabelText("Time left").textContent).toBe("0:00");
+  });
+
+  it("speaks the interface's Spanish while the session keeps the language the server issued", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, language: "en", maxDurationSeconds: 60 } });
+    render(
+      <I18nextProvider i18n={createI18n("es", RESOURCES.es)}>
+        <InterviewAgent {...props} />
+      </I18nextProvider>,
+    );
+    expect(screen.getByText("Hasta 12 minutos")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /empezar la entrevista/i }));
+    });
+    expect(sdk.startSession).toHaveBeenCalledWith(expect.objectContaining({ overrides: { agent: { language: "en" } } }));
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+
+    expect(screen.getByLabelText("Tiempo restante").textContent).toBe("1:00");
+    expect(screen.getByRole("status").textContent).toMatch(/queda un minuto/i);
   });
 });
 

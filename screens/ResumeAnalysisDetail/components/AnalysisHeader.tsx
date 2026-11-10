@@ -1,9 +1,10 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import VerdictReadout from "@/components/score/VerdictReadout";
+import { getT } from "@/lib/i18n/server";
 import type { InterviewQuotaView } from "@/lib/plans";
 import type { FitVerdict } from "@/lib/schemas/resumeSchema";
-import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
+import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
 import ResumeDrawer from "./ResumeDrawer";
@@ -28,7 +29,7 @@ type AnalysisHeaderProps = {
  * a 0-100 there would claim a precision we do not have. Its counts are printed
  * beside it so the arithmetic is open to inspection.
  */
-export default function AnalysisHeader({
+export default async function AnalysisHeader({
   companyName,
   jobTitle,
   date,
@@ -39,11 +40,14 @@ export default function AnalysisHeader({
   attempts,
   quota,
 }: AnalysisHeaderProps) {
+  const [t, common] = await Promise.all([getT("analysis"), getT("common")]);
+  const qualityTone = scoreTone(qualityScore);
+
   return (
     <header className="border-b border-line pb-10 lg:pb-12">
       <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-7">
-          <Eyebrow tick>Analysis · {date}</Eyebrow>
+          <Eyebrow tick>{t("header.eyebrow", { date })}</Eyebrow>
           <p className="mt-6 text-lg text-ink-2">{companyName}</p>
           <h1 className="display-lg mt-1 text-ink">{jobTitle}</h1>
         </div>
@@ -57,19 +61,19 @@ export default function AnalysisHeader({
       <div className="mt-10 flex items-center gap-4 sm:max-w-md">
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="eyebrow">Resume quality, on its own</h2>
+            <h2 className="eyebrow">{t("header.quality")}</h2>
             <span className="figure text-2xl text-ink tabular">{qualityScore}</span>
           </div>
           <ScoreMeter
             score={qualityScore}
             size="sm"
-            label="Resume quality"
+            label={t("header.qualityMeter")}
             reveal="mount"
             delay={0.3}
             className="mt-2"
           />
-          <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[scoreTone(qualityScore)].text}`}>
-            {TONE_LABEL[scoreTone(qualityScore)]} · the part you can change by editing
+          <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[qualityTone].text}`}>
+            {t("header.qualityNote", { tone: common(toneKey("tone", qualityTone)) })}
           </p>
         </div>
       </div>

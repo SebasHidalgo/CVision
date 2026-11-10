@@ -3,6 +3,7 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 type ThemeToggleProps = {
@@ -15,6 +16,7 @@ const ICON =
 /** Light ↔ dark. The switch itself crossfades the page via View Transitions. */
 export default function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation("common");
   // The theme is unknown during SSR; render the slot, not a wrong icon.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -48,7 +50,7 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
     <button
       type="button"
       onClick={toggle}
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={dark ? t("theme.toLight") : t("theme.toDark")}
       className={cn(
         "relative flex size-9 cursor-pointer items-center justify-center rounded-md text-ink-2 transition-colors duration-200 hover:bg-paper-2 hover:text-ink",
         className,

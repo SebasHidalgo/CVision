@@ -7,6 +7,9 @@ import type { PriceKey } from "./types";
  * script pushes it to the provider, the pricing page reads it, and the
  * webhook maps the provider's price ids back to these keys. One place, so
  * the price on the page and the price at checkout cannot disagree.
+ * Names and descriptions are single-language product data (the provider
+ * shows them at checkout and on invoices); the page's own copy, the plan
+ * promises included, is in locales/<locale>/pricing.json.
  *
  * The wording describes the product as what it is: a self-assessment and
  * practice tool a job seeker uses on their own CV and their own interview
@@ -26,8 +29,6 @@ export type CatalogProduct = {
   amountMinor: string;
   /** Null for a one-time purchase. */
   interval: "month" | null;
-  /** The amount in major units, for the page. */
-  amountLabel: string;
   /**
    * Interview credits one unit of this price grants, for a pack. Read at
    * the time a completed transaction's event is applied and stored on the
@@ -45,7 +46,6 @@ export const CATALOG: Record<PriceKey, CatalogProduct> = {
       `Monthly subscription to ${BRAND.name} Pro, a self-assessment and practice tool for job seekers: unlimited checks of your own CV against job postings, ${PLANS.PRO.interviewsPerMonth} practice interviews a month with an AI voice interviewer (up to 12 minutes each), and your full history.`,
     amountMinor: "1500",
     interval: "month",
-    amountLabel: "$15",
   },
   interview_pack: {
     key: "interview_pack",
@@ -53,22 +53,6 @@ export const CATALOG: Record<PriceKey, CatalogProduct> = {
     description: `One-time pack of ${INTERVIEW_PACK_CREDITS} voice interviews, up to 12 minutes each, with the AI voice interviewer: extra practice for ${BRAND.name} Pro subscribers. The credits never expire and stay usable after the subscription ends.`,
     amountMinor: "900",
     interval: null,
-    amountLabel: "$9",
     credits: INTERVIEW_PACK_CREDITS,
   },
 };
-
-/** What the pricing page promises, in the order it lists them. Exactly the owner's table, nothing more. */
-export const PLAN_PROMISES = {
-  FREE: [
-    "3 CV checks per month",
-    "One 5-minute practice interview with the AI interviewer",
-    "Your last 3 analyses",
-  ],
-  PRO: [
-    "Unlimited CV analyses",
-    `${PLANS.PRO.interviewsPerMonth} voice interviews per month, up to 12 minutes`,
-    `Interview packs: ${INTERVIEW_PACK_CREDITS} more for ${CATALOG.interview_pack.amountLabel}`,
-    "Your full history",
-  ],
-} as const;

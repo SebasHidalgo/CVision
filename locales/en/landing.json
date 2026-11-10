@@ -1,0 +1,99 @@
+{
+  "cta": {
+    "analyze": "Analyze my CV"
+  },
+  "hero": {
+    "eyebrow": "CV × job fit, measured",
+    "title": "Does your CV <underline>actually fit</underline> the job?",
+    "lede": "Paste the posting, upload your CV, and get a frank read of your own application: what matches, what's missing, and what to fix first. Then practice the interview out loud with an AI interviewer.",
+    "howLink": "See how it works",
+    "contents": {
+      "fitScore": "Fit score",
+      "fixes": "Priority fixes",
+      "interview": "Voice mock interview"
+    }
+  },
+  "specimen": {
+    "caption": "Sample analysis",
+    "role": "Frontend Engineer · Northwind",
+    "experience": "Experience",
+    "note": "← add a number",
+    "skills": "Skills vs. posting",
+    "skillNames": {
+      "typescript": "TypeScript",
+      "react": "React",
+      "graphql": "GraphQL",
+      "testing": "Testing",
+      "accessibility": "Accessibility"
+    },
+    "fit": "Fit",
+    "meterLabel": "Sample fit score"
+  },
+  "how": {
+    "eyebrow": "How it works",
+    "title": "Three steps. About a minute.",
+    "aside": "Runs while you wait. Sign in and go.",
+    "steps": {
+      "paste": {
+        "title": "Paste the job",
+        "body": "Company, title and the full description, straight from the posting. That is the yardstick everything gets measured against."
+      },
+      "upload": {
+        "title": "Upload your CV",
+        "body": "One PDF. We read its text layer and compare it with the job, requirement by requirement."
+      },
+      "verdict": {
+        "title": "Get the verdict",
+        "body": "A fit score, six scored dimensions and the fixes that move the needle most. Then rehearse the interview for that same job."
+      }
+    }
+  },
+  "dimensions": {
+    "eyebrow": "What gets measured",
+    "title": "Six readings, one verdict.",
+    "lede": "Each dimension gets its own score, its evidence, and the concrete changes that would raise it. The global fit score is the headline; these are the reasons.",
+    "items": {
+      "ats": {
+        "name": "ATS compatibility",
+        "body": "Whether an applicant tracking system can parse it at all: section headers, dates, structure."
+      },
+      "experience": {
+        "name": "Experience & impact",
+        "body": "Do your bullets show outcomes and scope, or only duties? Suggested rewrites included."
+      },
+      "skills": {
+        "name": "Skills",
+        "body": "Which required skills you prove with evidence, which you only name, and which are missing."
+      },
+      "education": {
+        "name": "Education & certifications",
+        "body": "What counts for this role and what would be worth adding."
+      },
+      "tone": {
+        "name": "Tone & clarity",
+        "body": "Readability, tense, jargon, and how fast a reader gets the point."
+      },
+      "jobFit": {
+        "name": "Job fit",
+        "body": "Keyword and requirement overlap with this specific posting, plus the strategic moves."
+      }
+    }
+  },
+  "interview": {
+    "eyebrow": "Then, out loud",
+    "title": "Rehearse the interview before the real one.",
+    "lede": "An AI voice interviewer built from the same job post asks the questions that posting invites, and digs into the gaps your analysis found. You answer out loud, on your laptop or your phone. When you end the call, you get a score on five things, how each gap went in your own words, and the transcript. It is practice, for you: nobody else hears it.",
+    "listening": "Interviewer is listening",
+    "categories": {
+      "communicationSkills": "Communication Skills",
+      "technicalKnowledge": "Technical Knowledge",
+      "problemSolving": "Problem Solving",
+      "culturalFit": "Cultural Fit",
+      "confidenceAndClarity": "Confidence and Clarity"
+    }
+  },
+  "finalCta": {
+    "title": "Your next application deserves a second opinion.",
+    "note": "One PDF. About a minute."
+  }
+}

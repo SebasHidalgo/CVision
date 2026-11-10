@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Loader2, Mic, RotateCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
+import { useErrorCopy, useResetDate } from "@/hooks/useErrorCopy";
 import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
 import { INTERVIEW_PACK_CREDITS, type InterviewQuotaView } from "@/lib/plans";
@@ -64,17 +65,6 @@ export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): Int
   }
 }
 
-/** "3 credits left": what a Free account with pack credits sees under the button. */
-export function creditsLine(credits: number): string {
-  return `${credits} credit${credits === 1 ? "" : "s"} left`;
-}
-
-/** "3 of 4 interviews left this period · 5 credits": the period's allowance, then the credits when there are any. */
-export function proAllowanceLine(offer: Extract<InterviewOffer, { kind: "pro" }>): string {
-  const credits = offer.credits > 0 ? ` · ${offer.credits} credit${offer.credits === 1 ? "" : "s"}` : "";
-  return `${offer.left} of ${offer.limit} interviews left this period${credits}`;
-}
-
 export default function InterviewCta({
   resumeId,
   jobTitle,
@@ -84,6 +74,9 @@ export default function InterviewCta({
   children,
 }: InterviewCtaProps) {
   const router = useRouter();
+  const { t } = useTranslation("analysis");
+  const errorCopy = useErrorCopy();
+  const resetDate = useResetDate();
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreate = async () => {
@@ -99,13 +92,13 @@ export default function InterviewCta({
         return;
       }
 
-      toast.error(actionErrorCopy(result.code, result.meta));
+      toast.error(errorCopy(result.code, result.meta));
       // A quota refusal means the page's view is stale: re-read it.
       if (result.code === "INTERVIEW_QUOTA_EXCEEDED") router.refresh();
     } catch {
       // Rejected rather than returned: network drop, platform 413/504, or a
       // stale deployment.
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+      toast.error(errorCopy("REQUEST_FAILED"));
     }
 
     setIsCreating(false);
@@ -124,7 +117,7 @@ export default function InterviewCta({
       {isCreating ? (
         <>
           <Loader2 className="size-4 animate-spin" />
-          Preparing the interview…
+          {t("cta.preparing")}
         </>
       ) : (
         <>
@@ -135,79 +128,88 @@ export default function InterviewCta({
     </Button>
   );
 
+  // A live attempt is always in the "ready" phase: its link goes to the room.
   const control = live ? (
     <Button asChild className={buttonClasses}>
       <Link href={interviewDestination(live).href}>
-        {interviewDestination(live).label}
+        {t("cta.openRoom")}
         <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
       </Link>
     </Button>
   ) : offer.kind === "trial" ? (
-    startButton(`Try a ${TRIAL_MINUTES}-minute interview, free`, <Mic className="size-4" />)
+    startButton(t("cta.tryTrial", { minutes: TRIAL_MINUTES }), <Mic className="size-4" />)
   ) : offer.kind === "pro" || offer.kind === "credits" ? (
     startButton(
-      rehearsed ? "Rehearse again" : "Rehearse the interview",
+      rehearsed ? t("cta.rehearseAgain") : t("cta.rehearse"),
       rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
     )
   ) : offer.kind === "pro-exhausted" ? (
     <div className="flex flex-col items-start gap-2 md:items-end">
       <p className="text-sm font-medium text-ink">
-        {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
+        {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
       </p>
       <Link href="/account/billing" className="link-rule text-sm text-ink-2">
-        Get {INTERVIEW_PACK_CREDITS} more interviews
+        {t("cta.getMore", { count: INTERVIEW_PACK_CREDITS })}
       </Link>
     </div>
   ) : (
     <p className="flex h-11 items-center text-sm font-medium text-ink">
-      {actionErrorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
+      {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
     </p>
   );
 
-  // The line under the control: what the plan allows, never Pro's analyses.
-  const note =
+  // The line under the control: what the plan allows, never Pro's analyses. Facts joined by " · ".
+  const length = t("cta.note.length", { minutes: FULL_MINUTES });
+  const microphone = t("cta.note.microphone");
+  const facts =
     offer.kind === "trial"
-      ? `${TRIAL_MINUTES} minutes with the interviewer, on us · needs a microphone · works on a phone`
+      ? [t("cta.note.trial", { minutes: TRIAL_MINUTES }), microphone, t("cta.note.phone")]
       : offer.kind === "pro"
-        ? `${proAllowanceLine(offer)} · up to ${FULL_MINUTES} minutes · needs a microphone`
+        ? [
+            t("cta.note.period", { count: offer.left, limit: offer.limit }),
+            ...(offer.credits > 0 ? [t("cta.note.credits", { count: offer.credits })] : []),
+            length,
+            microphone,
+          ]
         : offer.kind === "credits"
-          ? `${creditsLine(offer.credits)} · up to ${FULL_MINUTES} minutes · needs a microphone`
+          ? [t("cta.note.creditsLeft", { count: offer.credits }), length, microphone]
           : null;
+  const note = facts?.join(" · ") ?? null;
 
   if (variant === "compact") return control;
 
   const heading =
     offer.kind === "live"
-      ? "Your interview is ready."
+      ? t("cta.heading.live")
       : offer.kind === "trial"
-        ? `Try the ${jobTitle} interview out loud.`
+        ? t("cta.heading.trial", { jobTitle })
         : offer.kind === "needs-pro"
-          ? "Rehearse this interview out loud, with Pro."
+          ? t("cta.heading.needsPro")
           : offer.kind === "pro-exhausted"
-            ? "This period's interviews are used."
+            ? t("cta.heading.proExhausted")
             : rehearsed
-              ? "Rehearse it again."
-              : `Rehearse the ${jobTitle} interview out loud.`;
+              ? t("cta.heading.again")
+              : t("cta.heading.first", { jobTitle });
 
   const lede =
     offer.kind === "live"
-      ? "An attempt is waiting in the room. Finish it, and the feedback lands here."
+      ? t("cta.lede.live")
       : offer.kind === "trial"
-        ? `A voice interviewer built from this exact posting asks about the gaps your analysis found, you answer out loud, and you get scored on what you said. Your free trial runs ${TRIAL_MINUTES} minutes.`
+        ? t("cta.lede.trial", { minutes: TRIAL_MINUTES })
         : offer.kind === "needs-pro"
-          ? "You used the free trial. Pro interviews run twelve minutes, four a month, each scored against this posting and the gaps your analysis found."
+          ? t("cta.lede.needsPro")
           : offer.kind === "pro-exhausted"
-            ? `Every rehearsal is scored against the same posting and the same gaps. The next ones come back ${resetDateCopy(offer.resetsAt)}.`
+            ? t("cta.lede.proExhausted", { date: resetDate(offer.resetsAt) })
             : rehearsed
-              ? "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed."
-              : "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript.";
+              ? t("cta.lede.again")
+              : t("cta.lede.first");
 
   return (
     <section
       aria-labelledby="interview-cta-title"
       className="mt-6 border-t border-line pt-12 lg:pt-16"
     >
-      <Eyebrow tick>Next</Eyebrow>
+      <Eyebrow tick>{t("cta.eyebrow")}</Eyebrow>
       <div className="mt-5 grid gap-8 md:grid-cols-12 md:items-end">
         <div className="md:col-span-8">
           <h2 id="interview-cta-title" className="display-md text-ink">

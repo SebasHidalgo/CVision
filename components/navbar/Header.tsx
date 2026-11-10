@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
+import LocaleSwitcher from "@/components/i18n/LocaleSwitcher";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,7 @@ import UserDropdown from "./UserDropdown";
 
 export function Header() {
   const pathname = usePathname();
+  const { t } = useTranslation("common");
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-[6px]">
@@ -22,7 +25,7 @@ export function Header() {
 
         <SignedIn>
           <nav
-            aria-label="Primary"
+            aria-label={t("nav.primary")}
             className="hidden items-center gap-8 md:flex"
           >
             {PRIMARY_NAV.map((item) => {
@@ -37,7 +40,7 @@ export function Header() {
                     active && "text-ink",
                   )}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                   <span
                     aria-hidden
                     className={cn(
@@ -51,12 +54,13 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <LocaleSwitcher className="hidden sm:flex" />
             <ThemeToggle />
             <Button asChild size="sm" className="h-9 gap-1.5 px-3.5">
               <Link href="/resume/upload">
                 <Plus className="size-4" />
-                <span className="hidden sm:inline">New analysis</span>
-                <span className="sm:hidden">New</span>
+                <span className="hidden sm:inline">{t("nav.newAnalysis")}</span>
+                <span className="sm:hidden">{t("nav.newShort")}</span>
               </Link>
             </Button>
             <UserDropdown />
@@ -73,17 +77,18 @@ export function Header() {
                 pathname.startsWith("/pricing") && "text-ink",
               )}
             >
-              Pricing
+              {t("nav.pricing")}
             </Link>
+            <LocaleSwitcher />
             <ThemeToggle />
             <SignInCta>
               <Button variant="ghost" size="sm" className="h-9 px-3.5">
-                Sign in
+                {t("nav.signIn")}
               </Button>
             </SignInCta>
             <SignInCta forceRedirectUrl="/resume/upload">
               <Button size="sm" className="h-9 px-3.5">
-                Analyze my CV
+                {t("nav.analyzeMyCv")}
               </Button>
             </SignInCta>
           </div>

@@ -1,6 +1,7 @@
 import Eyebrow from "@/components/layout/Eyebrow";
 import Reveal from "@/components/motion/Reveal";
 import { ordinal } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import type { ResumeAnalysisFeedback } from "@/types/resume";
 
@@ -16,15 +17,25 @@ function impactStyle(impact: string) {
   return "border border-line-strong text-ink-3";
 }
 
-export default function PriorityFixes({ fixes }: PriorityFixesProps) {
+/** The three levels the prompt asks for get the interface's words; anything else is shown as the model wrote it. */
+function impactKey(impact: string) {
+  const value = impact.trim().toLowerCase();
+  if (value === "high") return "fixes.impact.high" as const;
+  if (value === "medium") return "fixes.impact.medium" as const;
+  if (value === "low") return "fixes.impact.low" as const;
+  return "fixes.impact.other" as const;
+}
+
+export default async function PriorityFixes({ fixes }: PriorityFixesProps) {
   if (fixes.length === 0) return null;
+  const t = await getT("analysis");
 
   return (
     <section aria-labelledby="fixes-title" className="py-10 lg:py-14">
       <Reveal>
-        <Eyebrow tick>Fix these first</Eyebrow>
+        <Eyebrow tick>{t("fixes.eyebrow")}</Eyebrow>
         <h2 id="fixes-title" className="display-md mt-4 text-ink">
-          The changes that move the needle.
+          {t("fixes.title")}
         </h2>
       </Reveal>
 
@@ -45,7 +56,7 @@ export default function PriorityFixes({ fixes }: PriorityFixesProps) {
                   impactStyle(fix.impact),
                 )}
               >
-                {fix.impact} impact
+                {t(impactKey(fix.impact), { impact: fix.impact })}
               </span>
             </li>
           </Reveal>

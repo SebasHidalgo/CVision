@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   interviewStatusSnapshotSchema,
   type InterviewStatusSnapshot,
@@ -37,6 +38,7 @@ const rendersDifferently = (
  */
 export default function StatusPoller({ interviewId, seen, attemptsHref, children }: StatusPollerProps) {
   const router = useRouter();
+  const { t } = useTranslation("feedback");
   const [stalled, setStalled] = useState(false);
 
   // Read through a ref so the polling loop below is tied to the interview,
@@ -105,14 +107,14 @@ export default function StatusPoller({ interviewId, seen, attemptsHref, children
     <>
       <p className="flex items-center gap-3 text-lg text-ink">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-fair" />
-        Your feedback is taking longer than expected.
+        {t("poller.stalled")}
       </p>
-      <p className="lede mt-4 max-w-xl">Reload to check again, or come back later.</p>
+      <p className="lede mt-4 max-w-xl">{t("poller.reload")}</p>
       <Link
         href={attemptsHref}
         className="link-rule mt-6 inline-flex items-center gap-2 text-sm font-medium text-ink"
       >
-        See every attempt
+        {t("poller.seeAttempts")}
         <ArrowRight className="size-4" />
       </Link>
     </>

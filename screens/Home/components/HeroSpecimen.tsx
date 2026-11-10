@@ -2,19 +2,21 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import CountUp from "@/components/motion/CountUp";
 import ScoreMeter from "@/components/score/ScoreMeter";
+import { toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 
 const SAMPLE_SCORE = 74;
 
 const SKILLS = [
-  { name: "TypeScript", matched: true },
-  { name: "React", matched: true },
-  { name: "GraphQL", matched: false },
-  { name: "Testing", matched: true },
-  { name: "Accessibility", matched: false },
-];
+  { id: "typescript", matched: true },
+  { id: "react", matched: true },
+  { id: "graphql", matched: false },
+  { id: "testing", matched: true },
+  { id: "accessibility", matched: false },
+] as const;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -35,6 +37,8 @@ function Line({ w, className }: { w: number; className?: string }) {
  */
 export function HeroSpecimen() {
   const reduce = useReducedMotion();
+  const { t } = useTranslation("landing");
+  const { t: common } = useTranslation("common");
 
   const item = (delay: number) => ({
     initial: reduce ? false : { opacity: 0, y: 8 },
@@ -50,8 +54,8 @@ export function HeroSpecimen() {
       className="relative mx-auto w-full max-w-[420px]"
     >
       <figcaption className="eyebrow mb-3 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <span>Sample analysis</span>
-        <span className="text-ink">Frontend Engineer · Northwind</span>
+        <span>{t("specimen.caption")}</span>
+        <span className="text-ink">{t("specimen.role")}</span>
       </figcaption>
 
       <div className="relative bg-sheet p-6 shadow-sheet sm:p-8">
@@ -64,7 +68,7 @@ export function HeroSpecimen() {
 
         {/* Experience with one pencil note */}
         <motion.div {...item(0.7)} className="mt-8">
-          <p className="eyebrow">Experience</p>
+          <p className="eyebrow">{t("specimen.experience")}</p>
           <Line w={92} className="mt-3" />
           <Line w={84} className="mt-2" />
           <div className="relative mt-2">
@@ -80,7 +84,7 @@ export function HeroSpecimen() {
               {...item(1.9)}
               className="absolute top-[-4px] left-[73%] font-mono text-[10.5px] whitespace-nowrap text-signal"
             >
-              ← add a number
+              {t("specimen.note")}
             </motion.span>
           </div>
           <Line w={88} className="mt-4" />
@@ -88,11 +92,11 @@ export function HeroSpecimen() {
 
         {/* Skills: matched and missing */}
         <motion.div {...item(0.9)} className="mt-8">
-          <p className="eyebrow">Skills vs. posting</p>
+          <p className="eyebrow">{t("specimen.skills")}</p>
           <ul className="mt-3 flex flex-wrap gap-1.5">
             {SKILLS.map((skill, i) => (
               <motion.li
-                key={skill.name}
+                key={skill.id}
                 {...item(1.1 + i * 0.12)}
                 className={cn(
                   "inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[11px]",
@@ -106,7 +110,7 @@ export function HeroSpecimen() {
                 ) : (
                   <X className="size-3" />
                 )}
-                {skill.name}
+                {t(`specimen.skillNames.${skill.id}`)}
               </motion.li>
             ))}
           </ul>
@@ -115,12 +119,12 @@ export function HeroSpecimen() {
         {/* The verdict */}
         <motion.div {...item(1.4)} className="mt-9 border-t border-line pt-6">
           <div className="flex items-end justify-between">
-            <p className="eyebrow">Fit</p>
+            <p className="eyebrow">{t("specimen.fit")}</p>
             <p className="flex items-baseline gap-2">
               <span className="figure text-5xl text-ink">
                 <CountUp value={SAMPLE_SCORE} delay={1.7} />
               </span>
-              <span className="text-sm font-medium text-strong">Strong fit</span>
+              <span className="text-sm font-medium text-strong">{common(toneKey("fit", "strong"))}</span>
             </p>
           </div>
           <ScoreMeter
@@ -128,7 +132,7 @@ export function HeroSpecimen() {
             size="md"
             reveal="mount"
             delay={1.7}
-            label="Sample fit score"
+            label={t("specimen.meterLabel")}
             className="mt-3"
           />
         </motion.div>

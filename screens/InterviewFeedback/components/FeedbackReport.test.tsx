@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FEEDBACK_CATEGORIES, type InterviewFeedbackReport } from "@/lib/ai/schemas";
+import type { Locale, Namespace } from "@/lib/i18n/config";
 import type { InterviewFeedback } from "@/types/interview";
 import FeedbackReport from "./FeedbackReport";
 
@@ -10,6 +11,19 @@ vi.mock("next/link", () => ({
     <a href={href}>{children}</a>
   ),
 }));
+
+// A server component: its t comes from the request, here the real resources of the chosen locale.
+const request = vi.hoisted(() => ({ locale: "en" as Locale }));
+vi.mock("@/lib/i18n/server", async () => {
+  const { tFor } = await import("@/lib/i18n/testing");
+  return { getT: async (ns: Namespace) => tFor(ns, request.locale), getLocale: async () => request.locale };
+});
+
+afterEach(() => {
+  request.locale = "en";
+});
+
+const renderReport = async (props: Parameters<typeof FeedbackReport>[0]) => renderToStaticMarkup(await FeedbackReport(props));
 
 const report: InterviewFeedbackReport = {
   gapFollowThrough: [
@@ -56,17 +70,15 @@ const feedback: InterviewFeedback = {
 };
 
 describe("FeedbackReport", () => {
-  it("renders the gap follow-through first, with outcomes, quotes and anchored points", () => {
-    const html = renderToStaticMarkup(
-      <FeedbackReport
-        feedback={feedback}
-        transcript={[
-          { role: "agent", message: "Tell me about the Kubernetes migration.", time_in_call_secs: 12 },
-          { role: "user", message: "Last year we moved the six orders services to a managed Kubernetes cluster.", time_in_call_secs: 15 },
-        ]}
-        date="October 11, 2026"
-      />,
-    );
+  it("renders the gap follow-through first, with outcomes, quotes and anchored points", async () => {
+    const html = await renderReport({
+      feedback,
+      transcript: [
+        { role: "agent", message: "Tell me about the Kubernetes migration.", time_in_call_secs: 12 },
+        { role: "user", message: "Last year we moved the six orders services to a managed Kubernetes cluster.", time_in_call_secs: 15 },
+      ],
+      date: "October 11, 2026",
+    });
 
     // The lead section, one row per gap, with its outcome label and quote.
     const gaps = html.indexOf("Your weak spots, in the room");
@@ -104,34 +116,45 @@ describe("FeedbackReport", () => {
     expect(html).not.toContain("recording");
   });
 
-  it("renders no transcript section when the row has none", () => {
-    const html = renderToStaticMarkup(
-      <FeedbackReport feedback={feedback} transcript={null} date="October 11, 2026" />,
-    );
+  it("renders no transcript section when the row has none", async () => {
+    const html = await renderReport({ feedback, transcript: null, date: "October 11, 2026" });
     expect(html).not.toContain("<details");
   });
 
-  it("says so when the analysis found nothing to probe", () => {
-    const html = renderToStaticMarkup(
-      <FeedbackReport
-        feedback={{ ...feedback, report: { ...report, gapFollowThrough: [] } }}
-        transcript={null}
-        date="October 11, 2026"
-      />,
-    );
+  it("says so when the analysis found nothing to probe", async () => {
+    const html = await renderReport({
+      feedback: { ...feedback, report: { ...report, gapFollowThrough: [] } },
+      transcript: null,
+      date: "October 11, 2026",
+    });
     expect(html).toContain("The analysis found no gaps to probe.");
   });
 
-  it("hides a notable answer whose quote the guardrail dropped, and the section when none is left", () => {
-    const html = renderToStaticMarkup(
-      <FeedbackReport
-        feedback={{ ...feedback, report: { ...report, notableAnswers: [{ quote: "", worked: true, why: "Clear ownership." }] } }}
-        transcript={null}
-        date="October 11, 2026"
-      />,
-    );
+  it("hides a notable answer whose quote the guardrail dropped, and the section when none is left", async () => {
+    const html = await renderReport({
+      feedback: { ...feedback, report: { ...report, notableAnswers: [{ quote: "", worked: true, why: "Clear ownership." }] } },
+      transcript: null,
+      date: "October 11, 2026",
+    });
     expect(html).not.toContain("Clear ownership.");
     expect(html).not.toContain("Answers worth hearing again");
     expect(html).not.toContain("“”");
+  });
+
+  it("labels the page in Spanish and leaves the report's own words exactly as stored", async () => {
+    request.locale = "es";
+    const html = await renderReport({ feedback, transcript: null, date: "11 de octubre de 2026" });
+
+    expect(html).toContain("Tus puntos débiles, en la entrevista");
+    expect(html).toContain("Abordada");
+    expect(html).toContain("Habilidades de comunicación");
+    expect(html).toContain("6 respuestas · 70 palabras por respuesta · unos 5 min con la palabra");
+    // The stored category value is only a lookup: its English name is not the heading.
+    expect(html).not.toContain(">Communication Skills</h3>");
+    // Requirement names, quotes, notes, points and the assessment are the strings the component received.
+    expect(html).toContain("Experience deploying and operating services on Kubernetes");
+    expect(html).toContain("Migration owned end to end.");
+    expect(html).toContain("Acts first under pressure");
+    expect(html).toContain("Specific where it counted; vague on GraphQL.");
   });
 });

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import ClientMessages from "@/components/i18n/ClientMessages";
 import { getAuthUser } from "@/lib/auth";
 import { fetchInterviewById } from "@/lib/database/interview";
 import { currentInterviewEntitlement } from "@/lib/database/usage";
@@ -40,18 +41,21 @@ export default async function InterviewScreen({
   const maxDurationSeconds = paid ? INTERVIEW_TIERS[paid.tier].seconds : (entitlement?.maxDurationSeconds ?? 0);
   const source = paid ? paid.source : (entitlement?.source ?? "none");
 
+  // The room and its on-demand chunk read the interview namespace from the provider.
   return (
-    <InterviewRoomLoader
-      interviewId={interview.id}
-      role={interview.role}
-      company={interview.resumeAnalysis.companyName}
-      candidateName={user.firstName ?? user.fullName}
-      analysisId={interview.resumeAnalysisId}
-      attemptNumber={interview.attemptNumber}
-      startCount={interview.startCount}
-      maxStarts={MAX_INTERVIEW_STARTS}
-      maxDurationSeconds={maxDurationSeconds}
-      source={source}
-    />
+    <ClientMessages ns={["interview"]}>
+      <InterviewRoomLoader
+        interviewId={interview.id}
+        role={interview.role}
+        company={interview.resumeAnalysis.companyName}
+        candidateName={user.firstName ?? user.fullName}
+        analysisId={interview.resumeAnalysisId}
+        attemptNumber={interview.attemptNumber}
+        startCount={interview.startCount}
+        maxStarts={MAX_INTERVIEW_STARTS}
+        maxDurationSeconds={maxDurationSeconds}
+        source={source}
+      />
+    </ClientMessages>
   );
 }

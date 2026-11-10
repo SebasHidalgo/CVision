@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { clampScore, scoreTone, TONE_CLASS, type ScoreTone } from "@/lib/score";
 
@@ -29,11 +30,12 @@ export default function ScoreMeter({
   score,
   tone,
   size = "md",
-  label = "Score",
+  label,
   reveal = "inView",
   delay = 0,
   className,
 }: ScoreMeterProps) {
+  const { t: translate } = useTranslation("common");
   const value = clampScore(score);
   const t = tone ?? scoreTone(value);
   const reduce = useReducedMotion();
@@ -46,7 +48,7 @@ export default function ScoreMeter({
   return (
     <div
       role="meter"
-      aria-label={label}
+      aria-label={label ?? translate("score.meter")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={value}

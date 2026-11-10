@@ -1,7 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { tFor } from "@/lib/i18n/testing";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { NOT_SHOWN_ADVICE, Requirements, SKILLS_ONLY_ADVICE, SUMMARY_ONLY_ADVICE } from "./SectionParts";
+import { Requirements } from "./SectionParts";
+
+const t = tFor("analysis");
+const NOT_SHOWN_ADVICE = t("requirements.notShownAdvice");
+const SKILLS_ONLY_ADVICE = t("requirements.skillsOnly");
+const SUMMARY_ONLY_ADVICE = t("requirements.summaryOnly");
 
 const row = (requirement: string, kind: Requirement["kind"], status: Requirement["status"]): Requirement => ({
   requirement,
@@ -23,7 +29,7 @@ describe("Requirements", () => {
       preferred: { total: 1, met: 0, partial: 0, notShown: 0 },
     };
 
-    const html = renderToStaticMarkup(<Requirements requirements={requirements} tally={tally} />);
+    const html = renderToStaticMarkup(<Requirements requirements={requirements} tally={tally} t={t} />);
 
     expect(html).toContain("Not shown in your CV");
     expect(html).toContain(NOT_SHOWN_ADVICE.replace("'", "&#x27;"));
@@ -36,6 +42,7 @@ describe("Requirements", () => {
       <Requirements
         requirements={[row("SQL", "required", "met")]}
         tally={{ required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } }}
+        t={t}
       />,
     );
 
@@ -53,7 +60,7 @@ describe("Requirements", () => {
     };
     const tally = { required: { total: 1, met: 0, partial: 1, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
 
-    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />);
     const text = html.replace(/<[^>]+>/g, "");
 
     expect(text).toContain("Ruby on Railsnot in your CV");
@@ -76,10 +83,25 @@ describe("Requirements", () => {
     };
     const tally = { required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
 
-    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />).replace(/<[^>]+>/g, "");
 
     expect(text).toContain("Cnot in your CVorC++shown in your CVorPythonnot in your CV");
     expect(text).not.toContain(SKILLS_ONLY_ADVICE);
+  });
+
+  it("reads in Spanish: the status, the count, and 'u' instead of 'o' before an o sound", () => {
+    const requirement: Requirement = {
+      ...row("Swift, Objective-C o Kotlin", "required", "met"),
+      sourceQuote: "Swift, Objective-C o Kotlin.",
+      keyTerms: { mode: "any", terms: [{ term: "Swift", cvMatch: "Swift" }, { term: "Objective-C", cvMatch: "" }, { term: "Kotlin", cvMatch: "" }] },
+    };
+    const tally = { required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
+
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={tFor("analysis", "es")} />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("Cumplidos: 1 de 1");
+    expect(text).toContain("Cumplido");
+    expect(text).toContain("Swiftaparece en tu CVuObjective-Cno está en tu CVoKotlinno está en tu CV");
   });
 
   it("shows the posting's examples on their own line, after 'e.g.' (M8-H)", () => {
@@ -99,7 +121,7 @@ describe("Requirements", () => {
     };
     const tally = { required: { total: 0, met: 0, partial: 0, notShown: 0 }, preferred: { total: 1, met: 0, partial: 1, notShown: 0 } };
 
-    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />);
     const text = html.replace(/<[^>]+>/g, "");
 
     expect(html).toContain('aria-label="Examples the posting gives"');
@@ -115,7 +137,7 @@ describe("Requirements", () => {
     };
     const tally = { required: { total: 0, met: 0, partial: 0, notShown: 1 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
 
-    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />);
+    const html = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />);
 
     expect(html).not.toContain("Terms the posting names");
     expect(html).not.toContain('class="sr-only">shown in your CV');
@@ -131,7 +153,7 @@ describe("Requirements", () => {
     };
     const tally = { required: { total: 1, met: 1, partial: 0, notShown: 0 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
 
-    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />).replace(/<[^>]+>/g, "");
 
     expect(text).toContain(SUMMARY_ONLY_ADVICE);
     expect(text).not.toContain(SKILLS_ONLY_ADVICE);
@@ -141,7 +163,7 @@ describe("Requirements", () => {
     const requirement: Requirement = { ...row("Comfortable saying no to senior stakeholders", "required", "not_evident"), evidence: "Pushed back on a launch date", assessable: false };
     const tally = { required: { total: 0, met: 0, partial: 0, notShown: 1 }, preferred: { total: 0, met: 0, partial: 0, notShown: 0 } };
 
-    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} />).replace(/<[^>]+>/g, "");
+    const text = renderToStaticMarkup(<Requirements requirements={[requirement]} tally={tally} t={t} />).replace(/<[^>]+>/g, "");
 
     expect(text).toContain("Comfortable saying no");
     expect(text).not.toContain("Pushed back on a launch date");

@@ -10,6 +10,7 @@ import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elev
 import { isStranded } from "@/lib/elevenlabs/postCall";
 import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
 import { formatLongDate } from "@/lib/format";
+import { getLocale } from "@/lib/i18n/server";
 import AttemptNotScored from "./components/AttemptNotScored";
 import FeedbackFailed from "./components/FeedbackFailed";
 import FeedbackPending from "./components/FeedbackPending";
@@ -67,7 +68,7 @@ export default async function InterviewFeedbackScreen({
   );
   if (view.kind === "room") redirect(`/interview/${interview.id}`);
 
-  const date = formatLongDate(interview.createdAt);
+  const date = formatLongDate(interview.createdAt, await getLocale());
   const seen = {
     status: interview.status,
     hasFeedback: false,

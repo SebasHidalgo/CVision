@@ -1,0 +1,141 @@
+{
+  "header": {
+    "eyebrow": "Feedback de la entrevista · {{date}}",
+    "kicker": "Entrevista de práctica"
+  },
+  "actions": {
+    "allInterviews": "Todas las entrevistas",
+    "backToRoom": "Volver a la sala",
+    "pickAnalysis": "Elige un análisis"
+  },
+  "report": {
+    "overall": "Desempeño general",
+    "gaps": {
+      "eyebrow": "Tus puntos débiles, en la entrevista",
+      "none": "El análisis no encontró brechas para indagar.",
+      "title": "El análisis señaló estas brechas. Así te fue con cada una."
+    },
+    "outcome": {
+      "addressed": "Abordada",
+      "partially": "Abordada en parte",
+      "dodged": "Esquivada",
+      "notRaised": "No surgió"
+    },
+    "answers": {
+      "eyebrow": "Respuestas que vale la pena repasar",
+      "title": "En tus propias palabras.",
+      "worked": "Funcionó",
+      "didntLand": "No convenció"
+    },
+    "readings": {
+      "eyebrow": "Cinco lecturas",
+      "title": "Dónde se sostuvo la entrevista y dónde no."
+    },
+    "strengths": "Lo que funcionó",
+    "improve": "Trabaja en esto",
+    "finalAssessment": "Valoración final"
+  },
+  "categories": {
+    "communicationSkills": "Habilidades de comunicación",
+    "technicalKnowledge": "Conocimientos técnicos",
+    "problemSolving": "Resolución de problemas",
+    "culturalFit": "Afinidad cultural",
+    "confidenceAndClarity": "Seguridad y claridad"
+  },
+  "stats": {
+    "answers_one": "{{count}} respuesta",
+    "answers_many": "{{count}} respuestas",
+    "answers_other": "{{count}} respuestas",
+    "wordsEach_one": "{{count}} palabra por respuesta",
+    "wordsEach_many": "{{count}} palabras por respuesta",
+    "wordsEach_other": "{{count}} palabras por respuesta",
+    "onFloor_one": "alrededor de {{count}} min con la palabra",
+    "onFloor_many": "unos {{count}} min con la palabra",
+    "onFloor_other": "unos {{count}} min con la palabra",
+    "short": "entrevista corta, puntajes poco confiables"
+  },
+  "transcript": {
+    "title": "Transcripción",
+    "lines_one": "{{count}} línea",
+    "lines_many": "{{count}} líneas",
+    "lines_other": "{{count}} líneas",
+    "show": "mostrar",
+    "hide": "ocultar",
+    "you": "Tú",
+    "interviewer": "Entrevistador"
+  },
+  "pending": {
+    "saving": "Guardando tu entrevista.",
+    "preparing": "Preparando tu feedback.",
+    "transcriptBody": "La transcripción suele llegar en menos de un minuto después de que termina la llamada; luego se lee contra la oferta y las brechas que encontró tu análisis. La página se actualiza sola.",
+    "scoringBody": "La transcripción se está leyendo contra la oferta y las brechas que encontró tu análisis. Suele tardar menos de un minuto; la página se actualiza sola.",
+    "leave": "Puedes salir de esta página; el resultado te va a esperar en Entrevistas."
+  },
+  "poller": {
+    "stalled": "Tu feedback está tardando más de lo esperado.",
+    "reload": "Recarga para volver a revisar, o vuelve más tarde.",
+    "seeAttempts": "Ver todos los intentos"
+  },
+  "retry": {
+    "generating": "Generando el feedback",
+    "again": "Intentar generarlo de nuevo"
+  },
+  "unavailable": {
+    "title": "Este feedback no se puede mostrar.",
+    "body": "Se escribió en un formato que esta versión ya no lee. Vuelve a ensayar la entrevista desde su análisis para obtener un informe nuevo."
+  },
+  "mayBeLive": {
+    "title": "Puede que haya una entrevista en curso en otra pestaña.",
+    "body": "Si no es así, vuelve a la sala. Cuando una llamada termina, su feedback aparece aquí solo."
+  },
+  "notScored": {
+    "silent": {
+      "title": "El entrevistador nunca te escuchó.",
+      "body": "La llamada terminó sin una sola respuesta tuya, lo que suele significar que el micrófono estaba silenciado o sin permiso. No se puntuó nada."
+    },
+    "lost": {
+      "title": "Esa sesión nunca llegó al entrevistador.",
+      "body": "La plataforma de voz no tiene registro de la llamada, así que no hay nada que puntuar. Pasa cuando la conexión falla antes de que empiece la entrevista."
+    },
+    "failed": {
+      "title": "El entrevistador no pudo unirse a la llamada.",
+      "body": "No se cobró nada y esto no usó ninguna de tus conexiones. La plataforma de voz no pudo hacer la llamada: un problema de nuestro lado, no de tu micrófono."
+    },
+    "startCounted_one": "Esa conexión cuenta, pero la entrevista sigue siendo tuya: te queda {{count}} conexión.",
+    "startCounted_many": "Esa conexión cuenta, pero la entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
+    "startCounted_other": "Esa conexión cuenta, pero la entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
+    "startReturned_one": "La entrevista sigue siendo tuya: te queda {{count}} conexión.",
+    "startReturned_many": "La entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
+    "startReturned_other": "La entrevista sigue siendo tuya: te quedan {{count}} conexiones."
+  },
+  "failure": {
+    "noCandidateTurns": {
+      "title": "El entrevistador nunca te escuchó.",
+      "body": "Todas las conexiones terminaron sin una sola respuesta tuya, lo que suele significar que el micrófono estaba silenciado o sin permiso. Revisa el permiso del micrófono en el navegador y vuelve a ensayar desde el análisis."
+    },
+    "callFailed": {
+      "title": "El entrevistador no pudo unirse a la llamada.",
+      "body": "La plataforma de voz no pudo hacer la llamada: un problema de nuestro lado, no de tu micrófono. No se cobró nada y esa conexión no se descontó. Vuelve a ensayar desde el análisis."
+    },
+    "transcriptInvalid": {
+      "title": "No se pudo leer la transcripción.",
+      "body": "Lo que volvió de la entrevista no tenía una forma que podamos puntuar. Vuelve a ensayar desde el análisis; si pasa dos veces, algo anda mal de nuestro lado."
+    },
+    "contextMissing": {
+      "title": "No hay un análisis contra el cual puntuar.",
+      "body": "El feedback compara tus respuestas con las brechas que encontró el análisis, y esta entrevista ya no tiene análisis. Haz un análisis nuevo y ensaya desde ahí."
+    },
+    "feedbackFailed": {
+      "title": "No pudimos generar tu feedback.",
+      "body": "Tu entrevista está guardada. Puntuarla falló dos veces, lo que suele deberse a que el analizador no estaba disponible. Intenta de nuevo ahora o en unos minutos."
+    },
+    "expired": {
+      "title": "Esta entrevista venció.",
+      "body": "Pasaron más de dos horas desde su última conexión sin que el entrevistador escuchara una respuesta, así que se cerró y la entrevista volvió a tu plan. Vuelve a ensayar desde el análisis."
+    },
+    "unknown": {
+      "title": "Esta entrevista no se completó.",
+      "body": "Algo salió mal de nuestro lado y no pudimos puntuarla. Vuelve a ensayar desde el análisis."
+    }
+  }
+}

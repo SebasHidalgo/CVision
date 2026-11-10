@@ -1,20 +1,21 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import CountUp from "@/components/motion/CountUp";
 import { cn } from "@/lib/utils";
 import {
   clampScore,
   scoreTone,
   TONE_CLASS,
-  TONE_LABEL,
-  type ScoreTone,
+  toneKey,
+  type ToneWording,
 } from "@/lib/score";
 
 type ScoreReadoutProps = {
   score: number;
   size?: "md" | "lg" | "xl";
-  /** Wording per tone; defaults to the generic set. */
-  labels?: Record<ScoreTone, string>;
+  /** Which words the tone reads in; defaults to the generic set. */
+  wording?: ToneWording;
   className?: string;
 };
 
@@ -28,11 +29,12 @@ const FIGURE = {
 export default function ScoreReadout({
   score,
   size = "lg",
-  labels = TONE_LABEL,
+  wording = "tone",
   className,
 }: ScoreReadoutProps) {
   const value = clampScore(score);
   const tone = scoreTone(value);
+  const { t } = useTranslation("common");
 
   return (
     <div className={cn("flex items-end gap-3 md:gap-4", className)}>
@@ -40,9 +42,9 @@ export default function ScoreReadout({
         <CountUp value={value} />
       </span>
       <span className="mb-[0.1em] flex flex-col gap-1 pb-1">
-        <span className="eyebrow">/ 100</span>
+        <span className="eyebrow">{t("score.outOf")}</span>
         <span className={cn("text-sm font-medium md:text-base", TONE_CLASS[tone].text)}>
-          {labels[tone]}
+          {t(toneKey(wording, tone))}
         </span>
       </span>
     </div>

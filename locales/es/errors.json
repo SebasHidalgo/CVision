@@ -1,0 +1,59 @@
+{
+  "codes": {
+    "UNAUTHORIZED": "Tu sesión expiró. Vuelve a iniciar sesión para continuar.",
+    "INVALID_INPUT": "Revisa el formulario: falta algún campo o no es válido.",
+    "NOT_FOUND": "No encontramos ese elemento. Es posible que se haya eliminado.",
+    "PDF_UNREADABLE": "No pudimos abrir este PDF. Puede estar dañado o protegido con contraseña. Exporta una copia nueva sin contraseña y súbela. Esto no usó ninguno de tus análisis.",
+    "PDF_NO_TEXT": "Este PDF tiene muy poco texto seleccionable para analizarlo. Si es un escaneo o una imagen, exporta tu CV a PDF desde Word, Google Docs o similar, para que el texto se pueda seleccionar, y súbelo. Esto no usó ninguno de tus análisis.",
+    "PDF_SCANNED": "Tu CV parece una imagen escaneada. La mayoría de los sistemas de seguimiento de candidatos (ATS) no pueden leerlo, así que es posible que nunca llegue a un reclutador. Expórtalo como PDF desde Word, Google Docs o Canva y vuelve a subirlo. Esto no usó ninguno de tus análisis.",
+    "NOT_A_PDF": "Ese archivo no es un PDF. Exporta tu CV como PDF y súbelo.",
+    "FILE_TOO_LARGE": "El archivo pesa más de {{size}}. Vuelve a exportarlo con las imágenes comprimidas y súbelo.",
+    "UPLOAD_FAILED": "La carga no se completó. Revisa tu conexión e inténtalo de nuevo.",
+    "STORAGE_UNAVAILABLE": "No pudimos guardar tu PDF, así que el análisis no se hizo. Inténtalo de nuevo en unos minutos.",
+    "STORAGE_MISCONFIGURED": "El almacenamiento de archivos está mal configurado de nuestro lado. Reintentar no va a servir: vuelve más tarde.",
+    "AI_UNAVAILABLE": "El analizador no responde en este momento. Espera un minuto e inténtalo de nuevo.",
+    "AI_RATE_LIMITED": "El servicio de análisis está ocupado. Inténtalo de nuevo en un minuto.",
+    "AI_MISCONFIGURED": "El analizador está mal configurado de nuestro lado. Reintentar no va a servir: vuelve más tarde.",
+    "AI_BILLING": "El servicio de análisis no está disponible por ahora. No se cobró nada.",
+    "AI_CONTENT_BLOCKED": "El analizador se negó a procesar este contenido. Quita cualquier cosa inusual del CV o de la descripción del puesto e inténtalo de nuevo.",
+    "AI_BAD_FORMAT": "No pudimos leer el análisis. Inténtalo de nuevo: suele funcionar al reintentar.",
+    "VOICE_UNAVAILABLE": "Las entrevistas por voz no están disponibles por ahora. No se cobró nada. Inténtalo de nuevo en unos minutos.",
+    "VOICE_MISCONFIGURED": "La sala de entrevista está mal configurada de nuestro lado. Reintentar no va a servir: vuelve más tarde.",
+    "INTERVIEW_NOT_STARTABLE": "Esta entrevista ya terminó. Tu feedback aparecerá en Entrevistas cuando esté listo.",
+    "INTERVIEW_EXPIRED": "Este intento expiró: pasaron dos horas sin una sesión, así que se cerró y no se cobró nada. Vuelve a ensayar desde el análisis.",
+    "INTERVIEW_START_LIMIT": "Esta entrevista usó todas sus conexiones: cada conexión con el entrevistador cuenta como una. Vuelve a ensayar desde el análisis.",
+    "INTERVIEW_CONTEXT_MISSING": "Esta entrevista no tiene un análisis del que salgan las preguntas. Haz un análisis nuevo y ensaya desde ahí.",
+    "ANALYSIS_BUSY": "Hay una entrevista en curso para este análisis. Inténtalo de nuevo cuando termine.",
+    "ANALYSIS_QUOTA_EXCEEDED": "Ya usaste los análisis de este mes.",
+    "INTERVIEW_QUOTA_EXCEEDED": "Las entrevistas por voz son parte de Pro.",
+    "RATE_LIMITED": "Demasiadas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "BILLING_UNAVAILABLE": "La facturación no responde en este momento. No se cobró nada. Espera un minuto e inténtalo de nuevo.",
+    "BILLING_MISCONFIGURED": "La facturación está mal configurada de nuestro lado. No se cobró nada. Reintentar no va a servir: vuelve más tarde.",
+    "ALREADY_SUBSCRIBED": "Ya tienes una suscripción a Pro. Adminístrala desde la página de tu cuenta.",
+    "PACK_REQUIRES_PRO": "Los paquetes de entrevistas son para suscriptores de Pro. Suscríbete a Pro primero.",
+    "NO_BILLING_ACCOUNT": "Todavía no tienes una cuenta de facturación. Se crea con tu primera compra.",
+    "BILLING_PORTAL_UNAVAILABLE": "La gestión de la facturación no está disponible por ahora. Inténtalo más tarde.",
+    "REQUEST_FAILED": "La solicitud no se completó. Revisa tu conexión e inténtalo de nuevo. Si sigue fallando, recarga la página.",
+    "UNKNOWN": "Algo salió mal de nuestro lado. Inténtalo de nuevo."
+  },
+  "analysisQuota": {
+    "free": "Ya usaste los análisis de este mes.",
+    "freeResets": "Ya usaste los análisis de este mes. Se reinician el {{date}}.",
+    "pro": "Llegaste al límite de uso razonable de este mes.",
+    "proResets": "Llegaste al límite de uso razonable de este mes. Se reinicia el {{date}}."
+  },
+  "interviewQuota": {
+    "pro": "Ya usaste las entrevistas de este período.",
+    "proResets": "Ya usaste las entrevistas de este período. Se reinician el {{date}}."
+  },
+  "rateLimited": {
+    "wait": "Demasiadas solicitudes en poco tiempo. Inténtalo de nuevo en {{wait}}.",
+    "minutes_one": "{{count}} minuto",
+    "minutes_many": "{{count}} minutos",
+    "minutes_other": "{{count}} minutos",
+    "aMinute": "un minuto",
+    "seconds_one": "{{count}} segundo",
+    "seconds_many": "{{count}} segundos",
+    "seconds_other": "{{count}} segundos"
+  }
+}

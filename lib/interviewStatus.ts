@@ -30,25 +30,28 @@ export function interviewPhase(status: InterviewStatus): InterviewPhase {
   }
 }
 
-const LABEL: Record<InterviewPhase, string> = {
-  ready: "Open the interview room",
-  pending: "Preparing your feedback",
-  done: "Read interview feedback",
-  failed: "See what went wrong",
-  expired: "Interview expired",
-};
+/** What a link to an interview says, by phase: keys of the `interview` namespace. */
+const LABEL_KEY = {
+  ready: "destination.ready",
+  pending: "destination.pending",
+  done: "destination.done",
+  failed: "destination.failed",
+  expired: "destination.expired",
+} as const satisfies Record<InterviewPhase, string>;
+
+export type InterviewDestinationLabelKey = (typeof LABEL_KEY)[InterviewPhase];
 
 /** The one attempt of an analysis that can still be started, if any. */
 export function liveAttempt<T extends { status: InterviewStatus }>(attempts: T[]): T | null {
   return attempts.find((attempt) => interviewPhase(attempt.status) === "ready") ?? null;
 }
 
-/** Where a link to this interview should go, and what it should say. */
+/** Where a link to this interview should go, and the `interview`-namespace key of what it says. */
 export function interviewDestination(interview: {
   id: string;
   status: InterviewStatus;
-}): { href: string; label: string; phase: InterviewPhase } {
+}): { href: string; labelKey: InterviewDestinationLabelKey; phase: InterviewPhase } {
   const phase = interviewPhase(interview.status);
   const href = phase === "ready" ? `/interview/${interview.id}` : `/interview/${interview.id}/feedback`;
-  return { href, label: LABEL[phase], phase };
+  return { href, labelKey: LABEL_KEY[phase], phase };
 }

@@ -1,4 +1,5 @@
 import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
+import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Paddle.js in the browser, loaded on demand by the pages that sell. The
@@ -81,7 +82,8 @@ export type OpenCheckoutOptions = {
 };
 
 /**
- * Opens the overlay for a server-created transaction and resolves with
+ * Opens the overlay for a server-created transaction, in the interface's
+ * language (Paddle.js takes "en" and "es" as they are), and resolves with
  * its outcome. On completion the overlay is closed here, so the navigation
  * that follows does not leave it floating; on an error or a load failure
  * it is closed too, so the button that resets cannot sit beside a dead
@@ -101,6 +103,7 @@ export type OpenCheckoutOptions = {
 export async function openCheckout(
   transactionId: string,
   theme: "light" | "dark",
+  locale: Locale,
   { signal, openTimeoutMs = OPEN_TIMEOUT_MS, onLoaded }: OpenCheckoutOptions = {},
 ): Promise<CheckoutOutcome> {
   const paddle = await loadPaddle();
@@ -149,6 +152,6 @@ export async function openCheckout(
       finish("timeout");
       paddle.Checkout.close();
     }, openTimeoutMs);
-    paddle.Checkout.open({ transactionId, settings: { displayMode: "overlay", theme } });
+    paddle.Checkout.open({ transactionId, settings: { displayMode: "overlay", theme, locale } });
   });
 }

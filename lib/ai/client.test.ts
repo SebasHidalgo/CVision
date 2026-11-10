@@ -2,6 +2,7 @@ import { inspect } from "node:util";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { z } from "zod";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { tFor } from "@/lib/i18n/testing";
 import {
   AiContentBlockedError,
   AiFormatError,
@@ -444,7 +445,8 @@ describe("generateJson: provider failures are told apart", () => {
 
   it("has user-facing copy for every code it can throw", () => {
     for (const { code } of cases) {
-      expect(actionErrorCopy(code)).not.toBe(actionErrorCopy("UNKNOWN"));
+      const t = tFor("errors");
+      expect(actionErrorCopy(t, "en", code)).not.toBe(actionErrorCopy(t, "en", "UNKNOWN"));
     }
   });
 });

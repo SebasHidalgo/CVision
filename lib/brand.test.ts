@@ -7,14 +7,15 @@ import { appUrl, BRAND } from "./brand";
  * Renaming the product is an edit to lib/brand.ts: no customer-facing
  * source may carry the name as a literal. The scopes are everything a
  * customer reads or a provider shows (pages, screens, components, the
- * legal drafts, the catalog, the agent names, the prompts, the error copy).
+ * legal drafts, the catalog, the agent names, the prompts, the error copy,
+ * and every locale file, which interpolates {{brand}}).
  * The `[CVision]` log tags are internal and allowed; test files and the
  * `cvision-theme` storage key (lowercase, a browser-local identifier whose
  * change would reset every visitor's theme) are not customer-facing.
  */
 
 const ROOT = path.resolve(__dirname, "..");
-const SCOPES = ["app", "screens", "components", "lib/ai/prompts", "lib/billing/catalog.ts", "lib/billing/paddle/catalog.ts", "lib/elevenlabs/agentConfig.ts", "lib/legal.ts", "lib/error/actionErrorCopy.ts"];
+const SCOPES = ["app", "screens", "components", "lib/ai/prompts", "lib/billing/catalog.ts", "lib/billing/paddle/catalog.ts", "lib/elevenlabs/agentConfig.ts", "lib/legal.ts", "lib/error/actionErrorCopy.ts", "locales"];
 const LITERAL = /CVision/g;
 const LOG_TAG = /\[CVision\]/g;
 
@@ -27,7 +28,7 @@ function* files(target: string): Generator<string> {
   for (const name of readdirSync(full)) {
     const child = path.join(full, name);
     if (statSync(child).isDirectory()) yield* files(path.relative(ROOT, child));
-    else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) yield child;
+    else if (/\.(ts|tsx|json)$/.test(name) && !/\.test\.tsx?$/.test(name)) yield child;
   }
 }
 
@@ -44,9 +45,8 @@ describe("the brand lives in one file", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("holds the name, a tagline and the two legal placeholders, never an invented entity", () => {
+  it("holds the name and the two legal placeholders, never an invented entity", () => {
     expect(BRAND.name).toBe("CVision");
-    expect(BRAND.tagline.length).toBeGreaterThan(10);
     expect(BRAND.legalEntityName).toBe("LEGAL_ENTITY_NAME");
     expect(BRAND.supportEmail).toBe("LEGAL_CONTACT_EMAIL");
   });

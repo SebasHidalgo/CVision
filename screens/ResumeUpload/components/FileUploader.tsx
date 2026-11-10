@@ -3,6 +3,7 @@
 import { Upload } from "lucide-react";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import { useTranslation } from "react-i18next";
 import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
@@ -21,12 +22,10 @@ interface FileUploaderProps {
 }
 
 /** Dropzone rejections are otherwise a silent no-op. */
-function rejectionCopy(code: string | undefined): string {
-  if (code === "file-too-large") {
-    return `That file is over ${MAX_RESUME_SIZE_LABEL}. Export it again with compressed images and upload that.`;
-  }
-  if (code === "too-many-files") return "Drop one file at a time.";
-  return "Only PDF files are accepted.";
+function rejectionKey(code: string | undefined) {
+  if (code === "file-too-large") return "file.rejected.tooLarge" as const;
+  if (code === "too-many-files") return "file.rejected.tooMany" as const;
+  return "file.rejected.notPdf" as const;
 }
 
 /** A small sheet with a folded corner: the CV as an object. */
@@ -51,6 +50,7 @@ export default function FileUploader({
   invalid = false,
   disabled = false,
 }: FileUploaderProps) {
+  const { t } = useTranslation("upload");
   const onDrop = useCallback(
     (acceptedFiles: File[]) => onFileSelect(acceptedFiles[0] ?? null),
     [onFileSelect],
@@ -97,7 +97,7 @@ export default function FileUploader({
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-ink">{file.name}</p>
               <p className="eyebrow mt-1.5">
-                {formatFileSize(file.size)} · PDF
+                {t("file.details", { size: formatFileSize(file.size, t) })}
               </p>
             </div>
             <button
@@ -105,7 +105,7 @@ export default function FileUploader({
               onClick={clear}
               className="link-rule shrink-0 cursor-pointer text-sm text-ink-2"
             >
-              Remove
+              {t("file.remove")}
             </button>
           </div>
         ) : (
@@ -117,13 +117,9 @@ export default function FileUploader({
               )}
             />
             <p className="font-medium text-ink">
-              {isDragActive
-                ? "Drop it here"
-                : "Drop your CV here, or click to choose it"}
+              {isDragActive ? t("file.dropHere") : t("file.dropOrChoose")}
             </p>
-            <p className="eyebrow">
-              PDF · up to {MAX_RESUME_SIZE_LABEL}
-            </p>
+            <p className="eyebrow">{t("file.limits", { size: MAX_RESUME_SIZE_LABEL })}</p>
           </div>
         )}
       </div>
@@ -131,7 +127,7 @@ export default function FileUploader({
       {rejection && !file && (
         <p className="mt-2 flex items-center gap-2 text-sm text-signal">
           <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
-          {rejectionCopy(rejection.errors[0]?.code)}
+          {t(rejectionKey(rejection.errors[0]?.code), { size: MAX_RESUME_SIZE_LABEL })}
         </p>
       )}
     </div>

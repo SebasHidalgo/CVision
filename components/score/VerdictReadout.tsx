@@ -1,5 +1,9 @@
-import { describeTally, type FitVerdict } from "@/lib/schemas/resumeSchema";
-import { FIT_LABEL, TONE_CLASS } from "@/lib/score";
+"use client";
+
+import { useTranslation } from "react-i18next";
+import { tallyCopy } from "@/lib/i18n/tally";
+import type { FitVerdict } from "@/lib/schemas/resumeSchema";
+import { TONE_CLASS, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 
 type VerdictReadoutProps = {
@@ -18,6 +22,7 @@ export default function VerdictReadout({
   verdict,
   className,
 }: VerdictReadoutProps) {
+  const { t } = useTranslation("common");
   return (
     <div className={cn("lg:text-right", className)}>
       <p
@@ -26,10 +31,10 @@ export default function VerdictReadout({
           TONE_CLASS[verdict.tone].text,
         )}
       >
-        {FIT_LABEL[verdict.tone]}
+        {t(toneKey("fit", verdict.tone))}
       </p>
       <p className="mt-3 font-mono text-[12px] leading-relaxed text-ink-2">
-        {describeTally(verdict.tally)}
+        {tallyCopy(t, verdict.tally)}
       </p>
     </div>
   );

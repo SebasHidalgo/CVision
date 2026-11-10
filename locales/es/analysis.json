@@ -1,0 +1,169 @@
+{
+  "list": {
+    "eyebrow": "Tus análisis",
+    "title": "Cada CV que mediste.",
+    "count": "Análisis",
+    "strongFits": "Compatibilidad alta",
+    "emptyTitle": "Todavía no mediste nada.",
+    "emptyBody": "Pega una oferta de empleo, sube tu CV y esta página se convierte en el registro de qué tan bien encaja cada postulación.",
+    "emptyAction": "Haz tu primer análisis",
+    "unreadable": "No pudimos leer este análisis. Vuelve a hacerlo."
+  },
+  "detail": {
+    "loading": "Cargando el análisis",
+    "historyTitle": "Este análisis está en tu historial."
+  },
+  "header": {
+    "eyebrow": "Análisis · {{date}}",
+    "quality": "Calidad del CV, por sí sola",
+    "qualityMeter": "Calidad del CV",
+    "qualityNote": "{{tone}} · lo que puedes cambiar editando tu CV"
+  },
+  "status": {
+    "met": "Cumplido",
+    "partial": "Cumplido en parte",
+    "missing": "No cumplido",
+    "not_evident": "No aparece en tu CV"
+  },
+  "kind": {
+    "required": "Obligatorio",
+    "preferred": "Deseable"
+  },
+  "dimensions": {
+    "fit": { "label": "Requisitos" },
+    "experience": { "label": "Experiencia e impacto" },
+    "skills": { "label": "Habilidades" },
+    "education": { "label": "Formación y certificaciones" },
+    "tone": { "label": "Tono y claridad" },
+    "ats": { "label": "Lo que lee un ATS" }
+  },
+  "nav": {
+    "label": "Dimensiones"
+  },
+  "fixes": {
+    "eyebrow": "Arregla esto primero",
+    "title": "Los cambios que marcan la diferencia.",
+    "impact": {
+      "high": "Impacto alto",
+      "medium": "Impacto medio",
+      "low": "Impacto bajo",
+      "other": "Impacto: {{impact}}"
+    }
+  },
+  "sections": {
+    "strategicMoves": "Movimientos estratégicos",
+    "strengths": "Fortalezas",
+    "weakSpots": "Puntos débiles",
+    "actionPlan": "Plan de acción",
+    "highlights": "Puntos destacados",
+    "improvements": "Mejoras",
+    "suggestions": "Sugerencias",
+    "atsProblems": "Lo que se interpone",
+    "atsFixes": "Cómo arreglarlo",
+    "evidence": "En qué se basó el analizador ({{n}})",
+    "rewrites": "Reescrituras sugeridas",
+    "skillsProven": "Habilidades que demuestras",
+    "noSkillsProven": "Ninguna de las habilidades que piden tiene evidencia en el CV.",
+    "achievements": "Resultados que ya cuantificas",
+    "noAchievements": "Ninguna viñeta del CV le pone un número a un resultado.",
+    "artifacts": "Caracteres que salieron mal",
+    "noArtifacts": "La capa de texto está limpia.",
+    "atsSections": "Secciones que un ATS puede ver",
+    "noAtsSections": "No hay títulos de sección reconocibles."
+  },
+  "requirements": {
+    "none": "No se extrajeron requisitos de esta oferta.",
+    "requiredTitle": "Requisitos obligatorios",
+    "preferredTitle": "Requisitos deseables",
+    "count": "Cumplidos: {{met}} de {{total}}",
+    "countWithPartial": "Cumplidos: {{met}} de {{total}}, {{partial}} en parte",
+    "notShownAdvice": "Menciónalo en tu carta de presentación o prepárate para hablar de ello en la entrevista.",
+    "skillsOnly": "Solo aparece en tus habilidades: muéstralo en una viñeta de experiencia.",
+    "summaryOnly": "Solo lo afirmas en tu resumen: muéstralo en una viñeta de experiencia.",
+    "termsLabel": "Términos que nombra la oferta",
+    "examplesLabel": "Ejemplos que da la oferta",
+    "examplesLead": "p. ej.",
+    "or": "o",
+    "orBeforeO": "u",
+    "termShown": "aparece en tu CV",
+    "termMissing": "no está en tu CV"
+  },
+  "attempts": {
+    "label": "Intentos de entrevista",
+    "attempt": "Intento {{number}}",
+    "completed": "Completado",
+    "scored": "Puntaje: {{score}}",
+    "reading": {
+      "ready": "Sin terminar",
+      "pending": "Preparando el feedback",
+      "failed": "No se completó",
+      "expired": "Venció"
+    }
+  },
+  "cta": {
+    "eyebrow": "Siguiente paso",
+    "preparing": "Preparando la entrevista…",
+    "openRoom": "Abrir la sala de entrevista",
+    "tryTrial": "Prueba una entrevista de {{minutes}} minutos, gratis",
+    "rehearse": "Ensayar la entrevista",
+    "rehearseAgain": "Ensayar de nuevo",
+    "getMore_one": "Consigue {{count}} entrevista más",
+    "getMore_many": "Consigue {{count}} entrevistas más",
+    "getMore_other": "Consigue {{count}} entrevistas más",
+    "note": {
+      "trial": "{{minutes}} minutos con el entrevistador de IA, gratis",
+      "period_one": "Te queda {{count}} de {{limit}} entrevistas este período",
+      "period_many": "Te quedan {{count}} de {{limit}} entrevistas este período",
+      "period_other": "Te quedan {{count}} de {{limit}} entrevistas este período",
+      "credits_one": "{{count}} crédito",
+      "credits_many": "{{count}} créditos",
+      "credits_other": "{{count}} créditos",
+      "creditsLeft_one": "Te queda {{count}} crédito",
+      "creditsLeft_many": "Te quedan {{count}} créditos",
+      "creditsLeft_other": "Te quedan {{count}} créditos",
+      "length": "hasta {{minutes}} minutos",
+      "microphone": "necesitas un micrófono",
+      "phone": "funciona desde el teléfono"
+    },
+    "heading": {
+      "live": "Tu entrevista está lista.",
+      "trial": "Prueba en voz alta la entrevista para {{jobTitle}}.",
+      "needsPro": "Ensaya esta entrevista en voz alta con Pro.",
+      "proExhausted": "Ya usaste las entrevistas de este período.",
+      "again": "Vuelve a ensayarla.",
+      "first": "Ensaya en voz alta la entrevista para {{jobTitle}}."
+    },
+    "lede": {
+      "live": "Hay un intento esperándote en la sala. Termínalo y el feedback llegará aquí.",
+      "trial": "Un entrevistador de IA por voz, armado a partir de esta misma oferta, te pregunta por las brechas que encontró tu análisis, tú respondes en voz alta y recibes un puntaje según lo que dijiste. Tu prueba gratis dura {{minutes}} minutos.",
+      "needsPro": "Ya usaste la prueba gratis. Las entrevistas de Pro duran doce minutos, cuatro al mes, y cada una se califica según esta oferta y las brechas que encontró tu análisis.",
+      "proExhausted": "Cada ensayo se califica según la misma oferta y las mismas brechas. Las próximas vuelven el {{date}}.",
+      "again": "Cada intento se califica por separado según la misma oferta y las mismas brechas, para que veas qué cambió.",
+      "first": "Un entrevistador de IA por voz, armado a partir de esta misma oferta, hace las preguntas, tú respondes en voz alta y, cuando terminas la llamada, recibes un puntaje en cinco aspectos, con la transcripción."
+    }
+  },
+  "drawer": {
+    "view": "Ver CV",
+    "title": "Tu CV",
+    "openInNewTab": "Abrir en otra pestaña",
+    "close": "Cerrar",
+    "popupBlocked": "El navegador bloqueó la pestaña nueva. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.",
+    "opening": "Abriendo tu CV.",
+    "failed": "No se pudo abrir el CV. Inténtalo de nuevo.",
+    "tryAgain": "Intentar de nuevo",
+    "pdfLabel": "PDF del CV",
+    "noInline": "Este navegador no puede mostrar archivos PDF dentro de la página.",
+    "openPdf": "Abrir el PDF en otra pestaña"
+  },
+  "delete": {
+    "eyebrow": "Eliminar",
+    "title": "Borrar este análisis",
+    "body": "El CV, el análisis, cada ensayo y su feedback se borran para siempre.",
+    "trigger": "Borrar análisis",
+    "dialogTitle": "¿Borrar este análisis?",
+    "dialogBody": "{{jobTitle}} en {{companyName}}: el CV, el análisis, cada ensayo y su feedback se borran con él. No se puede deshacer.",
+    "keep": "Conservarlo",
+    "deleting": "Borrando",
+    "confirm": "Borrar análisis"
+  }
+}

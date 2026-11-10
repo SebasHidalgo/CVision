@@ -143,8 +143,3 @@ export function quotaPeriod(now: Date): QuotaPeriod {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return { start, end };
 }
-
-/** "Nov 1": the day the period's quota comes back, as the UI says it. */
-export function formatResetDate(end: Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(end);
-}

@@ -1,0 +1,117 @@
+{
+  "draft": {
+    "banner": "BORRADOR — no es asesoramiento legal — pendiente de revisión antes del lanzamiento. Estas páginas son provisionales, las escribió el equipo de producto y no un abogado, y se reemplazarán antes de que {{brand}} venda cualquier cosa.",
+    "eyebrow": "Borrador · {{date}}"
+  },
+  "nav": {
+    "label": "Páginas legales",
+    "also": "Ver también"
+  },
+  "terms": {
+    "title": "Términos de servicio",
+    "lede": "El acuerdo entre tú y {{brand}}. Es un borrador: el titular lo completará con asesoría legal antes del lanzamiento.",
+    "what": {
+      "heading": "1. Qué es {{brand}}",
+      "p1": "{{brand}} es una herramienta de autoevaluación y práctica para quien busca trabajo, operada por {{entity}}. Subes tu propio CV y una oferta de empleo que te interesa; el servicio compara los dos y te da feedback. Después puedes practicar en voz alta una entrevista para esa oferta con un entrevistador de IA por voz y recibir feedback sobre tus respuestas.",
+      "p2": "{{brand}} es para ti, sobre tu propia postulación. No es una herramienta para que las empresas evalúen o clasifiquen a personas, nadie más ve tus resultados y el entrevistador de voz es software, nunca una persona."
+    },
+    "account": {
+      "heading": "2. Tu cuenta",
+      "p1": "Necesitas una cuenta para usar el servicio. No compartas tu forma de iniciar sesión: eres responsable de lo que pase en tu cuenta. Para usar un plan de pago tienes que poder celebrar un contrato según las leyes del lugar donde vives."
+    },
+    "plans": {
+      "heading": "3. Planes, precios y facturación",
+      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye análisis de CV ilimitados (sujetos a un uso razonable), {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica para quienes tienen Pro; los créditos del paquete no vencen y se pueden usar mientras Pro esté activo.",
+      "p2": "Las compras se hacen a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} se encarga del pago, la factura, los impuestos que correspondan y los reembolsos, y es quien aparece en tu estado de cuenta. Los precios se muestran antes de pagar. Una suscripción se renueva en cada período hasta que la canceles; puedes cancelarla cuando quieras desde la página de tu cuenta, y Pro sigue activo hasta el final del período que pagaste.",
+      "p3": "[PLACEHOLDER: cambios de precio y cómo se avisan.]"
+    },
+    "fairUse": {
+      "heading": "4. Uso razonable",
+      "p1": "Los análisis de CV de Pro son ilimitados para una persona que revisa sus propias postulaciones. Podemos limitar las cuentas que automatizan el servicio, lo comparten entre varias personas o lo usan para algo que no sea su propia búsqueda de empleo."
+    },
+    "ai": {
+      "heading": "5. La IA y sus límites",
+      "p1": "El feedback lo genera una IA a partir del texto que proporcionas. Puede estar equivocado, incompleto o ser inconsistente. Es una ayuda para tu propio criterio, no una predicción de cómo le irá a ninguna postulación, y no se promete ningún resultado."
+    },
+    "content": {
+      "heading": "6. Tu contenido",
+      "p1": "Tu CV, las ofertas que pegas y tus respuestas en las entrevistas siguen siendo tuyos. Nos das el permiso necesario para procesarlos y así prestarte el servicio (consulta la página de privacidad). Puedes borrar un análisis, con sus entrevistas, desde su página, y tu cuenta completa desde tu perfil."
+    },
+    "ending": {
+      "heading": "7. Fin del servicio",
+      "p1": "Puedes dejar de usar {{brand}} cuando quieras. Podemos suspender una cuenta que no cumpla estos términos. [PLACEHOLDER: plazos de aviso, qué pasa con los períodos pagados y la ley aplicable.]"
+    },
+    "liability": {
+      "heading": "8. Responsabilidad",
+      "p1": "[PLACEHOLDER: limitación de responsabilidad, a redactar con asesoría legal para la jurisdicción del titular.]"
+    },
+    "contact": {
+      "heading": "9. Contacto",
+      "p1": "{{entity}}, {{email}}. [PLACEHOLDER: domicilio legal.]"
+    }
+  },
+  "privacy": {
+    "title": "Privacidad",
+    "lede": "Qué guarda {{brand}} sobre ti, quién lo procesa y por qué. Es un borrador: el titular lo completará con asesoría legal antes del lanzamiento.",
+    "responsible": {
+      "heading": "1. Quién es responsable",
+      "p1": "{{entity}} opera {{brand}} y es responsable de los datos personales que se describen aquí. Contacto: {{email}}. [PLACEHOLDER: domicilio legal.]"
+    },
+    "collect": {
+      "heading": "2. Qué recopilamos y por qué",
+      "p1": "Todo lo que sigue existe para darte tu propio feedback. Nada se vende y nada se usa para que otra persona te evalúe.",
+      "account": "Tu cuenta: un identificador y tus datos de inicio de sesión, que guarda nuestro proveedor de autenticación (Clerk). Nosotros guardamos el identificador, no tu correo electrónico ni tu nombre.",
+      "cv": "Tu CV: el PDF que subes, guardado en un almacenamiento privado para que puedas volver a abrirlo junto a su análisis, y su texto, que se envía al modelo de IA que escribe el análisis.",
+      "postings": "Las ofertas de empleo que pegas: se guardan con cada análisis y se envían al modelo de IA junto con el texto de tu CV.",
+      "interviews": "Tus entrevistas de práctica: la conversación se hace con el proveedor de voz con IA (ElevenLabs), que procesa tu voz y devuelve una transcripción. La transcripción se guarda con la entrevista y se envía al modelo de IA que escribe el feedback. [PLACEHOLDER: si el proveedor de voz conserva las grabaciones de audio y por cuánto tiempo.]",
+      "usage": "Uso: cuántos análisis y entrevistas hiciste, para los límites de tu plan.",
+      "billing": "Facturación: si compras un plan, el pago lo gestiona el comerciante registrado ({{merchant}}), que recopila tu correo electrónico, tu país y tus datos de pago. Solo guardamos los identificadores de cliente y de suscripción que te asigna, nunca una tarjeta ni un correo electrónico."
+    },
+    "processors": {
+      "heading": "3. Quién lo procesa",
+      "google": "Google (Gemini) escribe el análisis del CV y el feedback de la entrevista a partir del texto que enviamos.",
+      "elevenlabs": "ElevenLabs lleva a cabo la entrevista por voz y genera la transcripción.",
+      "clerk": "Clerk gestiona tu inicio de sesión.",
+      "supabase": "Supabase aloja la base de datos y el almacenamiento privado de archivos.",
+      "merchant": "{{merchant}} es el comerciante registrado (merchant of record) de los pagos.",
+      "vercel": "Vercel aloja la aplicación.",
+      "p1": "[PLACEHOLDER: lugares de procesamiento, mecanismos de transferencia y enlaces a los términos de cada encargado del tratamiento.]"
+    },
+    "retention": {
+      "heading": "4. Cuánto tiempo lo guardamos",
+      "p1": "Un CV existe mientras exista su análisis. Borrar un análisis borra el CV, el análisis, sus entrevistas y su feedback, y le pide al proveedor de voz que borre las conversaciones. Borrar tu cuenta borra todo lo anterior y cancela cualquier suscripción. El comerciante registrado conserva los registros que debe conservar por motivos fiscales. [PLACEHOLDER: plazos de retención de las copias de seguridad.]"
+    },
+    "rights": {
+      "heading": "5. Tus derechos",
+      "p1": "Puedes ver y borrar tus datos desde el propio producto. Para cualquier otra cosa (acceso, rectificación, portabilidad, oposición, un reclamo), escribe al contacto de arriba. [PLACEHOLDER: los derechos que aplican según las leyes de la jurisdicción del titular y de las personas a las que atiende, y los plazos de respuesta.]"
+    },
+    "cookies": {
+      "heading": "6. Cookies",
+      "p1": "[PLACEHOLDER: las cookies del proveedor de autenticación, la preferencia de tema y lo que instale la página de pago del comerciante registrado.]"
+    }
+  },
+  "refunds": {
+    "title": "Reembolsos",
+    "lede": "Cómo funcionan las cancelaciones y los reembolsos de Pro y de los paquetes de entrevistas. Es un borrador: el titular lo completará con asesoría legal antes del lanzamiento.",
+    "who": {
+      "heading": "1. Quién reembolsa",
+      "p1": "Toda compra se hace a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} emite los reembolsos al medio de pago que usaste, según sus propios términos para compradores, y aparecen en tu estado de cuenta a su nombre."
+    },
+    "subscriptions": {
+      "heading": "2. Suscripciones",
+      "p1": "Puedes cancelar Pro cuando quieras desde la página de tu cuenta. Cancelar detiene el próximo cobro; Pro sigue activo hasta el final del período que ya pagaste, y nada se borra cuando termina. [PLACEHOLDER: si se ofrece el reembolso del período en curso y en qué condiciones, p. ej., dentro de N días desde un cobro si no se hizo ninguna entrevista.]"
+    },
+    "packs": {
+      "heading": "3. Paquetes de entrevistas",
+      "p1": "Un paquete suma {{packCredits}} entrevistas de práctica. [PLACEHOLDER: si los paquetes sin usar son reembolsables y en qué plazo.] Si se reembolsa un paquete, se quitan los créditos que no se usaron; las entrevistas ya hechas no se ven afectadas."
+    },
+    "problems": {
+      "heading": "4. Si algo salió mal",
+      "p1": "Si una entrevista pagada falló por nuestra parte (el entrevistador nunca se conectó, o la llamada se cortó sin conexiones restantes), la entrevista vuelve a tu plan automáticamente; no tienes que pedirlo. Si algo más salió mal con un cobro, escríbenos y lo resolveremos con el comerciante registrado."
+    },
+    "contact": {
+      "heading": "5. Contacto",
+      "p1": "{{entity}}, {{email}}. [PLACEHOLDER: tiempo de respuesta esperado.]"
+    }
+  }
+}

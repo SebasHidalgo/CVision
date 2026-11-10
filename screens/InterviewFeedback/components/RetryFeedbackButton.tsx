@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { retryInterviewFeedbackAction } from "@/screens/InterviewFeedback/actions/retryInterviewFeedbackAction";
 
 type RetryFeedbackButtonProps = {
@@ -14,6 +15,8 @@ type RetryFeedbackButtonProps = {
 
 export default function RetryFeedbackButton({ interviewId }: RetryFeedbackButtonProps) {
   const router = useRouter();
+  const { t } = useTranslation("feedback");
+  const errorCopy = useErrorCopy();
   const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -26,9 +29,9 @@ export default function RetryFeedbackButton({ interviewId }: RetryFeedbackButton
         router.refresh();
         return;
       }
-      toast.error(actionErrorCopy(result.code));
+      toast.error(errorCopy(result.code));
     } catch {
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+      toast.error(errorCopy("REQUEST_FAILED"));
     }
     setIsRetrying(false);
   };
@@ -38,12 +41,12 @@ export default function RetryFeedbackButton({ interviewId }: RetryFeedbackButton
       {isRetrying ? (
         <>
           <Loader2 className="size-4 animate-spin" />
-          Generating feedback
+          {t("retry.generating")}
         </>
       ) : (
         <>
           <RotateCcw className="size-4" />
-          Try generating again
+          {t("retry.again")}
         </>
       )}
     </Button>

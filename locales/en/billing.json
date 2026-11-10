@@ -1,0 +1,21 @@
+{
+  "checkout": {
+    "opening": "Opening checkout…",
+    "paid": "Payment received…"
+  },
+  "portal": {
+    "manage": "Manage subscription"
+  },
+  "history": {
+    "line": {
+      "analyses_one": "{{count}} older analysis is in your history. Free shows your last {{limit}} analyses; Pro shows everything, nothing is deleted.",
+      "analyses_other": "{{count}} older analyses are in your history. Free shows your last {{limit}} analyses; Pro shows everything, nothing is deleted.",
+      "interviews_one": "{{count}} older interview is in your history. Free shows your last {{limit}} analyses; Pro shows everything, nothing is deleted.",
+      "interviews_other": "{{count}} older interviews are in your history. Free shows your last {{limit}} analyses; Pro shows everything, nothing is deleted."
+    },
+    "seePro": "See Pro",
+    "eyebrow": "In your history",
+    "body": "This analysis is older than the last {{limit}} on your account. Free shows the most recent {{limit}}; Pro shows all of them, and nothing here is deleted. Upgrade and it comes back exactly as it was, with its interviews.",
+    "back": "Back to your analyses"
+  }
+}

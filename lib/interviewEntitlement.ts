@@ -135,20 +135,6 @@ export function tierOfAgent(agent: EntitlementAgent): InterviewTierId {
   return agent === "trial" ? "TRIAL" : "FULL";
 }
 
-/** What the room says beside the length, so the buyer knows what the start spends. */
-export function sourceCopy(source: EntitlementSource | null): string | null {
-  switch (source) {
-    case "period":
-      return "Uses one of this period's interviews.";
-    case "credit":
-      return "Uses one credit.";
-    case "trial":
-      return "Your free trial, on us.";
-    default:
-      return null;
-  }
-}
-
 /** The source an interview row records, back into the entitlement's words. */
 export function sourceOfPaidBy(paidBy: "PERIOD" | "CREDIT" | "TRIAL" | null | undefined): Exclude<EntitlementSource, "none"> | null {
   if (paidBy === "PERIOD") return "period";

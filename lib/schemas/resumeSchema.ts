@@ -2,7 +2,7 @@ import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
 import type { ScoreTone } from "@/lib/score";
 import { RESUME_KEY_PATTERN } from "@/lib/supabase/resumeKey";
-import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
+import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 
 export const MAX_COMPANY_NAME_CHARS = 100;
 export const MAX_JOB_TITLE_CHARS = 120;
@@ -12,26 +12,27 @@ export const MAX_JOB_DESCRIPTION_CHARS = 8000;
 // a global.
 const fileSchema = z.custom<File>(
   (value) => typeof File !== "undefined" && value instanceof File,
-  { message: "A file is required" },
+  { message: "validation.fileRequired" },
 );
 
+// Messages are keys of the upload namespace: the form translates them; the action only returns a code.
 /** The posting's text fields, shared by the form and the action. */
 const resumeDetailsSchema = z.object({
   companyName: z
     .string()
     .trim()
-    .min(1, "Company name is required")
+    .min(1, "validation.companyRequired")
     .max(MAX_COMPANY_NAME_CHARS),
   jobTitle: z
     .string()
     .trim()
-    .min(1, "Job title is required")
+    .min(1, "validation.jobTitleRequired")
     .max(MAX_JOB_TITLE_CHARS),
   jobDescription: z
     .string()
     .trim()
-    .min(1, "Job description is required")
-    .max(MAX_JOB_DESCRIPTION_CHARS, "Job description is too long"),
+    .min(1, "validation.jobDescriptionRequired")
+    .max(MAX_JOB_DESCRIPTION_CHARS, "validation.jobDescriptionTooLong"),
 });
 
 export type ResumeDetails = z.infer<typeof resumeDetailsSchema>;
@@ -45,10 +46,11 @@ export const createResumeInputSchema = resumeDetailsSchema.extend({
   resume: fileSchema
     .refine(
       (file) => file.type === "application/pdf",
-      "Only PDF files are allowed",
+      "validation.onlyPdf",
     )
-    .refine((file) => file.size > 0, "The file is empty")
-    .refine((file) => file.size <= MAX_RESUME_BYTES, `The file is larger than ${MAX_RESUME_SIZE_LABEL}`),
+    .refine((file) => file.size > 0, "validation.fileEmpty")
+    // The form fills {{size}} with MAX_RESUME_SIZE_LABEL.
+    .refine((file) => file.size <= MAX_RESUME_BYTES, "validation.fileTooLarge"),
 });
 
 export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;

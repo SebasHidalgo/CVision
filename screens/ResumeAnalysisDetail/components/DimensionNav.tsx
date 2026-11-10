@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import ScoreMeter from "@/components/score/ScoreMeter";
 import { ordinal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DimensionId } from "../utils/dimensions";
 
-/** score is null for the sections that report evidence, not a number. */
+/** score is null for the sections that report evidence, not a number. The label comes translated. */
 type NavItem = { id: DimensionId; label: string; score: number | null };
 
 type DimensionNavProps = {
@@ -18,6 +19,8 @@ type DimensionNavProps = {
  * sticky column with mini meters on large ones. Tracks the section in view.
  */
 export default function DimensionNav({ items }: DimensionNavProps) {
+  const { t } = useTranslation("analysis");
+  const { t: common } = useTranslation("common");
   const [active, setActive] = useState<DimensionId>(items[0]?.id ?? "ats");
 
   useEffect(() => {
@@ -42,7 +45,7 @@ export default function DimensionNav({ items }: DimensionNavProps) {
 
   return (
     <nav
-      aria-label="Dimensions"
+      aria-label={t("nav.label")}
       className="sticky top-14 z-30 -mx-[clamp(1.25rem,4vw,3rem)] bg-paper/95 backdrop-blur-[6px] lg:top-28 lg:mx-0 lg:bg-transparent lg:backdrop-blur-none"
     >
       <ol className="flex gap-2 overflow-x-auto px-[clamp(1.25rem,4vw,3rem)] py-3 [scrollbar-width:none] lg:flex-col lg:gap-0 lg:overflow-visible lg:px-0 lg:py-0 [&::-webkit-scrollbar]:hidden">
@@ -83,7 +86,7 @@ export default function DimensionNav({ items }: DimensionNavProps) {
                       size="sm"
                       reveal="mount"
                       delay={0.3 + i * 0.06}
-                      label={`${item.label} score`}
+                      label={common("score.scoreOf", { label: item.label })}
                     />
                   </span>
                 )}

@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "title": "Plan y facturación"
+  },
+  "intro": {
+    "eyebrow": "Plan y facturación",
+    "titlePro": "Tienes el plan Pro.",
+    "titleFree": "Tienes el plan Gratis."
+  },
+  "planLine": {
+    "comp": "Pro, cortesía de la casa.",
+    "cancels": "Pro hasta el {{date}}. Tu cancelación está programada; no se te cobrará nada más.",
+    "pastDue": "Pro. El último pago no se procesó y Paddle lo está reintentando. Actualiza la tarjeta desde \"Administrar suscripción\" para conservar Pro después del {{date}}.",
+    "renews": "Pro, se renueva el {{date}}.",
+    "canceled": "Gratis. Tu suscripción a Pro terminó; no se borró nada, y con Pro recuperas todo.",
+    "paused": "Gratis mientras tu suscripción está en pausa. Reanúdala desde \"Administrar suscripción\".",
+    "free": "Gratis."
+  },
+  "interviews": {
+    "label": "Entrevistas de este período",
+    "of": "de {{limit}}",
+    "resets": "Se reinician el {{date}}.",
+    "trial": "Una entrevista de práctica gratis de {{minutes}} minutos.",
+    "creditsCover": "Tus créditos cubren entrevistas completas; Pro suma {{perMonth}} al mes.",
+    "proOnly": "Las entrevistas por voz son parte de Pro."
+  },
+  "credits": {
+    "label": "Créditos de entrevista",
+    "none": "Vienen en paquetes de {{size}}; cada uno es una entrevista completa.",
+    "pro": "Se usan después de las entrevistas del período. Nunca vencen.",
+    "free": "Cada uno es una entrevista completa de {{minutes}} minutos, en cualquier plan. Nunca vencen.",
+    "pending_one": "{{count}} crédito pendiente de devolución: todavía hay una entrevista abierta. Si no respondiste nada, vuelve a tu cuenta a los pocos minutos de que termine la llamada.",
+    "pending_many": "{{count}} créditos pendientes de devolución: todavía hay entrevistas abiertas. Si no respondiste nada, vuelven a tu cuenta a los pocos minutos de que terminen las llamadas.",
+    "pending_other": "{{count}} créditos pendientes de devolución: todavía hay entrevistas abiertas. Si no respondiste nada, vuelven a tu cuenta a los pocos minutos de que terminen las llamadas."
+  },
+  "analyses": {
+    "label": "Análisis",
+    "ofMonth": "de {{limit}} este mes",
+    "pro": "Análisis de CV ilimitados.",
+    "free": "El plan Gratis muestra tus últimos {{limit}} análisis."
+  },
+  "actions": {
+    "confirming": "Confirmando tu pago…",
+    "buyPack_one": "Comprar {{count}} entrevista más · {{price}}",
+    "buyPack_many": "Comprar {{count}} entrevistas más · {{price}}",
+    "buyPack_other": "Comprar {{count}} entrevistas más · {{price}}",
+    "getPro": "Hazte Pro · {{price}} al mes",
+    "compare": "Comparar los planes"
+  },
+  "portalNote": "“Administrar suscripción” abre Paddle, el comerciante registrado (merchant of record): ahí están el método de pago, las facturas y la cancelación. Si cancelas, conservas Pro hasta el final del período que pagaste.",
+  "activation": {
+    "landedPro": "Pro está activo.",
+    "landedPack": "Tus créditos ya están en tu cuenta.",
+    "waitingPro": "Activando tu plan… Tu pago se procesó; la confirmación de Paddle suele tardar unos segundos.",
+    "waitingPack": "Agregando tus créditos… Tu pago se procesó; la confirmación de Paddle suele tardar unos segundos.",
+    "stalled": "Paddle confirmó tu pago, pero todavía no nos llegó. Aparecerá en breve; puedes actualizar la página más tarde.",
+    "checkAgain": "Volver a comprobar",
+    "notYet": "Todavía no llegó. Paddle ya tiene el pago; aparecerá en breve."
+  }
+}

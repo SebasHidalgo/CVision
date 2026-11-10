@@ -13,6 +13,8 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SCOPES = ["screens/Home", "screens/Pricing", "screens/AccountBilling", "screens/Legal", "lib/billing/catalog.ts", "components/billing", "components/layout/Footer.tsx"];
+// The same pages' words, now in locales/: every namespace a buyer or a reviewer reads, in every language.
+const LOCALE_NAMESPACES = ["common", "landing", "pricing", "account", "billing", "legal"];
 
 const FORBIDDEN = [
   /candidate evaluation/i,
@@ -27,6 +29,17 @@ const FORBIDDEN = [
   /\bimitat/i,
   /real person/i,
   /sounds like a human/i,
+  // Spanish: the same rule, "herramienta de autoevaluación y práctica".
+  /evaluaci[oó]n de candidatos/i,
+  /selecci[oó]n de personal/i,
+  /preparaci[oó]n (?:de|para) ex[aá]menes/i,
+  /decisi[oó]n(?:es)? de contrataci[oó]n/i,
+  /\breclutador/i,
+  /\bempleador/i,
+  /filtr(?:o|ado|ar) (?:de )?candidatos/i,
+  /\bimita/i,
+  /persona real/i,
+  /suena (?:como|a) (?:un )?humano/i,
 ];
 
 function* files(target: string): Generator<string> {
@@ -51,6 +64,21 @@ describe("the wording rule", () => {
         for (const pattern of FORBIDDEN) {
           const match = pattern.exec(text);
           if (match) offenders.push(`${path.relative(ROOT, file)}: "${match[0]}"`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("holds in those pages' locale files, in every language", () => {
+    const offenders: string[] = [];
+    for (const locale of readdirSync(path.join(ROOT, "locales"))) {
+      for (const ns of LOCALE_NAMESPACES) {
+        const file = path.join(ROOT, "locales", locale, `${ns}.json`);
+        const text = readFileSync(file, "utf8");
+        for (const pattern of FORBIDDEN) {
+          const match = pattern.exec(text);
+          if (match) offenders.push(`locales/${locale}/${ns}.json: "${match[0]}"`);
         }
       }
     }

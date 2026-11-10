@@ -1,9 +1,12 @@
+import type { TFunction } from "i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
 import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
 import { cn } from "@/lib/utils";
 
 type TranscriptSectionProps = {
   turns: TranscriptTurn[];
+  /** The report's feedback-namespace t: a sync child, so the report renders in one pass. */
+  t: TFunction<"feedback">;
 };
 
 /** "4:05" from the platform's seconds-into-call. */
@@ -17,7 +20,7 @@ function stamp(seconds: number | null | undefined): string | null {
  * The stored transcript, collapsed under the report: the report quotes from
  * it, and the candidate can check any quote against the whole exchange.
  */
-export default function TranscriptSection({ turns }: TranscriptSectionProps) {
+export default function TranscriptSection({ turns, t }: TranscriptSectionProps) {
   const spoken = turns.filter(
     (turn) => typeof turn.message === "string" && turn.message.trim() !== "",
   );
@@ -26,11 +29,11 @@ export default function TranscriptSection({ turns }: TranscriptSectionProps) {
   return (
     <details className="group border-t border-line py-10 lg:py-12">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-6 [&::-webkit-details-marker]:hidden">
-        <Eyebrow tick as="span">Transcript</Eyebrow>
+        <Eyebrow tick as="span">{t("transcript.title")}</Eyebrow>
         <span className="eyebrow tabular">
-          {spoken.length} {spoken.length === 1 ? "line" : "lines"} ·{" "}
-          <span className="group-open:hidden">show</span>
-          <span className="hidden group-open:inline">hide</span>
+          {t("transcript.lines", { count: spoken.length })} ·{" "}
+          <span className="group-open:hidden">{t("transcript.show")}</span>
+          <span className="hidden group-open:inline">{t("transcript.hide")}</span>
         </span>
       </summary>
 
@@ -44,7 +47,7 @@ export default function TranscriptSection({ turns }: TranscriptSectionProps) {
               className="grid grid-cols-[5.5rem_1fr] gap-4 sm:grid-cols-[7.5rem_1fr]"
             >
               <span className={cn("eyebrow pt-1", mine ? "text-ink" : "text-signal")}>
-                {mine ? "You" : "Interviewer"}
+                {mine ? t("transcript.you") : t("transcript.interviewer")}
                 {time && <span className="ml-2 text-ink-3 tabular">{time}</span>}
               </span>
               <p className={cn("text-[15px] leading-relaxed", mine ? "text-ink-2" : "text-ink")}>

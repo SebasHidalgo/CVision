@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { tFor } from "@/lib/i18n/testing";
 import type { InterviewAttempt } from "@/types/resume";
 import InterviewAttempts from "./InterviewAttempts";
 
@@ -15,7 +16,7 @@ const attempts: InterviewAttempt[] = [
 
 describe("InterviewAttempts", () => {
   it("lists every attempt in the order given, with its state and score, linking to where it stands", () => {
-    const html = renderToStaticMarkup(<InterviewAttempts attempts={attempts} />);
+    const html = renderToStaticMarkup(<InterviewAttempts attempts={attempts} t={tFor("analysis")} locale="en" />);
 
     expect(html.indexOf("Attempt 3")).toBeLessThan(html.indexOf("Attempt 2"));
     expect(html.indexOf("Attempt 2")).toBeLessThan(html.indexOf("Attempt 1"));
@@ -28,6 +29,6 @@ describe("InterviewAttempts", () => {
   });
 
   it("renders nothing for an analysis with no attempts", () => {
-    expect(renderToStaticMarkup(<InterviewAttempts attempts={[]} />)).toBe("");
+    expect(renderToStaticMarkup(<InterviewAttempts attempts={[]} t={tFor("analysis")} locale="en" />)).toBe("");
   });
 });

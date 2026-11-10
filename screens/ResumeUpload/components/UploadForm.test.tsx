@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
+import type { Locale } from "@/lib/i18n/config";
+import { tFor } from "@/lib/i18n/testing";
 import type { AnalysisQuotaView } from "@/lib/plans";
 import UploadForm, { quotaLine } from "./UploadForm";
 
@@ -15,13 +18,27 @@ const pro = (left: number): AnalysisQuotaView => ({ plan: "PRO", left, limit: 50
 
 afterEach(cleanup);
 
+const copy = (locale: Locale) => ({
+  t: tFor("upload", locale),
+  errorCopy: (code: Parameters<typeof actionErrorCopy>[2], meta?: Parameters<typeof actionErrorCopy>[3]) =>
+    actionErrorCopy(tFor("errors", locale), locale, code, meta),
+  resetDate: (resetsAt: string) => resetDateCopy(resetsAt, locale),
+});
+
 describe("quotaLine", () => {
   it("announces the Free allowance with its reset, says nothing for Pro, and at zero says why for either", () => {
-    expect(quotaLine(free(2))).toBe("2 of 3 analyses left this month · resets Nov 1");
-    expect(quotaLine(free(1))).toBe("1 of 3 analysis left this month · resets Nov 1");
-    expect(quotaLine(pro(40))).toBeNull();
-    expect(quotaLine(free(0))).toBe("You've used this month's analyses. Resets Nov 1.");
-    expect(quotaLine(pro(0))).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
+    const en = copy("en");
+    expect(quotaLine(free(2), en)).toBe("2 of 3 analyses left this month · resets Nov 1");
+    expect(quotaLine(free(1), en)).toBe("1 of 3 analysis left this month · resets Nov 1");
+    expect(quotaLine(pro(40), en)).toBeNull();
+    expect(quotaLine(free(0), en)).toBe("You've used this month's analyses. Resets Nov 1.");
+    expect(quotaLine(pro(0), en)).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
+  });
+
+  it("says the same in Spanish, with the singular when one is left", () => {
+    const es = copy("es");
+    expect(quotaLine(free(2), es)).toBe("Te quedan 2 de 3 análisis este mes · se reinician el 1 nov");
+    expect(quotaLine(free(1), es)).toBe("Te queda 1 de 3 análisis este mes · se reinician el 1 nov");
   });
 });
 

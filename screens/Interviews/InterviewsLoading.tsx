@@ -1,12 +1,14 @@
 import PageIntro from "@/components/layout/PageIntro";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getT } from "@/lib/i18n/server";
 
 const ROWS = [0, 1, 2];
 
-export default function InterviewsLoading() {
+export default async function InterviewsLoading() {
+  const t = await getT("interview");
   return (
     <div className="wrap py-12 lg:py-16">
-      <PageIntro eyebrow="Your interviews" title="Every rehearsal, on the record." />
+      <PageIntro eyebrow={t("list.eyebrow")} title={t("list.title")} />
       <ol className="divide-y divide-line border-b border-line" aria-hidden>
         {ROWS.map((row) => (
           <li

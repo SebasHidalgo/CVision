@@ -1,0 +1,102 @@
+{
+  "room": {
+    "title": "Interview room",
+    "loading": "Loading the interview room.",
+    "eyebrow": "Interview room · Attempt {{attempt}}",
+    "status": {
+      "connecting": "Connecting",
+      "speaking": "Interviewer speaking",
+      "yourTurn": "Your turn",
+      "ending": "Ending the interview",
+      "ended": "Interview ended",
+      "dropped": "Connection lost",
+      "noStarts": "No starts left",
+      "ready": "Ready when you are"
+    },
+    "startButton": {
+      "microphone": "Checking the microphone",
+      "session": "Starting",
+      "connecting": "Connecting",
+      "retry": "Try again",
+      "start": "Start the interview"
+    },
+    "clock": {
+      "timeLeft": "Time left",
+      "length": "Interview length"
+    },
+    "interviewer": "Interviewer",
+    "you": "You",
+    "candidate": "Candidate",
+    "length": "Length",
+    "upTo_one": "Up to {{count}} minute",
+    "upTo_other": "Up to {{count}} minutes",
+    "source": {
+      "period": "Uses one of this period's interviews.",
+      "credit": "Uses one credit.",
+      "trial": "Your free trial, on us."
+    },
+    "lengthChanged_one": "This call runs {{count}} minute, not {{promised}}: what pays for it changed since the page opened (a credit or an interview was used elsewhere).",
+    "lengthChanged_other": "This call runs {{count}} minutes, not {{promised}}: what pays for it changed since the page opened (a credit or an interview was used elsewhere).",
+    "backToAnalysis": "Back to the analysis",
+    "dropped": {
+      "title": "The connection to the interviewer was lost.",
+      "noStarts": "There are no starts left for this interview.",
+      "mayScore": "If you had already answered some questions, what was said may be scored as it stands.",
+      "checkFeedback": "Check for feedback"
+    },
+    "reconnect_one": "Reconnect — {{count}} start left",
+    "reconnect_other": "Reconnect — {{count}} starts left",
+    "hint": {
+      "live": "Speak naturally. End the interview whenever you are done.",
+      "ended": "Opening your feedback.",
+      "idle": "The questions come from the posting and your analysis."
+    },
+    "end": "End the interview",
+    "ending": "Ending",
+    "openingFeedback": "Opening your feedback",
+    "countdown": {
+      "warning": "One minute left. Finish the answer you are on.",
+      "final": "Time is up. The interviewer is wrapping up."
+    },
+    "microphone": {
+      "insecure": "The microphone only works over a secure connection. Open this page over https and try again.",
+      "denied": "Microphone access was blocked. Allow the microphone for this site in your browser's site settings (the icon next to the address bar), then try again.",
+      "missing": "No microphone was found. Connect one, or check that the browser can see it, then try again.",
+      "failed": "The microphone could not be opened. Close other apps that may be using it and try again."
+    },
+    "transcript": {
+      "label": "Live transcript",
+      "title": "Transcript",
+      "listening": "Listening",
+      "empty": "Empty",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines",
+      "emptyLive": "Every finished sentence lands here as it is said.",
+      "emptyIdle": "Once the call starts, the conversation is written down here as it happens."
+    }
+  },
+  "list": {
+    "eyebrow": "Your interviews",
+    "title": "Every rehearsal, on the record.",
+    "count": "Interviews",
+    "completed": "Completed",
+    "emptyTitle": "No rehearsals yet.",
+    "emptyBody": "Interviews start from an analysis, so the questions come from the actual job post you are applying to.",
+    "emptyAction": "Pick an analysis",
+    "attempt": "Attempt {{number}}",
+    "reading": {
+      "ready": "Ready to start",
+      "pending": "Preparing feedback",
+      "done": "Completed · view feedback",
+      "failed": "Didn't complete · see why",
+      "expired": "Expired"
+    }
+  },
+  "destination": {
+    "ready": "Open the interview room",
+    "pending": "Preparing your feedback",
+    "done": "Read interview feedback",
+    "failed": "See what went wrong",
+    "expired": "Interview expired"
+  }
+}

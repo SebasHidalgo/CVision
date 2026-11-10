@@ -1,0 +1,80 @@
+{
+  "intro": {
+    "eyebrow": "Nuevo análisis",
+    "title": "Mide tu CV frente a un puesto.",
+    "lede": "Una oferta, un PDF. El veredicto llega en segundos."
+  },
+  "notes": {
+    "company": {
+      "title": "Empresa y puesto",
+      "body": "Dan nombre a este análisis y, más adelante, sirven de marco para la entrevista de práctica."
+    },
+    "description": {
+      "title": "La descripción",
+      "body": "Pégala completa: requisitos, responsabilidades, puntos deseables. Cuanto más completa la oferta, más precisa la lectura."
+    },
+    "cv": {
+      "title": "Tu CV",
+      "body": "Un PDF con capa de texto, no un escaneo. Queda adjunto al análisis para que puedas volver a verlo."
+    }
+  },
+  "form": {
+    "company": "Empresa",
+    "companyPlaceholder": "Northwind",
+    "jobTitle": "Puesto",
+    "jobTitlePlaceholder": "Desarrollador frontend",
+    "jobDescription": "Descripción del puesto",
+    "jobDescriptionPlaceholder": "Pega la oferta completa: responsabilidades, requisitos, puntos deseables.",
+    "cv": "Tu CV",
+    "idle": "Se hace mientras esperas · tarda unos segundos",
+    "submit": "Hacer el análisis",
+    "quota_one": "Te queda {{count}} de {{limit}} análisis este mes · se reinician el {{date}}",
+    "quota_many": "Te quedan {{count}} de {{limit}} análisis este mes · se reinician el {{date}}",
+    "quota_other": "Te quedan {{count}} de {{limit}} análisis este mes · se reinician el {{date}}"
+  },
+  "validation": {
+    "fileRequired": "Falta el archivo",
+    "companyRequired": "Falta el nombre de la empresa",
+    "jobTitleRequired": "Falta el puesto",
+    "jobDescriptionRequired": "Falta la descripción del puesto",
+    "jobDescriptionTooLong": "La descripción del puesto es demasiado larga",
+    "onlyPdf": "Solo se permiten archivos PDF",
+    "fileEmpty": "El archivo está vacío",
+    "fileTooLarge": "El archivo pesa más de {{size}}",
+    "invalid": "Revisa este campo."
+  },
+  "file": {
+    "details": "{{size}} · PDF",
+    "remove": "Quitar",
+    "dropHere": "Suéltalo aquí",
+    "dropOrChoose": "Suelta tu CV aquí o haz clic para elegirlo",
+    "limits": "PDF · hasta {{size}}",
+    "rejected": {
+      "tooLarge": "Ese archivo pesa más de {{size}}. Vuelve a exportarlo con las imágenes comprimidas y súbelo.",
+      "tooMany": "Suelta un solo archivo a la vez.",
+      "notPdf": "Solo se aceptan archivos PDF."
+    }
+  },
+  "size": {
+    "bytes": "{{value}} bytes",
+    "kb": "{{value}} KB",
+    "mb": "{{value}} MB",
+    "gb": "{{value}} GB",
+    "tb": "{{value}} TB"
+  },
+  "progress": {
+    "uploading": "Subiendo",
+    "analyzing": "Analizando",
+    "sending": "Enviando tu CV al almacenamiento",
+    "sendingWithSize": "Enviando tu CV al almacenamiento · {{size}}",
+    "uploadNote": "El análisis empieza apenas llega. Mantén esta pestaña abierta.",
+    "analysisNote": "Suele estar listo en segundos. Mantén esta pestaña abierta.",
+    "stages": {
+      "reading": "Leyendo la capa de texto de tu PDF",
+      "comparing": "Comparándolo con la oferta, requisito por requisito",
+      "scoring": "Calificando seis dimensiones",
+      "writing": "Escribiendo el veredicto y los arreglos prioritarios",
+      "slow": "Todavía trabajando. Hacerlo bien lleva un momento"
+    }
+  }
+}
