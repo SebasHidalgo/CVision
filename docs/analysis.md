@@ -46,7 +46,9 @@ the rules applied in code, and how a change to any of it is measured.
 8. `guardMatchedSkills` and `guardBulletRoles` check the skills and the
    suggested bullets' role labels against the CV (below).
 9. `requirementHeadline` writes the first sentence of `overall.summaryText`
-   from the final statuses.
+   from the final statuses; `withOutcomeProse` and `guardRecommendations`
+   (`lib/ai/requirementProse.ts`) write the outcome sentences of
+   `jobFit.description` and drop recommendations that argue another status.
 10. `withoutControlCharacters` strips control characters (U+0000–U+001F
     except tab and line breaks, U+007F–U+009F) from every string the model
     wrote; one was seen in a role label ("Asociaci\u0003on").
@@ -152,7 +154,11 @@ list in code:
   are the marked lines (`-`, `*`, `•`, numbers) with their wrapped
   continuations, or, in a list without markers, each line up to the next
   heading (a line of more than 300 characters is a paragraph, not an item).
-  Prose after a marked list ends the block.
+  Prose after a marked list ends the block. An item ending in a colon takes
+  in what it announces, across a blank line (M8-G): the screening paragraph
+  that ends "…the following screenings: … Background Check:" and the
+  background-check sentence after it are one item, so a quote of either
+  covers both.
 - **Covered.** A line is covered when the `sourceQuote` or the softened
   clause of any entry the model returned overlaps it (12 characters, or half
   of a shorter line), including an entry the section rule later drops: the
@@ -168,14 +174,23 @@ list in code:
   analysis (dates, one requirement per requirement, quoted fields), and
   `requirementRepairSchema` (`{ requirements: [...] }`). It is told to
   answer the skipped lines only: the first version re-emitted all eight
-  Microsoft lines (1.3k output tokens) for one skipped line. An entry
-  counts only when its quote covers a skipped line; one whose requirement
-  copies a listed requirement's text is a restatement and covers its line
-  without adding an entry, and one with section `description` covers it and
-  is dropped by the section rule as usual. The kept entries go in posting
-  order, before every rule below, so all of them apply
-  (`requirement-recovered`, with "requirement added", "restates a listed
-  requirement" or "not a requirement"). Timeout 20 s
+  Microsoft lines (1.3k output tokens) for one skipped line. Each entry
+  starts with `detailOf` (M8-G): 0 for a requirement of its own, N when the
+  line only details listed requirement N. An entry counts only when its
+  quote covers a skipped line. It merges into an item already listed,
+  without being added (`requirement-merged`), when it says `detailOf` N,
+  or when its quote restates that item's quote: a run of 3 consecutive
+  content words in common, or 60% of its content words, boilerplate
+  ("including, but not limited to", "years of experience") left out, and
+  only into an item whose quote is in the posting, since one the source
+  rule drops would take the line with it. One whose requirement copies a
+  listed requirement's text also covers its line without adding an entry,
+  and one with section `description` covers it and is dropped by the
+  section rule as usual. The kept entries go in posting order, before every
+  rule below, so all of them apply (`requirement-recovered`, with
+  "requirement added", "detail of requirement N", "restates a listed
+  requirement" or "not a requirement"). The repair's notes get the same
+  English check as the analysis, asked again once inside the same 20 s
   (`REPAIR_TIMEOUT_MS`); a failed repair keeps the analysis and is recorded
   (`requirement-coverage / recorded`, "repair failed: <code>") and logged.
   At most one repair per analysis; an analysis that covers every line
@@ -259,6 +274,25 @@ Status rules, after the CV quotes are checked, in this order:
    shown term allows the model's status, none forces `missing`. The note is
    rewritten ("Your CV shows MySQL but not Ruby on Rails.") (`key-term /
    status-capped`). A requirement without key terms keeps the model's status.
+   Before the cap (M8-G, `lib/ai/requirementAlternatives.ts`): the
+   alternatives the quote itself offers are read in code (items joined by
+   "or"/"o"/"u" with the comma-listed items before them, a parenthesised
+   list, an examples list after "such as", "e.g.", "like", "including",
+   "tales como", "por ejemplo"; never a bare "como", which is usually "as").
+   An alternative of a list the model's terms belong to and that the terms
+   left out is added: as shown when the CV has it verbatim, as absent when
+   it does not (`key-term / alternative-added`). Two kinds cannot be looked
+   up: an item that borrows its noun from the next one ("data" in "a data or
+   business analyst"), and any item when the CV and the posting are in
+   different languages (a function-word count on each). While such an item
+   is left, no key-term cap applies, the years rule's included
+   (`key-term / cap-skipped`): a CV that says "Analista de datos" is not told
+   it lacks "data or business analyst". Open alternatives ("equivalent
+   experience", "related field", "afín") are never added. For a degree that
+   accepts a related field, a term "shown" by a different discipline
+   ("Computer Science ✓ (… Engineering)") gives its match to the quote's
+   own "related field" phrase and reads as absent itself
+   (`key-term / match-dropped`, with the phrase as replacement).
 2. **Years.** The posting's minimum is parsed from `sourceQuote` ("5+",
    "3-5" takes 3, "at least 3", "two or more", "mínimo 4", "más de 2"; never
    "every two years"). The CV's total is read only from an explicit
@@ -387,6 +421,25 @@ summary follows; its field comment, and `jobFit.description`'s, say not to
 restate statuses. Read on 20 analyses each, 6 of the control's contradicted
 the statuses and none of the new ones did.
 
+Since M8-G the outcome sentences of `jobFit.description` are written the
+same way (`lib/ai/requirementProse.ts`): how many required items a CV can
+show are fully shown, one sentence per gap (the years, "Your CV shows MySQL
+but not Ruby on Rails.", "Your CV doesn't show any of …"; four at most,
+then "N more gaps are in the list below."), the posting's own alternative
+for a "not shown" item ("Python isn't in your CV; the posting accepts
+willingness to learn …"), the Languages advice for an unstated level, a
+count of the items no CV can show, and the preferred items not shown. Of
+the model's paragraph only the sentences that state no outcome stay: a
+sentence with an outcome word (gap, lacks, missing, meets, aligns, covers,
+years…) that names a requirement's key term, a number of years or the fit
+as a whole is dropped (`prose / sentence-dropped`), and a connective left
+dangling ("Furthermore, …") goes with it. The field comment now asks the
+model for document commentary only. A strategic recommendation is dropped
+(`prose / recommendation-dropped`) when it treats a met requirement as a gap
+("gain experience with Docker" for a CV that shows it) or offers
+willingness to learn for a requirement whose posting accepts no such
+alternative (Ruby on Rails on the Encora posting).
+
 The analysis is written in English, whatever the language of the CV or the
 posting (owner decision, M8-D; one line of the prompt). Quotes stay
 verbatim, and a requirement's text stays in the posting's words, so a
@@ -484,10 +537,36 @@ schema or these rules is run against its control in the same session, seed
 7 plus unseeded runs, and scored:
 
 ```
-npm run eval -- run change-s7
-AI_SEED=none npm run eval -- run change-u1     # and u2..u5
+npm run eval -- full change-s7 --confirm-cost
+AI_SEED=none npm run eval -- run change-u1 --only <ids>     # and u2..u5
 npm run eval -- gold control-s7 control-u1 … ; npm run eval -- gold change-s7 change-u1 …
 ```
+
+What a measurement may spend is enforced in code (M8-G,
+`scripts/eval/spend.ts`). Every call is priced from the tokens the API
+reports (`scripts/eval/pricing.ts`: standard, Flex at half, free) and
+appended to `scripts/eval/runs/spend.jsonl` (gitignored). A command prints
+its estimate first (each fixture's largest past run in the ledger), refuses
+to start when the estimate crosses a cap, and stops between fixtures when
+the next one would: `EVAL_BUDGET_PER_RUN_USD` (default 0.50) and
+`EVAL_BUDGET_PER_DAY_USD` (default 1.00, live spend on the UTC day,
+whichever process spent it; point a worktree's runs at the same ledger with
+`EVAL_SPEND_LEDGER`). The committed fixtures hold invented data and run on
+`GOOGLE_GENERATIVE_AI_API_KEY_FREE` when it is set (the free tier, where
+Google may use what it is sent; a 6 s gap between calls, and rate limits or
+capacity errors retry the fixture up to three times); `fixtures.local/`
+never goes there and runs on the paid key at Flex (`serviceTier: "flex"`,
+half price, synchronous; `EVAL_PAID_TIER=standard` changes it). The routing
+wraps `fetch` in the harness, so production requests stay byte-identical.
+Each record keeps the tier it was served on, and `compare`, `stability`
+and `quick --control` refuse two runs whose tiers differ for a fixture.
+`full` and `run` without `--only` need `--confirm-cost`; `quick <label>
+--control <label>` runs seed 7 on the two real postings and four synthetic
+fixtures, and with `--replay` calls nothing and replays the control's
+answers through the checkout. `npm run eval -- spend [--since <date>]`
+prints the ledger by day, phase and tier (`--backfill` adds the stored runs
+from before it). On 2026-11-10 the `es-posting` seed-7 analysis came back
+byte-identical on standard, Flex and the free key.
 
 `gold` reports recall, precision (inventions, over-extraction by reason,
 splits, merges), kind and status accuracy (with met/missing swaps, false
@@ -512,11 +591,13 @@ captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
 a difference means the model behind the alias moved. The reference is
-`m8f-final-s7` (the `es-posting` fixture read from its PDF, which exercises
-the English-only rule, the stated language levels and the years
-statement): `npm run eval -- canary m8f-final-s7`. It is the seed-7 run of
-2026-11-09 replayed through the final M8-F code, because the key ran out of
-balance before a live capture; its first live run confirms it.
+`m8g-final-s7` (the `es-posting` fixture read from its PDF, which exercises
+the English-only rule, the stated language levels, the years statement and
+the outcome sentences): `npm run eval -- canary m8g-final-s7`. It was
+captured live on the paid standard tier on 2026-11-10, the tier production
+uses, and a second call matched it byte for byte; the canary runs on the
+tier its reference was captured on (`--tier` overrides it), so it costs
+one standard call (about USD 0.013).
 
 The alias moves within days and sometimes within hours. On 2026-11-05 the
 M8-C code dropped every requirement of `long-boilerplate`, which it had

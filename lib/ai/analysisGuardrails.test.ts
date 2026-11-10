@@ -9,7 +9,7 @@ const CV = [
   "Northwind, Backend Engineer, 2021 to present",
   "- Built backend services using Node.js.",
   "- Maintainer of 'outboxer', an open-source Go library.",
-  "- Improved deployment reliability, reducing downtime by approximately 40%.",
+  "- Improved deployment reliability, cutting downtime by roughly 40%.",
   "",
   "SKILLS",
   "Docker, CI/CD, Git, C#, Java, JavaScript, Scalability",
@@ -35,7 +35,7 @@ function feedback(
       {
         figure: "40%",
         quote:
-          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+          "- Improved deployment reliability, cutting downtime by roughly 40%.",
       },
     ],
       strengths: [],
@@ -73,7 +73,7 @@ const withBullets = (...examples: string[]) =>
       {
         figure: "40%",
         quote:
-          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+          "- Improved deployment reliability, cutting downtime by roughly 40%.",
       },
     ],
       strengths: [],
@@ -249,7 +249,7 @@ describe("the measurement the guardrail must not destroy", () => {
         {
           figure: "40%",
           quote:
-            "- Improved deployment reliability, reducing downtime by approximately 40%.",
+            "- Improved deployment reliability, cutting downtime by roughly 40%.",
         },
     ],
         strengths: [],

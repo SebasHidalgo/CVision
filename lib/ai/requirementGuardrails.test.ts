@@ -989,7 +989,7 @@ describe("M8-C language", () => {
   it("calls a language requirement not shown, even when assessable, unless the CV states a level", () => {
     const pending = [{ yearsEvidence: [] }, { yearsEvidence: [] }, { yearsEvidence: [] }];
     const asked = [
-      { requirement: english, kind: "required" as const, status: "met" as const, evidence: "Worked in distributed international teams", note: "", assessable: true, sourceQuote: english },
+      { requirement: english, kind: "required" as const, status: "met" as const, evidence: "Worked with remote teams in four countries", note: "", assessable: true, sourceQuote: english },
       { requirement: "Writes clearly in English and Spanish", kind: "required" as const, status: "missing" as const, evidence: "", note: "model note", assessable: true, sourceQuote: "writes clearly in English and Spanish" },
       { requirement: "Fluent German", kind: "required" as const, status: "partial" as const, evidence: "German (A2)", note: "model note", assessable: true, sourceQuote: "Fluent German" },
     ];

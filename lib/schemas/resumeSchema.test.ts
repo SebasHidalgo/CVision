@@ -30,7 +30,7 @@ function validFeedback() {
       score: 70,
       description: 'Relevant roles, few metrics.',
       quantifiedAchievements: [
-        { figure: '40%', quote: 'reducing downtime by approximately 40%' },
+        { figure: '40%', quote: 'cutting downtime by roughly 40%' },
       ],
       strengths: ['Strong action verbs'],
       weaknesses: ['Most bullets lack quantified results'],
