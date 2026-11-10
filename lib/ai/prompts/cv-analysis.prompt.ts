@@ -50,25 +50,42 @@ export const REQUIREMENT_FIELDS = `      // The sentence or bullet of the job de
         note: string;
       };
 
-      // The named technologies, tools, industries, fields of study,
+      // The named subjects, technologies, tools, industries, fields of study,
       // certifications and languages this requirement asks for (not general
       // skills such as "scalability" or "communication", not years), each
-      // copied word for word from sourceQuote: every alternative the posting
-      // offers, also the ones the resume lacks, and "related field" when the
-      // posting accepts one. With each,
-      // cvMatch: the word or phrase in the resume that shows that same thing,
-      // copied word for word: the term itself, a synonym, an abbreviation, a
-      // translation ("Postgres" for "PostgreSQL", "estadística" for
-      // "Statistics"), or a product of the kind the term names ("PostgreSQL"
-      // for "relational databases"). Never a related concept: another
-      // discipline ("Electrical Engineering" is not "Computer Science"; it
-      // shows "related field"), a quality ("scalable" is not "system
-      // design"), a broader term ("data modeling" is not "dimensional
-      // modeling"). "" when the resume does not show it. mode "all" when the requirement
-      // needs every term ("Ruby on Rails and MySQL"), "any" when it offers
-      // alternatives or examples ("C, C++ or Java", "tools such as Redis,
-      // Kafka and Celery"). terms is empty when it names none.
-      keyTerms: { mode: "all" | "any"; terms: { term: string; cvMatch: string }[] };
+      // copied word for word from sourceQuote: every subject it joins ("data
+      // pipelines", "message queues" and "alerting" in "data pipelines and
+      // message queues (e.g. Kafka, RabbitMQ), including alerting"), the
+      // category a list of examples illustrates ("message queues"), every
+      // example, every alternative the posting offers, also the ones the
+      // resume lacks, and "related field" when the posting accepts one.
+      // With each,
+      // cvMatch: the word or phrase in the resume that shows the term, copied
+      // word for word, or "" when the resume does not show it; and
+      // relation: how cvMatch relates to the term. "same": the term itself,
+      // or a specific case of it: the resume word is one kind of what the
+      // term names ("PostgreSQL" for "relational databases"; "Heroku" for
+      // "cloud platforms", because Heroku is a cloud platform; "usability
+      // tests" for "user research"). "synonym": another name for the same
+      // thing ("Postgres" for "PostgreSQL"). "abbreviation": "K8s" for
+      // "Kubernetes". "translation": "estadística" for "Statistics".
+      // "related": a different thing beside it, or a broader one: "an
+      // AI-powered product" is not "AI development tools", "remote teams" is
+      // not "distributed systems", "Electrical Engineering" is not "Computer
+      // Science" (it shows "related field"), "scalable" is not "system
+      // design", and "data modeling" is broader than "dimensional modeling".
+      // Ask which way it goes: a case of the term is "same"; a neighbour, a
+      // quality or a wider field is "related". A related match does not
+      // count: the term reads as not shown, and the note may mention what
+      // the resume has instead. "none" when cvMatch is "".
+      // mode "all" when the requirement needs every subject it joins ("Ruby
+      // on Rails and MySQL", "X and Y, including Z"), "any" when it offers
+      // alternatives ("C, C++ or Java") or only examples ("tools such as
+      // Redis, Kafka and Celery"). terms is empty when it names none.
+      keyTerms: {
+        mode: "all" | "any";
+        terms: { term: string; cvMatch: string; relation: "same" | "synonym" | "abbreviation" | "translation" | "related" | "none" }[];
+      };
 
       // "required" if the posting presents it as a minimum or required
       // qualification; "preferred" if it is listed as preferred, desired, a

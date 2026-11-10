@@ -1,9 +1,8 @@
 import { groundQuotes, loosen, mentionsTerm, normalizeWhitespace, numbersIn } from "@/lib/ai/analysisChecks";
 import { WORDING, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
-import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
-import { withQuoteAlternatives, withRelatedField } from "@/lib/ai/requirementAlternatives";
+import { exampleSpans, locateTerm, withQuoteAlternatives, withRelatedField } from "@/lib/ai/requirementAlternatives";
 import { candidateYears, describeYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsNote, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
   EvidenceSource,
@@ -114,25 +113,32 @@ export function clauseAsRequirement(clause: string): string {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
 
-const fold = (word: string) => word.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-
 /** The posting text as a requirement line: no list marker, no closing punctuation. */
 export function asRequirementText(quote: string): string {
   return quote.replace(/^[\s\-–—•*·]+/, "").replace(/[\s.;:,]+$/, "");
 }
 
-/** The requirement in the posting's spelling ("Portugués", not "Português") and language. */
-export function alignToSource(requirement: string, source: string): string {
-  const spelled = new Map<string, string>();
-  for (const word of source.match(/\p{L}+/gu) ?? []) spelled.set(fold(word), word);
-  const respelled = requirement.replace(/\p{L}+/gu, (word) => {
-    const posting = spelled.get(fold(word));
-    if (!posting || posting.toLowerCase() === word.toLowerCase()) return word;
-    return word[0] === word[0].toUpperCase() ? posting[0].toUpperCase() + posting.slice(1) : posting;
-  });
-  if (detectPostingLanguage(respelled) !== detectPostingLanguage(source)) return asRequirementText(source);
-  return respelled;
+// The shortest part of a quote a title may be, unless it is half the quote or more.
+const MIN_TITLE_WORDS = 3;
+
+/**
+ * The requirement in the posting's own words (M8-H): the part of the quote the model's line covers, as the
+ * posting writes it, or the whole quote when the model rewrote it ("; " as " and ", another discipline's name).
+ */
+export function postingWords(requirement: string, quote: string): string {
+  const line = asRequirementText(normalizeWhitespace(requirement));
+  const span = line ? spanFor(quote, line) : null;
+  // A label ("TypeScript" of "TypeScript experience is a plus") is not the posting's line; a whole clause is ("Fluent English; …").
+  const count = (text: string) => normalizeWhitespace(text).split(" ").length;
+  const clause = (text: string) => quote.split(/[;:]\s+|(?<=[.!?])\s+/).some((part) => loosen(part) === loosen(text));
+  const kept = span && (count(span) >= MIN_TITLE_WORDS || 2 * count(span) >= count(quote) || clause(span)) ? span : null;
+  const text = asRequirementText(kept ?? quote);
+  // As written, but the first letter as the model wrote the same word ("Another European language"); never "Dbt".
+  return kept && line[0] !== text[0] && line[0] === text[0].toLocaleUpperCase() ? line[0] + text.slice(1) : text;
 }
+
+// Relations under which a CV word shows the term; "related" and "none" do not. Absent only in answers recorded before M8-H.
+const SHOWS_TERM = new Set(["same", "synonym", "abbreviation", "translation"]);
 
 /** Context the status rules need beside the stored requirement, aligned by index. */
 export type PendingRequirement = { yearsEvidence: string[] };
@@ -211,6 +217,8 @@ export function structureRequirements(
     pending.push({ yearsEvidence: entry.yearsEvidence });
 
     let derived: Requirement | null = null;
+    // The posting text the row's title comes from: the quote, without a softened clause split off below.
+    let titleSource = source.text;
     const clause = entry.softenedClause;
     if (kind === "required" && normalizeWhitespace(clause.quote)) {
       const found = inPosting(posting, clause.quote);
@@ -225,6 +233,8 @@ export function structureRequirements(
         const trimmed = withoutClause(source.text, found.text);
         const trimmedSource = trimmed ? inPosting(posting, trimmed) : null;
         if (trimmedSource) requirement.sourceQuote = trimmedSource.text;
+        // A clause cut from the middle leaves no contiguous quote; the title still drops it.
+        titleSource = trimmedSource?.text ?? trimmed ?? requirement.requirement;
 
         const key = loosen(found.text);
         if (listedPreferred.some((text) => text === key || text.includes(key))) {
@@ -255,11 +265,12 @@ export function structureRequirements(
         record({ check: "softened-clause", action: "text-replaced", path: `${path}.sourceQuote`, value: source.text, replacement: ownSource.text });
         requirement.sourceQuote = ownSource.text;
         requirement.requirement = asRequirementText(ownSource.text);
+        titleSource = ownSource.text;
         contextTerms = outside.filter(shownTerm).map((term) => term.term);
       }
     }
 
-    const text = alignToSource(requirement.requirement, requirement.sourceQuote ?? source.text);
+    const text = postingWords(requirement.requirement, titleSource);
     if (text !== requirement.requirement) {
       record({ check: "requirement-text", action: "text-replaced", path: `${path}.requirement`, value: requirement.requirement, replacement: text });
       requirement.requirement = text;
@@ -278,9 +289,11 @@ export function structureRequirements(
     }
     if (own.length) {
       // "dbt and data contracts" offers no alternative: every term counts. A parenthesised list is examples.
+      // Subjects the posting joins with "and" or "including" are each needed, whatever examples sit beside them (M8-H).
       const quote = requirement.sourceQuote ?? "";
       const offersChoice = ALTERNATIVE_WORD.test(quote) || /\([^)]*,[^)]*\)/.test(quote);
-      const mode = entry.keyTerms.mode === "any" && own.length > 1 && !offersChoice ? "all" : entry.keyTerms.mode;
+      const joined = joinsSubjects(quote, own.map((term) => term.term));
+      const mode = entry.keyTerms.mode === "any" && own.length > 1 && (!offersChoice || joined) ? "all" : entry.keyTerms.mode;
       if (mode !== entry.keyTerms.mode) {
         record({ check: "key-term", action: "mode-changed", path: `${path}.keyTerms.mode`, value: requirement.sourceQuote ?? "", replacement: mode });
       }
@@ -306,9 +319,11 @@ export function structureRequirements(
 
 const RANK: Record<RequirementStatus, number> = { missing: 0, partial: 1, met: 2, not_evident: -1 };
 
-// Between two terms: list items ending in "or" ("C#, Java, JavaScript, or "), or a comma list without "and".
-const OR_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))[^;.()]*?(?:^|[\s,])(?:or|o|u|\/)(?:\s+(?:a|an|the|un|una))?\s*$/iu;
+// Between two terms: list items ending in "or" ("Go, Rust, Kotlin, or ", "Elixir (or "), or a comma list without "and".
+const OR_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))[^;.()]*?(?:^|[\s,(])(?:or|o|u|\/)(?:\s+(?:a|an|the|un|una))?\s*$/iu;
 const COMMA_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))\s*,[^;.()]*$/iu;
+// After a comma list: ", or a similar language" makes the list a choice.
+const TRAILING_OR = /^[\s,]*(?:or|o|u|and\/or)\s/iu;
 
 /**
  * Which terms the posting offers as alternatives to each other, from its own words: terms joined
@@ -316,10 +331,9 @@ const COMMA_SEPARATOR = /^(?![\s\S]*(?:^|[^\p{L}])(?:and|y|e)(?:[^\p{L}]|$))\s*,
  * ("(Prometheus, Grafana, OpenTelemetry)") form one group; every other term is a group of its own.
  */
 export function termGroups(quote: string, terms: string[]): number[][] {
-  const lower = quote.toLowerCase();
   const located = terms.map((term, i) => {
-    const at = lower.indexOf(term.trim().toLowerCase());
-    return { i, at, end: at + term.trim().length };
+    const at = locateTerm(quote, term);
+    return { i, at, end: at + normalizeWhitespace(term).length };
   });
   const groups: number[][] = located.filter((one) => one.at < 0).map((one) => [one.i]);
   let run: typeof located = [];
@@ -329,7 +343,8 @@ export function termGroups(quote: string, terms: string[]): number[][] {
     const first = run[0];
     const last = run[run.length - 1];
     const inParens = run.length > 1 && /\([^()]*$/.test(quote.slice(0, first.at)) && /^[^()]*\)/.test(quote.slice(last.end));
-    if (joinedByOr || inParens) groups.push(run.map((one) => one.i));
+    const endsInOr = run.length > 1 && TRAILING_OR.test(quote.slice(last.end));
+    if (joinedByOr || inParens || endsInOr) groups.push(run.map((one) => one.i));
     else for (const one of run) groups.push([one.i]);
     run = [];
     joinedByOr = false;
@@ -349,29 +364,78 @@ export function termGroups(quote: string, terms: string[]): number[][] {
 
 const shownTerm = (term: KeyTerms["terms"][number]) => Boolean(normalizeWhitespace(term.cvMatch));
 
-/** The terms without the alternatives the candidate does not need: one shown term satisfies its group. */
-export function neededTerms(keyTerms: KeyTerms, quote: string): KeyTerms {
-  if (keyTerms.mode === "any") {
-    const shown = keyTerms.terms.filter(shownTerm);
-    return shown.length ? { ...keyTerms, terms: shown } : keyTerms;
+/** One group of the cap; `examplesOnly` when it holds examples whose category is not among the terms. */
+export type TermGroup = { members: number[]; examplesOnly: boolean };
+
+/**
+ * termGroups with examples apart (M8-H): an example joins the group of the category it illustrates
+ * ("message queues (e.g., Kafka, SQS)"); examples whose category is not a term form a group of their own.
+ * Groups come in posting order.
+ */
+export function coverageGroups(quote: string, terms: string[]): { groups: TermGroup[]; example: boolean[] } {
+  const spans = exampleSpans(quote);
+  const located = terms.map((term) => {
+    const at = locateTerm(quote, term);
+    return { at, end: at + normalizeWhitespace(term).length };
+  });
+  const spanOf = located.map(({ at, end }) => (at < 0 ? -1 : spans.findIndex((span) => at >= span.from && end <= span.end)));
+  const groups: TermGroup[] = [];
+  for (const group of termGroups(quote, terms)) {
+    const own = group.filter((i) => spanOf[i] < 0);
+    if (own.length) groups.push({ members: own, examplesOnly: false });
   }
-  const drop = new Set<number>();
-  for (const group of termGroups(quote, keyTerms.terms.map((term) => term.term))) {
-    if (group.length > 1 && group.some((i) => shownTerm(keyTerms.terms[i]))) {
-      for (const i of group) if (!shownTerm(keyTerms.terms[i])) drop.add(i);
-    }
-  }
-  return { ...keyTerms, terms: keyTerms.terms.filter((_, i) => !drop.has(i)) };
+  spans.forEach((span, s) => {
+    const members = terms.map((_, i) => i).filter((i) => spanOf[i] === s);
+    if (members.length === 0) return;
+    // The category ends right where its examples start.
+    const category = located.findIndex(({ at, end }, i) => spanOf[i] < 0 && at >= 0 && end <= span.start && /^[\s,:]*$/.test(quote.slice(end, span.start)));
+    const home = category >= 0 ? groups.find((group) => group.members.includes(category)) : undefined;
+    if (home) home.members.push(...members);
+    else groups.push({ members, examplesOnly: true });
+  });
+  const first = (group: TermGroup) => Math.min(...group.members.map((i) => (located[i].at < 0 ? Infinity : located[i].at)));
+  return { groups: groups.sort((a, b) => first(a) - first(b)), example: spanOf.map((s) => s >= 0) };
 }
 
-/** The highest status key-term coverage allows; null when it allows the model's own. "all" counts groups of alternatives. */
+// Words that join subjects a requirement needs together, and words that offer a choice between them.
+const AND_WORD = /(?:^|[^\p{L}])(?:and|y|including|incluyendo|as well as|plus|along with|además de)(?:[^\p{L}]|$)|[&;]/iu;
+const OR_WORD = /(?:^|[^\p{L}])(?:or|o|u|either)(?:[^\p{L}]|$)|\//iu;
+
+/** The quote joins two or more of these subjects with "and"/"including", never "or": each is needed. */
+export function joinsSubjects(quote: string, terms: string[]): boolean {
+  // "…on a formal rotation, or have run Prometheus and Grafana": the "and" sits inside one alternative.
+  const outsideExamples = exampleSpans(quote).reduceRight((text, span) => text.slice(0, span.start) + text.slice(span.end), quote);
+  if (OR_WORD.test(outsideExamples)) return false;
+  const { groups } = coverageGroups(quote, terms);
+  const spans: { at: number; end: number }[] = [];
+  for (const group of groups.filter((one) => !one.examplesOnly)) {
+    const at = group.members.map((i) => locateTerm(quote, terms[i]));
+    if (at.some((one) => one < 0)) return false;
+    spans.push({ at: Math.min(...at), end: Math.max(...group.members.map((i, k) => at[k] + normalizeWhitespace(terms[i]).length)) });
+  }
+  if (spans.length < 2) return false;
+  return spans.slice(1).every((span, k) => {
+    const between = quote.slice(spans[k].end, span.at);
+    return AND_WORD.test(between) && !OR_WORD.test(between);
+  });
+}
+
+/**
+ * The highest status key-term coverage allows; null when it allows the model's own. "all" counts groups of
+ * alternatives; examples with no category among the terms illustrate the requirement and never cap it by themselves.
+ */
 export function coverageCap(keyTerms: KeyTerms | undefined, quote = ""): RequirementStatus | null {
   if (!keyTerms || keyTerms.terms.length === 0) return null;
-  if (keyTerms.mode === "any") return keyTerms.terms.some(shownTerm) ? null : "missing";
-  const groups = termGroups(quote, keyTerms.terms.map((term) => term.term));
-  const covered = groups.filter((group) => group.some((i) => shownTerm(keyTerms.terms[i]))).length;
-  if (covered === groups.length) return null;
-  return covered > 0 ? "partial" : "missing";
+  const { groups } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
+  const shown = (group: TermGroup) => group.members.some((i) => shownTerm(keyTerms.terms[i]));
+  // A shown example shows the category it illustrates; examples not shown count against nothing.
+  const counted = groups.filter((group) => !group.examplesOnly || shown(group));
+  // Something related but not the same is adjacent: "partial" by its own definition, never "missing" (M8-H).
+  const adjacent = groups.some((group) => !shown(group) && group.members.some((i) => keyTerms.terms[i].relation === "related"));
+  if (keyTerms.mode === "any") return groups.some(shown) || counted.length === 0 ? null : adjacent ? "partial" : "missing";
+  const covered = counted.filter(shown).length;
+  if (covered === counted.length) return null;
+  return covered > 0 || adjacent ? "partial" : "missing";
 }
 
 const joinTerms = (terms: string[], word: string) =>
@@ -384,20 +448,45 @@ const joinTerms = (terms: string[], word: string) =>
 export function absentTerms(keyTerms: KeyTerms | undefined, quote = "", language: AnalysisLanguage = "en"): string {
   if (!keyTerms) return "";
   const words = WORDING[language];
-  const absent = keyTerms.terms.map((term, i) => ({ term: term.term, i })).filter(({ i }) => !shownTerm(keyTerms.terms[i]));
-  if (keyTerms.mode === "any") return joinTerms(absent.map((one) => one.term), words.or);
-  const missing = new Set(absent.map((one) => one.i));
-  const phrases = termGroups(quote, keyTerms.terms.map((term) => term.term))
-    .filter((group) => group.every((i) => missing.has(i)))
-    .map((group) => joinTerms(group.map((i) => keyTerms.terms[i].term), words.or));
+  const { groups, example } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
+  const shown = (group: TermGroup) => group.members.some((i) => shownTerm(keyTerms.terms[i]));
+  // An example is never named as missing: the category it illustrates is.
+  const named = (group: TermGroup) => group.members.filter((i) => !example[i]).map((i) => keyTerms.terms[i].term);
+  const counted = groups.filter((group) => !group.examplesOnly);
+  // One shown alternative answers an "any" requirement: the others are not gaps.
+  if (keyTerms.mode === "any") return groups.some(shown) ? "" : joinTerms(counted.flatMap(named), words.or);
+  const phrases = counted.filter((group) => !shown(group)).map((group) => joinTerms(named(group), words.or));
   return joinTerms(phrases, words.and);
+}
+
+/** One term as the page lists it; `joiner` is the word before it ("or" between alternatives). */
+export type TermChip = { term: string; cvMatch: string; shown: boolean; joiner: "or" | "and" | null };
+
+/** Every term with ✓ or ✗ (M8-H): alternatives joined by "or", and the examples apart, where they cannot read as the requirement. */
+export function termDisplay(keyTerms: KeyTerms, quote = ""): { terms: TermChip[]; examples: TermChip[] } {
+  const { groups, example } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
+  const chip = (i: number, joiner: TermChip["joiner"]): TermChip => ({
+    term: keyTerms.terms[i].term,
+    cvMatch: normalizeWhitespace(keyTerms.terms[i].cvMatch),
+    shown: shownTerm(keyTerms.terms[i]),
+    joiner,
+  });
+  const terms: TermChip[] = [];
+  const examples: TermChip[] = [];
+  for (const group of groups) {
+    group.members
+      .filter((i) => !example[i])
+      .forEach((i, k) => terms.push(chip(i, terms.length === 0 ? null : k > 0 || keyTerms.mode === "any" ? "or" : "and")));
+    for (const i of group.members.filter((one) => example[one])) examples.push(chip(i, examples.length === 0 ? null : "and"));
+  }
+  return { terms, examples };
 }
 
 function coverageNote(keyTerms: KeyTerms, to: RequirementStatus, quote: string, language: AnalysisLanguage): string {
   const words = WORDING[language];
   const shown = keyTerms.terms.filter(shownTerm).map((term) => term.term);
   const absent = absentTerms(keyTerms, quote, language);
-  if (to === "partial") return words.shownButNot(joinTerms(shown, words.and), absent);
+  if (to === "partial" && shown.length) return words.shownButNot(joinTerms(shown, words.and), absent);
   return keyTerms.mode === "any" && keyTerms.terms.length > 1 ? words.noneOf(absent) : words.notShown(absent);
 }
 
@@ -461,16 +550,28 @@ export function enforceRequirementStatuses(
       }
       const quote = requirement.sourceQuote ?? "";
       const related = withRelatedField(requirement.keyTerms, quote, `${at}.keyTerms`);
+      interventions.push(...related.interventions);
+      // A CV word that is only near the term does not show it (M8-H); one that contains the term itself does, however labelled.
+      const nearby: string[] = [];
+      for (const [i, term] of related.keyTerms.terms.entries()) {
+        if (!normalizeWhitespace(term.cvMatch) || term.relation === undefined || SHOWS_TERM.has(term.relation) || containsTerm(term.cvMatch, term.term)) continue;
+        interventions.push({ check: "key-term", action: "match-dropped", path: `${at}.keyTerms.terms[${i}].cvMatch`, value: `${term.term}: ${term.cvMatch}`, replacement: term.relation });
+        if (term.relation === "related") nearby.push(`"${normalizeWhitespace(term.cvMatch)}"`);
+        term.cvMatch = "";
+      }
       const offered = withQuoteAlternatives(related.keyTerms, quote, context.cvText, context.crossLanguage ?? false, `${at}.keyTerms`);
-      interventions.push(...related.interventions, ...offered.interventions);
+      interventions.push(...offered.interventions);
       unexamined = offered.unexamined;
-      requirement.keyTerms = neededTerms(offered.keyTerms, quote);
+      // Every term stays, alternatives and examples included: the page shows each with ✓ or ✗.
+      requirement.keyTerms = offered.keyTerms;
       const cap = coverageCap(requirement.keyTerms, requirement.sourceQuote);
       if (cap && RANK[requirement.status] > RANK[cap]) {
         if (unexamined.length) {
           interventions.push({ check: "key-term", action: "cap-skipped", path, value: `${requirement.status}: ${requirement.requirement}`, replacement: unexamined.join(", ") });
         } else {
-          lower("key-term", cap, coverageNote(requirement.keyTerms, cap, quote, language));
+          // The related experience is named, not counted.
+          const near = nearby.length ? ` ${words.relatedOnly(joinTerms(nearby, words.and))}` : "";
+          lower("key-term", cap, `${coverageNote(requirement.keyTerms, cap, quote, language)}${near}`);
           // Nothing the requirement names is in the CV, so the quote showed something else.
           if (cap === "missing") requirement.evidence = "";
         }
@@ -718,18 +819,33 @@ const ROLE_TERM = /(?<![\p{L}])(?:roles?|positions?|engineer\w*|develop\w*|analy
 
 /** "3+ years writing production Python": years of one skill or domain, which a CV's total only bounds from above. */
 export function isSkillYears(requirement: Pick<Requirement, "keyTerms" | "sourceQuote">): boolean {
-  const clause = yearsClauseIn(requirement.sourceQuote ?? "").toLowerCase();
+  const quote = requirement.sourceQuote ?? "";
+  const clause = yearsClauseIn(quote).toLowerCase();
   if (!clause) return false;
-  return (requirement.keyTerms?.terms ?? []).some((term) => term.term.trim() && clause.includes(term.term.trim().toLowerCase()) && !ROLE_TERM.test(term.term));
+  const terms = requirement.keyTerms?.terms ?? [];
+  // An example ("languages including C#, Java") says nothing about whose years these are (M8-H).
+  const { example } = coverageGroups(quote, terms.map((term) => term.term));
+  return terms.some((term, i) => !example[i] && term.term.trim() && locateTerm(clause, term.term) >= 0 && !ROLE_TERM.test(term.term));
 }
 
 export function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
   if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return WORDING[language].yearsLabel(requirement.years.min);
   const terms = absentTerms(requirement.keyTerms, requirement.sourceQuote, language);
   if (terms) return terms;
+  // Named only by examples: the examples the CV lacks are the clearest label.
+  const examples = absentExamples(requirement.keyTerms, requirement.sourceQuote, language);
+  if (examples) return examples;
   const text = requirement.requirement.replace(/[.;:,\s]+$/, "");
   if (text.length <= SHORT_LABEL) return text;
-  return `${text.slice(0, SHORT_LABEL).replace(/\s+\S*$/, "")}…`;
+  return `${text.slice(0, SHORT_LABEL).replace(/\s+\S*$/, "").replace(/[\s,;:.]+$/, "")}…`;
+}
+
+/** The unshown examples of a requirement that names nothing but examples ("tools such as Redis or Sidekiq"); "" otherwise. */
+export function absentExamples(keyTerms: KeyTerms | undefined, quote = "", language: AnalysisLanguage = "en"): string {
+  if (!keyTerms || keyTerms.terms.length === 0) return "";
+  const { groups, example } = coverageGroups(quote, keyTerms.terms.map((term) => term.term));
+  if (!groups.every((group) => group.examplesOnly)) return "";
+  return joinTerms(keyTerms.terms.filter((term, i) => example[i] && !shownTerm(term)).map((term) => term.term), WORDING[language].or);
 }
 
 /** The analysis' first sentence, from the statuses, so it cannot contradict them; in the language the model wrote in. */

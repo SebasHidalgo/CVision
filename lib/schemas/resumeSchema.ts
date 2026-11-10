@@ -100,6 +100,8 @@ export const POSTING_SECTIONS = ["requirements", "preferred", "responsibilities"
 
 /** `all`: the requirement needs every term; `any`: alternatives or examples, one is enough. */
 export const KEY_TERM_MODES = ["all", "any"] as const;
+/** How a CV word relates to the term it shows; `related` and `none` never count (M8-H). */
+export const KEY_TERM_RELATIONS = ["same", "synonym", "abbreviation", "translation", "related", "none"] as const;
 /** The CV section an evidence quote sits in, derived in code. */
 export const EVIDENCE_SOURCES = ["experience", "projects", "skills", "summary", "education", "other"] as const;
 
@@ -111,10 +113,23 @@ export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
 /** A term the requirement names, verbatim from its sourceQuote, and the CV word that shows it ("" when none). */
 const keyTermsSchema = z.object({
   mode: lowerEnum(KEY_TERM_MODES),
-  terms: z.array(z.object({ term: z.string(), cvMatch: z.string() })),
+  // Optional: analyses stored before M8-H do not have it.
+  terms: z.array(z.object({ term: z.string(), cvMatch: z.string(), relation: lowerEnum(KEY_TERM_RELATIONS).optional() })),
 });
 
 export type KeyTerms = z.infer<typeof keyTermsSchema>;
+
+// A missing or unknown relation reads as "none": the match it came with does not count.
+const relationSchema = z.preprocess((value) => {
+  const relation = typeof value === "string" ? value.trim().toLowerCase() : value;
+  return (KEY_TERM_RELATIONS as readonly unknown[]).includes(relation) ? relation : "none";
+}, z.enum(KEY_TERM_RELATIONS));
+
+/** The model's key terms: every term says how its CV word relates to it, right after the word. */
+const modelKeyTermsSchema = z.object({
+  mode: lowerEnum(KEY_TERM_MODES),
+  terms: z.array(z.object({ term: z.string(), cvMatch: z.string(), relation: relationSchema })),
+});
 
 /**
  * One requirement from the posting, with how the resume answers it. This is
@@ -166,7 +181,7 @@ export const modelRequirementSchema = z.object({
     evidence: z.string(),
     note: z.string(),
   }),
-  keyTerms: keyTermsSchema,
+  keyTerms: modelKeyTermsSchema,
   kind: lowerEnum(REQUIREMENT_KINDS),
   assessable: z.boolean(),
   yearsEvidence: z.array(z.string()),

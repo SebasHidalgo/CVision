@@ -47,8 +47,8 @@
       "spans": ["Hands-on experience with a cloud data warehouse (BigQuery, Snowflake or Redshift)."],
       "aliases": ["cloud data warehouse", "data warehouse"],
       "status": "missing",
-      "why": "ClickHouse, PostgreSQL and Parquet on S3; none of the three warehouses and no cloud warehouse.",
-      "keyTerms": { "mode": "any", "terms": [{ "term": "BigQuery", "present": false }, { "term": "Snowflake", "present": false }, { "term": "Redshift", "present": false }] }
+      "why": "ClickHouse, PostgreSQL and Parquet on S3; none of the three warehouses and no cloud warehouse. M8-H: the three are examples of the category, which is the requirement (rule 17); ClickHouse is not a cloud data warehouse.",
+      "keyTerms": { "mode": "any", "terms": [{ "term": "cloud data warehouse", "present": false }, { "term": "BigQuery", "present": false, "example": true }, { "term": "Snowflake", "present": false, "example": true }, { "term": "Redshift", "present": false, "example": true }] }
     },
     {
       "id": "r6",

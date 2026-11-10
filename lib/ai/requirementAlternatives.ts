@@ -40,6 +40,82 @@ function head(chunk: string): string {
 
 const clean = (item: string) => item.replace(/^[\s,:;"'“”]+|[\s,:;"'“”]+$/g, "");
 
+// M8-H: words that introduce examples of a category, not alternatives to it.
+const MARKER_WORDS = "e\\.g\\.|eg\\.|for example|for instance|such as|including,? but not limited to|tales como|por ejemplo|incluyendo|like|como|including";
+const EXAMPLE_MARKER = new RegExp(`(?<![\\p{L}.])(${MARKER_WORDS})[\\s,:]*`, "giu");
+const EXAMPLE_START = new RegExp(`^\\s*(?:${MARKER_WORDS})[\\s,:]*`, "iu");
+
+/** "like" and "como" mark examples only before a name, a bare "including" only before a comma list: "including monitoring and telemetry" joins subjects. */
+function marksExamples(quote: string, match: RegExpExecArray | RegExpMatchArray): boolean {
+  const word = match[1].toLowerCase();
+  const after = quote.slice((match.index ?? 0) + match[0].length);
+  // Case-sensitive on purpose: under the i flag \p{Lu} matches lowercase too.
+  if (word === "like" || word === "como") return /^\p{Lu}/u.test(after);
+  if (word === "including") return /^[^,.;()]*,/.test(after);
+  return true;
+}
+const LIST_SEPARATOR = /(,\s*(?:(?:and|or|y|o|u|e)\s+)?|\s+(?:and\/or|and|or|y|o|u|e)\s+|\s*\/\s*)/iu;
+
+/** Where a list of short items starting at `from` ends; 0 items when the text there is not a list. */
+function listFrom(text: string, from: number): { end: number; items: number } {
+  const rest = text.slice(from);
+  const stop = rest.search(/[;()]|[.!?](?:\s|$)/);
+  const clause = stop < 0 ? rest : rest.slice(0, stop);
+  const parts = clause.split(LIST_SEPARATOR);
+  let offset = 0;
+  let end = from;
+  let items = 0;
+  for (let i = 0; i < parts.length; i += 2) {
+    const item = clean(parts[i]);
+    if (!item || words(item).length > MAX_ITEM_WORDS || words(item).some(isBoundary) || OPEN_ALTERNATIVE.test(item)) break;
+    end = from + offset + parts[i].trimEnd().length;
+    items += 1;
+    offset += parts[i].length + (parts[i + 1]?.length ?? 0);
+  }
+  return { end, items };
+}
+
+/** A span of a quote that lists examples: `start` at the marker or "(", the list between `from` and `end`. */
+export type ExampleSpan = { start: number; from: number; end: number };
+
+/** The examples a quote gives: a marked list ("such as Airflow or Dagster") or a parenthesised one ("(BigQuery, Snowflake)"). */
+export function exampleSpans(quote: string): ExampleSpan[] {
+  const spans: ExampleSpan[] = [];
+  const parenthesised: [number, number][] = [];
+  for (const match of quote.matchAll(/\(([^()]*)\)/g)) {
+    const open = match.index ?? 0;
+    parenthesised.push([open, open + match[0].length]);
+    const marker = EXAMPLE_START.exec(match[1]);
+    const from = open + 1 + (marker ? marker[0].length : 0);
+    const list = listFrom(quote, from);
+    // A lone item is an aside ("(BSc)"), unless the posting marks it as an example.
+    if (list.items >= (marker ? 1 : 2)) spans.push({ start: open, from, end: list.end });
+  }
+  for (const match of quote.matchAll(EXAMPLE_MARKER)) {
+    const at = match.index ?? 0;
+    if (parenthesised.some(([open, close]) => at > open && at < close) || !marksExamples(quote, match)) continue;
+    const from = at + match[0].length;
+    const list = listFrom(quote, from);
+    if (list.items >= 1) spans.push({ start: at, from, end: list.end });
+  }
+  return spans.sort((a, b) => a.start - b.start);
+}
+
+// Typography a model may normalise in a term: dashes, quotes, no-break spaces. One unit for one unit, so positions hold.
+const foldTypography = (text: string) =>
+  Array.from(
+    text.replace(/[‐-―−]/g, "-").replace(/[‘’‛′]/g, "'").replace(/[“”]/g, '"').replace(/ /g, " "),
+    (char) => (char.toLowerCase().length === char.length ? char.toLowerCase() : char),
+  ).join("");
+
+/** Where a term starts in a quote as a whole token ("C" never inside "technical"), ignoring case and typography; -1 when it is not there. */
+export function locateTerm(quote: string, term: string): number {
+  const wanted = foldTypography(normalizeWhitespace(term));
+  if (!wanted) return -1;
+  const escaped = wanted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return foldTypography(quote).search(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u"));
+}
+
 /** A comma list split into items: "Azure, AWS, GCP" or "Redis, Kafka and Celery". */
 const listItems = (text: string) =>
   text
@@ -125,12 +201,12 @@ export function withQuoteAlternatives(
       if (item.elliptical) {
         unexamined.push(item.text);
       } else if (containsTerm(cvText, item.text)) {
-        terms.push({ term: item.text, cvMatch: item.text });
+        terms.push({ term: item.text, cvMatch: item.text, relation: "same" });
         interventions.push({ check: "key-term", action: "alternative-added", path, value: item.text, replacement: "shown" });
       } else if (crossLanguage) {
         unexamined.push(item.text);
       } else {
-        terms.push({ term: item.text, cvMatch: "" });
+        terms.push({ term: item.text, cvMatch: "", relation: "none" });
         interventions.push({ check: "key-term", action: "alternative-added", path, value: item.text, replacement: "not shown" });
       }
     }
@@ -161,13 +237,15 @@ export function withRelatedField(keyTerms: KeyTerms, quote: string, path: string
   for (const term of terms) {
     if (!normalizeWhitespace(term.cvMatch) || overlaps(term.term, related) || same(term.term, term.cvMatch)) continue;
     const target = terms.find((other) => overlaps(other.term, related));
+    // Another discipline is an instance of the related field the posting accepts.
     if (target) {
-      if (!normalizeWhitespace(target.cvMatch)) target.cvMatch = term.cvMatch;
+      if (!normalizeWhitespace(target.cvMatch)) Object.assign(target, { cvMatch: term.cvMatch, relation: "same" });
     } else {
-      terms.push({ term: related, cvMatch: term.cvMatch });
+      terms.push({ term: related, cvMatch: term.cvMatch, relation: "same" });
     }
     interventions.push({ check: "key-term", action: "match-dropped", path, value: `${term.term}: ${term.cvMatch}`, replacement: related });
     term.cvMatch = "";
+    term.relation = "related";
   }
   return interventions.length ? { keyTerms: { ...keyTerms, terms }, interventions } : { keyTerms, interventions };
 }

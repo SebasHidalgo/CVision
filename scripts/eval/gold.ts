@@ -35,7 +35,8 @@ export type GoldRequirement = {
   splitAllowed?: boolean;
   alsoAcceptedAs?: string[];
   /** M8-C: the terms the requirement names and whether this CV shows each. */
-  keyTerms?: { mode: "all" | "any"; terms: { term: string; present: boolean }[] };
+  /** M8-H: `example` marks a term the posting gives as an example of a category ("e.g.", "such as", a parenthesised list). */
+  keyTerms?: { mode: "all" | "any"; terms: { term: string; present: boolean; example?: boolean }[] };
   /** M8-C: the posting's minimum years and the CV's, as a careful reader counts them. */
   years?: { min: number; cv: number };
   /** M8-C: a CV line the evidence should come from (an experience bullet over the skills list). */

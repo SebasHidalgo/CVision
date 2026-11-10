@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { ModelRequirement, Requirement, ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import {
   absentTerms,
-  alignToSource,
   clauseAsRequirement,
   coverageCap,
+  coverageGroups,
   cvEntries,
   DOWNGRADE_NOTE,
   enforceRequirementStatuses,
@@ -14,10 +14,12 @@ import {
   guardMatchedSkills,
   headingKind,
   isSkillYears,
-  neededTerms,
+  joinsSubjects,
+  postingWords,
   requirementHeadline,
   statedTotalYears,
   structureRequirements,
+  termDisplay,
   termGroups,
   unshowableAlternativeIn,
   withEvidenceSources,
@@ -45,7 +47,7 @@ const entry = (overrides: Partial<ModelRequirement>): ModelRequirement => ({
   heading: "Requirements",
   section: "requirements",
   demandsCapability: true,
-  requirement: "3+ years as a data or business analyst",
+  requirement: "3+ years of experience as a data or business analyst",
   kind: "required",
   softenedClause: NO_CLAUSE,
   assessable: true,
@@ -102,7 +104,7 @@ describe("structureRequirements: the section", () => {
       entry({ sourceQuote: "A degree in statistics", requirement: "Degree in statistics" }),
     ]);
 
-    expect(requirements.map((one) => one.requirement)).toEqual(["3+ years as a data or business analyst", "Fluent English"]);
+    expect(requirements.map((one) => one.requirement)).toEqual(["3+ years of experience as a data or business analyst", "Fluent English"]);
     expect(interventions.map((one) => [one.check, one.action, one.replacement])).toEqual([
       ["posting-section", "recorded", "description, kept: nothing required survived"],
       ["posting-section", "recorded", "description, kept: nothing required survived"],
@@ -115,7 +117,7 @@ describe("structureRequirements: the section", () => {
       entry({ section: "description" }),
       entry({ sourceQuote: "Fluent English", section: "preferred", kind: "preferred", requirement: "Fluent English" }),
     ]);
-    expect(onlyPreferred.requirements.map((one) => one.requirement)).toEqual(["3+ years as a data or business analyst", "Fluent English"]);
+    expect(onlyPreferred.requirements.map((one) => one.requirement)).toEqual(["3+ years of experience as a data or business analyst", "Fluent English"]);
 
     const withRequired = structureRequirements(POSTING, [entry({ section: "description" }), entry({ sourceQuote: "Fluent English", requirement: "Fluent English" })]);
     expect(withRequired.requirements.map((one) => one.requirement)).toEqual(["Fluent English"]);
@@ -133,8 +135,9 @@ describe("structureRequirements: the softened clause", () => {
     ]);
 
     expect(requirements).toEqual([
+      // The title is the posting's line without the clause, not the model's rewrite of it (M8-H).
       expect.objectContaining({
-        requirement: "3+ years as a data or business analyst",
+        requirement: "3+ years of experience as a data or business analyst",
         kind: "required",
         sourceQuote: "3+ years of experience as a data or business analyst",
       }),
@@ -149,6 +152,7 @@ describe("structureRequirements: the softened clause", () => {
     ]);
     expect(interventions).toEqual([
       expect.objectContaining({ check: "softened-clause", action: "requirement-split", replacement: "Ideally in e-commerce or retail" }),
+      expect.objectContaining({ check: "requirement-text", action: "text-replaced", value: "3+ years as a data or business analyst" }),
     ]);
   });
 
@@ -180,7 +184,7 @@ describe("structureRequirements: the softened clause", () => {
     ]);
 
     expect(requirements).toHaveLength(2);
-    expect(interventions.map((one) => one.replacement)).toEqual(["no softening word", "no softening word"]);
+    expect(interventions.filter((one) => one.check === "softened-clause").map((one) => one.replacement)).toEqual(["no softening word", "no softening word"]);
   });
 
   it("does not add a clause the model already listed as a preferred entry, but still trims it", () => {
@@ -301,7 +305,10 @@ Front end: React, Next.js
 Databases: MongoDB, PostgreSQL, MySQL`;
 
 const NOW = new Date("2026-11-04T00:00:00Z");
-const terms = (mode: "all" | "any", ...pairs: [string, string][]) => ({ mode, terms: pairs.map(([term, cvMatch]) => ({ term, cvMatch })) });
+const terms = (mode: "all" | "any", ...pairs: [string, string][]) => ({
+  mode,
+  terms: pairs.map(([term, cvMatch]) => ({ term, cvMatch, relation: cvMatch ? ("same" as const) : ("none" as const) })),
+});
 
 describe("structureRequirements: kind from the posting's own wording", () => {
   it("makes a plain bullet under a qualifications heading required, and keeps a softened one preferred", () => {
@@ -311,7 +318,11 @@ describe("structureRequirements: kind from the posting's own wording", () => {
     ]);
 
     expect(requirements.map((one) => one.kind)).toEqual(["required", "preferred"]);
-    expect(interventions).toEqual([expect.objectContaining({ check: "posting-kind", action: "kind-changed", replacement: "required" })]);
+    expect(interventions.filter((one) => one.check !== "requirement-text")).toEqual([
+      expect.objectContaining({ check: "posting-kind", action: "kind-changed", replacement: "required" }),
+    ]);
+    // The rows read as the posting does, not as the model's labels.
+    expect(requirements.map((one) => one.requirement)).toEqual(["Hands-on use of tools like Redis, Elasticsearch and Sidekiq", "TypeScript experience is a plus"]);
   });
 
   it("ignores a heading that comes after the quote", () => {
@@ -355,13 +366,33 @@ describe("structureRequirements: key terms", () => {
   });
 });
 
-describe("structureRequirements: the requirement keeps the posting's spelling and language", () => {
-  it("respells a word the model changed and replaces a translation with the posting's words", () => {
-    expect(alignToSource("Português", "Portugués.")).toBe("Portugués");
-    expect(alignToSource("At least 4 years as a data or business analyst", "Al menos 4 años de experiencia como analista de datos o de negocio.")).toBe(
+describe("structureRequirements: the requirement in the posting's own words (M8-H)", () => {
+  it("keeps the part of the quote the model's line covers, as the posting writes it, and the whole quote for a rewrite", () => {
+    expect(postingWords("Português", "Portugués.")).toBe("Portugués");
+    expect(postingWords("At least 4 years as a data or business analyst", "Al menos 4 años de experiencia como analista de datos o de negocio.")).toBe(
       "Al menos 4 años de experiencia como analista de datos o de negocio",
     );
-    expect(alignToSource("Experience leading support teams", "The person we hire has led a support team")).toBe("Experience leading support teams");
+    expect(postingWords("led a support team of at least five people", "The person we hire has led a support team of at least five people.")).toBe(
+      "led a support team of at least five people",
+    );
+    expect(postingWords("Strong SQL and experience with a cloud warehouse", "Strong SQL; experience with a cloud warehouse.")).toBe("Strong SQL; experience with a cloud warehouse");
+    expect(postingWords("Experience leading support teams", "- The person we hire has led a support team.")).toBe("The person we hire has led a support team");
+    expect(postingWords("TypeScript", "TypeScript experience is a plus")).toBe("TypeScript experience is a plus");
+  });
+
+  it("titles both rows of a softened-clause split from the posting, the clause out of the required one", () => {
+    const posting = "Requirements\n- Kubernetes, ideally on EKS, in production for two years.";
+    const { requirements } = structureRequirements(posting, [
+      entry({
+        sourceQuote: "Kubernetes, ideally on EKS, in production for two years.",
+        requirement: "Kubernetes in production for two years (ideally EKS)",
+        softenedClause: { ...NO_CLAUSE, quote: "ideally on EKS" },
+      }),
+    ]);
+    expect(requirements.map((one) => [one.kind, one.requirement])).toEqual([
+      ["required", "Kubernetes, in production for two years"],
+      ["preferred", "Ideally on EKS"],
+    ]);
   });
 });
 
@@ -396,8 +427,8 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
   it("allows an 'any' requirement once one term is shown, and empties a CV match the CV does not have", () => {
     const { requirements, interventions } = enforceRequirementStatuses(
       [
-        stored({ sourceQuote: "tools like Redis, Elasticsearch and Sidekiq", keyTerms: terms("any", ["Redis", "Redis"], ["Elasticsearch", ""]) }),
-        stored({ sourceQuote: "tools like Redis, Elasticsearch and Sidekiq", keyTerms: terms("any", ["Redis", ""], ["MySQL", "MySQL"]) }),
+        stored({ sourceQuote: "Redis, Elasticsearch or Sidekiq in production", keyTerms: terms("any", ["Redis", "Redis"], ["Elasticsearch", ""]) }),
+        stored({ sourceQuote: "Redis, Elasticsearch or Sidekiq in production", keyTerms: terms("any", ["Redis", ""], ["MySQL", "MySQL"]) }),
       ],
       context(2),
     );
@@ -408,6 +439,15 @@ describe("enforceRequirementStatuses: key-term coverage", () => {
     expect(requirements[0].note).toBe("Your CV doesn't show any of Redis, Elasticsearch or Sidekiq.");
     expect(interventions).toContainEqual(expect.objectContaining({ action: "alternative-added", value: "Sidekiq", replacement: "not shown" }));
     expect(interventions).toContainEqual(expect.objectContaining({ check: "key-term", action: "match-dropped", value: "Redis: Redis" }));
+  });
+
+  it("leaves the status to the model when the terms are only examples (M8-H)", () => {
+    const { requirements, interventions } = enforceRequirementStatuses(
+      [stored({ sourceQuote: "tools like Redis, Elasticsearch and Sidekiq", keyTerms: terms("any", ["Redis", ""], ["Elasticsearch", ""]) })],
+      context(1),
+    );
+    expect(requirements[0].status).toBe("met");
+    expect(interventions.some((one) => one.action === "status-capped")).toBe(false);
   });
 
   it("leaves a requirement without terms to the model and the evidence rule", () => {
@@ -786,6 +826,11 @@ Preparé informes semanales de devoluciones con SQL.`;
     expect(isSkillYears({ sourceQuote: "5+ years in infrastructure, platform or SRE roles", keyTerms: terms("any", ["infrastructure, platform or SRE roles", ""]) })).toBe(false);
     expect(isSkillYears({ sourceQuote: "Al menos 4 años de experiencia como analista de datos", keyTerms: terms("all", ["analista de datos", ""]) })).toBe(false);
     expect(isSkillYears({ sourceQuote: "5+ years of experience building full stack web products" })).toBe(false);
+    // Examples of a category say nothing about whose years these are (M8-H).
+    expect(isSkillYears({ sourceQuote: "2+ years of engineering experience coding in languages such as Go, Rust or Kotlin.", keyTerms: terms("any", ["Go", "Go"], ["Rust", ""]) })).toBe(false);
+    // A one-letter term is a whole token, never the "c" of "technical".
+    expect(isSkillYears({ sourceQuote: "2+ years of technical experience coding in languages such as C, Rust or Kotlin.", keyTerms: terms("any", ["C", ""], ["Rust", "Rust"]) })).toBe(false);
+    expect(termGroups("Strong C, Rust or Kotlin; technical writing.", ["C", "Rust", "Kotlin"])).toEqual([[0, 1, 2]]);
   });
 });
 
@@ -947,12 +992,12 @@ describe("M8-C measurement fixes", () => {
     expect(termGroups("coding in Go, C, C++, C#, Java, or Python", ["C++", "Java", "Python"])).toEqual([[0, 1, 2]]);
   });
 
-  it("counts a group as covered by one shown term, and drops the alternatives not needed", () => {
+  it("counts a group as covered by one shown term, and never names the alternatives not needed as absent", () => {
     const quote = "Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).";
     const keyTerms = terms("all", ["SQL", "SQL"], ["BigQuery", "BigQuery"], ["Snowflake", ""]);
 
     expect(coverageCap(keyTerms, quote)).toBeNull();
-    expect(neededTerms(keyTerms, quote).terms.map((term) => term.term)).toEqual(["SQL", "BigQuery"]);
+    expect(absentTerms(keyTerms, quote)).toBe("");
     expect(coverageCap(terms("all", ["SQL", ""], ["BigQuery", "BigQuery"], ["Snowflake", ""]), quote)).toBe("partial");
   });
 
@@ -983,6 +1028,124 @@ describe("M8-C measurement fixes", () => {
   });
 });
 
+describe("M8-H: examples are not the requirement", () => {
+  // Invented: a category with examples, subjects joined by "and" and "including".
+  const quote = "Familiarity with data pipelines and message queues (e.g., Kafka, RabbitMQ, SQS), including alerting and tracing to keep them healthy.";
+  const all = (...pairs: [string, string][]) => terms("all", ...pairs);
+
+  it("puts the examples with the category they illustrate, and examples without one apart", () => {
+    const names = ["data pipelines", "message queues", "alerting", "tracing", "Kafka", "RabbitMQ", "SQS"];
+    expect(coverageGroups(quote, names)).toEqual({
+      groups: [
+        { members: [0], examplesOnly: false },
+        { members: [1, 4, 5, 6], examplesOnly: false },
+        { members: [2], examplesOnly: false },
+        { members: [3], examplesOnly: false },
+      ],
+      example: [false, false, false, false, true, true, true],
+    });
+    expect(coverageGroups(quote, ["data pipelines", "Kafka", "SQS"]).groups).toEqual([
+      { members: [0], examplesOnly: false },
+      { members: [1, 2], examplesOnly: true },
+    ]);
+  });
+
+  it("never caps on examples alone; another instance of the category answers it", () => {
+    expect(coverageCap(terms("any", ["Kafka", ""], ["RabbitMQ", ""], ["SQS", ""]), quote)).toBeNull();
+    expect(coverageCap(all(["message queues", "NATS"], ["Kafka", ""], ["RabbitMQ", ""]), quote)).toBeNull();
+    expect(coverageCap(all(["message queues", ""], ["Kafka", "Kafka"]), quote)).toBeNull();
+    expect(coverageCap(all(["data pipelines", "ETL"], ["message queues", ""], ["Kafka", ""], ["alerting", ""]), quote)).toBe("partial");
+    expect(absentTerms(all(["data pipelines", "ETL"], ["message queues", ""], ["Kafka", ""], ["alerting", ""]), quote)).toBe("message queues and alerting");
+  });
+
+  it("reads 'like', 'como' and 'including' as examples only before a name or a list", () => {
+    expect(coverageGroups("Comfortable with tools like Jira or Linear.", ["Jira", "Linear"]).groups).toEqual([{ members: [0, 1], examplesOnly: true }]);
+    expect(coverageGroups("Experiencia como analista de datos o de negocio.", ["analista de datos"]).groups).toEqual([{ members: [0], examplesOnly: false }]);
+    expect(coverageGroups("Python, including pandas, NumPy and SciPy.", ["Python", "pandas"]).groups).toEqual([{ members: [0, 1], examplesOnly: false }]);
+    expect(coverageGroups("Bachelor's degree (BSc) in physics.", ["BSc"]).groups).toEqual([{ members: [0], examplesOnly: false }]);
+  });
+
+  it("calls subjects joined by 'and' or 'including' all needed, and alternatives a choice", () => {
+    expect(joinsSubjects(quote, ["data pipelines", "message queues", "alerting", "Kafka"])).toBe(true);
+    expect(joinsSubjects("Python, Java, or a similar language.", ["Python", "Java"])).toBe(false);
+    expect(joinsSubjects("Python (or Go) for services.", ["Python", "Go"])).toBe(false);
+    expect(termGroups("Python, Java, or a similar language.", ["Python", "Java"])).toEqual([[0, 1]]);
+    expect(termGroups("Python (or Go) for services.", ["Python", "Go"])).toEqual([[0, 1]]);
+  });
+
+  it("makes an 'any' list of joined subjects 'all', examples beside them or not", () => {
+    const posting = `Requirements\n- ${quote}`;
+    const { requirements, interventions } = structureRequirements(posting, [
+      entry({ sourceQuote: quote, requirement: quote, keyTerms: terms("any", ["data pipelines", ""], ["message queues", ""], ["Kafka", ""], ["alerting", ""]) }),
+    ]);
+    expect(requirements[0].keyTerms?.mode).toBe("all");
+    expect(interventions).toContainEqual(expect.objectContaining({ action: "mode-changed", replacement: "all" }));
+  });
+
+  it("lists every term, alternatives joined by 'or' and examples apart", () => {
+    expect(termDisplay(all(["data pipelines", "ETL"], ["message queues", ""], ["Kafka", ""], ["SQS", "SQS"]), quote)).toEqual({
+      terms: [
+        { term: "data pipelines", cvMatch: "ETL", shown: true, joiner: null },
+        { term: "message queues", cvMatch: "", shown: false, joiner: "and" },
+      ],
+      examples: [
+        { term: "Kafka", cvMatch: "", shown: false, joiner: null },
+        { term: "SQS", cvMatch: "SQS", shown: true, joiner: "and" },
+      ],
+    });
+    expect(termDisplay(terms("any", ["C#", "C#"], ["Python", ""]), "C# or Python.").terms.map((one) => one.joiner)).toEqual([null, "or"]);
+  });
+});
+
+describe("M8-H: a related CV word does not show the term", () => {
+  const stored = (keyTerms: Requirement["keyTerms"], status: Requirement["status"] = "met"): Requirement => ({
+    requirement: "AI development tools or chatbots",
+    kind: "preferred",
+    status,
+    evidence: "Built an AI-powered product for clinics.",
+    note: "",
+    assessable: true,
+    sourceQuote: "Exposure to AI development tools or chatbots.",
+    keyTerms,
+  });
+  const cv = "Built an AI-powered product for clinics.\nShipped chatbots for bookings.";
+  const context = { pending: [{ yearsEvidence: [] }], cvText: cv, now: NOW };
+
+  it("empties a related or unlabelled match, keeps a same, synonym or verbatim one, and caps by what is left", () => {
+    const { requirements, interventions } = enforceRequirementStatuses(
+      [stored({ mode: "any", terms: [{ term: "AI development tools", cvMatch: "AI-powered product", relation: "related" }, { term: "chatbots", cvMatch: "chatbots", relation: "same" }] })],
+      context,
+    );
+    expect(requirements[0].status).toBe("met");
+    expect(requirements[0].keyTerms?.terms.map((term) => [term.term, term.cvMatch])).toEqual([["AI development tools", ""], ["chatbots", "chatbots"]]);
+    expect(interventions).toContainEqual(expect.objectContaining({ action: "match-dropped", value: "AI development tools: AI-powered product", replacement: "related" }));
+
+    const alone = enforceRequirementStatuses(
+      [{ ...stored({ mode: "any", terms: [{ term: "AI development tools", cvMatch: "AI-powered product", relation: "none" }] }), sourceQuote: "Exposure to AI development tools." }],
+      context,
+    );
+    expect(alone.requirements[0]).toMatchObject({ status: "missing", evidence: "", note: "Your CV doesn't show AI development tools." });
+
+    const near = enforceRequirementStatuses(
+      [{ ...stored({ mode: "any", terms: [{ term: "AI development tools", cvMatch: "AI-powered product", relation: "related" }] }), sourceQuote: "Exposure to AI development tools." }],
+      context,
+    );
+    // Adjacent, not absent: partial by the status's own definition, never missing.
+    expect(near.requirements[0]).toMatchObject({
+      status: "partial",
+      note: 'Your CV doesn\'t show AI development tools. It shows "AI-powered product", which is related but not the same.',
+    });
+  });
+
+  it("keeps a match that contains the term itself, whatever its label, and an answer recorded before the field", () => {
+    const { requirements } = enforceRequirementStatuses(
+      [stored({ mode: "any", terms: [{ term: "chatbots", cvMatch: "chatbots for bookings", relation: "related" }, { term: "AI development tools", cvMatch: "AI-powered product" }] })],
+      context,
+    );
+    expect(requirements[0].keyTerms?.terms.map((term) => term.cvMatch)).toEqual(["chatbots for bookings", "AI-powered product"]);
+  });
+});
+
 describe("M8-C language", () => {
   const english = "Fluency to speak, read and write in English.";
 
@@ -1007,9 +1170,11 @@ describe("M8-C language", () => {
   });
 
   it("names absent alternatives with 'or' and the rest with 'and'", () => {
-    const quote = "Production experience with Kubernetes and a major cloud provider (AWS or GCP).";
-    expect(absentTerms(terms("all", ["Kubernetes", ""], ["AWS", ""], ["GCP", ""]), quote)).toBe("Kubernetes and AWS or GCP");
-    expect(absentTerms(terms("all", ["Kubernetes", ""], ["AWS", ""], ["GCP", ""]), quote, "es")).toBe("Kubernetes y AWS o GCP");
+    const quote = "Production experience with Kubernetes and Terraform or Pulumi; a major cloud provider (AWS or GCP).";
+    const keyTerms = terms("all", ["Kubernetes", ""], ["Terraform", ""], ["Pulumi", ""], ["major cloud provider", ""], ["AWS", ""], ["GCP", ""]);
+    // AWS and GCP are examples: the category they illustrate is named, never them (M8-H).
+    expect(absentTerms(keyTerms, quote)).toBe("Kubernetes, Terraform or Pulumi and major cloud provider");
+    expect(absentTerms(keyTerms, quote, "es")).toBe("Kubernetes, Terraform o Pulumi y major cloud provider");
   });
 
   it("writes the headline and its notes in the analysis language", () => {

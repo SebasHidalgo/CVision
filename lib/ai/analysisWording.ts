@@ -2,6 +2,9 @@
 
 export type AnalysisLanguage = "en" | "es";
 
+// A label cut with "…" takes no full stop after it.
+const stop = (text: string) => (text.endsWith("…") ? text : `${text}.`);
+
 type Wording = {
   and: string;
   or: string;
@@ -25,6 +28,8 @@ type Wording = {
   forInterview: (count: number) => string;
   preferredNotShown: (list: string) => string;
   notShownAsAsked: (label: string) => string;
+  /** M8-H: what the CV has near a term, named without counting it. */
+  relatedOnly: (shown: string) => string;
 };
 
 export const WORDING: Record<AnalysisLanguage, Wording> = {
@@ -42,8 +47,8 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
       `${absent} ${several ? "aren't" : "isn't"} in your CV; the posting accepts ${accepts} — say so in your cover letter.`,
     contextOnly: (shown, several) => `Your CV shows ${shown}, but the posting mentions ${several ? "them" : "it"} only as context, not as this requirement.`,
     languageLevel: (language) => `Your CV doesn't state your ${language} level. Add a Languages line, e.g. 'Spanish (native), English (C1)'.`,
-    coreGaps: (list) => `Core gaps: ${list}.`,
-    partlyMet: (list) => `Partly met: ${list}.`,
+    coreGaps: (list) => `Core gaps: ${stop(list)}`,
+    partlyMet: (list) => `Partly met: ${stop(list)}`,
     allMet: "You meet every required qualification.",
     noGapsNotShown: (count) => `No core gaps; ${count} required ${count === 1 ? "item isn't" : "items aren't"} shown in your CV.`,
     yearsLabel: (min) => `${min}+ years of experience`,
@@ -53,8 +58,9 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
         : `Your CV fully shows ${met} of the ${total} required qualifications a CV can show.`,
     moreInList: (count) => `${count} more ${count === 1 ? "gap is" : "gaps are"} in the list below.`,
     forInterview: (count) => `${count === 1 ? "One required item" : `${count} required items`} no CV can show ${count === 1 ? "is" : "are"} under "Not shown in your CV"; expect ${count === 1 ? "it" : "them"} in the interview or the hiring process.`,
-    preferredNotShown: (list) => `Preferred and not shown: ${list}.`,
-    notShownAsAsked: (label) => `Not shown as asked: ${label}.`,
+    preferredNotShown: (list) => `Preferred and not shown: ${stop(list)}`,
+    notShownAsAsked: (label) => `Not shown as asked: ${stop(label)}`,
+    relatedOnly: (shown) => `It shows ${shown}, which is related but not the same.`,
   },
   es: {
     and: "y",
@@ -70,8 +76,8 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
       `${absent} no ${several ? "aparecen" : "aparece"} en tu CV; la oferta acepta ${accepts}: dilo en tu carta de presentación.`,
     contextOnly: (shown, several) => `Tu CV muestra ${shown}, pero la oferta ${several ? "los" : "lo"} menciona solo como contexto, no como este requisito.`,
     languageLevel: (language) => `Tu CV no indica tu nivel de ${language}. Agrega una línea de idiomas, por ejemplo 'Español (nativo), inglés (C1)'.`,
-    coreGaps: (list) => `Brechas principales: ${list}.`,
-    partlyMet: (list) => `Cumplido en parte: ${list}.`,
+    coreGaps: (list) => `Brechas principales: ${stop(list)}`,
+    partlyMet: (list) => `Cumplido en parte: ${stop(list)}`,
     allMet: "Cumples todos los requisitos obligatorios.",
     noGapsNotShown: (count) =>
       `Sin brechas principales; ${count} ${count === 1 ? "requisito obligatorio no aparece" : "requisitos obligatorios no aparecen"} en tu CV.`,
@@ -82,7 +88,8 @@ export const WORDING: Record<AnalysisLanguage, Wording> = {
         : `Tu CV muestra por completo ${met} de los ${total} requisitos obligatorios que un CV puede mostrar.`,
     moreInList: (count) => `${count} ${count === 1 ? "brecha más está" : "brechas más están"} en la lista de abajo.`,
     forInterview: (count) => `${count === 1 ? "Un requisito obligatorio" : `${count} requisitos obligatorios`} que ningún CV puede mostrar ${count === 1 ? "está" : "están"} en "No aparece en tu CV"; espéralos en la entrevista o en el proceso de selección.`,
-    preferredNotShown: (list) => `Deseables que no aparecen: ${list}.`,
-    notShownAsAsked: (label) => `No aparece como se pide: ${label}.`,
+    preferredNotShown: (list) => `Deseables que no aparecen: ${stop(list)}`,
+    notShownAsAsked: (label) => `No aparece como se pide: ${stop(label)}`,
+    relatedOnly: (shown) => `Muestra ${shown}, algo relacionado pero no lo mismo.`,
   },
 };

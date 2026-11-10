@@ -49,10 +49,10 @@ describe("withQuoteAlternatives", () => {
     const listed = { mode: "any" as const, terms: [{ term: "Kafka", cvMatch: "" }] };
     expect(withQuoteAlternatives(listed, "Kafka or Kinesis in production.", "Streams on Kinesis.", false, "p").keyTerms.terms).toEqual([
       { term: "Kafka", cvMatch: "" },
-      { term: "Kinesis", cvMatch: "Kinesis" },
+      { term: "Kinesis", cvMatch: "Kinesis", relation: "same" },
     ]);
     const absent = withQuoteAlternatives(listed, "Kafka or Kinesis in production.", "Batch jobs only.", false, "p");
-    expect(absent.keyTerms.terms[1]).toEqual({ term: "Kinesis", cvMatch: "" });
+    expect(absent.keyTerms.terms[1]).toEqual({ term: "Kinesis", cvMatch: "", relation: "none" });
     expect(absent.unexamined).toEqual([]);
   });
 
@@ -75,8 +75,8 @@ describe("withRelatedField", () => {
   it("moves a match naming another discipline onto the posting's related field", () => {
     const out = withRelatedField({ mode: "any", terms: [{ term: "Physics", cvMatch: "Applied Optics" }] }, quote, "p");
     expect(out.keyTerms.terms).toEqual([
-      { term: "Physics", cvMatch: "" },
-      { term: "related field", cvMatch: "Applied Optics" },
+      { term: "Physics", cvMatch: "", relation: "related" },
+      { term: "related field", cvMatch: "Applied Optics", relation: "same" },
     ]);
   });
 
@@ -144,6 +144,10 @@ describe("a related field in an 'all' list", () => {
       { pending: [{ yearsEvidence: [] }], cvText: "MSc Biochemical Engineering, 2020.", now: new Date("2026-11-10T00:00:00Z") },
     );
     expect(requirements[0].status).toBe("met");
-    expect(requirements[0].keyTerms?.terms).toEqual([{ term: "related field", cvMatch: "Biochemical Engineering" }]);
+    // The discipline the CV lacks stays listed, as the alternative it is.
+    expect(requirements[0].keyTerms?.terms).toEqual([
+      { term: "Chemistry", cvMatch: "", relation: "related" },
+      { term: "related field", cvMatch: "Biochemical Engineering", relation: "same" },
+    ]);
   });
 });

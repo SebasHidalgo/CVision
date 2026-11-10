@@ -135,6 +135,20 @@ report counts separately.
     `not_evident` when it states none, even though a level is assessable:
     a CV written in English does not show the candidate's English. This is
     the one `not_evident` without `assessable: false`.
+17. **Examples are not the requirement (M8-H).** A list after "e.g.",
+    "for example", "such as", "like", "including, but not limited to",
+    "por ejemplo", "tales como", or in parentheses after a category,
+    illustrates the category: "message queues (e.g., Kafka, RabbitMQ)"
+    asks for message queues. A CV that names another instance of the
+    category (NATS, SQS) shows it; one that names none of the
+    examples is not missing anything for that alone. The category and the
+    subjects the item joins with "and" or "including" are its key terms;
+    the examples are listed with `"example": true`.
+18. **A related thing is not the thing (M8-H).** "Remote teams" is not
+    "distributed systems", an AI-powered product is not an AI development
+    tool, another discipline is not "Computer Science" (it shows a
+    "related field" when the posting accepts one). Such a term is
+    `present: false`; the status follows from what is left.
 
 ## How the file is written
 
@@ -188,7 +202,8 @@ report counts separately.
 - `keyTerms` (M8-C): optional, `{ "mode": "all" | "any", "terms": [{
   "term", "present" }] }`, the technologies, tools, domains,
   certifications or languages the item names and whether this CV shows
-  each. Scored against the analysis' own key terms: named, and judged
+  each (rule 18: a related thing does not show it); examples carry
+  `"example": true` (rule 17). Scored against the analysis' own key terms: named, and judged
   present or absent correctly. Annotated where a term decides the status.
 - `years` (M8-C): `{ "min", "cv" }` for an item that asks for a number of
   years, counted under rule 14.
