@@ -29,6 +29,9 @@ export const DOMAIN_GLOSSARY: Record<TargetLocale, Array<[string, string]>> = {
     ["hiring process", "proceso de contratación"],
     ["applicant tracking system (ATS)", "sistema de seguimiento de postulaciones (ATS)"],
     ["key term", "término clave"],
+    ["tech stack / stack", "stack"],
+    ["pipeline (CI/CD, data)", "pipeline"],
+    ["preferred (anything the posting prefers)", "deseable"],
   ],
 };
 
@@ -39,7 +42,8 @@ RULES
 2. Keep the meaning exactly: do not add, drop, soften or strengthen any claim, and add no explanation.
 3. Copy these character for character, untranslated: every protected term listed; every number and figure; everything inside quotation marks ("…", “…”, '…'), because it quotes the CV, the job posting or the reader's own words in their own language; names of technologies, tools, products, companies, people and job titles; e-mail addresses and URLs.
 4. Where an English term of the glossary appears, use its translation, so the text matches the page around it.
-5. Write natural, plain prose in the target language, not a word-for-word calque, and keep each string about as long as the original.`;
+5. Write natural, plain prose in the target language, not a word-for-word calque, and keep each string about as long as the original.
+6. The reader is the person the feedback is about: address them in the second person throughout, also where the English leaves the subject out ("Holds a relevant degree" is about the reader).`;
 
 export type TranslationPromptInput = {
   locale: TargetLocale;

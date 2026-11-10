@@ -3,7 +3,9 @@ import { mkdir, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { TargetLocale } from "@/lib/ai/prompts/translation.prompt";
 import { finishAnalysis } from "@/lib/ai/resumeAnalysis";
-import { analysisProse, type ProseMap } from "@/lib/ai/translatableProse";
+import { analysisProse, withProse, type ProseMap } from "@/lib/ai/translatableProse";
+import { renderAnalysis } from "@/lib/i18n/analysisView";
+import esAnalysis from "@/locales/es/analysis.json";
 import { feedbackTranslationInput, protectedTermsOf, translateProse, type ProseTranslation } from "@/lib/ai/translation";
 import type { InterviewFeedbackReport } from "@/lib/ai/schemas";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
@@ -29,6 +31,8 @@ type Item = {
   kind: "analysis" | "interview";
   sources: ProseMap;
   protectedTerms: string[];
+  /** The stored (structured) analysis, for --print. */
+  feedback?: ResumeAnalysisFeedback;
 };
 
 type TranslationRecord = {
@@ -81,6 +85,7 @@ async function analysisItems(labels: string[], fixtures: Map<string, Fixture>, o
         kind: "analysis",
         sources,
         protectedTerms: protectedTermsOf(feedback, [fixture.company ?? "", fixture.jobTitle], sources),
+        feedback,
       });
     }
   }
@@ -128,6 +133,7 @@ export async function translateCommand(args: string[], deps: { loadFixtures: () 
   if (existsSync(outDir)) fail(`${display(outDir)} already exists.`);
   const only = typeof flags.get("only") === "string" ? new Set(String(flags.get("only")).split(",")) : undefined;
   const twice = typeof flags.get("twice") === "string" ? new Set(String(flags.get("twice")).split(",")) : new Set<string>();
+  const print = typeof flags.get("print") === "string" ? new Set(String(flags.get("print")).split(",")) : new Set<string>();
   const asked = parseTier(flags.get("tier"));
 
   const fixtures = new Map((await deps.loadFixtures()).map((fixture) => [fixture.id, fixture]));
@@ -183,6 +189,7 @@ export async function translateCommand(args: string[], deps: { loadFixtures: () 
       }
       const record = outcome.record;
       records.push(record);
+      if (pass === 1 && print.has(item.fixture) && item.feedback && record.result) printSpanish(item.feedback, record.result.kept);
       await writeJson(path.join(outDir, `${item.key}${pass === 2 ? "__rerun" : ""}.json`), record);
       const stats = record.result?.stats;
       console.log(
@@ -226,3 +233,31 @@ function summarize(records: TranslationRecord[], spent: number) {
 }
 
 export type { Tier };
+
+/** The analysis as a Spanish reader sees it: code-made sentences rendered in Spanish, the stored translation over the prose. */
+function printSpanish(feedback: ResumeAnalysisFeedback, kept: ProseMap) {
+  const view = renderAnalysis(withProse(feedback, kept), "es");
+  const status = esAnalysis.status as Record<string, string>;
+  const lines: string[] = ["", "=".repeat(80), `RESUMEN: ${view.overall.summaryText}`];
+  for (const fix of view.overall.prioritizedFixes) lines.push(`ARREGLO [${fix.impact}] ${fix.title}: ${fix.action}`);
+  lines.push(`
+REQUISITOS: ${view.jobFit.description}`);
+  for (const row of view.jobFit.requirements) {
+    lines.push(`  - [${row.kind}] ${status[row.status] ?? row.status}: ${row.requirement}`);
+    if (row.evidence) lines.push(`      cita: "${row.evidence}"`);
+    if (row.note) lines.push(`      nota: ${row.note}`);
+  }
+  for (const move of view.jobFit.strategicRecommendations) lines.push(`  movimiento: ${move}`);
+  const section = (title: string, description: string, lists: Array<[string, string[]]>) => {
+    lines.push(`
+${title}: ${description}`);
+    for (const [name, items] of lists) for (const item of items) lines.push(`  ${name}: ${item}`);
+  };
+  section("EXPERIENCIA", view.experienceAndImpact.description, [["fortaleza", view.experienceAndImpact.strengths], ["debilidad", view.experienceAndImpact.weaknesses]]);
+  for (const bullet of view.experienceAndImpact.suggestedBullets) for (const example of bullet.examples) lines.push(`  viñeta (${bullet.role}): ${example}`);
+  section("HABILIDADES", view.skills.description, [["plan", view.skills.actionPlan], ["skill", view.skills.matchedSkills.map((skill) => `${skill.name} ("${skill.evidence}")`)]]);
+  section("FORMACIÓN", view.educationAndCertifications.description, [["destacado", view.educationAndCertifications.highlights], ["mejora", view.educationAndCertifications.improvements]]);
+  section("TONO", view.toneAndClarity.description, [["sugerencia", view.toneAndClarity.suggestions]]);
+  section("ATS", view.atsCompatibility.description, [["problema", view.atsCompatibility.problems], ["arreglo", view.atsCompatibility.fixes]]);
+  console.log(lines.join("\n"));
+}

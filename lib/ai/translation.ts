@@ -81,8 +81,12 @@ export function protectedTermsOf(
   for (const skill of feedback?.skills.matchedSkills ?? []) candidates.add(skill.name.trim());
   const names = [...candidates].filter((term) => term.length >= 1 && term.length <= 60 && nameLike(term, texts));
   const always = extra.map((term) => term.trim()).filter((term) => term.length >= 2);
-  return [...new Set([...always, ...names])].sort((a, b) => b.length - a.length).slice(0, MAX_PROTECTED);
+  // Only terms the strings contain: a listed term that is not there invites the model to insert it.
+  const present = (term: string) => texts.some((text) => wholeToken(term).test(text));
+  return [...new Set([...always, ...names])].filter(present).sort((a, b) => b.length - a.length).slice(0, MAX_PROTECTED);
 }
+
+const wholeToken = (term: string) => new RegExp(`(?<![\\p{L}\\p{N}])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "u");
 
 /** Hash of what is translated and how: a stored translation is reused only while this matches. */
 export function translationSourceHash(sources: ProseMap, locale: TargetLocale): string {

@@ -36,8 +36,12 @@ describe("protectedTermsOf", () => {
   };
 
   it("protects names, not common words or language names", () => {
-    const sources = { a: "You list Python and C++ in English.", b: "Leadership shows in your bullets; web applications too." };
-    expect(protectedTermsOf(feedback, ["Acme Corp", "Data Analyst"], sources).sort()).toEqual(["Acme Corp", "C++", "Data Analyst", "PostgreSQL", "Python"].sort());
+    const sources = { a: "You list Python and C++ in English for Acme Corp.", b: "Leadership shows in your bullets; web applications and PostgreSQL too." };
+    expect(protectedTermsOf(feedback, ["Acme Corp", "Data Analyst"], sources).sort()).toEqual(["Acme Corp", "C++", "PostgreSQL", "Python"].sort());
+  });
+
+  it("lists only the terms the strings contain, so the model is never invited to insert one", () => {
+    expect(protectedTermsOf(feedback, ["Data Analyst"], { a: "Your CV reads clearly." })).toEqual([]);
   });
 });
 
