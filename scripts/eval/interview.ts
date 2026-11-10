@@ -61,6 +61,8 @@ import {
   writeJson,
   type BaseRunRecord,
 } from "./shared";
+import type { Tier } from "./pricing";
+import { estimateUsd, installEvalFetch, parseTier, planTier, readBudget, readLedger, runRouted, SpendGuard, usd, type SpendGuard as Guard } from "./spend";
 
 const FIXTURES_DIR = path.join(EVAL_DIR, "fixtures-interview");
 
@@ -133,6 +135,8 @@ type Fixture = z.infer<typeof fixtureMetaSchema> & {
 
 type InterviewRunRecord = BaseRunRecord & {
   kind: "interview";
+  attempts?: number;
+  callFailures?: string[];
   input: { turns: number; candidateTurns: number; jobChars: number; gaps: number };
   checks?: {
     counts: Record<InterviewCheckName, number>;
@@ -245,9 +249,21 @@ async function runCommand(args: string[]) {
   const records: InterviewRunRecord[] = [];
   let apiModelVersion: string | null = null;
   let versionLookedUp = false;
+  const runId = `${label}@${startedAt}`;
+  const guard = new SpendGuard(readBudget(), runId);
+  const plans = planInterviews(fixtures, parseTier(flags.get("tier")));
+  const total = plans.reduce((sum, plan) => sum + plan.estimateUsd, 0);
+  console.log(`Estimate ≈ ${usd(total)} (${[...new Set(plans.map((plan) => plan.tier))].join(", ")}).`);
+  const refusal = guard.refuse(total);
+  if (refusal) fail(`Refused before any call: ${refusal}.`);
+  let stopped: string | undefined;
 
-  for (const fixture of fixtures) {
-    const record = await runFixture(fixture, label, timeoutMs);
+  for (const plan of plans) {
+    const fixture = plan.fixture;
+    const outcome = await runPlannedInterview(plan, label, "interview-run", runId, guard, timeoutMs);
+    stopped = outcome.stopped;
+    const record = outcome.record;
+    if (!record) break;
     if (!versionLookedUp && record.model) {
       apiModelVersion = await readApiModelVersion(record.model);
       versionLookedUp = true;
@@ -256,7 +272,10 @@ async function runCommand(args: string[]) {
     await writeJson(path.join(outDir, `${fixture.id}.json`), record);
     console.log(formatProgress(record));
     records.push(record);
+    if (stopped) break;
   }
+  if (stopped) console.error(`
+STOPPED ${stopped}.`);
 
   const identified = records.find((record) => record.model !== null);
   await writeJson(path.join(outDir, "_run.json"), {
@@ -276,6 +295,28 @@ async function runCommand(args: string[]) {
   console.log(`\n${okCount}/${records.length} succeeded. ${describeEngine(identified?.engine)}`);
   console.log(
     `A change needs its control beside it: capture both today, then\n  npm run eval -- interview compare <control> ${label}`,
+  );
+}
+
+type InterviewPlan = { fixture: Fixture; tier: Tier; estimateUsd: number };
+
+/** Interview fixtures are synthetic transcripts: the free key when set. */
+function planInterviews(fixtures: Fixture[], override: Tier | undefined): InterviewPlan[] {
+  installEvalFetch();
+  const rows = readLedger();
+  const model = process.env.AI_MODEL?.trim() || "gemini-3.5-flash-lite";
+  return fixtures.map((fixture) => {
+    const { tier, note } = planTier("synthetic", override);
+    if (note) console.log(`Note: ${note}.`);
+    return { fixture, tier, estimateUsd: estimateUsd(rows, fixture.id, "interview", model, tier) };
+  });
+}
+
+function runPlannedInterview(plan: InterviewPlan, label: string, command: string, runId: string, guard: Guard, timeoutMs: number) {
+  return runRouted(
+    { command, label, runId, fixture: plan.fixture.id, tier: plan.tier, estimateUsd: plan.estimateUsd },
+    guard,
+    () => runFixture(plan.fixture, label, timeoutMs),
   );
 }
 
@@ -582,7 +623,14 @@ async function canaryCommand(args: string[]) {
   if (!fixture) fail(`Fixture "${wanted.fixture}" no longer exists.`);
 
   console.log(`Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`);
-  const fresh = await runFixture(fixture, `canary-${reference}`, FEEDBACK_TIMEOUT_MS);
+  const asked = parseTier(flags.get("tier"));
+  const [plan] = planInterviews([fixture], asked ?? ((wanted.engine?.tier as Tier | undefined) ?? "standard"));
+  const label = `canary-${reference}`;
+  const runId = `${label}@${new Date().toISOString()}`;
+  console.log(`  tier:      ${plan.tier}, estimate ≈ ${usd(plan.estimateUsd)}`);
+  const outcome = await runPlannedInterview(plan, label, "interview-canary", runId, new SpendGuard(readBudget(), runId), FEEDBACK_TIMEOUT_MS);
+  if (!outcome.record) fail(`Refused ${outcome.stopped}.`);
+  const fresh = outcome.record;
   if (fresh.engine && fresh.model) fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   console.log(`  now:       ${describeEngine(fresh.engine)}`);
 

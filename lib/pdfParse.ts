@@ -102,9 +102,12 @@ export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfTex
 
 const nonBlank = (text: string) => text.replace(/\s/g, "").length;
 
+// pdf.js VerbosityLevel.ERRORS: font-hinting warnings ("TT: undefined function") are noise, errors still print.
+const PDFJS_ERRORS_ONLY = 0;
+
 async function readDocument(bytes: Uint8Array): Promise<{ text: string; scannedPages: number; accentsComposed: number }> {
   // pdf.js transfers the buffer it is given: a copy leaves the caller's bytes intact.
-  const pdf = await getDocumentProxy(bytes.slice());
+  const pdf = await getDocumentProxy(bytes.slice(), { verbosity: PDFJS_ERRORS_ONLY });
 
   try {
     const pages: string[] = [];

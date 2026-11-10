@@ -31,6 +31,22 @@ import {
   writeJson,
   type Engine,
 } from "./shared";
+import type { Tier } from "./pricing";
+import {
+  estimateUsd,
+  installEvalFetch,
+  planTier,
+  parseTier,
+  readBudget,
+  readLedger,
+  runRouted,
+  SpendGuard,
+  spendCommand,
+  spentOnDay,
+  usd,
+  utcDay,
+  type Budget,
+} from "./spend";
 import {
   describeCounts,
   type GuardReport,
@@ -189,6 +205,10 @@ type RunRecord = {
   tokens: { input: number | null; output: number | null };
   /** Model calls behind the tokens (analysis, English retry, repair); absent before M8-F. */
   calls?: number;
+  /** How many times the fixture ran before this record (rate limits, capacity); absent before M8-G. */
+  attempts?: number;
+  /** HTTP statuses of calls that failed on the way, kept even when a later attempt succeeded. */
+  callFailures?: string[];
   /** The model's raw answers before any guard (M8-F), so post-model code can be replayed offline. */
   answers?: ModelAnswers;
   /** The extracted list scored against the fixture's gold, when it has one. */
@@ -218,8 +238,11 @@ const USAGE = `CVision analysis eval: run the resume analysis over fixed fixture
 compare model output across provider, model or prompt changes.
 
 Usage:
-  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force]
-                     [--input text|pdf|pdf+text]
+  npm run eval -- quick <label> [--control <label>] [--replay]
+  npm run eval -- full <label> --confirm-cost
+  npm run eval -- run <label> --only <id,id> [--timeout <ms>] [--force]
+                     [--input text|pdf|pdf+text] [--tier standard|flex|free]
+  npm run eval -- spend [--since <YYYY-MM-DD>] [--backfill]
   npm run eval -- gold <label> [<label> ...] [--only <id,id>] [--verbose] [--json <file>]
                       [--by-source] [--drop-responsibilities]
   npm run eval -- compare <labelA> <labelB> [--force]
@@ -231,6 +254,24 @@ Usage:
   npm run eval -- interview <run|compare|recheck|canary|list> ...   (the
       interview feedback mode: synthetic transcripts in fixtures-interview/,
       same engine fingerprint, comparison gate and canary; "interview help")
+
+Spend (M8-G). Every call is priced from the tokens the API reports
+(scripts/eval/pricing.ts) and appended to runs/spend.jsonl. A command prints
+its estimate first, refuses to start when the estimate crosses a cap, and
+stops between fixtures when the next one would: EVAL_BUDGET_PER_RUN_USD
+(default 0.50) and EVAL_BUDGET_PER_DAY_USD (default 1.00, live spend on
+the UTC day). Committed fixtures hold invented data and run on
+GOOGLE_GENERATIVE_AI_API_KEY_FREE when it is set (free tier; Google may use
+what it is sent); fixtures.local/ always runs on the paid key, at Flex
+(half price, EVAL_PAID_TIER=standard to change). Rate limits and capacity
+errors retry the fixture. Each record keeps its tier, and compare refuses
+two runs whose tiers differ for a fixture. spend prints totals by day,
+phase and tier; --backfill adds the stored runs from before the ledger.
+
+quick runs seed 7 on the two real postings and four synthetic fixtures
+with the most past errors and scores them; with --replay it calls nothing
+and replays --control's stored answers through this checkout. full runs
+every fixture and needs --confirm-cost; so does run without --only.
 
 recheck re-runs the content checks and the fixture assertions over a stored
 run and rewrites it. No model calls, nothing billed: use it after changing a
@@ -341,6 +382,12 @@ async function main(argv: string[]) {
   switch (command) {
     case "run":
       return runCommand(rest);
+    case "quick":
+      return quickCommand(rest);
+    case "full":
+      return fullCommand(rest);
+    case "spend":
+      return spendCommand(rest);
     case "compare":
       return compareCommand(rest);
     case "recheck":
@@ -372,10 +419,24 @@ async function main(argv: string[]) {
 
 async function runCommand(args: string[]) {
   const { positional, flags } = parseFlags(args);
-  const label = positional[0];
-  if (!label || !/^[\w.-]+$/.test(label)) {
-    fail(`run needs a label made of letters, digits, "-", "_" or ".".\n\n${USAGE}`);
+  const only = flags.get("only");
+  // A whole-suite run is the expensive case: it needs the same explicit flag as `full`.
+  if (typeof only !== "string" && !flags.has("confirm-cost")) {
+    printEstimate(planRun(await loadFixtures(), parseTier(flags.get("tier"))), readBudget());
+    fail("run without --only runs every fixture: pass --confirm-cost (or use `full`), or --only <ids>.");
   }
+  const fixtures = (await loadFixtures()).filter(
+    (fixture) => typeof only !== "string" || only.split(",").includes(fixture.id),
+  );
+  await runSuite(positional[0], fixtures, flags, "run");
+}
+
+/** Runs fixtures into a new label: estimate, caps, tier routing and retries, one record per fixture. */
+async function runSuite(label: string | undefined, fixtures: Fixture[], flags: Map<string, string | true>, command: string): Promise<RunRecord[]> {
+  if (!label || !/^[\w.-]+$/.test(label)) {
+    fail(`${command} needs a label made of letters, digits, "-", "_" or ".".\n\n${USAGE}`);
+  }
+  if (fixtures.length === 0) fail("No fixtures matched.");
 
   const outDir = path.join(RUNS_DIR, label);
   if (existsSync(outDir)) {
@@ -396,20 +457,21 @@ async function runCommand(args: string[]) {
     fail("--timeout must be a positive integer number of milliseconds.");
   }
 
-  const only = flags.get("only");
   const arms = parseArms(flags);
-  const fixtures = (await loadFixtures()).filter(
-    (fixture) =>
-      typeof only !== "string" || only.split(",").includes(fixture.id),
-  );
-  if (fixtures.length === 0) fail("No fixtures matched.");
-
   if (arms.input !== "text") {
     const without = fixtures.filter((fixture) => !fixture.pdf).map((f) => f.id);
     if (without.length) {
       fail(`--input ${arms.input} needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
     }
   }
+
+  const budget = readBudget();
+  const plans = planRun(fixtures, parseTier(flags.get("tier")));
+  const total = printEstimate(plans, budget);
+  const runId = `${label}@${new Date().toISOString()}`;
+  const guard = new SpendGuard(budget, runId);
+  const refusal = guard.refuse(total);
+  if (refusal) fail(`Refused before any call: ${refusal}.\nRun fewer fixtures (--only), or raise the cap deliberately.`);
 
   await mkdir(outDir, { recursive: true });
   console.log(
@@ -418,27 +480,35 @@ async function runCommand(args: string[]) {
 
   const startedAt = new Date().toISOString();
   const records: RunRecord[] = [];
+  let stopped: string | undefined;
 
   // One free metadata call per run, the first time a record names the model:
   // the dated build behind the alias is the only drift signal available.
   let apiModelVersion: string | null = null;
   let versionLookedUp = false;
 
-  for (const fixture of fixtures) {
-    const record = await runFixture(fixture, label, timeoutMs, arms);
-    if (!versionLookedUp && record.model) {
-      apiModelVersion = await readApiModelVersion(record.model);
-      versionLookedUp = true;
+  for (const plan of plans) {
+    const outcome = await runPlanned(plan, label, command, runId, guard, timeoutMs, arms);
+    if (outcome.stopped) stopped = outcome.stopped;
+    const record = outcome.record;
+    if (record) {
+      if (!versionLookedUp && record.model) {
+        apiModelVersion = await readApiModelVersion(record.model);
+        versionLookedUp = true;
+      }
+      if (record.engine) record.engine.apiModelVersion = apiModelVersion;
+      await writeJson(path.join(outDir, `${plan.fixture.id}.json`), record);
+      console.log(formatProgress(record));
+      records.push(record);
     }
-    if (record.engine) record.engine.apiModelVersion = apiModelVersion;
-    await writeJson(path.join(outDir, `${fixture.id}.json`), record);
-    console.log(formatProgress(record));
-    records.push(record);
+    if (stopped) break;
   }
 
   const identified = records.find((record) => record.model !== null);
+  const spent = guard.spentThisRun();
   await writeJson(path.join(outDir, "_run.json"), {
     label,
+    command,
     startedAt,
     finishedAt: new Date().toISOString(),
     provider: identified?.provider ?? null,
@@ -446,16 +516,20 @@ async function runCommand(args: string[]) {
     engine: identified?.engine ?? null,
     timeoutMs,
     node: process.version,
-    fixtures: records.map(({ fixture, result, durationMs }) => ({
+    spentUsd: spent,
+    ...(stopped ? { stopped } : {}),
+    fixtures: records.map(({ fixture, result, durationMs, engine }) => ({
       fixture,
       ok: result.ok,
       durationMs,
+      tier: engine?.tier ?? null,
     })),
   });
 
   const okCount = records.filter((record) => record.result.ok).length;
+  if (stopped) console.error(`\nSTOPPED ${stopped}. ${records.length} of ${plans.length} fixture(s) ran.`);
   console.log(
-    `\n${okCount}/${records.length} succeeded. ${describeEngine(identified?.engine)}`,
+    `\n${okCount}/${records.length} succeeded, ${usd(spent)} spent. ${describeEngine(identified?.engine)}`,
   );
   // The method, printed where it is needed rather than left in the docs: a
   // change measured against a run from another day attributes the provider's
@@ -468,6 +542,103 @@ async function runCommand(args: string[]) {
       "Warning: provider and model were not captured. lib/ai/client.ts no longer logs its metadata line.",
     );
   }
+  return records;
+}
+
+type Plan = { fixture: Fixture; tier: Tier; estimateUsd: number };
+
+/** Each fixture's tier and estimated cost, from the ledger's history of that fixture. */
+function planRun(fixtures: Fixture[], override: Tier | undefined): Plan[] {
+  installEvalFetch();
+  const rows = readLedger();
+  const notes = new Set<string>();
+  const model = process.env.AI_MODEL?.trim() || DEFAULT_EVAL_MODEL;
+  const plans = fixtures.map((fixture) => {
+    const { tier, note } = planTier(fixture.source, override);
+    if (note) notes.add(note);
+    return { fixture, tier, estimateUsd: estimateUsd(rows, fixture.id, "analysis", model, tier) };
+  });
+  for (const note of notes) console.log(`Note: ${note}.`);
+  return plans;
+}
+
+function printEstimate(plans: Plan[], budget: Budget): number {
+  const total = plans.reduce((sum, plan) => sum + plan.estimateUsd, 0);
+  const parts = (["free", "flex", "standard"] as const)
+    .map((tier) => plans.filter((plan) => plan.tier === tier))
+    .filter((group) => group.length)
+    .map((group) => `${group.length} on ${group[0].tier}${group[0].tier === "free" ? "" : ` ≈ ${usd(group.reduce((s, p) => s + p.estimateUsd, 0))}`}`);
+  const today = spentOnDay(readLedger(), utcDay());
+  console.log(
+    `Estimate: ${parts.join(", ")}; total ≈ ${usd(total)}. Caps: ${usd(budget.perRunUsd)} per run; ${usd(today)} of ${usd(budget.perDayUsd)} spent today (UTC).`,
+  );
+  return total;
+}
+
+/** One fixture under the caps, with retries for rate limits and capacity errors. */
+async function runPlanned(
+  plan: Plan,
+  label: string,
+  command: string,
+  runId: string,
+  guard: SpendGuard,
+  timeoutMs: number,
+  arms: Arms,
+  now?: Date,
+): Promise<{ record?: RunRecord; stopped?: string }> {
+  return runRouted(
+    { command, label, runId, fixture: plan.fixture.id, tier: plan.tier, estimateUsd: plan.estimateUsd },
+    guard,
+    () => runFixture(plan.fixture, label, timeoutMs, arms, now),
+  );
+}
+
+const DEFAULT_EVAL_MODEL = "gemini-3.5-flash-lite";
+
+// The two real postings and the four synthetic fixtures with the most past errors (M8-B to M8-F).
+const QUICK_FIXTURES = [
+  "local-encora-senior-fullstack",
+  "local-real-production-case",
+  "long-boilerplate",
+  "es-cv-en-job",
+  "es-posting",
+  "hidden-in-responsibilities",
+];
+
+/** Seed 7 on six fixtures; with --replay, no call at all: the control's stored answers through this code. */
+async function quickCommand(args: string[]) {
+  const { positional, flags } = parseFlags(args);
+  const [label] = positional;
+  const control = flags.get("control");
+  const fixtures = (await loadFixtures()).filter((fixture) => QUICK_FIXTURES.includes(fixture.id));
+  const ids = fixtures.map((fixture) => fixture.id);
+  if (flags.has("replay")) {
+    if (typeof control !== "string") fail("quick --replay needs --control <stored label>: it replays that run's answers.");
+    await replayRun(control, label, new Set(ids));
+  } else {
+    const seed = process.env.AI_SEED?.trim();
+    if (seed && seed !== "7") fail("quick runs seed 7 only; unseeded runs go through `run --only`.");
+    await runSuite(label, fixtures, flags, "quick");
+    if (typeof control === "string") {
+      const only = (run: Map<string, RunRecord>) => new Map([...run].filter(([id]) => ids.includes(id)));
+      requireComparable([[control, only(await readRun(control))], [label as string, only(await readRun(label as string))]], flags.has("force"), { datedPrompt: true });
+    }
+  }
+  for (const one of typeof control === "string" ? [control, label as string] : [label as string]) {
+    console.log("");
+    await goldCommand([one, "--only", ids.join(",")]);
+  }
+}
+
+/** Every fixture, after the estimate and an explicit --confirm-cost. */
+async function fullCommand(args: string[]) {
+  const { positional, flags } = parseFlags(args);
+  const fixtures = await loadFixtures();
+  if (!flags.has("confirm-cost")) {
+    printEstimate(planRun(fixtures, parseTier(flags.get("tier"))), readBudget());
+    fail("full runs every fixture: read the estimate above, then pass --confirm-cost.");
+  }
+  await runSuite(positional[0], fixtures, flags, "full");
 }
 
 function parseArms(flags: Map<string, string | true>): Arms {
@@ -853,6 +1024,11 @@ async function recheckCommand(args: string[]) {
  */
 async function replayCommand(args: string[]) {
   const [from, to] = parseFlags(args).positional;
+  await replayRun(from, to);
+}
+
+/** Replays a stored run's raw answers through this checkout's finishAnalysis into a new label. */
+async function replayRun(from: string | undefined, to: string | undefined, only?: Set<string>) {
   if (!from || !to || !/^[\w.-]+$/.test(to)) fail(`replay needs a stored label and a new one.\n\n${USAGE}`);
   const source = path.join(RUNS_DIR, from);
   if (!existsSync(source)) fail(`No run named "${from}" in ${display(RUNS_DIR)}.`);
@@ -870,7 +1046,7 @@ async function replayCommand(args: string[]) {
       continue;
     }
     const fixture = fixtures.get(record.fixture);
-    if (!record.result.ok || !record.answers || !fixture) continue;
+    if (!record.result.ok || !record.answers || !fixture || (only && !only.has(record.fixture))) continue;
     // The text that run's model read, not what today's limit would send.
     const cvText = fixture.cvText.slice(0, record.input.cvCharsSent);
     const { feedback, guard } = finishAnalysis({
@@ -926,8 +1102,18 @@ async function canaryCommand(args: string[]) {
     `Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`,
   );
 
+  // Same tier as the reference unless asked: tiers are not known to answer byte-identically.
+  const asked = parseTier(flags.get("tier"));
+  const { tier } = planTier(fixture.source, asked ?? ((wanted.engine?.tier as Tier | undefined) ?? "standard"));
+  installEvalFetch();
+  const label = `canary-${reference}`;
+  const runId = `${label}@${new Date().toISOString()}`;
+  const plan = { fixture, tier, estimateUsd: estimateUsd(readLedger(), fixture.id, "analysis", wanted.model, tier) };
+  console.log(`  tier:      ${tier}, estimate ≈ ${usd(plan.estimateUsd)}`);
   // The prompt states today's date: replay the reference's day, or every later day reads as drift.
-  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, { input: "text" }, new Date(wanted.generatedAt));
+  const outcome = await runPlanned(plan, label, "canary", runId, new SpendGuard(readBudget(), runId), ANALYSIS_TIMEOUT_MS, { input: "text" }, new Date(wanted.generatedAt));
+  if (!outcome.record) fail(`Refused ${outcome.stopped}.`);
+  const fresh = outcome.record;
   if (fresh.engine && fresh.model) {
     fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   }
@@ -944,6 +1130,11 @@ async function canaryCommand(args: string[]) {
     const before = wanted.engine?.[key] ?? "unrecorded";
     const after = fresh.engine?.[key] ?? "unrecorded";
     if (before !== after) differences.push(`${key}: ${before} -> ${after}`);
+  }
+  const tiers = [wanted.engine?.tier ?? "standard", fresh.engine?.tier ?? "standard"];
+  if (tiers[0] !== tiers[1]) {
+    if (asked) console.log(`  note:      tier ${tiers[0]} -> ${tiers[1]} as asked; only the output is compared`);
+    else differences.push(`tier: ${tiers[0]} -> ${tiers[1]}`);
   }
 
   const sections = Object.keys(fresh.result.feedback) as Array<

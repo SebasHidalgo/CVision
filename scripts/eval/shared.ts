@@ -43,6 +43,8 @@ export type Engine = {
   temperature: string | null;
   /** As sent: a number, or "none" when no seed was sent. */
   seed: string | null;
+  /** Serving tier and key since M8-G: "free", "flex" or "standard"; absent before, which was paid standard. */
+  tier?: string | null;
 };
 
 /** What every run record carries, whichever mode produced it. */
@@ -173,6 +175,18 @@ export function requireComparable(
     );
   }
 
+  // Tiers are per fixture (invented data on the free key, real data paid): compared fixture by fixture.
+  const ids = [...new Set(runs.flatMap(([, run]) => [...run.keys()]))];
+  for (const id of ids) {
+    const tiers = runs.flatMap(([label, run]) => {
+      const record = run.get(id);
+      return record ? [[label, record.engine?.tier ?? "standard"] as const] : [];
+    });
+    if (new Set(tiers.map(([, tier]) => tier)).size > 1) {
+      problems.push(`tier differs for ${id}: ${tiers.map(([label, tier]) => `${label}=${tier}`).join(" vs ")}`);
+    }
+  }
+
   const [first, ...rest] = fingerprints;
   for (const other of rest) {
     for (const key of [
@@ -232,7 +246,7 @@ function sessionGapHours(
 
 export function describeEngine(engine: Engine | null | undefined): string {
   if (!engine) return "Provider and model unknown.";
-  return `Provider: ${engine.provider ?? "unknown"}, model: ${engine.model ?? "unknown"} (api version ${engine.apiModelVersion ?? "unknown"}), temperature ${engine.temperature ?? "unrecorded"}, seed ${engine.seed ?? "unrecorded"}.`;
+  return `Provider: ${engine.provider ?? "unknown"}, model: ${engine.model ?? "unknown"} (api version ${engine.apiModelVersion ?? "unknown"}), temperature ${engine.temperature ?? "unrecorded"}, seed ${engine.seed ?? "unrecorded"}, tier ${engine.tier ?? "standard"}.`;
 }
 
 /** Every record of a stored run, by fixture id. */
@@ -265,6 +279,9 @@ export function identity(run: Map<string, BaseRunRecord>): string {
     .join(", ");
 }
 
+// Flags that never take a value, so a label after them stays positional.
+const BOOLEAN_FLAGS = new Set(["force", "confirm-cost", "replay"]);
+
 export function parseFlags(args: string[]) {
   const positional: string[] = [];
   const flags = new Map<string, string | true>();
@@ -277,7 +294,7 @@ export function parseFlags(args: string[]) {
     }
     const name = arg.slice(2);
     const next = args[i + 1];
-    if (name !== "force" && next !== undefined && !next.startsWith("--")) {
+    if (!BOOLEAN_FLAGS.has(name) && next !== undefined && !next.startsWith("--")) {
       flags.set(name, next);
       i += 1;
     } else {
