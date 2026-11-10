@@ -58,22 +58,42 @@ const OUTCOME_WORD =
 // A claim about the fit as a whole: "aligns with the requirements", "addresses the core qualifications".
 const OVERALL_FIT = /\b(?:requirements?|qualifications?|criteria|the (?:role|position)|this (?:role|position))\b/i;
 
-/** The words that name a requirement in prose: its key terms, and the first word of a multi-word name ("Ruby" of "Ruby on Rails"). */
-function names(text: string, requirement: Requirement): boolean {
-  return (requirement.keyTerms?.terms ?? []).some((term) => {
-    if (containsTerm(text, term.term)) return true;
-    const [first, ...rest] = normalizeWhitespace(term.term).split(" ");
-    return rest.length > 0 && first.length >= 3 && /^\p{Lu}/u.test(first) && containsTerm(text, first);
-  });
-}
+/** A requirement is named in prose by one of its key terms in full; "Ruby" alone does not name "Ruby on Rails" (M8-H). */
+const names = (text: string, requirement: Requirement) => (requirement.keyTerms?.terms ?? []).some((term) => containsTerm(text, term.term));
 
 const CONNECTIVE = /^(?:furthermore|additionally|moreover|however|also|in addition|that said|still|besides|además|sin embargo|también),\s*/iu;
 
 const sentencesOf = (text: string) => normalizeWhitespace(text).split(/(?<=[.!?])\s+(?=[\p{Lu}"“(])/u).filter(Boolean);
 
+// M8-H: a sentence that opens with what to do is advice ("To better align with this role, emphasize…", "Bringing… forward").
+const ADVICE =
+  /^(?:to\s+\p{L}+|consider\w*|bring(?:ing)?|add(?:ing)?|closing|highlight\w*|emphasi[sz]\w*|translat\w*|mention\w*|showcas\w*|lead with|mov(?:e|ing)|plac(?:e|ing)|quantify\w*|if you|you (?:can|could|should|may|might))\b/iu;
+// What advice may claim only when the statuses agree: absence, a gap, a strong fit.
+const ABSENT_CLAIM =
+  /\b(?:absent|lack(?:s|ing)?|missing|no (?:mention|evidence|experience)|not (?:currently |yet )?(?:show|mention|list|evidence|include|demonstrat)\w*|(?:doesn|does not|don|do not)'?t? (?:currently |yet )?(?:show|mention|list|include|demonstrate|evidence)\w*)\b/i;
+const GAP_CLAIM = /\bgaps?\b/i;
+const STRONG_FIT = /\b(?:strong|close|tight|excellent|exceptional|great|solid)\s+(?:fit|match|alignment)\b|\balign(?:s|ed)?\s+(?:very |exceptionally |extremely )?(?:well|closely|strongly)\b/i;
+
+/** No required item a CV can show is missing, and at most one is partial: the bar deriveFitVerdict uses. */
+function clearsBar(requirements: Requirement[]): boolean {
+  const judged = requirements.filter((requirement) => requirement.kind === "required" && requirement.status !== "not_evident");
+  return !judged.some((requirement) => requirement.status === "missing") && judged.filter((requirement) => requirement.status === "partial").length <= 1;
+}
+
+/** Why a piece of advice contradicts the statuses, or null when it agrees with them. */
+function adviceConflict(sentence: string, requirements: Requirement[]): string | null {
+  const named = requirements.filter((requirement) => names(sentence, requirement));
+  if (ABSENT_CLAIM.test(sentence) && named.some((requirement) => requirement.status === "met" || requirement.status === "partial")) return "calls a shown requirement absent";
+  if (GAP_CLAIM.test(sentence) && named.length > 0 && named.every((requirement) => requirement.status === "met")) return "a met requirement as a gap";
+  if (GAP_CLAIM.test(sentence) && named.some((requirement) => requirement.status === "not_evident")) return "a requirement no CV can show as a gap";
+  if (STRONG_FIT.test(sentence) && !clearsBar(requirements)) return "a strong fit the required items do not show";
+  if (offersUnacceptedWillingness(sentence, named)) return "willingness the posting does not accept";
+  return null;
+}
+
 /**
- * jobFit.description with the outcomes written in code first; of the model's prose, only the sentences
- * that state no requirement's outcome stay, so the paragraph cannot contradict the list under it.
+ * jobFit.description with the outcomes written in code first. Of the model's prose, the sentences that state an
+ * outcome go, and advice stays unless it contradicts the statuses, so the paragraph cannot contradict the list under it.
  */
 export function withOutcomeProse(description: string, requirements: Requirement[], language: AnalysisLanguage = "en"): { description: string; interventions: Intervention[] } {
   const outcomes = outcomeSentences(requirements, language);
@@ -82,11 +102,13 @@ export function withOutcomeProse(description: string, requirements: Requirement[
   const kept: string[] = [];
   let dropped = false;
   for (const sentence of sentencesOf(description)) {
+    const conflict = ADVICE.test(sentence) ? adviceConflict(sentence, requirements) : null;
     const states =
+      !ADVICE.test(sentence) &&
       OUTCOME_WORD.test(sentence) &&
       (/\d+\+?\s*(?:years|años)/i.test(sentence) || OVERALL_FIT.test(sentence) || requirements.some((requirement) => names(sentence, requirement)));
-    if (states) {
-      interventions.push({ check: "prose", action: "sentence-dropped", path: "jobFit.description", value: sentence });
+    if (states || conflict) {
+      interventions.push({ check: "prose", action: "sentence-dropped", path: "jobFit.description", value: sentence, ...(conflict ? { replacement: conflict } : {}) });
       dropped = true;
       continue;
     }
@@ -107,20 +129,26 @@ const OFFERS_WILLINGNESS =
  * Drops a recommendation that contradicts the statuses: one that treats a met requirement as a gap,
  * or offers willingness to learn for a requirement whose posting accepts no such alternative.
  */
+/** Willingness to learn offered for a named requirement whose posting accepts no such alternative. */
+function offersUnacceptedWillingness(text: string, named: Requirement[]): boolean {
+  return OFFERS_WILLINGNESS.test(text) && named.some((requirement) => requirement.status !== "met" && !unshowableAlternativeIn(requirement.sourceQuote ?? ""));
+}
+
 export function guardRecommendations(recommendations: string[], requirements: Requirement[]): { recommendations: string[]; interventions: Intervention[] } {
   const interventions: Intervention[] = [];
   const kept = recommendations.filter((recommendation, i) => {
     const named = requirements.filter((requirement) => names(recommendation, requirement));
     const metAsGap = IMPLIES_GAP.test(recommendation) && named.some((requirement) => requirement.status === "met" && !named.some((other) => other.status !== "met"));
-    const willingness =
-      OFFERS_WILLINGNESS.test(recommendation) && named.some((requirement) => requirement.status !== "met" && !unshowableAlternativeIn(requirement.sourceQuote ?? ""));
-    if (!metAsGap && !willingness) return true;
+    // "Not shown in your CV" is outside the verdict: calling one a gap contradicts the page (M8-H).
+    const notShownAsGap = GAP_CLAIM.test(recommendation) && named.some((requirement) => requirement.status === "not_evident");
+    const willingness = offersUnacceptedWillingness(recommendation, named);
+    if (!metAsGap && !notShownAsGap && !willingness) return true;
     interventions.push({
       check: "prose",
       action: "recommendation-dropped",
       path: `jobFit.strategicRecommendations[${i}]`,
       value: recommendation,
-      replacement: metAsGap ? "a met requirement as a gap" : "willingness the posting does not accept",
+      replacement: metAsGap ? "a met requirement as a gap" : notShownAsGap ? "a requirement no CV can show as a gap" : "willingness the posting does not accept",
     });
     return false;
   });
