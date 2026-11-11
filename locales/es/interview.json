@@ -18,7 +18,6 @@
       "microphone": "Revisando el micrófono",
       "session": "Iniciando",
       "connecting": "Conectando",
-      "retry": "Intentar de nuevo",
       "start": "Empezar la entrevista",
       "queued": "Esperando a un entrevistador",
       "reconnect": "Reconectar"
@@ -44,10 +43,7 @@
     "lengthChanged_other": "Esta llamada dura {{count}} minutos, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
     "backToAnalysis": "Volver al análisis",
     "dropped": {
-      "title": "Se perdió la conexión con el entrevistador.",
       "noStarts": "No quedan conexiones para esta entrevista.",
-      "mayScore": "Si ya habías respondido algunas preguntas, lo que se dijo puede puntuarse tal como quedó.",
-      "checkFeedback": "Ver si hay feedback",
       "at": "Tu llamada se cortó a los {{at}}. Te quedan {{left}}.",
       "resume": "Reconecta y el entrevistador retoma donde quedaron. Si no vuelves en 10 minutos, la entrevista se evalúa con lo que dijiste.",
       "noTime": "Queda muy poco tiempo para reconectar. La entrevista se evalúa con lo que dijiste.",

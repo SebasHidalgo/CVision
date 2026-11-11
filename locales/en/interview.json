@@ -18,7 +18,6 @@
       "microphone": "Checking the microphone",
       "session": "Starting",
       "connecting": "Connecting",
-      "retry": "Try again",
       "start": "Start the interview",
       "queued": "Waiting for an interviewer",
       "reconnect": "Reconnect"
@@ -42,10 +41,7 @@
     "lengthChanged_other": "This call runs {{count}} minutes, not {{promised}}: what pays for it changed since the page opened (a credit or an interview was used elsewhere).",
     "backToAnalysis": "Back to the analysis",
     "dropped": {
-      "title": "The connection to the interviewer was lost.",
       "noStarts": "There are no starts left for this interview.",
-      "mayScore": "If you had already answered some questions, what was said may be scored as it stands.",
-      "checkFeedback": "Check for feedback",
       "at": "Your call dropped at {{at}}. You have {{left}} left.",
       "resume": "Reconnect and the interviewer picks up where you left off. If you don't come back within 10 minutes, the interview is scored with what you said.",
       "noTime": "There is too little time left to reconnect. The interview is scored with what you said.",

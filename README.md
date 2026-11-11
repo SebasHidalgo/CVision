@@ -305,7 +305,9 @@ call's webhook round trip. Then:
 | `npm run report:guards [-- --from … --to …]` | the guardrails' daily tallies |
 | `npm run agent:sync [-- --webhook-url … --replace-webhook --dry-run]` | push both ElevenLabs agents and the post-call webhook from code |
 | `npm run ai:doctor` | one minimal Gemini call: OK, rate limited, billing exhausted or misconfigured, and the model version |
-| `npm run voice:doctor [-- --webhook-url …]` | check the ElevenLabs key, balance, agents and webhook, read-only |
+| `npm run voice:doctor [-- --webhook-url …]` | check the ElevenLabs key, balance, agents (limits, bursting, queue) and webhook, read-only |
+| `npm run voice:cost [-- --since YYYY-MM-DD]` | what a voice minute costs on the plan, from the platform's records of recent calls |
+| `npm run voice:samples [-- --out <folder>]` | the Spanish greeting in three voices, as MP3 files, to choose the Spanish voice (needs `text_to_speech` on the key) |
 | `npm run billing:sync [-- --webhook-url … --production]` | push the Paddle catalog and the webhook destination from code |
 | `npm run billing:doctor [-- --webhook-url … --production]` | check the Paddle account, read-only |
 | `npm run billing:reconcile [-- <clerkUserId>]` | repair subscription mirrors and lost pack grants from the provider |
