@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tomasz Nowak - CV</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #111; margin: 0; }
+  .grid { display: grid; grid-template-columns: 62mm 1fr; column-gap: 8mm; }
+  aside { background: #f1f3f5; padding: 6mm; }
+  h1 { font-size: 20pt; margin: 0 0 2mm 0; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #999; margin: 5mm 0 2mm 0; padding-bottom: 1mm; }
+  h3 { font-size: 10.5pt; margin: 3mm 0 1mm 0; }
+  .meta { color: #444; font-size: 9.5pt; margin-bottom: 2mm; }
+  ul { margin: 1mm 0 0 4mm; padding: 0; }
+  li { margin-bottom: 1.2mm; }
+  p { margin: 0 0 2mm 0; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <aside>
+    <h1>Tomasz Nowak</h1>
+    <p class="meta">Senior Data Engineer<br>Berlin, Germany<br>tomasz.nowak@example.com<br>+49 30 000 0000</p>
+
+    <h2>Skills</h2>
+    <ul>
+      <li>Python (6 years), SQL (advanced), Scala (basic)</li>
+      <li>Apache Spark, Spark Structured Streaming</li>
+      <li>Apache Kafka, Debezium, Schema Registry</li>
+      <li>Airflow, SQL modelling, data contracts</li>
+      <li>PostgreSQL, ClickHouse, Parquet on S3</li>
+      <li>Docker, Kubernetes, GitLab CI, Terraform</li>
+      <li>Great Expectations, pytest</li>
+    </ul>
+
+    <h2>Education</h2>
+    <p>MSc Computer Science<br>Warsaw University of Technology<br>2013 - 2018</p>
+
+    <h2>Languages</h2>
+    <ul>
+      <li>Polish (native)</li>
+      <li>English (C2)</li>
+      <li>German (B1, conversational)</li>
+    </ul>
+  </aside>
+
+  <main>
+    <h2>Summary</h2>
+    <p>Data engineer with six years building and operating production data pipelines for mobility and e-commerce companies. I own pipelines end to end: event schemas with the producers, Spark jobs, orchestration, quality checks and the on-call that follows. I write the design documents my teams decide on and present the options to product managers.</p>
+
+    <h2>Experience</h2>
+
+    <h3>Senior Data Engineer - Kiezride (shared mobility), Berlin</h3>
+    <p class="meta">March 2022 - present</p>
+    <ul>
+      <li>Built the streaming ingestion for vehicle telemetry on Kafka and Spark Structured Streaming, processing 120 million events a day with end-to-end latency under 90 seconds.</li>
+      <li>Introduced data contracts for the eight core event types; schema changes now fail CI before a producer ships, which ended the monthly breakage of the rides dataset.</li>
+      <li>Modelled the rides, vehicles and pricing datasets in ClickHouse and PostgreSQL and kept their interfaces stable for the analytics and ML teams for three years.</li>
+      <li>Own data quality: Great Expectations suites and freshness checks on every dataset, and the on-call rotation for pipeline incidents.</li>
+      <li>Mentor two mid-level engineers through design reviews; both now lead their own pipelines.</li>
+    </ul>
+
+    <h3>Data Engineer - Sklepio (e-commerce), Warsaw</h3>
+    <p class="meta">July 2019 - February 2022</p>
+    <ul>
+      <li>Moved 40 nightly batch jobs from cron to Airflow with retries and SLAs; late reports dropped from several a week to about one a month.</li>
+      <li>Wrote the Spark jobs that joined orders, returns and marketing spend into the daily margin dataset.</li>
+      <li>Presented pipeline options and their trade-offs to product managers before each quarterly planning.</li>
+    </ul>
+
+    <h3>Junior Data Engineer - Sklepio, Warsaw</h3>
+    <p class="meta">September 2018 - June 2019</p>
+    <ul>
+      <li>Maintained the PostgreSQL reporting replica and the Python ETL scripts that fed it.</li>
+    </ul>
+  </main>
+</div>
+</body>
+</html>

@@ -1,5 +1,6 @@
-import { getDocumentProxy } from "unpdf";
-import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
+import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
+import { PdfNoTextError, PdfScannedError, PdfUnreadableError } from "@/lib/error/errors";
+import { accentJoins, composeSplitAccents, type TextOps, withoutSpuriousSpaces } from "@/lib/pdfAccents";
 
 /**
  * Fewer non-whitespace characters than this is read as "no text layer": scanner
@@ -7,6 +8,9 @@ import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
  * it, and any real CV is far above it.
  */
 export const MIN_PDF_TEXT_CHARS = 200;
+
+/** A page that paints an image and holds fewer characters than this is a scanned page; a scanner watermark fits under it. */
+export const MAX_SCANNED_PAGE_TEXT_CHARS = 40;
 
 /**
  * A vertical gap this many times the page's usual line spacing reads as a
@@ -32,7 +36,10 @@ export function hasPdfHeader(bytes: Uint8Array): boolean {
 }
 
 /** The pdf.js text items we use; marked-content entries carry no `str`. */
-type TextItem = { str: string; hasEOL: boolean; transform: number[] };
+type TextItem = { str: string; hasEOL: boolean; transform: number[]; width: number; height: number };
+
+/** The text and how many split accents were put back on their letters (a count only: it is logged). */
+export type ExtractedPdfText = { text: string; accentsComposed: number };
 
 type Line = { text: string; y: number };
 
@@ -63,10 +70,15 @@ export async function extractTextFromPDFFile(file: File): Promise<string> {
  * run of text.
  */
 export async function extractTextFromPDFBytes(bytes: Uint8Array): Promise<string> {
-  let text: string;
+  return (await extractPdfText(bytes)).text;
+}
+
+/** `extractTextFromPDFBytes` with the count of split accents it composed ("Jos´e" → "José"). */
+export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfText> {
+  let document: { text: string; scannedPages: number; accentsComposed: number };
 
   try {
-    text = await readDocument(bytes);
+    document = await readDocument(bytes);
   } catch (error) {
     throw new PdfUnreadableError(
       `PDF could not be parsed: ${
@@ -75,37 +87,76 @@ export async function extractTextFromPDFBytes(bytes: Uint8Array): Promise<string
     );
   }
 
-  const textChars = text.replace(/\s/g, "").length;
+  const { text, scannedPages, accentsComposed } = document;
+  const textChars = nonBlank(text);
   if (textChars < MIN_PDF_TEXT_CHARS) {
-    // The count is safe to log and is what a threshold change would be tuned on.
+    // Counts are safe to log and are what a threshold change would be tuned on.
+    if (scannedPages > 0) {
+      throw new PdfScannedError(`PDF text layer has ${textChars} non-whitespace characters and ${scannedPages} scanned page(s)`);
+    }
     throw new PdfNoTextError(`PDF text layer has ${textChars} non-whitespace characters`);
   }
 
-  return text;
+  return { text, accentsComposed };
 }
 
-async function readDocument(bytes: Uint8Array): Promise<string> {
-  const pdf = await getDocumentProxy(bytes);
+const nonBlank = (text: string) => text.replace(/\s/g, "").length;
+
+// pdf.js VerbosityLevel.ERRORS: font-hinting warnings ("TT: undefined function") are noise, errors still print.
+const PDFJS_ERRORS_ONLY = 0;
+
+async function readDocument(bytes: Uint8Array): Promise<{ text: string; scannedPages: number; accentsComposed: number }> {
+  // pdf.js transfers the buffer it is given: a copy leaves the caller's bytes intact.
+  const pdf = await getDocumentProxy(bytes.slice(), { verbosity: PDFJS_ERRORS_ONLY });
 
   try {
     const pages: string[] = [];
+    let accentsComposed = 0;
     for (let number = 1; number <= pdf.numPages; number += 1) {
       const page = await pdf.getPage(number);
       const { items } = await page.getTextContent();
-      pages.push(withSectionBreaks(linesOf(items)));
+      const { items: composed, compositions } = composeSplitAccents((items as unknown[]).filter(isTextItem));
+      accentsComposed += compositions.length;
+      let pageItems = composed;
+      // Only a space before a composed accent needs the glyph positions: "GESTI ÓN" or "Informatique, Être".
+      if (compositions.some((composition) => composition.spaceBefore)) {
+        const { OPS } = await getResolvedPDFJS();
+        const { fnArray, argsArray } = await page.getOperatorList();
+        pageItems = withoutSpuriousSpaces(composed, compositions, accentJoins(fnArray, argsArray, OPS as TextOps)).items;
+      }
+      pages.push(withSectionBreaks(linesOf(pageItems)));
     }
 
-    return pages.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+    const text = pages.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+    // Operator lists only on the refusal path: a real CV never pays for them.
+    if (nonBlank(text) >= MIN_PDF_TEXT_CHARS) return { text, scannedPages: 0, accentsComposed };
+
+    const { OPS } = await getResolvedPDFJS();
+    const paintsImage = new Set([
+      OPS.paintImageXObject,
+      OPS.paintInlineImageXObject,
+      OPS.paintImageXObjectRepeat,
+      OPS.paintInlineImageXObjectGroup,
+      OPS.paintImageMaskXObject,
+      OPS.paintImageMaskXObjectGroup,
+      OPS.paintImageMaskXObjectRepeat,
+    ]);
+    let scannedPages = 0;
+    for (let number = 1; number <= pdf.numPages; number += 1) {
+      if (nonBlank(pages[number - 1]) >= MAX_SCANNED_PAGE_TEXT_CHARS) continue;
+      const { fnArray } = await (await pdf.getPage(number)).getOperatorList();
+      if (fnArray.some((op) => paintsImage.has(op))) scannedPages += 1;
+    }
+    return { text, scannedPages, accentsComposed };
   } finally {
     await pdf.destroy();
   }
 }
 
 /**
- * Items joined into lines, broken where pdf.js reports the end of a line.
- * Joined with no separator, exactly as the text layer stores them: a glyph
- * split across two items — how LaTeX writes an accent, `Jos` + `´` + `e` —
- * must come back out as it went in, because that artifact is what an ATS sees.
+ * Items joined into lines, broken where pdf.js reports the end of a line, with
+ * no separator: a word split across items comes back whole. Split accents were
+ * already composed (lib/pdfAccents.ts).
  */
 function linesOf(items: unknown[]): Line[] {
   const lines: Line[] = [];

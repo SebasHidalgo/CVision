@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>José Martínez - CV</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #111; margin: 0; }
+  h1 { font-size: 20pt; margin: 0; }
+  .contact { font-size: 10pt; color: #333; margin: 1mm 0 4mm 0; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #333; margin: 5mm 0 2mm 0; padding-bottom: 1mm; }
+  h3 { font-size: 11pt; margin: 3mm 0 0.5mm 0; }
+  .meta { font-size: 10pt; color: #444; margin: 0 0 1mm 0; }
+  ul { margin: 1mm 0 0 5mm; padding: 0; }
+  li { margin-bottom: 1.2mm; }
+  p { margin: 0 0 2mm 0; }
+</style>
+</head>
+<body>
+  <h1>José Martínez</h1>
+  <p class="contact">Backend Developer · Bogotá, Colombia · jose.martinez@example.com · github.com/example-jm</p>
+
+  <h2>Summary</h2>
+  <p>Backend developer with five years building REST APIs and internal tools for logistics and retail companies. Comfortable owning a service end to end, from schema design to being on call for it.</p>
+
+  <h2>Experience</h2>
+
+  <h3>Andean Logistics · Backend Developer</h3>
+  <p class="meta">February 2023 - present</p>
+  <ul>
+    <li>Own the shipment tracking API (Java, Spring Boot) used by three internal teams and two carrier partners.</li>
+    <li>Moved the nightly rating job off a single cron box onto a work queue, cutting the nightly processing window by 35%.</li>
+    <li>Added contract tests to the carrier integration, which previously had none, and wired them into the pipeline so a broken carrier contract fails the build.</li>
+    <li>Review pull requests for two junior developers and share the service on-call rota.</li>
+  </ul>
+
+  <h3>Tiendas del Valle · Software Developer</h3>
+  <p class="meta">March 2021 - January 2023</p>
+  <ul>
+    <li>Built internal inventory tools in Java and JavaScript used daily by store managers across 40 stores.</li>
+    <li>Wrote the SQL reporting queries the finance team still runs every month.</li>
+    <li>Helped migrate the deployment pipeline from manual steps to GitLab CI, which removed the Friday release freeze.</li>
+    <li>Took over the returns service after its original author left and kept it running through two peak seasons.</li>
+  </ul>
+
+  <h2>Skills</h2>
+  <p>Languages: Java, JavaScript, TypeScript, SQL<br>Frameworks and libraries: Spring Boot, Express, JUnit<br>Infrastructure: Docker, CI/CD, Git, PostgreSQL, Redis<br>Practices: REST API design, code review, unit and contract testing, on-call support</p>
+
+  <h2>Education</h2>
+  <p>Especialización en Ingeniería de Software (postgraduate specialization)<br>Universidad de los Andes · March 2024 - March 2025</p>
+  <p>Ingeniería de Sistemas (five-year engineering degree)<br>Universidad del Valle · 2016 - 2021</p>
+
+  <h2>Languages</h2>
+  <p>Spanish (native), English (professional working proficiency)</p>
+</body>
+</html>

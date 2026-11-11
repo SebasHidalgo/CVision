@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useClerk, useUser } from "@clerk/nextjs";
+import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ export default function UserDropdown() {
   const { user, isLoaded } = useUser();
   const { openUserProfile, signOut } = useClerk();
   const appearance = useClerkAppearance();
+  const { t } = useTranslation("common");
 
   if (!isLoaded || !user) {
     return <span aria-hidden className="size-9 rounded-full bg-paper-3" />;
@@ -41,7 +43,7 @@ export default function UserDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Account menu"
+        aria-label={t("nav.accountMenu")}
         className="rounded-full transition-transform duration-200 ease-out-expo hover:scale-[1.04] data-[state=open]:scale-[1.04]"
       >
         <Avatar className="size-9 border border-line-strong">
@@ -59,7 +61,7 @@ export default function UserDropdown() {
       >
         <DropdownMenuLabel className="px-2.5 py-2 font-normal">
           <p className="truncate text-sm font-medium text-ink">
-            {user.fullName ?? email ?? "Your account"}
+            {user.fullName ?? email ?? t("nav.yourAccount")}
           </p>
           {user.fullName && email && (
             <p className="mt-0.5 truncate font-mono text-[11px] text-ink-3">
@@ -74,21 +76,21 @@ export default function UserDropdown() {
         <div className="md:hidden">
           {PRIMARY_NAV.map((item) => (
             <DropdownMenuItem key={item.href} asChild className="px-2.5 py-2">
-              <Link href={item.href}>{item.label}</Link>
+              <Link href={item.href}>{t(item.labelKey)}</Link>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
         </div>
 
         <DropdownMenuItem asChild className="px-2.5 py-2">
-          <Link href="/account/billing">Plan &amp; billing</Link>
+          <Link href="/account/billing">{t("nav.planBilling")}</Link>
         </DropdownMenuItem>
 
         <DropdownMenuItem
           className="px-2.5 py-2"
           onSelect={() => openUserProfile({ appearance })}
         >
-          Profile &amp; security
+          {t("nav.profileSecurity")}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -97,7 +99,7 @@ export default function UserDropdown() {
           className="px-2.5 py-2 text-ink-2"
           onSelect={() => signOut({ redirectUrl: "/" })}
         >
-          Sign out
+          {t("nav.signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

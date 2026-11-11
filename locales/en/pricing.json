@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "Pricing"
+  },
+  "intro": {
+    "eyebrow": "Pricing",
+    "title": "Two plans. One is free.",
+    "lede": "Check your own CV against the jobs you want, and practice the interview out loud with an AI interviewer. Pay only when you want more interviews."
+  },
+  "currentPlan": "Your current plan",
+  "free": {
+    "cadence": "forever",
+    "start": "Start free",
+    "includedInPro": "Included in Pro",
+    "promises": {
+      "analyses_one": "{{count}} CV check per month",
+      "analyses_other": "{{count}} CV checks per month",
+      "trial": "One {{minutes}}-minute practice interview with the AI interviewer",
+      "history_one": "Your last analysis",
+      "history_other": "Your last {{count}} analyses"
+    }
+  },
+  "pro": {
+    "cadence": "per month",
+    "signUp": "Sign up for Pro",
+    "checkout": "Get Pro · {{price}} a month",
+    "promises": {
+      "unlimited": "Unlimited CV analyses",
+      "interviews_one": "{{count}} voice interview per month, up to {{minutes}} minutes",
+      "interviews_other": "{{count}} voice interviews per month, up to {{minutes}} minutes",
+      "packs": "Interview packs: {{credits}} more for {{price}}",
+      "history": "Your full history"
+    }
+  },
+  "finePrint": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. See the <refunds>refund policy</refunds> and the <terms>terms</terms>."
+}

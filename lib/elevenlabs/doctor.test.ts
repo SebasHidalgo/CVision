@@ -160,14 +160,21 @@ describe("voice:doctor", () => {
 
     expect(byName(checks, "permission user_read")).toMatchObject({ outcome: "fail", detail: "the API key lacks user_read (the platform refused with missing_permissions)", fix: expect.stringContaining("Grant user_read at ElevenLabs > Developer > API keys") });
     expect(byName(checks, "balance floor").outcome).toBe("skip");
+    expect(byName(checks, "balance floor (trial)").outcome).toBe("skip");
   });
 
   it("fails the floor when the credits left are below it, and counts an unlimited extension as enough", async () => {
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000 }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({
       outcome: "fail",
-      detail: "1000 credits reachable, floor 12000: the session endpoint refuses every start as VOICE_UNAVAILABLE",
+      detail: "1000 credits reachable, floor 12000: the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
     });
+
+    // The free plan's 10,000 carry the 5-minute trial, never a full interview.
+    serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 115_000 }) } });
+    const trialOnly = await runVoiceDoctor({ webhookUrl: null, env: env() });
+    expect(byName(trialOnly, "balance floor").outcome).toBe("fail");
+    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 5000: starts are allowed" });
 
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000, max_credit_limit_extension: "unlimited" }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("unlimited credits reachable") });

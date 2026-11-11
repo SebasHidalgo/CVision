@@ -1,0 +1,73 @@
+% Synthetic accent corpus in the style of Jake's resume template. build.mjs compiles it five ways.
+\documentclass[letterpaper,11pt]{article}
+%PREAMBLE%
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+\pagestyle{empty}
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+\titleformat{\section}{\vspace{-4pt}\scshape\raggedright\large}{}{0em}{}[\titlerule \vspace{-5pt}]
+\newcommand{\resumeItem}[1]{\item\small{#1 \vspace{-2pt}}}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+\begin{document}
+
+\begin{center}
+  \textbf{\Huge \scshape José Ñandú Pérez} \\ \vspace{1pt}
+  \small Señor de la Peña 12, São Paulo $|$ jose.perez@example.com $|$ ÑANDÚ STUDIO
+\end{center}
+
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {Universidad Politécnica de España}{Madrid, España}
+    {Ingeniería en Matemáticas Aplicadas}{Sept. 2016 -- June 2020}
+  \resumeSubheading
+    {INGENIERÍA DE SOFTWARE}{Lyon, France}
+    {Diplôme en Informatique, Être et Crème programme}{2020 -- 2021}
+\resumeSubHeadingListEnd
+
+\section{Experience}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {Backend Developer}{March 2022 -- Present}
+    {Asociación Corazón Abierto}{Valparaíso, Chile}
+    \resumeItemListStart
+      \resumeItem{Built the donation service for the Pingüino campaign and the Ação Solidária partners.}
+      \resumeItem{Wrote the Français and Português interfaces; reviewed every string with a native Señor or Señora.}
+      \resumeItem{Notes kept verbatim: don´t, it´s, I´m, O´Brien, D´Angelo, L´Oréal, and a lone ´ between words.}
+      \resumeItem{Capitals: GESTIÓN, INFORMACIÓN, MÉXICO, ÚLTIMO; names: Álvaro, Óscar, Ángel, Íñigo; \textsc{Educación y Gestión}.}
+      \resumeItem{Code and paths: \texttt{C++}, \texttt{\string~/path/to/repo}, \texttt{x\string^2 + y\string^2}, \texttt{a\string~b}, and math $x^2$.}
+    \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+\section{Projects}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {ÁREA DE DATOS}{2021}
+    {Ingeniería, Matemáticas, Corazón}{São Paulo}
+\resumeSubHeadingListEnd
+
+\section{Technical Skills}
+\begin{itemize}[leftmargin=0.15in, label={}]
+  \small{\item{\textbf{Languages}{: Español (nativo), Français (B2), Português (Ação básica)}}}
+\end{itemize}
+
+\end{document}

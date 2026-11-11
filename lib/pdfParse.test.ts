@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { PdfNoTextError, PdfUnreadableError } from "@/lib/error/errors";
-import { extractTextFromPDFFile, hasPdfHeader, MIN_PDF_TEXT_CHARS } from "./pdfParse";
+import { PdfNoTextError, PdfScannedError, PdfUnreadableError } from "@/lib/error/errors";
+import { extractTextFromPDFBytes, extractTextFromPDFFile, hasPdfHeader, MIN_PDF_TEXT_CHARS } from "./pdfParse";
+
+const FIXTURES = path.join(process.cwd(), "scripts", "eval", "fixtures");
 
 /** A one-page PDF whose page draws `content`. ASCII only, so length = bytes. */
 function pdfBytes(content: string): Uint8Array<ArrayBuffer> {
@@ -85,6 +89,14 @@ describe("extractTextFromPDFFile", () => {
     expect(flat(text)).toBe(CV_TEXT);
   });
 
+  it("leaves the caller's bytes intact: the eval's PDF arm sends them after parsing", async () => {
+    const bytes = pdfBytes(textPage(CV_TEXT));
+    const length = bytes.byteLength;
+    await extractTextFromPDFBytes(bytes);
+
+    expect(bytes.byteLength).toBe(length);
+  });
+
   it("gives back the lines of the page, not one run of text", async () => {
     const page = ["EXPERIENCE", "- Shipped the checkout rewrite.", "- Mentored two engineers."];
     const text = await extractTextFromPDFFile(
@@ -95,16 +107,35 @@ describe("extractTextFromPDFFile", () => {
   });
 
   it.each([
-    ["a page with only an image, like a scan", imagePage],
-    ["a scan carrying a scanner watermark", textPage("Scanned with CamScanner")],
-    ["a scan with only OCR'd page numbers", textPage("1 2 3 4")],
+    ["a page with only an image", imagePage],
+    ["an image under a scanner watermark", `${imagePage} ${textPage("Scanned with CamScanner")}`],
+    ["an image with OCR'd page numbers", `${imagePage} ${textPage("1 2 3 4")}`],
+  ])("throws PdfScannedError (PDF_SCANNED) for %s", async (_, content) => {
+    const error = await rejectionOf(pdfBytes(content));
+
+    expect(error).toBeInstanceOf(PdfScannedError);
+    expect(error).toHaveProperty("code", "PDF_SCANNED");
+  });
+
+  it.each([
+    ["a watermark with no image", textPage("Scanned with CamScanner")],
+    ["page numbers with no image", textPage("1 2 3 4")],
     ["a blank page", ""],
     ["a page with only whitespace text", textPage("   ")],
+    ["a logo beside a short text, not a scan", `${imagePage} ${textPage(spaced(120))}`],
   ])("throws PdfNoTextError (PDF_NO_TEXT) for %s", async (_, content) => {
     const error = await rejectionOf(pdfBytes(content));
 
     expect(error).toBeInstanceOf(PdfNoTextError);
     expect(error).toHaveProperty("code", "PDF_NO_TEXT");
+  });
+
+  it("refuses the scanned-cv fixture as a scan and reads the marketing-match CV with its photo", async () => {
+    const fixture = (id: string) => new Uint8Array(readFileSync(path.join(FIXTURES, id, "cv.pdf")));
+
+    await expect(extractTextFromPDFBytes(fixture("scanned-cv"))).rejects.toBeInstanceOf(PdfScannedError);
+    const photo = await extractTextFromPDFBytes(fixture("marketing-match"));
+    expect(photo.replace(/\s/g, "").length).toBeGreaterThan(MIN_PDF_TEXT_CHARS);
   });
 
   it.each([

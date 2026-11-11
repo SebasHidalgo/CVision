@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
 import type { UploadStage } from "@/screens/ResumeUpload/utils/upload";
@@ -10,12 +11,12 @@ import type { UploadStage } from "@/screens/ResumeUpload/utils/upload";
 // and the model reports nothing back until it is done. Timed for the usual
 // 7-9 s request; the last stage only shows when a call runs slow.
 const ANALYSIS_STAGES = [
-  { at: 0, text: "Reading the text layer of your PDF" },
-  { at: 2, text: "Comparing it with the posting, requirement by requirement" },
-  { at: 4, text: "Scoring six dimensions" },
-  { at: 6, text: "Writing the verdict and the priority fixes" },
-  { at: 15, text: "Still working. Thoroughness takes a moment" },
-];
+  { at: 0, key: "progress.stages.reading" },
+  { at: 2, key: "progress.stages.comparing" },
+  { at: 4, key: "progress.stages.scoring" },
+  { at: 6, key: "progress.stages.writing" },
+  { at: 15, key: "progress.stages.slow" },
+] as const;
 
 function formatElapsed(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -30,6 +31,7 @@ type AnalysisInProgressProps = {
 };
 
 export default function AnalysisInProgress({ stage, fileSize }: AnalysisInProgressProps) {
+  const { t } = useTranslation("upload");
   const [elapsed, setElapsed] = useState(0);
 
   // The clock belongs to the stage: it restarts when the upload hands over.
@@ -76,7 +78,7 @@ export default function AnalysisInProgress({ stage, fileSize }: AnalysisInProgre
 
       <div>
         <div className="flex items-baseline justify-between border-b border-line pb-4">
-          <h2 className="display-md text-ink">{uploading ? "Uploading" : "Analyzing"}</h2>
+          <h2 className="display-md text-ink">{uploading ? t("progress.uploading") : t("progress.analyzing")}</h2>
           <span className="eyebrow tabular text-ink">{formatElapsed(elapsed)}</span>
         </div>
 
@@ -87,10 +89,12 @@ export default function AnalysisInProgress({ stage, fileSize }: AnalysisInProgre
                 <span className="block size-1.5 bg-signal animate-blink" />
               </span>
               <span className="font-medium">
-                Sending your CV to storage{fileSize > 0 ? ` · ${formatFileSize(fileSize)}` : ""}
+                {fileSize > 0
+                  ? t("progress.sendingWithSize", { size: formatFileSize(fileSize, t) })
+                  : t("progress.sending")}
               </span>
             </p>
-            <p className="eyebrow mt-8">The analysis starts the moment it lands. Keep this tab open.</p>
+            <p className="eyebrow mt-8">{t("progress.uploadNote")}</p>
           </div>
         ) : (
           <>
@@ -118,13 +122,13 @@ export default function AnalysisInProgress({ stage, fileSize }: AnalysisInProgre
                         />
                       )}
                     </span>
-                    <span className={cn(active && "font-medium")}>{step.text}</span>
+                    <span className={cn(active && "font-medium")}>{t(step.key)}</span>
                   </li>
                 );
               })}
             </ol>
 
-            <p className="eyebrow mt-8">Usually ready in seconds. Keep this tab open.</p>
+            <p className="eyebrow mt-8">{t("progress.analysisNote")}</p>
           </>
         )}
       </div>

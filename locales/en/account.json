@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "title": "Plan & billing"
+  },
+  "intro": {
+    "eyebrow": "Plan & billing",
+    "titlePro": "You're on Pro.",
+    "titleFree": "You're on Free."
+  },
+  "planLine": {
+    "comp": "Pro, on the house.",
+    "cancels": "Pro, until {{date}}. Your cancellation is scheduled; nothing more will be charged.",
+    "pastDue": "Pro. The last payment did not go through; Paddle is retrying. Update the card from \"Manage subscription\" to keep Pro past {{date}}.",
+    "renews": "Pro, renews {{date}}.",
+    "canceled": "Free. Your Pro subscription ended; nothing was deleted, and Pro brings it all back.",
+    "paused": "Free while your subscription is paused. Resume it from \"Manage subscription\".",
+    "free": "Free."
+  },
+  "interviews": {
+    "label": "Interviews this period",
+    "of": "of {{limit}}",
+    "resets": "Resets {{date}}.",
+    "trial": "One free {{minutes}}-minute practice interview.",
+    "creditsCover": "Your credits cover full interviews; Pro adds {{perMonth}} a month.",
+    "proOnly": "Voice interviews are part of Pro."
+  },
+  "credits": {
+    "label": "Interview credits",
+    "none": "From packs of {{size}}; each one a full interview.",
+    "pro": "Used after the period's interviews. They never expire.",
+    "free": "Each one is a full {{minutes}}-minute interview, on any plan. They never expire.",
+    "pending_one": "{{count}} credit pending return: an interview is still open. If nothing was answered, it comes back within minutes of the call ending.",
+    "pending_other": "{{count}} credits pending return: an interview is still open. If nothing was answered, it comes back within minutes of the call ending."
+  },
+  "analyses": {
+    "label": "Analyses",
+    "ofMonth": "of {{limit}} this month",
+    "pro": "Unlimited CV analyses.",
+    "free": "Free shows your last {{limit}} analyses."
+  },
+  "actions": {
+    "confirming": "Confirming your payment…",
+    "buyPack_one": "Buy {{count}} more interview · {{price}}",
+    "buyPack_other": "Buy {{count}} more interviews · {{price}}",
+    "getPro": "Get Pro · {{price}} a month",
+    "compare": "Compare the plans"
+  },
+  "portalNote": "“Manage subscription” opens Paddle, the merchant of record: payment method, invoices and cancellation live there. Cancelling keeps Pro until the end of the period you paid for.",
+  "activation": {
+    "landedPro": "Pro is active.",
+    "landedPack": "Your credits are in.",
+    "waitingPro": "Activating your plan… Your payment went through; the confirmation from Paddle usually takes a few seconds.",
+    "waitingPack": "Adding your credits… Your payment went through; the confirmation from Paddle usually takes a few seconds.",
+    "stalled": "Your payment is confirmed by Paddle but hasn’t reached us yet. It will appear shortly; you can refresh later.",
+    "checkAgain": "Check again",
+    "notYet": "Not here yet. Paddle has the payment; it will appear shortly."
+  }
+}

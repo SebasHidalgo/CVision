@@ -11,6 +11,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import {
+  AiBillingError,
   AiContentBlockedError,
   AiFormatError,
   AiMisconfiguredError,
@@ -106,17 +107,69 @@ type AiConfig = {
  * Asks the model for JSON and returns it already validated. Either resolves to
  * a `T` that satisfies the schema, or throws an `AppError` subclass:
  * `AiUnavailableError` (timeout, network, provider outage),
- * `AiRateLimitedError`, `AiMisconfiguredError` (credentials, model, request),
+ * `AiRateLimitedError`, `AiBillingError` (account out of balance),
+ * `AiMisconfiguredError` (credentials, model, request),
  * `AiContentBlockedError` (safety refusal) or `AiFormatError` (answered
  * outside the contract).
  */
-export async function generateJson<T>({
+export async function generateJson<T>(options: GenerateJsonOptions<T>): Promise<T> {
+  return (await generateJsonWithMeta(options)).value;
+}
+
+/** A call's answer and what produced it, for callers that store the model beside the output (translations). */
+export type ReportedJson<T> = { value: T; model: string; modelVersion: string | null; input: number | null; output: number | null };
+
+/** generateJson, plus the model and the version that answered and the token counts. Same errors. */
+export async function generateJsonReported<T>(options: GenerateJsonOptions<T>): Promise<ReportedJson<T>> {
+  const { value, meta, config } = await generateJsonWithMeta(options);
+  return { value, model: config.model, modelVersion: meta.modelVersion, input: meta.input ?? null, output: meta.output ?? null };
+}
+
+/** What one call reports about itself; for `npm run ai:doctor`. */
+export type ModelPing = { provider: string; model: string; modelVersion: string | null; ms: number; input: number | null; output: number | null };
+
+/** One minimal call: resolves with what answered, or throws the same `AppError`s as `generateJson`. */
+export async function pingModel(timeoutMs = 20_000): Promise<ModelPing> {
+  const startedAt = Date.now();
+  const { meta, config } = await generateJsonWithMeta({
+    prompt: 'Reply with {"ok": true}.',
+    schema: z.object({ ok: z.boolean() }),
+    timeoutMs,
+  });
+  return {
+    provider: config.provider,
+    model: config.model,
+    modelVersion: meta.modelVersion,
+    ms: Date.now() - startedAt,
+    input: meta.input ?? null,
+    output: meta.output ?? null,
+  };
+}
+
+/** The dated build the free models listing reports for a model; null when it cannot be read. */
+export async function readListedModelVersion(model: string): Promise<string | null> {
+  const apiKey = readConfig().apiKey;
+  if (!apiKey) return null;
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as { version?: unknown };
+    return typeof body.version === "string" ? body.version : null;
+  } catch {
+    return null;
+  }
+}
+
+async function generateJsonWithMeta<T>({
   prompt,
   system,
   schema,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   files,
-}: GenerateJsonOptions<T>): Promise<T> {
+}: GenerateJsonOptions<T>): Promise<{ value: T; meta: CallMeta; config: AiConfig }> {
   const config = readConfig();
   const startedAt = Date.now();
   const meta: CallMeta = {
@@ -131,7 +184,8 @@ export async function generateJson<T>({
         `Unsupported AI_PROVIDER "${config.provider}"`,
       );
     }
-    return await callGoogle(config, prompt, system, schema, timeoutMs, files, meta);
+    const value = await callGoogle(config, prompt, system, schema, timeoutMs, files, meta);
+    return { value, meta, config };
   } finally {
     // Never log the prompt or the response: both carry the resume and the job
     // description. Token counts are safe, and they are what an analysis costs.
@@ -154,6 +208,30 @@ function readConfig(): AiConfig {
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || undefined,
   };
 }
+
+// Gemini documents alphabetical generation without propertyOrdering; 3.5 Flash-Lite already follows declaration order (M8-C), this pins it.
+/** Every object node of a Gemini schema with `propertyOrdering` set to its own key order. */
+export function withPropertyOrdering(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(withPropertyOrdering);
+  if (schema === null || typeof schema !== "object") return schema;
+  const node: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) node[key] = withPropertyOrdering(value);
+  const properties = (schema as { properties?: unknown }).properties;
+  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
+    node.propertyOrdering = Object.keys(properties);
+  }
+  return node;
+}
+
+// The SDK drops propertyOrdering when it converts the schema, so it is added to the request body here.
+const orderedFetch: typeof fetch = (input, init) => {
+  if (typeof init?.body !== "string") return fetch(input, init);
+  const body = JSON.parse(init.body) as { generationConfig?: { responseSchema?: unknown } };
+  const config = body.generationConfig;
+  if (!config?.responseSchema) return fetch(input, init);
+  config.responseSchema = withPropertyOrdering(config.responseSchema);
+  return fetch(input, { ...init, body: JSON.stringify(body) });
+};
 
 /**
  * `AI_TEMPERATURE` exists so an eval can capture a control arm beside a
@@ -221,7 +299,7 @@ async function callGoogle<T>(
     throw new AiMisconfiguredError("GOOGLE_GENERATIVE_AI_API_KEY is not set");
   }
 
-  const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
+  const google = createGoogleGenerativeAI({ apiKey: config.apiKey, fetch: orderedFetch });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const responseSchema = toJsonSchemaOrNull(schema);
@@ -338,6 +416,13 @@ function fromApiCallError(error: APICallError, model: string): AppError {
     );
     return new AiRateLimitedError(`Gemini rate limit or quota hit (${where})`);
   }
+  if (status === 402) {
+    // Out of balance or over the spend cap: the operator's to fix, never the user's. Identifiers only.
+    console.error(
+      `[CVision][ai] billing exhausted: http=402 status=${googleStatus(error.data).trim() || "?"} reason=${errorInfoReason(error.data)} model=${model}`,
+    );
+    return new AiBillingError(`Gemini billing exhausted (${where})`);
+  }
   if (status >= 200 && status < 300) {
     return new AiFormatError(`Gemini answered but the response was unreadable (${where})`);
   }
@@ -367,6 +452,16 @@ function fromNoObject(error: NoObjectGeneratedError): AppError {
   return new AiFormatError(
     `Model output could not be read (finish reason: ${error.finishReason ?? "unknown"})`,
   );
+}
+
+/** The `reason` of a `google.rpc.ErrorInfo` detail, or "?"; an identifier, never the message. */
+export function errorInfoReason(data: unknown): string {
+  const details = (data as { error?: { details?: unknown } } | null)?.error?.details;
+  if (!Array.isArray(details)) return "?";
+  const info = (details as Array<{ "@type"?: unknown; reason?: unknown }>).find(
+    (detail) => typeof detail["@type"] === "string" && detail["@type"].endsWith("google.rpc.ErrorInfo"),
+  );
+  return typeof info?.reason === "string" && info.reason ? info.reason : "?";
 }
 
 /** Google's status enum (e.g. RESOURCE_EXHAUSTED); never its free-text message. */

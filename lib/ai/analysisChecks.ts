@@ -51,8 +51,10 @@ export const normalizeWhitespace = (text: string) =>
   text.replace(/\s+/g, " ").trim();
 
 /** Lowercase, letters and digits only: ignores case and typography. */
+// U+FFFD goes entirely: the model cannot write it, so "Gesti�n" comes back "Gestin".
 export const loosen = (text: string) =>
   text
+    .replace(/�/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -122,8 +124,7 @@ function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
 }
 
 /**
- * Lists whose items are claimed to be absent from the CV. `recommendedCerts`
- * counts: recommending a certification the CV already lists is the same error.
+ * Lists whose items are claimed to be absent from the CV.
  *
  * `missingSkills` and `missingKeywords` are gone from the output, so the two
  * lists that produced most of this check's findings no longer exist. What
@@ -131,13 +132,6 @@ function quoteFields(feedback: ResumeAnalysisFeedback): Located[] {
  * way: the requirement text is the thing claimed to be absent.
  */
 function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
-  const certs = feedback.educationAndCertifications.recommendedCerts.map(
-    (value, i) => ({
-      path: `educationAndCertifications.recommendedCerts[${i}]`,
-      value,
-    }),
-  );
-
   const missing = feedback.jobFit.requirements
     .map((requirement, i) => ({ requirement, i }))
     .filter(({ requirement }) => requirement.status === "missing")
@@ -146,7 +140,7 @@ function absenceClaims(feedback: ResumeAnalysisFeedback): Located[] {
       value: requirement.requirement,
     }));
 
-  return [...certs, ...missing];
+  return missing;
 }
 
 function suggestedBullets(feedback: ResumeAnalysisFeedback): Located[] {

@@ -1,0 +1,17 @@
+[
+  { "role": "agent", "message": "Hi Aoife, thanks for joining. I'll be interviewing you for the Customer Support Team Lead role at Orbit Telecom. We have about 12 minutes. To start, tell me briefly about your background and what drew you to this role.", "time_in_call_secs": 0 },
+  { "role": "user", "message": "Thanks. I've led a support team at Shannon Energy for three years, eight agents on phone and email, and before that I was an agent in retail support. Orbit is a bigger queue with chat on top, and that's the step I want to take.", "time_in_call_secs": 12 },
+  { "role": "agent", "message": "You mentioned your team works in Zendesk. Tell me about a view or a macro you built yourself and what it changed.", "time_in_call_secs": 41 },
+  { "role": "user", "message": "I rebuilt our views around first response time. We had one big unassigned queue, so I made a view for tickets older than four hours with no reply, sorted by priority, and every agent checks it at the top of the hour. I also wrote about twenty macros for the billing questions, with the account fields pulled in. Our first reply time went from nine hours to under three in two months.", "time_in_call_secs": 55 },
+  { "role": "agent", "message": "What was your own part in getting the team to use them?", "time_in_call_secs": 108 },
+  { "role": "user", "message": "I ran two short sessions, and for the first two weeks I reviewed ten tickets a day per agent to see whether they used the macros or rewrote everything by hand.", "time_in_call_secs": 116 },
+  { "role": "agent", "message": "Our customers are telecom customers: outages, bills, contracts. How close is your experience to that?", "time_in_call_secs": 150 },
+  { "role": "user", "message": "I haven't worked for a telecom company. At the utility the hard days were outages and billing disputes, so I know what a queue looks like when a whole area loses service, and I've handled contract complaints. The products would be new to me.", "time_in_call_secs": 160 },
+  { "role": "agent", "message": "Tell me about one of those outage days and how you ran the team through it.", "time_in_call_secs": 205 },
+  { "role": "user", "message": "Last winter a storm took out power for a few thousand homes. I put a banner on the help centre, pinned a macro with the restoration estimate, and moved two agents from email to phone for the afternoon. We kept the phone wait under ten minutes that day.", "time_in_call_secs": 215 },
+  { "role": "agent", "message": "One practical question: the role is based in Dublin and we can't sponsor work permits. Are you able to work in Ireland?", "time_in_call_secs": 280 },
+  { "role": "user", "message": "Yes, I'm an Irish citizen, so there's no sponsorship involved, and I live in Dublin already.", "time_in_call_secs": 290 },
+  { "role": "agent", "message": "Last one: how do you coach an agent whose quality scores are slipping?", "time_in_call_secs": 310 },
+  { "role": "user", "message": "I listen to three of their calls with them, we pick one thing to fix, and I check the same thing the next week. I don't stack five problems on someone at once.", "time_in_call_secs": 318 },
+  { "role": "agent", "message": "Thank you, Aoife, that covers what I wanted to ask. Your feedback will be ready shortly.", "time_in_call_secs": 420 }
+]

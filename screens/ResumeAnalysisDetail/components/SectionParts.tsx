@@ -1,17 +1,23 @@
+import type { TFunction } from "i18next";
 import { Check, Plus, X } from "lucide-react";
 import Eyebrow from "@/components/layout/Eyebrow";
 import ScoreMeter from "@/components/score/ScoreMeter";
+import { termDisplay, type TermChip } from "@/lib/ai/requirementGuardrails";
 import { ordinal } from "@/lib/format";
 import type {
+  KeyTerms,
   QuantifiedAchievement,
   Requirement,
   RequirementStatus,
   requirementTally,
 } from "@/lib/schemas/resumeSchema";
-import { scoreTone, TONE_CLASS, TONE_LABEL } from "@/lib/score";
+import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
+import { displayQuote } from "../utils/displayQuote";
 
-/* Shared building blocks for the six dimension sections. */
+/* Shared building blocks for the six dimension sections. Server components: the screen hands them its t. */
+
+type AnalysisT = TFunction<"analysis">;
 
 type SectionProps = {
   id: string;
@@ -20,6 +26,8 @@ type SectionProps = {
   /** `null` for the sections that report evidence instead of a number. */
   score: number | null;
   description: string;
+  /** The common namespace: the score's accessible name and tone word. */
+  common: TFunction<"common">;
   children: React.ReactNode;
 };
 
@@ -29,6 +37,7 @@ export function Section({
   label,
   score,
   description,
+  common,
   children,
 }: SectionProps) {
   const tone = score === null ? null : scoreTone(score);
@@ -52,9 +61,9 @@ export function Section({
           <div className="flex w-full items-center gap-4 sm:w-72 sm:shrink-0">
             <span className="figure w-14 text-5xl text-ink tabular">{score}</span>
             <div className="min-w-0 flex-1">
-              <ScoreMeter score={score} size="sm" label={`${label} score`} />
+              <ScoreMeter score={score} size="sm" label={common("score.scoreOf", { label })} />
               <p className={cn("mt-1.5 text-xs font-medium", TONE_CLASS[tone].text)}>
-                {TONE_LABEL[tone]}
+                {common(toneKey("tone", tone))}
               </p>
             </div>
           </div>
@@ -138,7 +147,7 @@ type ChipsProps = {
   title: string;
   items: string[];
   kind: "matched" | "missing" | "neutral";
-  emptyText?: string;
+  emptyText: string;
 };
 
 /** Keywords and skills as set type: ticked when found, marked when missing. */
@@ -147,7 +156,7 @@ export function Chips({ title, items, kind, emptyText }: ChipsProps) {
     <div>
       <h3 className="eyebrow">{title}</h3>
       {items.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">{emptyText ?? "None found."}</p>
+        <p className="mt-4 text-sm text-ink-3">{emptyText}</p>
       ) : (
         <ul className="mt-4 flex flex-wrap gap-2">
           {items.map((item, i) => (
@@ -173,23 +182,24 @@ export function Chips({ title, items, kind, emptyText }: ChipsProps) {
 
 type EvidenceProps = {
   items: string[];
+  t: AnalysisT;
 };
 
 /** Collapsed by default: it backs the verdict up without competing with it. */
-export function Evidence({ items }: EvidenceProps) {
+export function Evidence({ items, t }: EvidenceProps) {
   if (items.length === 0) return null;
 
   return (
     <details className="details-reset border-t border-line pt-4">
       <summary className="flex items-center justify-between text-sm font-medium text-ink-2 transition-colors hover:text-ink">
-        <span>What the analyzer relied on ({items.length})</span>
+        <span>{t("sections.evidence", { n: items.length })}</span>
         <Plus data-marker aria-hidden className="size-4" />
       </summary>
       <ul className="mt-4 space-y-2.5">
         {items.map((item, i) => (
           <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-2">
             <Marker mark="neutral" />
-            <span>{item}</span>
+            <span>{displayQuote(item)}</span>
           </li>
         ))}
       </ul>
@@ -199,16 +209,17 @@ export function Evidence({ items }: EvidenceProps) {
 
 type RewritesProps = {
   bullets: Array<{ role: string; examples: string[] }>;
+  t: AnalysisT;
 };
 
 /** The pencil in the margin: rewritten bullets set against a signal rule. */
-export function Rewrites({ bullets }: RewritesProps) {
+export function Rewrites({ bullets, t }: RewritesProps) {
   const withExamples = bullets.filter((bullet) => bullet.examples.length > 0);
   if (withExamples.length === 0) return null;
 
   return (
     <div>
-      <h3 className="eyebrow">Suggested rewrites</h3>
+      <h3 className="eyebrow">{t("sections.rewrites")}</h3>
       <div className="mt-4 space-y-6">
         {withExamples.map((bullet, i) => (
           <div key={`${bullet.role}-${i}`}>
@@ -232,16 +243,15 @@ export function Rewrites({ bullets }: RewritesProps) {
 
 type SkillEvidenceProps = {
   skills: Array<{ name: string; evidence: string }>;
+  t: AnalysisT;
 };
 
-export function SkillEvidence({ skills }: SkillEvidenceProps) {
+export function SkillEvidence({ skills, t }: SkillEvidenceProps) {
   return (
     <div>
-      <h3 className="eyebrow">Skills you prove</h3>
+      <h3 className="eyebrow">{t("sections.skillsProven")}</h3>
       {skills.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">
-          None of the required skills is backed by evidence in the CV.
-        </p>
+        <p className="mt-4 text-sm text-ink-3">{t("sections.noSkillsProven")}</p>
       ) : (
         <dl className="mt-4 divide-y divide-line border-y border-line">
           {skills.map((skill, i) => (
@@ -253,7 +263,7 @@ export function SkillEvidence({ skills }: SkillEvidenceProps) {
                 <Check aria-hidden className="size-4 shrink-0 text-strong" />
                 {skill.name}
               </dt>
-              <dd className="text-sm leading-relaxed text-ink-2">{skill.evidence}</dd>
+              <dd className="text-sm leading-relaxed text-ink-2">{displayQuote(skill.evidence)}</dd>
             </div>
           ))}
         </dl>
@@ -265,12 +275,14 @@ export function SkillEvidence({ skills }: SkillEvidenceProps) {
 type RequirementsProps = {
   requirements: Requirement[];
   tally: ReturnType<typeof requirementTally>;
+  t: AnalysisT;
 };
 
-const STATUS_MARK: Record<RequirementStatus, { icon: Mark; label: string }> = {
-  met: { icon: "strong", label: "Met" },
-  partial: { icon: "neutral", label: "Partly met" },
-  missing: { icon: "signal", label: "Not met" },
+const STATUS_MARK: Record<RequirementStatus, Mark> = {
+  met: "strong",
+  partial: "neutral",
+  missing: "signal",
+  not_evident: "neutral",
 };
 
 /**
@@ -278,25 +290,22 @@ const STATUS_MARK: Record<RequirementStatus, { icon: Mark; label: string }> = {
  * plain list on purpose - the shape is what this phase is testing, and a
  * visual pass on it comes later.
  */
-export function Requirements({ requirements, tally }: RequirementsProps) {
+export function Requirements({ requirements, tally, t }: RequirementsProps) {
   const groups = [
-    { kind: "required" as const, title: "Required qualifications", count: tally.required },
-    { kind: "preferred" as const, title: "Preferred qualifications", count: tally.preferred },
+    { kind: "required" as const, title: t("requirements.requiredTitle"), count: tally.required },
+    { kind: "preferred" as const, title: t("requirements.preferredTitle"), count: tally.preferred },
   ];
+  const notShown = requirements.filter((requirement) => requirement.status === "not_evident");
 
   if (requirements.length === 0) {
-    return (
-      <p className="text-sm text-ink-3">
-        No requirements were extracted from this posting.
-      </p>
-    );
+    return <p className="text-sm text-ink-3">{t("requirements.none")}</p>;
   }
 
   return (
     <div className="space-y-10">
       {groups.map(({ kind, title, count }) => {
         const rows = requirements.filter(
-          (requirement) => requirement.kind === kind,
+          (requirement) => requirement.kind === kind && requirement.status !== "not_evident",
         );
         if (rows.length === 0) return null;
 
@@ -305,60 +314,141 @@ export function Requirements({ requirements, tally }: RequirementsProps) {
             <div className="flex items-baseline justify-between gap-4">
               <h3 className="eyebrow">{title}</h3>
               <p className="text-sm text-ink-2 tabular">
-                {count.met} of {count.total} met
-                {count.partial > 0 && `, ${count.partial} partly`}
+                {count.partial > 0
+                  ? t("requirements.countWithPartial", { met: count.met, total: count.total, partial: count.partial })
+                  : t("requirements.count", { met: count.met, total: count.total })}
               </p>
             </div>
 
             <ul className="mt-4 divide-y divide-line border-y border-line">
-              {rows.map((requirement, i) => {
-                const mark = STATUS_MARK[requirement.status];
-
-                return (
-                  <li key={i} className="py-4">
-                    <div className="flex gap-3">
-                      <Marker mark={mark.icon} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[15px] leading-relaxed text-ink">
-                          {requirement.requirement}
-                        </p>
-                        <p className="eyebrow mt-1.5 text-ink-3">{mark.label}</p>
-                        {requirement.note && (
-                          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                            {requirement.note}
-                          </p>
-                        )}
-                        {requirement.evidence && (
-                          <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
-                            {requirement.evidence}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {rows.map((requirement, i) => (
+                <RequirementRow
+                  key={i}
+                  requirement={requirement}
+                  label={t(`status.${requirement.status}`)}
+                  t={t}
+                />
+              ))}
             </ul>
           </div>
         );
       })}
+
+      {notShown.length > 0 && (
+        <div>
+          <h3 className="eyebrow">{t("status.not_evident")}</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-2">{t("requirements.notShownAdvice")}</p>
+          <ul className="mt-4 divide-y divide-line border-y border-line">
+            {notShown.map((requirement, i) => (
+              <RequirementRow
+                key={i}
+                requirement={requirement}
+                label={t(`kind.${requirement.kind}`)}
+                t={t}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  );
+}
+
+function RequirementRow({ requirement, label, t }: { requirement: Requirement; label: string; t: AnalysisT }) {
+  const claimed = requirement.status === "met" || requirement.status === "partial";
+  const onlyListed = claimed && requirement.skillsOnly === true;
+  const onlyClaimed = claimed && requirement.summaryOnly === true;
+  const notShown = requirement.status === "not_evident";
+  // A stored "Not shown in your CV" row may still carry the quote cleared since M8-F.
+  const evidence = notShown ? "" : requirement.evidence;
+  // No CV can show these by definition: a ✓ or ✗ here would contradict the group they sit in.
+  const keyTerms = !notShown && requirement.keyTerms && requirement.keyTerms.terms.length > 0 ? requirement.keyTerms : null;
+
+  return (
+    <li className="py-4">
+      <div className="flex gap-3">
+        <Marker mark={STATUS_MARK[requirement.status]} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
+          <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
+          {keyTerms && <KeyTermList keyTerms={keyTerms} quote={requirement.sourceQuote ?? ""} t={t} />}
+          {requirement.note && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
+          )}
+          {evidence && (
+            <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
+              {displayQuote(evidence)}
+            </p>
+          )}
+          {onlyListed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{t("requirements.skillsOnly")}</p>}
+          {onlyClaimed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{t("requirements.summaryOnly")}</p>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)", "C# ✓ or Python ✗", and the posting's examples on a line
+ * of their own ("e.g. Azure ✗ · AWS ✗"): every term the posting names, and what the CV shows.
+ */
+function KeyTermList({ keyTerms, quote, t }: { keyTerms: KeyTerms; quote: string; t: AnalysisT }) {
+  const { terms, examples } = termDisplay(keyTerms, quote);
+
+  return (
+    <div className="mt-2 space-y-1 text-[13px] text-ink-2">
+      {terms.length > 0 && (
+        <ul aria-label={t("requirements.termsLabel")} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          {terms.map((term, i) => (
+            <TermItem key={`${term.term}-${i}`} term={term} t={t} />
+          ))}
+        </ul>
+      )}
+      {examples.length > 0 && (
+        <ul aria-label={t("requirements.examplesLabel")} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <li className="text-ink-3">{t("requirements.examplesLead")}</li>
+          {examples.map((term, i) => (
+            <TermItem key={`${term.term}-${i}`} term={term} t={t} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Spanish writes "u" for "o" before a word that starts with an o sound ("C# u Objective-C").
+const STARTS_WITH_O = /^h?o/i;
+
+function TermItem({ term, t }: { term: TermChip; t: AnalysisT }) {
+  const same = term.cvMatch.toLowerCase() === term.term.trim().toLowerCase();
+  return (
+    <li className="inline-flex items-center gap-1">
+      {term.joiner === "and" && <span aria-hidden className="pr-0.5 text-ink-3">·</span>}
+      {term.joiner === "or" && (
+        <span className="pr-0.5 text-ink-3">
+          {t(STARTS_WITH_O.test(term.term.trim()) ? "requirements.orBeforeO" : "requirements.or")}
+        </span>
+      )}
+      <span className="text-ink">{term.term}</span>
+      {term.shown ? <Check aria-hidden className="size-3.5 text-strong" /> : <X aria-hidden className="size-3.5 text-signal" />}
+      <span className="sr-only">{term.shown ? t("requirements.termShown") : t("requirements.termMissing")}</span>
+      {term.shown && !same && <span className="text-ink-3">({term.cvMatch})</span>}
+    </li>
   );
 }
 
 type AchievementsProps = {
   achievements: QuantifiedAchievement[];
+  t: AnalysisT;
 };
 
 /** The figures the CV already has. Empty is itself the finding. */
-export function Achievements({ achievements }: AchievementsProps) {
+export function Achievements({ achievements, t }: AchievementsProps) {
   return (
     <div>
-      <h3 className="eyebrow">Results you already quantify</h3>
+      <h3 className="eyebrow">{t("sections.achievements")}</h3>
       {achievements.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">
-          No bullet in the CV attaches a number to a result.
-        </p>
+        <p className="mt-4 text-sm text-ink-3">{t("sections.noAchievements")}</p>
       ) : (
         <dl className="mt-4 divide-y divide-line border-y border-line">
           {achievements.map((achievement, i) => (
@@ -370,7 +460,7 @@ export function Achievements({ achievements }: AchievementsProps) {
                 {achievement.figure}
               </dt>
               <dd className="font-mono text-[12px] leading-relaxed text-ink-2">
-                {achievement.quote}
+                {displayQuote(achievement.quote)}
               </dd>
             </div>
           ))}
@@ -383,6 +473,7 @@ export function Achievements({ achievements }: AchievementsProps) {
 type TextLayerProps = {
   artifacts: string[];
   sections: string[];
+  t: AnalysisT;
 };
 
 /**
@@ -390,15 +481,13 @@ type TextLayerProps = {
  * model is reliably right about the artifacts and was filling the rest with
  * advice the document did not need.
  */
-export function TextLayer({ artifacts, sections }: TextLayerProps) {
+export function TextLayer({ artifacts, sections, t }: TextLayerProps) {
   return (
     <div className="grid gap-10 md:grid-cols-2">
       <div>
-        <h3 className="eyebrow">Characters that came out wrong</h3>
+        <h3 className="eyebrow">{t("sections.artifacts")}</h3>
         {artifacts.length === 0 ? (
-          <p className="mt-4 text-sm text-ink-3">
-            The text layer is clean.
-          </p>
+          <p className="mt-4 text-sm text-ink-3">{t("sections.noArtifacts")}</p>
         ) : (
           <ul className="mt-4 space-y-2">
             {artifacts.map((artifact, i) => (
@@ -414,10 +503,10 @@ export function TextLayer({ artifacts, sections }: TextLayerProps) {
       </div>
 
       <Chips
-        title="Sections an ATS can see"
+        title={t("sections.atsSections")}
         items={sections}
         kind="matched"
-        emptyText="No recognizable section headings."
+        emptyText={t("sections.noAtsSections")}
       />
     </div>
   );

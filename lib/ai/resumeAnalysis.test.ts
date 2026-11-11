@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractTextFromPDFBytes } from "@/lib/pdfParse";
+import { renderAnalysis } from "@/lib/i18n/analysisView";
+import { extractPdfText } from "@/lib/pdfParse";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import golden from "./analysisRequest.golden.json";
 import { installFakeProvider, reply, type ProviderRequest } from "./client.stub";
@@ -18,7 +19,7 @@ vi.mock("@/lib/database/usage", () => ({
 }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
-  return { ...actual, extractTextFromPDFBytes: vi.fn() };
+  return { ...actual, extractPdfText: vi.fn() };
 });
 vi.mock("@/lib/supabase/server", () => ({
   // Bytes that begin as a PDF does; the parser itself is stubbed above.
@@ -60,7 +61,7 @@ function viaHarnessPath(resumeText: string) {
 }
 
 function viaActionPath(resumeText: string) {
-  vi.mocked(extractTextFromPDFBytes).mockResolvedValue(resumeText);
+  vi.mocked(extractPdfText).mockResolvedValue({ text: resumeText, accentsComposed: 0 });
 
   return requestFrom(() =>
     analyzeResumeAction({
@@ -80,8 +81,7 @@ const VALID_FEEDBACK = {
     description: "",
     encodingArtifacts: [],
     sectionsDetected: [],
-    problems: [],
-    fixes: [],
+    issues: [],
     evidence: [],
   },
   experienceAndImpact: {
@@ -96,7 +96,6 @@ const VALID_FEEDBACK = {
     ...SECTION,
     highlights: [],
     improvements: [],
-    recommendedCerts: [],
   },
   toneAndClarity: { description: "", suggestions: [] },
   jobFit: { description: "", requirements: [], strategicRecommendations: [] },
@@ -217,6 +216,58 @@ describe("truncation at the limit", () => {
     expect(result).toBeUndefined(); // the stub's empty answer fails the schema
   });
 
+  it("applies the requirement rules on the way out and counts them in the guard report", async () => {
+    const clause = { quote: "", status: "missing", evidence: "", note: "" };
+    const entry = (over: Record<string, unknown>) => ({
+      sourceQuote: "Build the checkout in React and TypeScript.",
+      heading: "",
+      section: "requirements",
+      demandsCapability: true,
+      requirement: "React and TypeScript",
+      kind: "required",
+      softenedClause: clause,
+      assessable: true,
+      status: "met",
+      evidence: "React, TypeScript",
+      note: "",
+      keyTerms: { mode: "all", terms: [] },
+
+      yearsEvidence: [],
+      ...over,
+    });
+    installFakeProvider(() =>
+      reply.json({
+        ...VALID_FEEDBACK,
+        jobFit: {
+          ...VALID_FEEDBACK.jobFit,
+          requirements: [
+            entry({ softenedClause: { quote: "Accessibility is a plus.", status: "missing", evidence: "", note: "" } }),
+            entry({ sourceQuote: "Five years of Go.", requirement: "Go" }),
+            entry({ sourceQuote: "Testing matters.", requirement: "Testing", status: "met", evidence: "Wrote tests every day" }),
+          ],
+        },
+      }),
+    );
+
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: `${JOB_DESCRIPTION} Accessibility is a plus.`, resumeText: SHORT_CV });
+
+    expect(feedback.jobFit.requirements.map((one) => [one.requirement, one.kind, one.status])).toEqual([
+      ["React and TypeScript", "required", "met"],
+      ["Accessibility is a plus", "preferred", "missing"],
+      ["Testing", "required", "missing"],
+    ]);
+    expect(guard.counts).toMatchObject({ "requirement-dropped": 1, "requirement-split": 1, "quote-dropped": 1, "status-downgraded": 1 });
+    // The headline comes from the statuses, ahead of the model's summary: stored as data, rendered per language.
+    expect(feedback.overall.headline).toEqual([{ key: "coreGaps", params: { list: { stop: { list: ["Testing"], join: "semicolon" } } } }]);
+    expect(feedback.overall.summaryText).toBe("");
+    expect(renderAnalysis(feedback, "en").overall.summaryText).toBe("Core gaps: Testing.");
+    expect(renderAnalysis(feedback, "es").overall.summaryText).toBe("Brechas principales: Testing.");
+    // A code-made note is stored only as data.
+    const downgraded = feedback.jobFit.requirements[2];
+    expect(downgraded.note).toBe("");
+    expect(downgraded.noteSentences).toEqual([{ key: "downgrade" }]);
+  });
+
   it("reports what the model read on a successful analysis", async () => {
     installFakeProvider(() => reply.json(VALID_FEEDBACK));
 
@@ -231,5 +282,111 @@ describe("truncation at the limit", () => {
       charsSent: MAX_RESUME_TEXT_CHARS,
       truncated: true,
     });
+  });
+});
+
+describe("the analysis language", () => {
+  const SPANISH = {
+    ...VALID_FEEDBACK,
+    overall: { ...VALID_FEEDBACK.overall, summaryText: "Tu experiencia es sólida para el puesto y los proyectos de la empresa muestran que trabajas con el equipo." },
+  };
+
+  it("asks once more, with the English line, when the prose comes back in Spanish", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? SPANISH : VALID_FEEDBACK));
+    const { guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].prompt).toContain("Your previous answer was not written in English.");
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", value: "1 field(s) not in English", replacement: "0 after asking again" }));
+  });
+
+  it("keeps the first answer when the second call fails", async () => {
+    const provider = installFakeProvider(() => (provider.requests.length === 1 ? reply.json(SPANISH) : reply.error(503)));
+    const { feedback } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(feedback.overall.summaryText).toContain("Tu experiencia");
+  });
+});
+
+describe("the requirement repair", () => {
+  const POSTING = "Frontend Engineer\n\nRequirements\n- 3+ years with React and TypeScript.\n- A degree in Computer Science or equivalent experience.";
+  const clause = { quote: "", status: "missing", evidence: "", note: "" };
+  const entry = (sourceQuote: string, requirement: string) => ({
+    sourceQuote,
+    heading: "Requirements",
+    section: "requirements",
+    demandsCapability: true,
+    requirement,
+    softenedClause: clause,
+    keyTerms: { mode: "all", terms: [] },
+    kind: "required",
+    assessable: true,
+    yearsEvidence: [],
+    evidence: "",
+    status: "missing",
+    note: "",
+  });
+  const REACT = entry("3+ years with React and TypeScript.", "3+ years with React and TypeScript");
+  const DEGREE = entry("A degree in Computer Science or equivalent experience.", "A degree in Computer Science or equivalent experience");
+  const answer = (requirements: unknown[]) => ({ ...VALID_FEEDBACK, jobFit: { ...VALID_FEEDBACK.jobFit, requirements } });
+
+  it("makes no second call when every qualification line is covered", async () => {
+    const provider = installFakeProvider(() => reply.json(answer([REACT, DEGREE])));
+    const { model } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(1);
+    expect(model?.repair).toBeUndefined();
+  });
+
+  it("asks once for the skipped line and merges the entry before the guards", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [{ detailOf: 0, ...DEGREE }] }));
+    const { feedback, guard, model } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9" });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].prompt).toContain("1. A degree in Computer Science or equivalent experience.");
+    expect(provider.requests[1].prompt).toContain("1. 3+ years with React and TypeScript");
+    expect(feedback.jobFit.requirements.map((one) => one.requirement)).toEqual([
+      "3+ years with React and TypeScript",
+      "A degree in Computer Science or equivalent experience",
+    ]);
+    expect(guard.counts).toMatchObject({ "requirement-uncovered": 1, "requirement-recovered": 1 });
+    expect(model?.repair?.requirements).toHaveLength(1);
+    // Counts and the id only: the line itself is posting text.
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement lines uncovered: 1 (resume_9)");
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair: 1 of 1 line(s) covered (resume_9)");
+  });
+
+  it("merges a repair entry marked as a detail of a listed requirement instead of adding it", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [{ detailOf: 1, ...DEGREE }] }));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests[1].prompt).toContain("detailOf comes first");
+    expect(feedback.jobFit.requirements.map((one) => one.requirement)).toEqual(["3+ years with React and TypeScript"]);
+    expect(guard.counts).toMatchObject({ "requirement-recovered": 1, "requirement-merged": 1 });
+  });
+
+  it("asks the repair once more when its notes come back in another language", async () => {
+    const spanish = { detailOf: 0, ...DEGREE, note: "No se encuentra ninguna mención de una titulación en el currículum, y el puesto la pide." };
+    const english = { detailOf: 0, ...DEGREE, note: "Your CV does not mention a degree, and the posting asks for one." };
+    const provider = installFakeProvider(() =>
+      reply.json(provider.requests.length === 1 ? answer([REACT]) : { requirements: [provider.requests.length === 2 ? spanish : english] }),
+    );
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV });
+
+    expect(provider.requests).toHaveLength(3);
+    expect(provider.requests[2].prompt).toContain("Write every field in English");
+    expect(feedback.jobFit.requirements[1].note).toBe(english.note);
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "regenerated", path: "repair", replacement: "0 after asking again" }));
+  });
+
+  it("keeps the analysis when the repair fails, and records it", async () => {
+    const provider = installFakeProvider(() => (provider.requests.length === 1 ? reply.json(answer([REACT])) : reply.error(503)));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9" });
+
+    expect(provider.requests).toHaveLength(2);
+    expect(feedback.jobFit.requirements).toHaveLength(1);
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "requirement-coverage", action: "recorded", replacement: "repair failed: AI_UNAVAILABLE" }));
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair failed: AI_UNAVAILABLE (resume_9)");
   });
 });

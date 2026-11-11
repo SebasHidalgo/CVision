@@ -1,11 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { getT } from "@/lib/i18n/server";
 
 const SECTIONS = [0, 1, 2];
 
 /** Same bones as the report so the page settles instead of jumping. */
-export default function ResumeAnalysisDetailLoading() {
+export default async function ResumeAnalysisDetailLoading() {
+  const t = await getT("analysis");
   return (
-    <div className="wrap py-10 lg:py-14" aria-busy aria-label="Loading analysis">
+    <div className="wrap py-10 lg:py-14" aria-busy aria-label={t("detail.loading")}>
       <header className="border-b border-line pb-10 lg:pb-12">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
           <div className="space-y-5 lg:col-span-7">

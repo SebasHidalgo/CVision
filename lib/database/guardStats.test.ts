@@ -31,6 +31,17 @@ describe("guardStatIncrements", () => {
     expect(guardStatIncrements(clean)).toEqual([{ check: GUARD_ROWS_CHECK, action: GUARD_ROWS_RECORDED, count: 1 }]);
   });
 
+  it("counts accents the parser composed per document, and not as the guardrail firing", () => {
+    const accents: GuardStats = {
+      counts: { "accent-composed": 6, recorded: 0 },
+      interventions: [{ check: "pdf-text", action: "accent-composed", path: "resumeText", value: "6" }],
+    };
+    expect(guardStatIncrements(accents)).toEqual([
+      { check: "pdf-text", action: "accent-composed", count: 1 },
+      { check: GUARD_ROWS_CHECK, action: GUARD_ROWS_RECORDED, count: 1 },
+    ]);
+  });
+
   it("carries no value, path or user: the aggregate is anonymous by construction", () => {
     for (const increment of guardStatIncrements(fired)) {
       expect(Object.keys(increment).sort()).toEqual(["action", "check", "count"]);

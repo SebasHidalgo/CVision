@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { tFor } from "@/lib/i18n/testing";
 import {
   COUNTDOWN_FINAL_SECONDS,
   COUNTDOWN_WARNING_SECONDS,
-  countdownNotice,
+  countdownNoticeKey,
   countdownPhase,
   formatClock,
   remainingSeconds,
@@ -40,16 +41,19 @@ describe("formatClock", () => {
   });
 });
 
-describe("countdownNotice", () => {
+describe("countdownNoticeKey", () => {
   it("says nothing while time is normal", () => {
-    expect(countdownNotice("normal", "en")).toBeNull();
-    expect(countdownNotice("normal", "es")).toBeNull();
+    expect(countdownNoticeKey("normal")).toBeNull();
   });
 
-  it("warns in the session's language, so a Spanish session is warned in Spanish", () => {
-    expect(countdownNotice("warning", "en")).toMatch(/one minute/i);
-    expect(countdownNotice("final", "en")).toMatch(/wrapping up/i);
-    expect(countdownNotice("warning", "es")).toMatch(/un minuto/i);
-    expect(countdownNotice("final", "es")).toMatch(/cerrando/i);
+  it("warns at one minute and again at the end, in each interface language", () => {
+    const en = tFor("interview", "en");
+    const es = tFor("interview", "es");
+    const warning = countdownNoticeKey("warning")!;
+    const final = countdownNoticeKey("final")!;
+    expect(en(warning)).toMatch(/one minute/i);
+    expect(en(final)).toMatch(/wrapping up/i);
+    expect(es(warning)).toMatch(/un minuto/i);
+    expect(es(final)).toMatch(/cerrando/i);
   });
 });

@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "title": "Precios"
+  },
+  "intro": {
+    "eyebrow": "Precios",
+    "title": "Dos planes. Uno es gratis.",
+    "lede": "Compara tu propio CV con los puestos que te interesan y practica la entrevista en voz alta con un entrevistador de IA. Paga solo cuando quieras más entrevistas."
+  },
+  "currentPlan": "Tu plan actual",
+  "free": {
+    "cadence": "para siempre",
+    "start": "Empieza gratis",
+    "includedInPro": "Incluido en Pro",
+    "promises": {
+      "analyses_one": "{{count}} análisis de CV al mes",
+      "analyses_many": "{{count}} análisis de CV al mes",
+      "analyses_other": "{{count}} análisis de CV al mes",
+      "trial": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA",
+      "history_one": "Tu último análisis",
+      "history_many": "Tus últimos {{count}} análisis",
+      "history_other": "Tus últimos {{count}} análisis"
+    }
+  },
+  "pro": {
+    "cadence": "al mes",
+    "signUp": "Crea tu cuenta y hazte Pro",
+    "checkout": "Hazte Pro · {{price}} al mes",
+    "promises": {
+      "unlimited": "Análisis de CV ilimitados",
+      "interviews_one": "{{count}} entrevista por voz al mes, de hasta {{minutes}} minutos",
+      "interviews_many": "{{count}} entrevistas por voz al mes, de hasta {{minutes}} minutos",
+      "interviews_other": "{{count}} entrevistas por voz al mes, de hasta {{minutes}} minutos",
+      "packs": "Paquetes de entrevistas: {{credits}} más por {{price}}",
+      "history": "Todo tu historial"
+    }
+  },
+  "finePrint": "Precios en {{currency}}. Los pagos los gestiona {{merchant}}, el comerciante registrado (merchant of record), que cobra al momento del pago los impuestos que correspondan. Cancela cuando quieras desde tu cuenta; Pro sigue activo hasta el final del período que pagaste. Consulta la <refunds>política de reembolsos</refunds> y los <terms>términos</terms>."
+}

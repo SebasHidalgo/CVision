@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
+import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
-import { sourceCopy, type EntitlementSource } from "@/lib/interviewEntitlement";
+import type { EntitlementSource } from "@/lib/interviewEntitlement";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
 import {
-  countdownNotice,
+  countdownNoticeKey,
   countdownPhase,
   formatClock,
   remainingSeconds,
@@ -68,25 +69,17 @@ type Phase =
   | { kind: "ended" }
   | { kind: "dropped" };
 
-const MIC_COPY = {
-  insecure:
-    "The microphone only works over a secure connection. Open this page over https and try again.",
-  denied:
-    "Microphone access was blocked. Allow the microphone for this site in your browser's site settings (the icon next to the address bar), then try again.",
-  missing:
-    "No microphone was found. Connect one, or check that the browser can see it, then try again.",
-  failed:
-    "The microphone could not be opened. Close other apps that may be using it and try again.",
-};
+/** Why the microphone could not be opened; each has its copy under room.microphone. */
+type MicProblem = "insecure" | "denied" | "missing" | "failed";
 
 /**
  * Asks for the microphone before anything is paid for: a denied permission
  * costs nothing, while a session issued and never joined costs a start. The
  * SDK asks again when the session starts; by then the answer is remembered.
  */
-async function requestMicrophone(): Promise<string | null> {
+async function requestMicrophone(): Promise<MicProblem | null> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return MIC_COPY.insecure;
+    return "insecure";
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -94,16 +87,14 @@ async function requestMicrophone(): Promise<string | null> {
     return null;
   } catch (error) {
     const name = error instanceof DOMException ? error.name : "";
-    if (name === "NotAllowedError" || name === "SecurityError") return MIC_COPY.denied;
-    if (name === "NotFoundError" || name === "OverconstrainedError") return MIC_COPY.missing;
-    return MIC_COPY.failed;
+    if (name === "NotAllowedError" || name === "SecurityError") return "denied";
+    if (name === "NotFoundError" || name === "OverconstrainedError") return "missing";
+    return "failed";
   }
 }
 
 /** The SDK always reaches onDisconnect after endSession; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
-
-const startsCopy = (left: number) => `${left} ${left === 1 ? "start" : "starts"} left`;
 
 function InterviewRoom({
   interviewId,
@@ -118,6 +109,8 @@ function InterviewRoom({
   source,
 }: InterviewAgentProps) {
   const router = useRouter();
+  const { t } = useTranslation("interview");
+  const errorCopy = useErrorCopy();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [notice, setNotice] = useState<string | null>(null);
   const [startsUsed, setStartsUsed] = useState(startCount);
@@ -180,7 +173,7 @@ function InterviewRoom({
         return;
       }
       if (current === "starting") {
-        failStart(actionErrorCopy("VOICE_UNAVAILABLE"));
+        failStart(errorCopy("VOICE_UNAVAILABLE"));
         return;
       }
       setPhase({ kind: "dropped" });
@@ -188,7 +181,7 @@ function InterviewRoom({
     onError: (message) => {
       // The SDK's own message: about the session, never about the candidate.
       console.error("[CVision][room] voice session error:", message);
-      if (phaseRef.current.kind === "starting") failStart(actionErrorCopy("VOICE_UNAVAILABLE"));
+      if (phaseRef.current.kind === "starting") failStart(errorCopy("VOICE_UNAVAILABLE"));
     },
     onMessage: ({ role: speaker, message }) => {
       if (!message.trim()) return;
@@ -217,7 +210,7 @@ function InterviewRoom({
 
     const micProblem = await requestMicrophone();
     if (micProblem) {
-      failStart(micProblem);
+      failStart(t(`room.microphone.${micProblem}`));
       return;
     }
 
@@ -225,7 +218,7 @@ function InterviewRoom({
     const result = await requestInterviewSession(interviewId);
     if (!result.ok) {
       if (result.code === "INTERVIEW_START_LIMIT") setStartsUsed(maxStarts);
-      failStart(actionErrorCopy(result.code));
+      failStart(errorCopy(result.code));
       return;
     }
 
@@ -271,12 +264,13 @@ function InterviewRoom({
   // and the room says so rather than jumping silently.
   const maxSeconds = session?.maxDurationSeconds ?? maxDurationSeconds;
   const shownSource = session?.source ?? source;
+  const sourceKey = shownSource && shownSource !== "none" ? (`room.source.${shownSource}` as const) : null;
   const lengthChanged = session !== null && maxDurationSeconds > 0 && session.maxDurationSeconds !== maxDurationSeconds;
-  const language = session?.language ?? "en";
   const remaining =
     live && connectedAt !== null ? remainingSeconds(maxSeconds, connectedAt, now) : maxSeconds;
   const clockPhase = live ? countdownPhase(remaining) : "normal";
-  const clockNotice = live ? countdownNotice(clockPhase, language) : null;
+  // The warnings follow the interface language, not the language the session speaks.
+  const clockNoticeKey = live ? countdownNoticeKey(clockPhase) : null;
 
   const speaking = live && mode === "speaking";
 
@@ -291,40 +285,42 @@ function InterviewRoom({
             : "listening"
           : "idle";
 
-  const statusLine =
+  const statusKey =
     phase.kind === "starting"
-      ? "Connecting"
+      ? "room.status.connecting"
       : phase.kind === "live"
         ? speaking
-          ? "Interviewer speaking"
-          : "Your turn"
+          ? "room.status.speaking"
+          : "room.status.yourTurn"
         : phase.kind === "ending"
-          ? "Ending the interview"
+          ? "room.status.ending"
           : phase.kind === "ended"
-            ? "Interview ended"
+            ? "room.status.ended"
             : dropped
-              ? "Connection lost"
+              ? "room.status.dropped"
               : atCap
-                ? "No starts left"
-                : "Ready when you are";
+                ? "room.status.noStarts"
+                : "room.status.ready";
 
-  const startLabel =
+  const startKey =
     phase.kind === "starting"
       ? phase.step === "microphone"
-        ? "Checking the microphone"
+        ? "room.startButton.microphone"
         : phase.step === "session"
-          ? "Starting"
-          : "Connecting"
+          ? "room.startButton.session"
+          : "room.startButton.connecting"
       : dropped
-        ? "Try again"
-        : "Start the interview";
+        ? "room.startButton.retry"
+        : "room.startButton.start";
+
+  const hintKey = live ? "room.hint.live" : phase.kind === "ended" ? "room.hint.ended" : "room.hint.idle";
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="wrap flex flex-1 flex-col py-8 lg:py-10">
         <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
           <div>
-            <Eyebrow tick>Interview room · Attempt {attemptNumber}</Eyebrow>
+            <Eyebrow tick>{t("room.eyebrow", { attempt: attemptNumber })}</Eyebrow>
             <h1 className="display-md mt-3">{role}</h1>
             <p className="mt-2 text-ink-2">{company}</p>
           </div>
@@ -340,14 +336,14 @@ function InterviewRoom({
                     : "bg-line-strong",
               )}
             />
-            <span className="eyebrow text-ink">{statusLine}</span>
+            <span className="eyebrow text-ink">{t(statusKey)}</span>
             <span
               className={cn(
                 "eyebrow tabular border-l border-line pl-4",
                 clockPhase === "final" && "text-signal",
                 clockPhase === "warning" && "text-ink",
               )}
-              aria-label={live ? "Time left" : "Interview length"}
+              aria-label={live ? t("room.clock.timeLeft") : t("room.clock.length")}
             >
               {formatClock(remaining)}
             </span>
@@ -355,41 +351,43 @@ function InterviewRoom({
         </header>
 
         <div className="grid flex-1 gap-12 py-10 lg:grid-cols-12 lg:gap-16">
-          <section aria-label="Interviewer" className="flex flex-col items-center lg:col-span-5">
+          <section aria-label={t("room.interviewer")} className="flex flex-col items-center lg:col-span-5">
             <VoiceOrb state={orbState} className="w-56 sm:w-64 lg:w-72" />
 
             <div className="mt-10 text-center">
-              <p className="font-medium">{candidateName ?? "You"}</p>
-              <p className="eyebrow mt-1">Candidate</p>
+              <p className="font-medium">{candidateName ?? t("room.you")}</p>
+              <p className="eyebrow mt-1">{t("room.candidate")}</p>
             </div>
 
             {phase.kind === "idle" && !atCap && (
               <dl className="mt-12 w-full max-w-sm text-sm">
                 <div>
-                  <dt className="eyebrow">Length</dt>
-                  <dd className="mt-1 text-ink">Up to {Math.round(maxSeconds / 60)} minutes</dd>
-                  {sourceCopy(shownSource) && <dd className="mt-1 text-ink-2">{sourceCopy(shownSource)}</dd>}
+                  <dt className="eyebrow">{t("room.length")}</dt>
+                  <dd className="mt-1 text-ink">{t("room.upTo", { count: Math.round(maxSeconds / 60) })}</dd>
+                  {sourceKey && <dd className="mt-1 text-ink-2">{t(sourceKey)}</dd>}
                 </div>
               </dl>
             )}
 
             {lengthChanged && (
               <p role="note" className="mt-6 w-full max-w-sm text-sm leading-relaxed text-ink-2">
-                This call runs {Math.round(maxSeconds / 60)} minutes, not {Math.round(maxDurationSeconds / 60)}: what pays for it changed since the page
-                opened (a credit or an interview was used elsewhere).
+                {t("room.lengthChanged", {
+                  count: Math.round(maxSeconds / 60),
+                  promised: Math.round(maxDurationSeconds / 60),
+                })}
               </p>
             )}
 
             {phase.kind === "idle" && atCap && (
               <div className="mt-12 w-full max-w-sm">
                 <p className="text-sm leading-relaxed text-ink-2">
-                  {actionErrorCopy("INTERVIEW_START_LIMIT")}
+                  {errorCopy("INTERVIEW_START_LIMIT")}
                 </p>
                 <Link
                   href={`/resume/analysis/${analysisId}`}
                   className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
                 >
-                  Back to the analysis
+                  {t("room.backToAnalysis")}
                   <ArrowRight className="size-4" />
                 </Link>
               </div>
@@ -398,18 +396,16 @@ function InterviewRoom({
             {dropped && (
               <div className="mt-12 w-full max-w-sm">
                 <p className="text-sm leading-relaxed text-ink">
-                  The connection to the interviewer was lost.
+                  {t("room.dropped.title")}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                  {startsLeft === 0
-                    ? "There are no starts left for this interview."
-                    : "If you had already answered some questions, what was said may be scored as it stands."}
+                  {startsLeft === 0 ? t("room.dropped.noStarts") : t("room.dropped.mayScore")}
                 </p>
                 <Link
                   href={feedbackHref}
                   className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
                 >
-                  Check for feedback
+                  {t("room.dropped.checkFeedback")}
                   <ArrowRight className="size-4" />
                 </Link>
               </div>
@@ -431,20 +427,14 @@ function InterviewRoom({
                   <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
                   {notice}
                 </p>
-              ) : clockNotice ? (
+              ) : clockNoticeKey ? (
                 <p className={cn("font-medium", clockPhase === "final" ? "text-signal" : "text-ink")}>
-                  {clockNotice}
+                  {t(clockNoticeKey)}
                 </p>
               ) : dropped && startsLeft > 0 ? (
-                <p className="font-medium text-ink">Reconnect — {startsCopy(startsLeft)}</p>
+                <p className="font-medium text-ink">{t("room.reconnect", { count: startsLeft })}</p>
               ) : (
-                <p className="text-ink-2">
-                  {live
-                    ? "Speak naturally. End the interview whenever you are done."
-                    : phase.kind === "ended"
-                      ? "Opening your feedback."
-                      : "The questions come from the posting and your analysis."}
-                </p>
+                <p className="text-ink-2">{t(hintKey)}</p>
               )}
             </div>
 
@@ -456,12 +446,12 @@ function InterviewRoom({
                 className="h-12 gap-2 px-6 text-base"
               >
                 <PhoneOff className="size-5" />
-                End the interview
+                {t("room.end")}
               </Button>
             ) : phase.kind === "ending" || phase.kind === "ended" ? (
               <Button size="lg" disabled className="h-12 gap-2 px-6 text-base">
                 <Loader2 className="size-5 animate-spin" />
-                {phase.kind === "ending" ? "Ending" : "Opening your feedback"}
+                {phase.kind === "ending" ? t("room.ending") : t("room.openingFeedback")}
               </Button>
             ) : atCap ? null : (
               <Button
@@ -477,7 +467,7 @@ function InterviewRoom({
                 ) : (
                   <Phone className="size-5" />
                 )}
-                {startLabel}
+                {t(startKey)}
               </Button>
             )}
           </div>

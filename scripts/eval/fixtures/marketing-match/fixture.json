@@ -1,6 +1,7 @@
 {
   "jobTitle": "Marketing Manager",
-  "purpose": "Non-technical CV against a matching non-technical posting: checks the analysis does not assume a software role.",
+  "purpose": "Non-technical CV against a matching non-technical posting: checks the analysis does not assume a software role. Since M8-A the CV is a single-column PDF with a photo (cv.html rendered by scripts/eval/pdf.ts) and cv.txt is its text layer.",
+  "pdf": { "layout": "single-column", "photo": true },
   "expect": {
     "requirements": [
       {

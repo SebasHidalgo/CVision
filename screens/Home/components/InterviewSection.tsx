@@ -3,27 +3,29 @@ import Reveal from "@/components/motion/Reveal";
 import VoiceOrb from "@/components/voice/VoiceOrb";
 import { FEEDBACK_CATEGORIES } from "@/lib/ai/schemas";
 import { ordinal } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 
 const BARS = [0.35, 0.7, 1, 0.55, 0.85, 0.45, 0.9, 0.6, 0.3, 0.75, 0.5, 0.95];
 
+// The scored categories are the model's English enum; the page names each in its own language.
+const CATEGORY_KEYS = {
+  "Communication Skills": "communicationSkills",
+  "Technical Knowledge": "technicalKnowledge",
+  "Problem Solving": "problemSolving",
+  "Cultural Fit": "culturalFit",
+  "Confidence and Clarity": "confidenceAndClarity",
+} as const satisfies Record<(typeof FEEDBACK_CATEGORIES)[number], string>;
+
 /** The one inverted band on the page: a preview of the interview room. */
-export function InterviewSection() {
+export async function InterviewSection() {
+  const t = await getT("landing");
   return (
     <section className="studio bg-paper text-ink">
       <div className="wrap grid gap-14 py-20 lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-32">
         <Reveal className="lg:col-span-6">
-          <Eyebrow tick>Then, out loud</Eyebrow>
-          <h2 className="display-lg mt-5">
-            Rehearse the interview before the real one.
-          </h2>
-          <p className="lede mt-6 max-w-lg">
-            An AI voice interviewer built from the same job post asks the
-            questions that posting invites, and digs into the gaps your
-            analysis found. You answer out loud, on your laptop or your phone.
-            When you end the call, you get a score on five things, how each
-            gap went in your own words, and the transcript. It is practice,
-            for you: nobody else hears it.
-          </p>
+          <Eyebrow tick>{t("interview.eyebrow")}</Eyebrow>
+          <h2 className="display-lg mt-5">{t("interview.title")}</h2>
+          <p className="lede mt-6 max-w-lg">{t("interview.lede")}</p>
 
           <ol className="mt-10 grid gap-x-8 gap-y-3 sm:grid-cols-2">
             {FEEDBACK_CATEGORIES.map((category, i) => (
@@ -32,7 +34,7 @@ export function InterviewSection() {
                 className="flex items-baseline gap-4 border-b border-line pb-3"
               >
                 <span className="eyebrow text-ink">{ordinal(i)}</span>
-                <span className="text-sm font-medium">{category}</span>
+                <span className="text-sm font-medium">{t(`interview.categories.${CATEGORY_KEYS[category]}`)}</span>
               </li>
             ))}
           </ol>
@@ -60,7 +62,7 @@ export function InterviewSection() {
 
             <p className="eyebrow mt-6 flex items-center gap-3">
               <span className="size-1.5 rounded-full bg-signal animate-blink" />
-              Interviewer is listening
+              {t("interview.listening")}
             </p>
           </div>
         </Reveal>

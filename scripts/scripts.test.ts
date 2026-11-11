@@ -105,7 +105,7 @@ const relative = (file: string) => path.relative(ROOT, file).split(path.sep).joi
 describe("the npm scripts", () => {
   it("are all accounted for", () => {
     expect(SCRIPTS.map((script) => script.name).sort()).toEqual(
-      ["agent:sync", "billing:doctor", "billing:reconcile", "billing:sync", "db:check-rls", "eval", "report:guards", "storage:setup", "storage:gc", "db:bootstrap", "user:set-plan", "voice:doctor", "e2e:cleanup"].sort(),
+      ["agent:sync", "ai:doctor", "billing:doctor", "billing:reconcile", "billing:sync", "db:check-rls", "eval", "eval:pdf", "report:guards", "storage:setup", "storage:gc", "db:bootstrap", "user:set-plan", "voice:doctor", "e2e:cleanup"].sort(),
     );
   });
 
@@ -145,5 +145,6 @@ describe("the npm scripts", () => {
     expect(failures).toEqual([]);
     // Skipping main() means a loaded entry prints nothing at all.
     for (const { script, stdout } of results) expect(stdout.trim(), `${script.name} ran its main()`).toBe("");
-  }, 120_000);
+    // Every script loads in its own tsx process, all at once: 166-214 s alone on the owner's Windows machine, past 240 s under the full suite.
+  }, 480_000);
 });

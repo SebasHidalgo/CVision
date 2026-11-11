@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Camila Ortiz - CV</title>
+<style>
+  @page { size: Letter; margin: 16mm; }
+  body { font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 10.5pt; color: #111; margin: 0; }
+  h1 { font-size: 20pt; margin: 0; }
+  .subtitle { font-size: 11pt; color: #333; margin: 1mm 0 0 0; }
+  .contact { font-size: 9.5pt; color: #444; margin: 1mm 0 4mm 0; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.08em; color: #1f3a5f; border-bottom: 1.5px solid #1f3a5f; margin: 5mm 0 2mm 0; padding-bottom: 1mm; }
+  h3 { font-size: 10.5pt; margin: 3mm 0 0.5mm 0; }
+  .meta { font-size: 9.5pt; color: #444; margin: 0 0 1mm 0; }
+  ul { margin: 1mm 0 0 5mm; padding: 0; }
+  li { margin-bottom: 1.2mm; }
+  p { margin: 0 0 2mm 0; }
+</style>
+</head>
+<body>
+  <h1>Camila Ortiz</h1>
+  <p class="subtitle">Backend Developer</p>
+  <p class="contact">Medellín, Colombia · camila.ortiz@example.com · github.com/camila-ortiz-example</p>
+
+  <h2>Summary</h2>
+  <p>Backend developer with four years building Python services for a fintech and an insurance company. I own services from the REST contract to the Kubernetes deployment, and I keep the dashboards that tell me when they break.</p>
+
+  <h2>Experience</h2>
+
+  <h3>Backend Developer · Pagoya (fintech) · Medellín</h3>
+  <p class="meta">January 2023 - present</p>
+  <ul>
+    <li>Own the merchant settlement service (Python, FastAPI) that pays out 12,000 merchants daily; designed its REST API and its PostgreSQL schema.</li>
+    <li>Run the service on Kubernetes (EKS) in production, including the Helm charts and the rollout strategy.</li>
+    <li>Wrote the Kafka consumers that feed settlement events into the ledger, with idempotent processing after a duplicate-delivery incident.</li>
+    <li>Set up Prometheus metrics and Grafana dashboards for the team's five services; on-call for all of them.</li>
+    <li>Maintain the GitHub Actions pipeline: tests, Docker image build and deployment to staging and production.</li>
+  </ul>
+
+  <h3>Software Developer · Seguros Andina · Medellín</h3>
+  <p class="meta">March 2022 - December 2022</p>
+  <ul>
+    <li>Built the claims intake REST API in Python (Django REST Framework) against PostgreSQL.</li>
+    <li>Containerised the legacy quoting service with Docker and moved its deployment to CI/CD.</li>
+  </ul>
+
+  <h3>Junior Developer · Seguros Andina · Medellín</h3>
+  <p class="meta">February 2021 - February 2022</p>
+  <ul>
+    <li>Wrote SQL reports and small Python tools for the claims team.</li>
+  </ul>
+
+  <h2>Skills</h2>
+  <p>Languages: Python, SQL, Bash<br>Frameworks: FastAPI, Django REST Framework, pytest<br>Infrastructure: Docker, Kubernetes (EKS), Helm, GitHub Actions, PostgreSQL, Kafka, Prometheus, Grafana<br>Practices: REST API design, schema design, on-call, code review</p>
+
+  <h2>Education</h2>
+  <p>Ingeniería de Sistemas · Universidad de Antioquia · 2016 - 2021</p>
+
+  <h2>Certifications</h2>
+  <p>AWS Certified Developer - Associate (2024)</p>
+
+  <h2>Languages</h2>
+  <p>Spanish (native), English (B2, professional working proficiency)</p>
+</body>
+</html>

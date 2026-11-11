@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
-import { describeCounts, guardAnalysis } from "./analysisGuardrails";
+import { describeCounts, guardAnalysis, spanFor, structureAtsIssues } from "./analysisGuardrails";
 
 const CV = [
   "JANE DOE — Backend Engineer",
@@ -9,7 +9,7 @@ const CV = [
   "Northwind, Backend Engineer, 2021 to present",
   "- Built backend services using Node.js.",
   "- Maintainer of 'outboxer', an open-source Go library.",
-  "- Improved deployment reliability, reducing downtime by approximately 40%.",
+  "- Improved deployment reliability, cutting downtime by roughly 40%.",
   "",
   "SKILLS",
   "Docker, CI/CD, Git, C#, Java, JavaScript, Scalability",
@@ -35,7 +35,7 @@ function feedback(
       {
         figure: "40%",
         quote:
-          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+          "- Improved deployment reliability, cutting downtime by roughly 40%.",
       },
     ],
       strengths: [],
@@ -47,7 +47,6 @@ function feedback(
       ...section,
       highlights: [],
       improvements: [],
-      recommendedCerts: [],
     },
     toneAndClarity: { description: "", suggestions: [] },
     jobFit: { description: "", requirements: [], strategicRecommendations: [] },
@@ -74,7 +73,7 @@ const withBullets = (...examples: string[]) =>
       {
         figure: "40%",
         quote:
-          "- Improved deployment reliability, reducing downtime by approximately 40%.",
+          "- Improved deployment reliability, cutting downtime by roughly 40%.",
       },
     ],
       strengths: [],
@@ -250,7 +249,7 @@ describe("the measurement the guardrail must not destroy", () => {
         {
           figure: "40%",
           quote:
-            "- Improved deployment reliability, reducing downtime by approximately 40%.",
+            "- Improved deployment reliability, cutting downtime by roughly 40%.",
         },
     ],
         strengths: [],
@@ -287,5 +286,39 @@ describe("the measurement the guardrail must not destroy", () => {
     expect(guard.violations).toEqual([]);
     expect(guard.interventions).toEqual([]);
     expect(describeCounts(guard.counts)).toBe("");
+  });
+});
+
+describe("structureAtsIssues", () => {
+  const CV_TEXT = "Jane Doe\nEXPERIENCE\nData Analyst 09/2019 - present\n• Built the sales dashboard";
+
+  it("keeps an issue whose quote is in the CV, and drops one without a quote with its fix", () => {
+    const { problems, fixes, interventions } = structureAtsIssues(
+      [
+        { quote: "09/2019 - present", problem: "Your dates use two formats.", fix: "Use one date format." },
+        { quote: "", problem: "Your CV lacks contact icons.", fix: "Add icons." },
+        { quote: "Built the sales dashboard in Looker", problem: "Vague bullet.", fix: "Add a figure." },
+        { quote: "BUILT THE SALES DASHBOARD", problem: "Your bullet is vague.", fix: "Use one date format." },
+      ],
+      CV_TEXT,
+    );
+    expect(problems).toEqual(["Your dates use two formats.", "Your bullet is vague."]);
+    expect(fixes).toEqual(["Use one date format."]);
+    expect(interventions.map((one) => [one.check, one.action, one.replacement])).toEqual([
+      ["ats-problem", "problem-dropped", "no quote"],
+      ["ats-problem", "problem-dropped", "quote not in the CV"],
+    ]);
+  });
+
+  it("keeps everything when there is no CV text to check against", () => {
+    expect(structureAtsIssues([{ quote: "", problem: "p", fix: "f" }], "").problems).toEqual(["p"]);
+  });
+});
+
+describe("a replacement character the model cannot write", () => {
+  it("restores the CV's own quote and keeps the ATS issue that quotes it", () => {
+    const cv = "EXPERIENCE\n- Gesti�n de inventario: reconciled stock counts every week.";
+    expect(spanFor(cv, "Gestin de inventario")).toBe("Gesti�n de inventario:");
+    expect(structureAtsIssues([{ quote: "Gestin", problem: "A replacement character.", fix: "Re-export the PDF." }], cv).problems).toEqual(["A replacement character."]);
   });
 });

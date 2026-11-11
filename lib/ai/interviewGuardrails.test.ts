@@ -256,7 +256,7 @@ describe("guardInterviewFeedback", () => {
     expect(cleaned.gapFollowThrough[0].quote).toBe("");
     expect(cleaned.gapFollowThrough[0].outcome).toBe("dodged");
     expect(cleaned.gapFollowThrough[1].quote).toBe("Not Terraform, no");
-    expect(guard.counts).toEqual({ "quote-dropped": 1, "quote-normalized": 1, "item-dropped": 0, "gap-name-repaired": 0, recorded: 0 });
+    expect(guard.counts).toEqual({ "quote-dropped": 1, "quote-normalized": 1, "item-dropped": 0, "gap-name-repaired": 0, recorded: 0, regenerated: 0 });
     // The measurement is untouched by the edit.
     expect(guard.violations).toHaveLength(2);
   });

@@ -25,21 +25,23 @@ export const VOICE_CREDITS_PER_MINUTE = 800;
 /** Headroom over one full interview: the LLM share varies with how much is said. */
 export const VOICE_BALANCE_MARGIN = 1.25;
 
-/**
- * The default floor: one full interview (12 min x 800 credits = 9,600)
- * plus the margin, 12,000 credits. Override with
- * ELEVENLABS_BALANCE_FLOOR_CREDITS; 0 disables the check.
- */
-export const VOICE_BALANCE_FLOOR_CREDITS = Math.ceil((MAX_INTERVIEW_DURATION_SECONDS / 60) * VOICE_CREDITS_PER_MINUTE * VOICE_BALANCE_MARGIN);
+/** The floor for an agent: its hard duration at the measured rate, plus the margin. 12 min: 12,000 credits; the 5-minute trial: 5,000. */
+export function voiceBalanceFloor(maxDurationSeconds: number): number {
+  return Math.ceil((maxDurationSeconds / 60) * VOICE_CREDITS_PER_MINUTE * VOICE_BALANCE_MARGIN);
+}
+
+/** The full interview's floor, the largest any start needs. */
+export const VOICE_BALANCE_FLOOR_CREDITS = voiceBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS);
 
 export const VOICE_BALANCE_FLOOR_ENV = "ELEVENLABS_BALANCE_FLOOR_CREDITS";
 
-/** The floor in force: the env override when it is a whole number, else the default. */
-export function readBalanceFloor(env: Record<string, string | undefined> = process.env): number {
+/** The floor in force for an agent: the env override when it is a whole number (0 turns the check off), else the agent's own. */
+export function readBalanceFloor(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
+  const own = voiceBalanceFloor(maxDurationSeconds);
   const raw = env[VOICE_BALANCE_FLOOR_ENV]?.trim();
-  if (!raw) return VOICE_BALANCE_FLOOR_CREDITS;
+  if (!raw) return own;
   const value = Number(raw);
-  return Number.isInteger(value) && value >= 0 ? value : VOICE_BALANCE_FLOOR_CREDITS;
+  return Number.isInteger(value) && value >= 0 ? value : own;
 }
 
 /** What `GET /v1/user/subscription` says, reduced to what a start needs. */

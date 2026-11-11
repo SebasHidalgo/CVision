@@ -43,6 +43,8 @@ export type Engine = {
   temperature: string | null;
   /** As sent: a number, or "none" when no seed was sent. */
   seed: string | null;
+  /** Serving tier and key since M8-G: "free", "flex" or "standard"; absent before, which was paid standard. */
+  tier?: string | null;
 };
 
 /** What every run record carries, whichever mode produced it. */
@@ -59,29 +61,8 @@ export type BaseRunRecord = {
   result: { ok: true } | { ok: false; error: { name: string; code: string; message: string } };
 };
 
-/**
- * The dated build behind the model alias, from the free models listing - not
- * a generateContent call, so it costs nothing and bills nothing. The response
- * to an analysis only ever echoes the alias, so without this a re-pointed
- * alias would show up as unexplained variance, which is exactly what it did.
- */
-export async function readApiModelVersion(model: string): Promise<string | null> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-  if (!apiKey) return null;
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}?key=${apiKey}`,
-      { signal: AbortSignal.timeout(10_000) },
-    );
-    if (!response.ok) return null;
-    const body = (await response.json()) as { version?: unknown };
-    return typeof body.version === "string" ? body.version : null;
-  } catch {
-    // Offline, or the endpoint moved. A run without it is still valid; it
-    // just cannot be compared against one that has it.
-    return null;
-  }
-}
+// The dated build behind the alias, from the free models listing; the response only echoes the alias.
+export { readListedModelVersion as readApiModelVersion } from "@/lib/ai/client";
 
 export function captureAiLog() {
   const original = console.info;
@@ -93,6 +74,8 @@ export function captureAiLog() {
     seed: string | null;
     inputTokens: number | null;
     outputTokens: number | null;
+    /** Model calls seen: the analysis, its English retry, its repair. Tokens are their sum. */
+    calls: number;
   } = {
     provider: null,
     model: null,
@@ -101,6 +84,7 @@ export function captureAiLog() {
     seed: null,
     inputTokens: null,
     outputTokens: null,
+    calls: 0,
   };
 
   const count = (value: string) => (value === "?" ? null : Number(value));
@@ -113,8 +97,10 @@ export function captureAiLog() {
     meta.modelVersion = match[3] === "?" ? null : match[3];
     meta.temperature = match[4];
     meta.seed = match[5];
-    meta.inputTokens = count(match[6]);
-    meta.outputTokens = count(match[7]);
+    const add = (sum: number | null, value: number | null) => (value === null ? sum : (sum ?? 0) + value);
+    meta.inputTokens = add(meta.inputTokens, count(match[6]));
+    meta.outputTokens = add(meta.outputTokens, count(match[7]));
+    meta.calls += 1;
   };
 
   return {
@@ -165,8 +151,16 @@ export function describeError(error: unknown) {
 export function requireComparable(
   runs: ReadonlyArray<readonly [string, Map<string, BaseRunRecord>]>,
   force: boolean,
+  /** The prompt states today's UTC date: runs from two UTC days were sent different prompts. */
+  options: { datedPrompt?: boolean } = {},
 ) {
   const problems: string[] = [];
+  if (options.datedPrompt) {
+    const days = [...new Set(runs.flatMap(([, run]) => [...run.values()].map((record) => record.generatedAt.slice(0, 10))))].sort();
+    if (days.length > 1) {
+      problems.push(`captured on both sides of UTC midnight (${days.join(", ")}); the prompt states today's date, so the prompts differ`);
+    }
+  }
   const fingerprints = runs.map(([label, run]) => {
     const engine = [...run.values()].find((record) => record.engine)?.engine;
     return { label, engine, window: captureWindow(run) };
@@ -179,6 +173,18 @@ export function requireComparable(
     problems.push(
       `no sampling recorded in ${unrecorded.map((one) => one.label).join(", ")} (captured before M2d; how it was sampled is unknown)`,
     );
+  }
+
+  // Tiers are per fixture (invented data on the free key, real data paid): compared fixture by fixture.
+  const ids = [...new Set(runs.flatMap(([, run]) => [...run.keys()]))];
+  for (const id of ids) {
+    const tiers = runs.flatMap(([label, run]) => {
+      const record = run.get(id);
+      return record ? [[label, record.engine?.tier ?? "standard"] as const] : [];
+    });
+    if (new Set(tiers.map(([, tier]) => tier)).size > 1) {
+      problems.push(`tier differs for ${id}: ${tiers.map(([label, tier]) => `${label}=${tier}`).join(" vs ")}`);
+    }
   }
 
   const [first, ...rest] = fingerprints;
@@ -240,7 +246,7 @@ function sessionGapHours(
 
 export function describeEngine(engine: Engine | null | undefined): string {
   if (!engine) return "Provider and model unknown.";
-  return `Provider: ${engine.provider ?? "unknown"}, model: ${engine.model ?? "unknown"} (api version ${engine.apiModelVersion ?? "unknown"}), temperature ${engine.temperature ?? "unrecorded"}, seed ${engine.seed ?? "unrecorded"}.`;
+  return `Provider: ${engine.provider ?? "unknown"}, model: ${engine.model ?? "unknown"} (api version ${engine.apiModelVersion ?? "unknown"}), temperature ${engine.temperature ?? "unrecorded"}, seed ${engine.seed ?? "unrecorded"}, tier ${engine.tier ?? "standard"}.`;
 }
 
 /** Every record of a stored run, by fixture id. */
@@ -273,6 +279,9 @@ export function identity(run: Map<string, BaseRunRecord>): string {
     .join(", ");
 }
 
+// Flags that never take a value, so a label after them stays positional.
+const BOOLEAN_FLAGS = new Set(["force", "confirm-cost", "replay"]);
+
 export function parseFlags(args: string[]) {
   const positional: string[] = [];
   const flags = new Map<string, string | true>();
@@ -285,7 +294,7 @@ export function parseFlags(args: string[]) {
     }
     const name = arg.slice(2);
     const next = args[i + 1];
-    if (name !== "force" && next !== undefined && !next.startsWith("--")) {
+    if (!BOOLEAN_FLAGS.has(name) && next !== undefined && !next.startsWith("--")) {
       flags.set(name, next);
       i += 1;
     } else {

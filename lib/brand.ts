@@ -1,7 +1,7 @@
 /**
  * The product's name, in one place. The name and the domain may change
  * before launch: everything a customer reads (page titles, the wordmark,
- * the footer, the legal pages, the catalog the billing provider shows at
+ * the footer, the legal pages (every locale file interpolates {{brand}}), the catalog the billing provider shows at
  * checkout, the names of the voice agents) reads from here, so a rename is
  * an edit to this file and to the environment, never a search through the
  * codebase. `lib/brand.test.ts` holds that line.
@@ -16,11 +16,7 @@
 export const BRAND = {
   /** The product's name, as a customer sees it. */
   name: "CVision",
-  /** One line under the name: what it is, in the words the wording rule allows. */
-  tagline: "Check your CV against the job. Then rehearse the interview out loud.",
-  /** The page description search engines and link previews show. */
-  description:
-    "Paste a job post, upload your CV, and find out how well you actually fit before you apply. Then rehearse the interview out loud.",
+  // The tagline and the page description are per language: locales/<locale>/common.json, meta.*.
   /**
    * Where a customer writes: the legal pages print it and the billing
    * provider's review expects it to be reachable. A placeholder until the

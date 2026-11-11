@@ -7,10 +7,12 @@
  * Skips everything that isn't the model: PDF extraction, storage, DB and auth.
  * Run it through `npm run eval`, which resolves `server-only` the way Next does.
  */
+import { englishView } from "@/lib/i18n/analysisView";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { interviewMain } from "./interview";
+import { loadGold, percent, score, sumMetrics, type ExtractedItem, type Gold, type GoldVerdict, type ItemVerdict, type Metrics } from "./gold";
 import {
   captureAiLog,
   describeEngine,
@@ -30,6 +32,22 @@ import {
   writeJson,
   type Engine,
 } from "./shared";
+import type { Tier } from "./pricing";
+import {
+  estimateUsd,
+  installEvalFetch,
+  planTier,
+  parseTier,
+  readBudget,
+  readLedger,
+  runRouted,
+  SpendGuard,
+  spendCommand,
+  spentOnDay,
+  usd,
+  utcDay,
+  type Budget,
+} from "./spend";
 import {
   describeCounts,
   type GuardReport,
@@ -48,8 +66,11 @@ import {
 import {
   analyzeResume,
   ANALYSIS_TIMEOUT_MS,
+  finishAnalysis,
   MAX_RESUME_TEXT_CHARS,
   truncateResumeText,
+  type AnalysisInputMode,
+  type ModelAnswers,
 } from "@/lib/ai/resumeAnalysis";
 import { AppError } from "@/lib/error/errors";
 import {
@@ -136,16 +157,28 @@ type FixtureMeta = {
   jobTitle: string;
   purpose?: string;
   expect?: FixtureExpectations;
+  /** How the fixture's cv.pdf was made; `scanned` means it has no text layer. */
+  pdf?: { layout?: string; scanned?: boolean; photo?: boolean; accents?: boolean };
 };
 
-type Fixture = FixtureMeta & {
+type Fixture = Omit<FixtureMeta, "pdf"> & {
   id: string;
   source: "synthetic" | "local";
   cvText: string;
+  /** Split accents the parser composed while reading cv.pdf; 0 for a cv.txt fixture. */
+  cvAccentsComposed: number;
   jobDescription: string;
-  /** Present when the fixture folder holds a cv.pdf, for the --pdf spike. */
+  /** Present when the fixture folder holds a cv.pdf, for the PDF arms. */
   pdf?: Uint8Array;
+  pdfMeta?: FixtureMeta["pdf"];
+  /** The gold requirement list, when the folder holds a gold.json. */
+  gold: Gold | null;
 };
+
+/** The experiment arm a run is captured under. */
+type Arms = { input: AnalysisInputMode };
+
+type RequirementScore = { metrics: Metrics; items: ItemVerdict[]; gold: GoldVerdict[]; goldStatus: "final" | "draft" };
 
 type RunRecord = {
   fixture: string;
@@ -167,10 +200,20 @@ type RunRecord = {
     cvCharsSent: number;
     cvTruncated: boolean;
     jobChars: number;
-    /** "pdf" means the model was given the PDF instead of the extracted text. */
-    mode: "text" | "pdf";
+    /** What the model was given as the CV: the text layer, the PDF, or both. */
+    mode: AnalysisInputMode;
   };
   tokens: { input: number | null; output: number | null };
+  /** Model calls behind the tokens (analysis, English retry, repair); absent before M8-F. */
+  calls?: number;
+  /** How many times the fixture ran before this record (rate limits, capacity); absent before M8-G. */
+  attempts?: number;
+  /** HTTP statuses of calls that failed on the way, kept even when a later attempt succeeded. */
+  callFailures?: string[];
+  /** The model's raw answers before any guard (M8-F), so post-model code can be replayed offline. */
+  answers?: ModelAnswers;
+  /** The extracted list scored against the fixture's gold, when it has one. */
+  requirementScore?: RequirementScore;
   /**
    * Content checks and fixture assertions, both only when the call succeeded.
    * These are the violations as found BEFORE the production guardrail edited
@@ -196,28 +239,72 @@ const USAGE = `CVision analysis eval: run the resume analysis over fixed fixture
 compare model output across provider, model or prompt changes.
 
 Usage:
-  npm run eval -- run <label> [--only <id,id>] [--timeout <ms>] [--force] [--pdf]
+  npm run eval -- quick <label> [--control <label>] [--replay]
+  npm run eval -- full <label> --confirm-cost
+  npm run eval -- run <label> --only <id,id> [--timeout <ms>] [--force]
+                     [--input text|pdf|pdf+text] [--tier standard|flex|free]
+  npm run eval -- spend [--since <YYYY-MM-DD>] [--backfill]
+  npm run eval -- gold <label> [<label> ...] [--only <id,id>] [--verbose] [--json <file>]
+                      [--by-source] [--drop-responsibilities]
   npm run eval -- compare <labelA> <labelB> [--force]
   npm run eval -- recheck <label>
+  npm run eval -- replay <label> <newLabel>
   npm run eval -- canary <reference-label> [--only <id>]
+  npm run eval -- translate <label>... --to <new-label> [--only ids] [--twice ids]
+      (Spanish translation of stored analyses, replayed, and of interview
+      feedback runs; production call and guards, routed tiers, spend caps)
   npm run eval -- stability <label> <label> [...] [--force]
   npm run eval -- list
   npm run eval -- interview <run|compare|recheck|canary|list> ...   (the
       interview feedback mode: synthetic transcripts in fixtures-interview/,
       same engine fingerprint, comparison gate and canary; "interview help")
 
+Spend (M8-G). Every call is priced from the tokens the API reports
+(scripts/eval/pricing.ts) and appended to runs/spend.jsonl. A command prints
+its estimate first, refuses to start when the estimate crosses a cap, and
+stops between fixtures when the next one would: EVAL_BUDGET_PER_RUN_USD
+(default 0.50) and EVAL_BUDGET_PER_DAY_USD (default 1.00, live spend on
+the UTC day). Committed fixtures hold invented data and run on
+GOOGLE_GENERATIVE_AI_API_KEY_FREE when it is set (free tier; Google may use
+what it is sent); fixtures.local/ always runs on the paid key, at Flex
+(half price, EVAL_PAID_TIER=standard to change). Rate limits and capacity
+errors retry the fixture. Each record keeps its tier, and compare refuses
+two runs whose tiers differ for a fixture. spend prints totals by day,
+phase and tier; --backfill adds the stored runs from before the ledger.
+
+quick runs seed 7 on the two real postings and four synthetic fixtures
+with the most past errors and scores them; with --replay it calls nothing
+and replays --control's stored answers through this checkout. full runs
+every fixture and needs --confirm-cost; so does run without --only.
+
 recheck re-runs the content checks and the fixture assertions over a stored
 run and rewrites it. No model calls, nothing billed: use it after changing a
 check or an assertion, so old runs stay comparable with new ones.
+
+replay runs a stored run's raw model answers (recorded since M8-F) through
+this checkout's code after the model, finishAnalysis, into a new run. No
+model calls: use it to measure a change to a rule, then score it with gold.
 
 stability compares two or more stored runs and reports whether each posting was
 split into the same required/preferred partition each time, and whether the
 derived fit verdict survived. Nothing billed. The verdict is a function of that
 partition, so a partition that moves between runs moves the headline with it.
 
---pdf is an experiment, wired into nothing in production: it hands the model
-the fixture's cv.pdf instead of the text extracted from it, to compare what
-each input is worth. Only fixtures holding a cv.pdf can run it.
+--input is the M8-A experiment arm, wired into nothing in production. --input
+pdf hands the model the fixture's cv.pdf instead of the text extracted from
+it; pdf+text sends both and tells the model quotes come from the text. Only
+fixtures holding a cv.pdf can run those; a fixture whose fixture.json says the
+PDF is scanned is refused on the text arm the way production refuses it
+(PDF_SCANNED, no model call).
+
+gold scores one or more stored runs against each fixture's gold.json
+(fixtures/GOLD-RULES.md): recall, precision, kind and status accuracy, splits,
+merges, inventions, per fixture and summed, real postings kept apart. Nothing
+billed. --verbose prints every item's verdict; --json writes it all.
+--by-source locates each item by its sourceQuote instead of its text;
+--drop-responsibilities rescores as if every item from the responsibilities
+were dropped. This is the regression gate for requirement extraction: run it
+on a change and on its same-session control.
 
 Setup: the provider configured in .env (AI_PROVIDER, AI_MODEL and its key;
 today GOOGLE_GENERATIVE_AI_API_KEY for Gemini). Every fixture is a real,
@@ -252,7 +339,9 @@ reference run. Output is deterministic at the pinned sampling, so a difference
 means something changed: the prompt, the schema, or the model behind the alias
 we call - which can change without us deploying, and is the case this exists
 for. One billed call. Exits non-zero on a difference. After an intended prompt
-change, capture a new reference and compare against that instead.
+change, capture a new reference and compare against that instead. The prompt
+states today's date, so the canary replays the reference run's date; without
+that, any run on a later UTC day than its reference differs.
 
 Sampling: temperature is pinned in lib/ai/client.ts (0 since M2d, measured).
 AI_TEMPERATURE overrides it for one run; AI_TEMPERATURE=provider sends no
@@ -297,14 +386,27 @@ async function main(argv: string[]) {
   switch (command) {
     case "run":
       return runCommand(rest);
+    case "quick":
+      return quickCommand(rest);
+    case "full":
+      return fullCommand(rest);
+    case "spend":
+      return spendCommand(rest);
     case "compare":
       return compareCommand(rest);
     case "recheck":
       return recheckCommand(rest);
+    case "replay":
+      return replayCommand(rest);
+    case "translate":
+      // Loaded on demand: it pulls in every locale file, which no other command needs.
+      return (await import("./translate")).translateCommand(rest, { loadFixtures });
     case "canary":
       return canaryCommand(rest);
     case "stability":
       return stabilityCommand(rest);
+    case "gold":
+      return goldCommand(rest);
     case "list":
       return listCommand();
     case "interview":
@@ -324,10 +426,24 @@ async function main(argv: string[]) {
 
 async function runCommand(args: string[]) {
   const { positional, flags } = parseFlags(args);
-  const label = positional[0];
-  if (!label || !/^[\w.-]+$/.test(label)) {
-    fail(`run needs a label made of letters, digits, "-", "_" or ".".\n\n${USAGE}`);
+  const only = flags.get("only");
+  // A whole-suite run is the expensive case: it needs the same explicit flag as `full`.
+  if (typeof only !== "string" && !flags.has("confirm-cost")) {
+    printEstimate(planRun(await loadFixtures(), parseTier(flags.get("tier"))), readBudget());
+    fail("run without --only runs every fixture: pass --confirm-cost (or use `full`), or --only <ids>.");
   }
+  const fixtures = (await loadFixtures()).filter(
+    (fixture) => typeof only !== "string" || only.split(",").includes(fixture.id),
+  );
+  await runSuite(positional[0], fixtures, flags, "run");
+}
+
+/** Runs fixtures into a new label: estimate, caps, tier routing and retries, one record per fixture. */
+async function runSuite(label: string | undefined, fixtures: Fixture[], flags: Map<string, string | true>, command: string): Promise<RunRecord[]> {
+  if (!label || !/^[\w.-]+$/.test(label)) {
+    fail(`${command} needs a label made of letters, digits, "-", "_" or ".".\n\n${USAGE}`);
+  }
+  if (fixtures.length === 0) fail("No fixtures matched.");
 
   const outDir = path.join(RUNS_DIR, label);
   if (existsSync(outDir)) {
@@ -348,49 +464,58 @@ async function runCommand(args: string[]) {
     fail("--timeout must be a positive integer number of milliseconds.");
   }
 
-  const only = flags.get("only");
-  const mode = flags.has("pdf") ? ("pdf" as const) : ("text" as const);
-  const fixtures = (await loadFixtures()).filter(
-    (fixture) =>
-      typeof only !== "string" || only.split(",").includes(fixture.id),
-  );
-  if (fixtures.length === 0) fail("No fixtures matched.");
-
-  if (mode === "pdf") {
+  const arms = parseArms(flags);
+  if (arms.input !== "text") {
     const without = fixtures.filter((fixture) => !fixture.pdf).map((f) => f.id);
     if (without.length) {
-      fail(`--pdf needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
+      fail(`--input ${arms.input} needs a cv.pdf in every fixture run: ${without.join(", ")} has none.`);
     }
   }
 
+  const budget = readBudget();
+  const plans = planRun(fixtures, parseTier(flags.get("tier")));
+  const total = printEstimate(plans, budget);
+  const runId = `${label}@${new Date().toISOString()}`;
+  const guard = new SpendGuard(budget, runId);
+  const refusal = guard.refuse(total);
+  if (refusal) fail(`Refused before any call: ${refusal}.\nRun fewer fixtures (--only), or raise the cap deliberately.`);
+
   await mkdir(outDir, { recursive: true });
   console.log(
-    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${mode === "pdf" ? "the PDF itself" : "extracted text"})\n`,
+    `Running ${fixtures.length} fixture(s) into ${display(outDir)} (timeout ${timeoutMs} ms per call, input: ${describeInput(arms.input)})\n`,
   );
 
   const startedAt = new Date().toISOString();
   const records: RunRecord[] = [];
+  let stopped: string | undefined;
 
   // One free metadata call per run, the first time a record names the model:
   // the dated build behind the alias is the only drift signal available.
   let apiModelVersion: string | null = null;
   let versionLookedUp = false;
 
-  for (const fixture of fixtures) {
-    const record = await runFixture(fixture, label, timeoutMs, mode);
-    if (!versionLookedUp && record.model) {
-      apiModelVersion = await readApiModelVersion(record.model);
-      versionLookedUp = true;
+  for (const plan of plans) {
+    const outcome = await runPlanned(plan, label, command, runId, guard, timeoutMs, arms);
+    if (outcome.stopped) stopped = outcome.stopped;
+    const record = outcome.record;
+    if (record) {
+      if (!versionLookedUp && record.model) {
+        apiModelVersion = await readApiModelVersion(record.model);
+        versionLookedUp = true;
+      }
+      if (record.engine) record.engine.apiModelVersion = apiModelVersion;
+      await writeJson(path.join(outDir, `${plan.fixture.id}.json`), record);
+      console.log(formatProgress(record));
+      records.push(record);
     }
-    if (record.engine) record.engine.apiModelVersion = apiModelVersion;
-    await writeJson(path.join(outDir, `${fixture.id}.json`), record);
-    console.log(formatProgress(record));
-    records.push(record);
+    if (stopped) break;
   }
 
   const identified = records.find((record) => record.model !== null);
+  const spent = guard.spentThisRun();
   await writeJson(path.join(outDir, "_run.json"), {
     label,
+    command,
     startedAt,
     finishedAt: new Date().toISOString(),
     provider: identified?.provider ?? null,
@@ -398,16 +523,20 @@ async function runCommand(args: string[]) {
     engine: identified?.engine ?? null,
     timeoutMs,
     node: process.version,
-    fixtures: records.map(({ fixture, result, durationMs }) => ({
+    spentUsd: spent,
+    ...(stopped ? { stopped } : {}),
+    fixtures: records.map(({ fixture, result, durationMs, engine }) => ({
       fixture,
       ok: result.ok,
       durationMs,
+      tier: engine?.tier ?? null,
     })),
   });
 
   const okCount = records.filter((record) => record.result.ok).length;
+  if (stopped) console.error(`\nSTOPPED ${stopped}. ${records.length} of ${plans.length} fixture(s) ran.`);
   console.log(
-    `\n${okCount}/${records.length} succeeded. ${describeEngine(identified?.engine)}`,
+    `\n${okCount}/${records.length} succeeded, ${usd(spent)} spent. ${describeEngine(identified?.engine)}`,
   );
   // The method, printed where it is needed rather than left in the docs: a
   // change measured against a run from another day attributes the provider's
@@ -420,54 +549,185 @@ async function runCommand(args: string[]) {
       "Warning: provider and model were not captured. lib/ai/client.ts no longer logs its metadata line.",
     );
   }
+  return records;
 }
+
+type Plan = { fixture: Fixture; tier: Tier; estimateUsd: number };
+
+/** Each fixture's tier and estimated cost, from the ledger's history of that fixture. */
+function planRun(fixtures: Fixture[], override: Tier | undefined): Plan[] {
+  installEvalFetch();
+  const rows = readLedger();
+  const notes = new Set<string>();
+  const model = process.env.AI_MODEL?.trim() || DEFAULT_EVAL_MODEL;
+  const plans = fixtures.map((fixture) => {
+    const { tier, note } = planTier(fixture.source, override);
+    if (note) notes.add(note);
+    return { fixture, tier, estimateUsd: estimateUsd(rows, fixture.id, "analysis", model, tier) };
+  });
+  for (const note of notes) console.log(`Note: ${note}.`);
+  return plans;
+}
+
+function printEstimate(plans: Plan[], budget: Budget): number {
+  const total = plans.reduce((sum, plan) => sum + plan.estimateUsd, 0);
+  const parts = (["free", "flex", "standard"] as const)
+    .map((tier) => plans.filter((plan) => plan.tier === tier))
+    .filter((group) => group.length)
+    .map((group) => `${group.length} on ${group[0].tier}${group[0].tier === "free" ? "" : ` ≈ ${usd(group.reduce((s, p) => s + p.estimateUsd, 0))}`}`);
+  const today = spentOnDay(readLedger(), utcDay());
+  console.log(
+    `Estimate: ${parts.join(", ")}; total ≈ ${usd(total)}. Caps: ${usd(budget.perRunUsd)} per run; ${usd(today)} of ${usd(budget.perDayUsd)} spent today (UTC).`,
+  );
+  return total;
+}
+
+/** One fixture under the caps, with retries for rate limits and capacity errors. */
+async function runPlanned(
+  plan: Plan,
+  label: string,
+  command: string,
+  runId: string,
+  guard: SpendGuard,
+  timeoutMs: number,
+  arms: Arms,
+  now?: Date,
+): Promise<{ record?: RunRecord; stopped?: string }> {
+  return runRouted(
+    { command, label, runId, fixture: plan.fixture.id, tier: plan.tier, estimateUsd: plan.estimateUsd },
+    guard,
+    () => runFixture(plan.fixture, label, timeoutMs, arms, now),
+  );
+}
+
+const DEFAULT_EVAL_MODEL = "gemini-3.5-flash-lite";
+
+// The two real postings and the four synthetic fixtures with the most past errors (M8-B to M8-F).
+const QUICK_FIXTURES = [
+  "local-encora-senior-fullstack",
+  "local-real-production-case",
+  "long-boilerplate",
+  "es-cv-en-job",
+  "es-posting",
+  "hidden-in-responsibilities",
+];
+
+/** Seed 7 on six fixtures; with --replay, no call at all: the control's stored answers through this code. */
+async function quickCommand(args: string[]) {
+  const { positional, flags } = parseFlags(args);
+  const [label] = positional;
+  const control = flags.get("control");
+  const fixtures = (await loadFixtures()).filter((fixture) => QUICK_FIXTURES.includes(fixture.id));
+  const ids = fixtures.map((fixture) => fixture.id);
+  if (flags.has("replay")) {
+    if (typeof control !== "string") fail("quick --replay needs --control <stored label>: it replays that run's answers.");
+    await replayRun(control, label, new Set(ids));
+  } else {
+    const seed = process.env.AI_SEED?.trim();
+    if (seed && seed !== "7") fail("quick runs seed 7 only; unseeded runs go through `run --only`.");
+    await runSuite(label, fixtures, flags, "quick");
+    if (typeof control === "string") {
+      const only = (run: Map<string, RunRecord>) => new Map([...run].filter(([id]) => ids.includes(id)));
+      requireComparable([[control, only(await readRun(control))], [label as string, only(await readRun(label as string))]], flags.has("force"), { datedPrompt: true });
+    }
+  }
+  for (const one of typeof control === "string" ? [control, label as string] : [label as string]) {
+    console.log("");
+    await goldCommand([one, "--only", ids.join(",")]);
+  }
+}
+
+/** Every fixture, after the estimate and an explicit --confirm-cost. */
+async function fullCommand(args: string[]) {
+  const { positional, flags } = parseFlags(args);
+  const fixtures = await loadFixtures();
+  if (!flags.has("confirm-cost")) {
+    printEstimate(planRun(fixtures, parseTier(flags.get("tier"))), readBudget());
+    fail("full runs every fixture: read the estimate above, then pass --confirm-cost.");
+  }
+  await runSuite(positional[0], fixtures, flags, "full");
+}
+
+function parseArms(flags: Map<string, string | true>): Arms {
+  const input = flags.has("pdf") ? "pdf" : String(flags.get("input") ?? "text");
+  if (!["text", "pdf", "pdf+text"].includes(input)) fail(`--input must be text, pdf or pdf+text, not "${input}".`);
+  return { input: input as AnalysisInputMode };
+}
+
+const describeInput = (input: AnalysisInputMode) =>
+  input === "pdf" ? "the PDF itself" : input === "pdf+text" ? "the PDF and the extracted text" : "extracted text";
 
 async function runFixture(
   fixture: Fixture,
   label: string,
   timeoutMs: number,
-  mode: "text" | "pdf",
+  arms: Arms,
+  now?: Date,
 ): Promise<RunRecord> {
   // The same truncation analyzeResume applies, so the checks see exactly the
   // text the model read.
   const sent = truncateResumeText(fixture.cvText);
-  const aiLog = captureAiLog();
   const startedAt = Date.now();
+  const input: RunRecord["input"] = {
+    jobTitle: fixture.jobTitle,
+    cvChars: fixture.cvText.length,
+    cvCharsSent: sent.charsSent,
+    cvTruncated: sent.truncated,
+    jobChars: fixture.jobDescription.length,
+    mode: arms.input,
+  };
+  const base = { fixture: fixture.id, source: fixture.source, label, input };
+
+  // A scan has no text layer: production refuses it before any model call,
+  // and the text arm records that refusal instead of pretending to read it.
+  if (arms.input === "text" && fixture.pdfMeta?.scanned && fixture.pdf) {
+    let error: RunRecord["result"];
+    try {
+      // Loaded here, not at the top: the parser pulls in pdf.js, which the smoke test should not pay for.
+      const { extractTextFromPDFBytes } = await import("@/lib/pdfParse");
+      await extractTextFromPDFBytes(fixture.pdf);
+      error = { ok: false, error: { name: "Error", code: "UNEXPECTED", message: "the scan has a text layer after all" } };
+    } catch (thrown) {
+      error = { ok: false, error: describeError(thrown) };
+    }
+    return { ...base, provider: null, model: null, tokens: { input: null, output: null }, generatedAt: new Date().toISOString(), durationMs: Date.now() - startedAt, result: error };
+  }
+
   let result: RunRecord["result"];
   let guard: GuardReport | undefined;
+  let answers: ModelAnswers | undefined;
 
+  const aiLog = captureAiLog();
   try {
     const analysis = await analyzeResume({
       jobTitle: fixture.jobTitle,
       jobDescription: fixture.jobDescription,
       resumeText: fixture.cvText,
+      accentsComposed: fixture.cvAccentsComposed,
+      logId: fixture.id,
       timeoutMs,
-      // The spike: hand the model the PDF and let it read the document.
-      ...(mode === "pdf" ? { pdf: fixture.pdf } : {}),
+      ...(arms.input !== "text" ? { pdf: fixture.pdf, inputMode: arms.input } : {}),
+      ...(now ? { now } : {}),
     });
     guard = analysis.guard;
-    result = { ok: true, feedback: analysis.feedback };
+    answers = analysis.model;
+    // Records keep the analysis as English text: every metric, the gold and the canary read it that way.
+    result = { ok: true, feedback: englishView(analysis.feedback) };
   } catch (error) {
     result = { ok: false, error: describeError(error) };
   } finally {
     aiLog.restore();
   }
 
-  /*
-   * The guardrail already ran the checks against the text the model received,
-   * before it edited anything, so its list is what the model actually produced
-   * - re-running them on the cleaned output here would read near zero and hide
-   * exactly what this harness exists to see. The fallback keeps the --pdf
-   * spike measurable, where the guardrail has no CV text to work from.
-   */
+  // The guardrail already ran the checks against the CV text before it
+  // edited anything, so its list is what the model actually produced;
+  // re-running them on the cleaned output would read near zero.
   const violations = result.ok
     ? (guard?.violations ?? checkAnalysis(sent.text, result.feedback))
     : undefined;
 
-  return {
-    fixture: fixture.id,
-    source: fixture.source,
-    label,
+  const record: RunRecord = {
+    ...base,
     provider: aiLog.meta.provider,
     model: aiLog.meta.model,
     engine: {
@@ -480,6 +740,8 @@ async function runFixture(
       seed: aiLog.meta.seed,
     },
     tokens: { input: aiLog.meta.inputTokens, output: aiLog.meta.outputTokens },
+    calls: aiLog.meta.calls,
+    ...(answers ? { answers } : {}),
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     checks: violations && {
@@ -494,16 +756,10 @@ async function runFixture(
     assertions: result.ok
       ? evaluateAssertions(result.feedback, fixture.expect, violations ?? [])
       : undefined,
-    input: {
-      jobTitle: fixture.jobTitle,
-      cvChars: fixture.cvText.length,
-      cvCharsSent: sent.charsSent,
-      cvTruncated: sent.truncated,
-      jobChars: fixture.jobDescription.length,
-      mode,
-    },
     result,
   };
+  record.requirementScore = fixture.gold ? scoreRecord(fixture.gold, record) : undefined;
+  return record;
 }
 
 // ------------------------------------------------- fixture assertions
@@ -694,8 +950,9 @@ function formatProgress(record: RunRecord): string {
   // only model-chosen number left is quality.
   const head = `  ${id} ok    fit ${fit.tone.padEnd(6)} quality ${formatScore(feedback.overall.qualityScore).padStart(3)}  ${seconds}`;
   const notes = [
-    record.input.mode === "pdf" ? "input: PDF" : "",
+    record.input.mode !== "text" ? `input: ${record.input.mode}` : "",
     record.tokens.input === null ? "" : `${record.tokens.input} in / ${record.tokens.output} out tokens`,
+    goldNote(record.requirementScore),
     record.input.cvTruncated
       ? `TRUNCATED ${record.input.cvCharsSent}/${record.input.cvChars} chars`
       : "",
@@ -755,10 +1012,11 @@ async function recheckCommand(args: string[]) {
       fixture.expect,
       violations,
     );
+    record.requirementScore = fixture.gold ? scoreRecord(fixture.gold, record) : undefined;
 
     await writeJson(target, record);
     console.log(
-      `  ${record.fixture.padEnd(26)} ${[checkNote(record.checks), assertionNote(record.assertions)].filter(Boolean).join("   ")}`,
+      `  ${record.fixture.padEnd(26)} ${[checkNote(record.checks), assertionNote(record.assertions), goldNote(record.requirementScore)].filter(Boolean).join("   ")}`,
     );
   }
 }
@@ -772,6 +1030,58 @@ async function recheckCommand(args: string[]) {
  * with nothing to roll back to. Since M2d the output is reproducible, which
  * makes "did anything change?" answerable with one call and a byte compare.
  */
+async function replayCommand(args: string[]) {
+  const [from, to] = parseFlags(args).positional;
+  await replayRun(from, to);
+}
+
+/** Replays a stored run's raw answers through this checkout's finishAnalysis into a new label. */
+async function replayRun(from: string | undefined, to: string | undefined, only?: Set<string>) {
+  if (!from || !to || !/^[\w.-]+$/.test(to)) fail(`replay needs a stored label and a new one.\n\n${USAGE}`);
+  const source = path.join(RUNS_DIR, from);
+  if (!existsSync(source)) fail(`No run named "${from}" in ${display(RUNS_DIR)}.`);
+  const target = path.join(RUNS_DIR, to);
+  if (existsSync(target)) fail(`${display(target)} already exists.`);
+  await mkdir(target, { recursive: true });
+
+  const fixtures = new Map((await loadFixtures()).map((f) => [f.id, f]));
+  let replayed = 0;
+  for (const file of (await readdir(source)).sort()) {
+    if (!file.endsWith(".json")) continue;
+    const record = JSON.parse(await readFile(path.join(source, file), "utf8")) as RunRecord;
+    if (file === "_run.json") {
+      await writeJson(path.join(target, file), { ...record, label: to, replayOf: from });
+      continue;
+    }
+    const fixture = fixtures.get(record.fixture);
+    if (!record.result.ok || !record.answers || !fixture || (only && !only.has(record.fixture))) continue;
+    // The text that run's model read, not what today's limit would send.
+    const cvText = fixture.cvText.slice(0, record.input.cvCharsSent);
+    const { feedback: stored, guard } = finishAnalysis({
+      jobDescription: fixture.jobDescription,
+      resumeText: cvText,
+      answer: record.answers.answer,
+      repair: record.answers.repair,
+      now: new Date(record.generatedAt),
+      accentsComposed: fixture.cvAccentsComposed,
+      logId: fixture.id,
+    });
+    const feedback = englishView(stored);
+    const replay: RunRecord = {
+      ...record,
+      label: to,
+      result: { ok: true, feedback },
+      checks: { counts: countByCheck(guard.violations), grounding: countGrounding(guard.violations), violations: guard.violations },
+      guardrail: { counts: guard.counts, interventions: guard.interventions },
+      assertions: evaluateAssertions(feedback, fixture.expect, guard.violations),
+    };
+    replay.requirementScore = fixture.gold ? scoreRecord(fixture.gold, replay) : undefined;
+    await writeJson(path.join(target, file), replay);
+    replayed += 1;
+  }
+  console.log(`${replayed} record(s) replayed from ${from} into ${to}.`);
+}
+
 async function canaryCommand(args: string[]) {
   const { positional, flags } = parseFlags(args);
   const [reference] = positional;
@@ -801,7 +1111,18 @@ async function canaryCommand(args: string[]) {
     `Canary: ${fixture.id} against ${reference}\n  reference: ${describeEngine(wanted.engine)}`,
   );
 
-  const fresh = await runFixture(fixture, `canary-${reference}`, ANALYSIS_TIMEOUT_MS, "text");
+  // Same tier as the reference unless asked: tiers are not known to answer byte-identically.
+  const asked = parseTier(flags.get("tier"));
+  const { tier } = planTier(fixture.source, asked ?? ((wanted.engine?.tier as Tier | undefined) ?? "standard"));
+  installEvalFetch();
+  const label = `canary-${reference}`;
+  const runId = `${label}@${new Date().toISOString()}`;
+  const plan = { fixture, tier, estimateUsd: estimateUsd(readLedger(), fixture.id, "analysis", wanted.model, tier) };
+  console.log(`  tier:      ${tier}, estimate ≈ ${usd(plan.estimateUsd)}`);
+  // The prompt states today's date: replay the reference's day, or every later day reads as drift.
+  const outcome = await runPlanned(plan, label, "canary", runId, new SpendGuard(readBudget(), runId), ANALYSIS_TIMEOUT_MS, { input: "text" }, new Date(wanted.generatedAt));
+  if (!outcome.record) fail(`Refused ${outcome.stopped}.`);
+  const fresh = outcome.record;
   if (fresh.engine && fresh.model) {
     fresh.engine.apiModelVersion = await readApiModelVersion(fresh.model);
   }
@@ -818,6 +1139,11 @@ async function canaryCommand(args: string[]) {
     const before = wanted.engine?.[key] ?? "unrecorded";
     const after = fresh.engine?.[key] ?? "unrecorded";
     if (before !== after) differences.push(`${key}: ${before} -> ${after}`);
+  }
+  const tiers = [wanted.engine?.tier ?? "standard", fresh.engine?.tier ?? "standard"];
+  if (tiers[0] !== tiers[1]) {
+    if (asked) console.log(`  note:      tier ${tiers[0]} -> ${tiers[1]} as asked; only the output is compared`);
+    else differences.push(`tier: ${tiers[0]} -> ${tiers[1]}`);
   }
 
   const sections = Object.keys(fresh.result.feedback) as Array<
@@ -867,6 +1193,7 @@ async function compareCommand(args: string[]) {
       [labelB, runB],
     ],
     flags.has("force"),
+    { datedPrompt: true },
   );
 
   console.log(`A = ${labelA}  (${identity(runA)})`);
@@ -1000,6 +1327,173 @@ function statusOf(record: RunRecord): string {
 
 // ---------------------------------------------------------------- list
 
+// ------------------------------------------------------------------ gold
+
+/** How `gold` reads a record: by the requirement text (default) or the posting quote, and with every responsibility dropped. */
+type ScoreOptions = { bySource?: boolean; dropResponsibilities?: boolean };
+
+/** The extracted list as the gold scorer reads it, by text or by posting quote. */
+function itemsOf(record: RunRecord, options: ScoreOptions = {}): ExtractedItem[] {
+  if (!record.result.ok) return [];
+  return record.result.feedback.jobFit.requirements
+    .map((entry) => {
+      const source = options.bySource ? entry.sourceQuote : undefined;
+      return {
+        item: {
+          requirement: entry.requirement,
+          kind: entry.kind,
+          status: entry.status,
+          evidence: entry.evidence,
+          ...(typeof entry.assessable === "boolean" ? { assessable: entry.assessable } : {}),
+          ...(entry.keyTerms ? { keyTerms: entry.keyTerms } : {}),
+          ...(entry.years ? { years: entry.years } : {}),
+          ...(entry.evidenceSource ? { evidenceSource: entry.evidenceSource } : {}),
+          ...(source ? { source } : {}),
+        },
+        section: entry.section,
+      };
+    })
+    .filter((one) => !(options.dropResponsibilities && one.section === "responsibilities"))
+    .map((one) => one.item);
+}
+
+function scoreRecord(gold: Gold, record: RunRecord, options: ScoreOptions = {}): RequirementScore | undefined {
+  if (!record.result.ok) return undefined;
+  return { ...score(gold, itemsOf(record, options)), goldStatus: gold.file.status };
+}
+
+function goldNote(scored: RequirementScore | undefined): string {
+  if (!scored) return "";
+  const m = scored.metrics;
+  const errors = [
+    m.inventions ? `${m.inventions} invented` : "",
+    m.overExtractions ? `${m.overExtractions} over` : "",
+    m.splits ? `${m.splits} split` : "",
+    m.merges ? `${m.merges} merged` : "",
+  ].filter(Boolean);
+  return `gold${scored.goldStatus === "draft" ? " (draft)" : ""}: recall ${m.goldFound}/${m.goldTotal}, precision ${m.correct}/${m.extracted}${errors.length ? ` (${errors.join(", ")})` : ""}`;
+}
+
+const mean = (values: number[]) => (values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null);
+const range = (values: (number | null)[]) => {
+  const real = values.filter((v): v is number => v !== null);
+  if (real.length === 0) return "n/a";
+  const avg = mean(real) as number;
+  const lo = Math.min(...real);
+  const hi = Math.max(...real);
+  return lo === hi ? percent(avg) : `${percent(avg)} (${percent(lo)}-${percent(hi)})`;
+};
+
+/**
+ * Scores stored runs against the gold. Rates are shown per fixture as the
+ * mean over the runs with its range, and summed over everything as a
+ * micro-average; final and draft gold never mix.
+ */
+async function goldCommand(args: string[]) {
+  const { positional: labels, flags } = parseFlags(args);
+  if (labels.length === 0) fail(`gold needs at least one run label.\n\n${USAGE}`);
+  const verbose = flags.has("verbose");
+  const options: ScoreOptions = { bySource: flags.has("by-source"), dropResponsibilities: flags.has("drop-responsibilities") };
+
+  const fixtures = new Map((await loadFixtures()).map((fixture) => [fixture.id, fixture]));
+  const runs = await Promise.all(labels.map((label) => readRun(label)));
+  const only = flags.get("only");
+  const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))]
+    .filter((id) => typeof only !== "string" || only.split(",").includes(id))
+    .sort();
+
+  console.log(`Gold scoring of ${labels.length} run(s): ${labels.join(", ")}\n`);
+  console.log(`  ${"fixture".padEnd(28)} ${"ok".padStart(5)}  ${"recall".padEnd(16)} ${"precision".padEnd(16)} ${"kind".padEnd(8)} ${"status".padEnd(8)} inv/over/split/merge`);
+
+  const output: Record<string, unknown> = { labels, fixtures: {} as Record<string, unknown> };
+  // Synthetic and real postings never mix; a real one also says whether the owner approved its gold.
+  type Group = "synthetic" | "real";
+  const totals: Record<Group, Metrics[]> = { synthetic: [], real: [] };
+  const perRun: Record<Group, Metrics[][]> = { synthetic: labels.map(() => []), real: labels.map(() => []) };
+  const overByReason: Record<Group, Map<string, number>> = { synthetic: new Map(), real: new Map() };
+  const realStatus = new Set<string>();
+
+  for (const id of ids) {
+    const fixture = fixtures.get(id);
+    if (!fixture?.gold) {
+      console.log(`  ${id.padEnd(28)} no gold`);
+      continue;
+    }
+    const scored = runs.map((run) => {
+      const record = run.get(id);
+      return record && record.result.ok ? scoreRecord(fixture.gold as Gold, record, options) : undefined;
+    });
+    const present = scored.filter((one): one is RequirementScore => one !== undefined);
+    const goldStatus = fixture.gold.file.status;
+    const group: Group = fixture.source === "local" ? "real" : "synthetic";
+    if (group === "real") realStatus.add(goldStatus);
+    present.forEach((one, i) => {
+      totals[group].push(one.metrics);
+      const runIndex = scored.indexOf(one, i);
+      perRun[group][runIndex]?.push(one.metrics);
+      for (const item of one.items) {
+        if (item.outcome === "over-extraction") overByReason[group].set(item.reason, (overByReason[group].get(item.reason) ?? 0) + 1);
+      }
+    });
+    const sum = sumMetrics(present.map((one) => one.metrics));
+    const kind = sum.kindTotal ? `${sum.kindCorrect}/${sum.kindTotal}` : "n/a";
+    const status = sum.statusTotal ? `${sum.statusCorrect}/${sum.statusTotal}${sum.statusSevere ? `!${sum.statusSevere}` : ""}` : "n/a";
+    console.log(
+      `  ${`${id}${goldStatus === "draft" ? " (draft)" : ""}`.padEnd(28)} ${`${present.length}/${runs.length}`.padStart(5)}  ${range(present.map((one) => one.metrics.recall)).padEnd(16)} ${range(present.map((one) => one.metrics.precision)).padEnd(16)} ${kind.padEnd(8)} ${status.padEnd(8)} ${sum.inventions}/${sum.overExtractions}/${sum.splits}/${sum.merges}`,
+    );
+    (output.fixtures as Record<string, unknown>)[id] = { goldStatus, runs: scored.map((one, i) => ({ label: labels[i], score: one ?? null })) };
+
+    if (verbose) {
+      scored.forEach((one, i) => {
+        if (!one) return;
+        console.log(`      ${labels[i]}`);
+        for (const item of one.items) {
+          const text = truncate(item.item.requirement, 70);
+          if (item.outcome === "match") {
+            console.log(`        ${item.matcher.padEnd(4)} -> ${item.goldIds.join("+").padEnd(6)} ${item.part ? `[${truncate(item.part, 24)}] ` : ""}${item.merge ? "MERGE " : ""}${item.split ? "SPLIT " : ""}${text}`);
+          } else if (item.outcome === "over-extraction") {
+            console.log(`        OVER (${item.reason})          ${text}`);
+          } else {
+            console.log(`        INVENTION                  ${text}`);
+          }
+        }
+        const missed = one.gold.filter((entry) => !entry.found).map((entry) => entry.id);
+        if (missed.length) console.log(`        missed gold: ${missed.join(", ")}`);
+        const wrongStatus = one.gold.filter((entry) => entry.statusCorrect === false).map((entry) => `${entry.id} ${entry.statusGold}->${entry.statusGot}`);
+        if (wrongStatus.length) console.log(`        wrong status: ${wrongStatus.join(", ")}`);
+      });
+    }
+  }
+
+  const summarize = (name: Group) => {
+    if (totals[name].length === 0) return;
+    const sum = sumMetrics(totals[name]);
+    const runMeans = perRun[name].map((list) => (list.length ? sumMetrics(list) : null));
+    const heading = name === "synthetic" ? "Synthetic gold" : `Real-posting gold (${[...realStatus].join(", ")})`;
+    const reasons = [...overByReason[name]].sort((a, b) => b[1] - a[1]).map(([reason, count]) => `${reason} ${count}`).join(", ");
+    console.log(`\n${heading}: ${totals[name].length} scored analyses`);
+    console.log(`  recall     ${percent(sum.recall)} (uncontested ${percent(sum.recallUncontested)}; hidden ${sum.hiddenFound}/${sum.hiddenTotal}); by span ${sum.bySpan}, by name ${sum.byName}`);
+    console.log(`  precision  ${percent(sum.precision)}: ${sum.correct} correct of ${sum.extracted}; ${sum.inventions} invented, ${sum.overExtractions} over-extracted, ${sum.splits} split, ${sum.merges} merged`);
+    if (reasons) console.log(`  over by    ${reasons}`);
+    console.log(`  kind       ${sum.kindCorrect}/${sum.kindTotal} (${percent(sum.kindTotal ? sum.kindCorrect / sum.kindTotal : null)})`);
+    console.log(`  status     ${sum.statusCorrect}/${sum.statusTotal} (${percent(sum.statusTotal ? sum.statusCorrect / sum.statusTotal : null)}), ${sum.statusSevere} met/missing swap(s), ${sum.falseMet} false met, ${sum.notEvidentAsMissing} not-shown called missing`);
+    if (sum.assessableTotal) console.log(`  assessable ${sum.assessableCorrect}/${sum.assessableTotal} agree with the gold`);
+    if (sum.termsTotal) console.log(`  key terms  ${sum.termsNamed}/${sum.termsTotal} gold terms named, ${sum.termsPresenceCorrect} of them judged present or absent correctly`);
+    if (sum.yearsTotal) console.log(`  years      ${sum.yearsDetermined}/${sum.yearsTotal} determined, minimum right ${sum.yearsMinCorrect}, candidate within half a year ${sum.yearsCandidateClose}`);
+    if (sum.preferredEvidenceTotal) console.log(`  evidence   ${sum.preferredEvidenceHit}/${sum.preferredEvidenceTotal} quote the experience line the gold prefers`);
+    console.log(`  per run    recall ${runMeans.map((m) => percent(m?.recall ?? null)).join(" | ")}; precision ${runMeans.map((m) => percent(m?.precision ?? null)).join(" | ")}`);
+    (output as Record<string, unknown>)[`totals_${name}`] = { sum, perRun: runMeans, overByReason: Object.fromEntries(overByReason[name]) };
+  };
+  summarize("synthetic");
+  summarize("real");
+
+  const jsonFile = flags.get("json");
+  if (typeof jsonFile === "string") {
+    await writeJson(jsonFile, output);
+    console.log(`\nWritten ${jsonFile}`);
+  }
+}
+
 // ------------------------------------------------------------- stability
 
 /**
@@ -1028,6 +1522,7 @@ async function stabilityCommand(args: string[]) {
   requireComparable(
     labels.map((label, index) => [label, runs[index]] as const),
     flags.has("force"),
+    { datedPrompt: true },
   );
   const ids = [...new Set(runs.flatMap((run) => [...run.keys()]))].sort();
 
@@ -1121,7 +1616,8 @@ async function loadFixtures(): Promise<Fixture[]> {
       const meta = JSON.parse(
         await readFile(path.join(base, "fixture.json"), "utf8"),
       ) as FixtureMeta;
-      const jobDescription = (await readFile(path.join(base, "job.txt"), "utf8")).trim();
+      // Production never sends a CR: a checkout with core.autocrlf would put one in every line.
+      const jobDescription = lf(await readFile(path.join(base, "job.txt"), "utf8")).trim();
 
       if (!meta.jobTitle?.trim()) fail(`${display(base)}/fixture.json needs a jobTitle.`);
 
@@ -1143,16 +1639,21 @@ async function loadFixtures(): Promise<Fixture[]> {
         fail(`${display(base)}/job.txt exceeds ${MAX_JOB_DESCRIPTION_CHARS} characters.`);
       }
 
+      const { pdf: pdfMeta, ...rest } = meta;
+      const pdfBytes = existsSync(path.join(base, "cv.pdf")) ? new Uint8Array(await readFile(path.join(base, "cv.pdf"))) : undefined;
+      // The CV as production reads it, from the PDF, when the fixture has one; a scan keeps its cv.txt for the refusal.
+      const extracted = pdfBytes && !pdfMeta?.scanned ? await (await import("@/lib/pdfParse")).extractPdfText(pdfBytes) : null;
       fixtures.push({
-        ...meta,
+        ...rest,
         jobTitle: meta.jobTitle.trim(),
         id: source === "local" ? `local-${name}` : name,
         source,
-        cvText: await readFile(path.join(base, "cv.txt"), "utf8"),
-        // Optional: only fixtures built from a real PDF can run the spike.
-        pdf: existsSync(path.join(base, "cv.pdf"))
-          ? new Uint8Array(await readFile(path.join(base, "cv.pdf")))
-          : undefined,
+        cvText: extracted?.text ?? lf(await readFile(path.join(base, "cv.txt"), "utf8")),
+        cvAccentsComposed: extracted?.accentsComposed ?? 0,
+        // Optional: only fixtures holding a PDF can run the PDF arms.
+        pdf: pdfBytes,
+        pdfMeta,
+        gold: await loadGold(base, jobDescription),
         jobDescription,
       });
     }
@@ -1174,4 +1675,9 @@ if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
     console.error(error);
     process.exitCode = 1;
   });
+}
+
+/** Line endings as production has them. */
+function lf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }

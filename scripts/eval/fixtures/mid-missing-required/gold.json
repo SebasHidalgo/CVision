@@ -1,0 +1,92 @@
+{
+  "fixture": "mid-missing-required",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "5+ years of professional backend engineering experience",
+      "spans": ["5+ years of professional backend engineering experience."],
+      "aliases": ["years of backend engineering"],
+      "status": "met",
+      "why": "Eight years on JVM services.",
+      "years": { "min": 5, "cv": 8 }
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "3+ years writing production Python",
+      "spans": ["3+ years writing production Python. This is the language the whole platform is written in, and the team does not have the capacity to support a different runtime.", "We are unable to consider candidates without commercial Python experience for this particular role, as the team is small and everything in production is Python."],
+      "aliases": ["Python", "production Python", "commercial Python"],
+      "status": "missing",
+      "why": "Rule 10: the closing paragraph restates the Python item. The CV has Java, Kotlin, SQL and Bash and no Python.",
+      "years": { "min": 3, "cv": 0 }
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "A cloud provider (AWS, GCP or Azure) in production",
+      "spans": ["Experience with a cloud provider (AWS, GCP or Azure) in production."],
+      "aliases": ["cloud provider", "AWS"],
+      "status": "met",
+      "why": "Runs the ledger service on AWS (ECS, RDS, SQS)."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Relational databases and schema design",
+      "spans": ["Experience with relational databases and schema design."],
+      "aliases": ["relational databases", "schema design"],
+      "status": "met",
+      "why": "PostgreSQL, RDS, ledger and idempotency scheme design."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Being on call for a production service",
+      "spans": ["Experience being on call for a production service."],
+      "aliases": ["on-call", "on call"],
+      "why": "Status omitted: the CV says incident review and leads a production service but never says on call."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Airflow or a comparable orchestrator",
+      "spans": ["Experience with Airflow or a comparable orchestrator."],
+      "aliases": ["Airflow", "orchestrator"],
+      "status": "missing",
+      "why": "No orchestrator in the CV."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "dbt and warehouse modelling",
+      "spans": ["Experience with dbt and warehouse modelling."],
+      "aliases": ["dbt", "warehouse modelling"],
+      "status": "missing",
+      "why": "Neither in the CV."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "Kafka or another streaming platform",
+      "spans": ["Experience with Kafka or another streaming platform."],
+      "aliases": ["Kafka", "streaming"],
+      "status": "met",
+      "why": "Kafka in the infrastructure skills."
+    },
+    {
+      "id": "p4",
+      "kind": "preferred",
+      "name": "Experience in a regulated industry",
+      "spans": ["Experience in a regulated industry."],
+      "aliases": ["regulated industry"],
+      "why": "Status omitted: payments is regulated, but the CV never says so and a reader may not infer it."
+    }
+  ],
+  "notRequirements": [
+    { "span": "The data platform team owns the pipelines that every analytics product in the company reads from.", "reason": "description" },
+    { "span": "Small team, long-lived services, and a strong preference for boring technology.", "reason": "description" },
+    { "span": "Code review is mandatory and design documents precede anything that will outlive a quarter.", "reason": "description" }
+  ]
+}

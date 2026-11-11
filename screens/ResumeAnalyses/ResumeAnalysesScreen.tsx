@@ -4,12 +4,14 @@ import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
 import { fetchVisibleResumes } from "@/lib/database/resume";
 import { formatDate, ordinal } from "@/lib/format";
-import { describeTally, deriveFitVerdict } from "@/lib/schemas/resumeSchema";
-import { FIT_LABEL, TONE_CLASS } from "@/lib/score";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { tallyCopy } from "@/lib/i18n/tally";
+import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
+import { TONE_CLASS, toneKey } from "@/lib/score";
 
 export default async function ResumeAnalysesScreen() {
   // Within the plan's history: Free sees its last three, Pro everything.
-  const { analyses, hidden } = await fetchVisibleResumes();
+  const [{ analyses, hidden }, t, common, locale] = await Promise.all([fetchVisibleResumes(), getT("analysis"), getT("common"), getLocale()]);
 
   // Rows whose stored feedback no longer matches the schema come back with
   // null feedback and have no verdict to derive.
@@ -23,19 +25,19 @@ export default async function ResumeAnalysesScreen() {
   return (
     <div className="wrap py-12 lg:py-16">
       <PageIntro
-        eyebrow="Your analyses"
-        title="Every CV you have measured."
+        eyebrow={t("list.eyebrow")}
+        title={t("list.title")}
         aside={
           analyses.length > 0 && (
             <dl className="flex gap-10 md:gap-14">
               <div>
-                <dt className="eyebrow">Analyses</dt>
+                <dt className="eyebrow">{t("list.count")}</dt>
                 <dd className="figure mt-3 text-5xl text-ink">
                   {analyses.length}
                 </dd>
               </div>
               <div>
-                <dt className="eyebrow">Strong fits</dt>
+                <dt className="eyebrow">{t("list.strongFits")}</dt>
                 <dd className="figure mt-3 flex items-baseline gap-1.5 text-5xl text-ink">
                   {strongCount}
                   <span className="eyebrow">/{analyses.length}</span>
@@ -48,9 +50,9 @@ export default async function ResumeAnalysesScreen() {
 
       {analyses.length === 0 && hidden === 0 ? (
         <EmptyState
-          title="Nothing measured yet."
-          body="Paste a job post, upload your CV, and this page becomes the record of how each application stacks up."
-          action={{ href: "/resume/upload", label: "Start your first analysis" }}
+          title={t("list.emptyTitle")}
+          body={t("list.emptyBody")}
+          action={{ href: "/resume/upload", label: t("list.emptyAction") }}
         />
       ) : (
         <ol className="divide-y divide-line border-b border-line">
@@ -64,23 +66,21 @@ export default async function ResumeAnalysesScreen() {
                 href={verdict ? `/resume/analysis/${analysis.id}` : undefined}
                 title={analysis.companyName}
                 subtitle={analysis.jobTitle}
-                meta={formatDate(analysis.createdAt)}
+                meta={formatDate(analysis.createdAt, locale)}
                 reading={
                   verdict ? (
                     <div className="sm:text-right">
                       <p
                         className={`text-lg font-medium ${TONE_CLASS[verdict.tone].text}`}
                       >
-                        {FIT_LABEL[verdict.tone]}
+                        {common(toneKey("fit", verdict.tone))}
                       </p>
                       <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-                        {describeTally(verdict.tally)}
+                        {tallyCopy(common, verdict.tally)}
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-signal">
-                      We couldn&apos;t read this analysis. Run it again.
-                    </p>
+                    <p className="text-sm text-signal">{t("list.unreadable")}</p>
                   )
                 }
               />

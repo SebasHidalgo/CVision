@@ -2,8 +2,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
+import I18nProvider from "@/components/providers/I18nProvider";
+import { pickResources } from "@/lib/i18n/resources";
 import { createCheckoutAction } from "./actions/createCheckoutAction";
-import CheckoutButton, { PAID_RESET_MS } from "./CheckoutButton";
+// The client component itself: CheckoutButton is its server wrapper, which only sends the billing namespace.
+import CheckoutButton, { PAID_RESET_MS } from "./CheckoutButtonClient";
 import { openCheckout, paddleEnvironmentOf, type CheckoutOutcome } from "./paddle/paddleCheckout";
 
 const push = vi.fn();
@@ -40,16 +43,36 @@ describe("CheckoutButton", () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/account/billing?activating=interview_pack&txn=${TXN}`));
     expect(createCheckoutAction).toHaveBeenCalledWith({ item: "interview_pack" });
-    expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", { signal: expect.any(AbortSignal), onLoaded: expect.any(Function) });
+    // In the interface's language: the test instance is English.
+    expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", "en", { signal: expect.any(AbortSignal), onLoaded: expect.any(Function) });
     // Paid, not "opening": the label says so until the page takes over.
     expect(button().textContent).toMatch(/Payment received/);
     expect(button()).toHaveProperty("disabled", true);
   });
 
+  it("opens the overlay in the interface's language, and says it is opening in that language", async () => {
+    let settle: (outcome: CheckoutOutcome) => void = () => {};
+    vi.mocked(openCheckout).mockImplementationOnce(() => new Promise((resolve) => (settle = resolve)));
+    render(
+      <I18nProvider locale="es" resources={pickResources("es", ["common", "errors", "billing"])}>
+        <CheckoutButton item="interview_pack" label="Comprar 4 entrevistas más · USD 9" />
+      </I18nProvider>,
+    );
+    fireEvent.click(button());
+    await waitFor(() => expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", "es", expect.any(Object)));
+    expect(button().textContent).toBe("Abriendo el pago…");
+
+    await act(async () => {
+      settle("closed");
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(button().textContent).toBe("Comprar 4 entrevistas más · USD 9"));
+  });
+
   it("says it is opening only until the overlay is up, then sits disabled under its own label while the overlay is in front", async () => {
     let settle: (outcome: CheckoutOutcome) => void = () => {};
     let loaded: (() => void) | undefined;
-    vi.mocked(openCheckout).mockImplementationOnce((_id, _theme, options) => {
+    vi.mocked(openCheckout).mockImplementationOnce((_id, _theme, _locale, options) => {
       loaded = options?.onLoaded;
       return new Promise((resolve) => (settle = resolve));
     });
@@ -123,7 +146,7 @@ describe("CheckoutButton", () => {
   it("drops the outcome of an overlay whose button went away, and resets when the page comes back from the cache", async () => {
     let settle: (outcome: CheckoutOutcome) => void = () => {};
     let aborted = false;
-    vi.mocked(openCheckout).mockImplementationOnce((_id, _theme, options) => {
+    vi.mocked(openCheckout).mockImplementationOnce((_id, _theme, _locale, options) => {
       options?.signal?.addEventListener("abort", () => (aborted = true));
       return new Promise((resolve) => (settle = resolve));
     });

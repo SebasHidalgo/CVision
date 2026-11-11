@@ -5,6 +5,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "PDF_UNREADABLE"
   | "PDF_NO_TEXT"
+  | "PDF_SCANNED"
   // The upload, which goes from the browser straight to storage.
   | "NOT_A_PDF"
   | "FILE_TOO_LARGE"
@@ -14,6 +15,7 @@ export type ErrorCode =
   | "AI_UNAVAILABLE"
   | "AI_RATE_LIMITED"
   | "AI_MISCONFIGURED"
+  | "AI_BILLING"
   | "AI_CONTENT_BLOCKED"
   | "AI_BAD_FORMAT"
   // Voice session (ElevenLabs): the interview room's equivalent of AI_*.
@@ -87,10 +89,17 @@ export class PdfUnreadableError extends AppError {
   }
 }
 
-/** The PDF opened but has too little text to be a CV, as with a scan. */
+/** The PDF opened but has too little text to be a CV, and no page is an image. */
 export class PdfNoTextError extends AppError {
   constructor(message = "PDF has no extractable text") {
     super("PDF_NO_TEXT", message);
+  }
+}
+
+/** Too little text, and at least one page that is an image with no text: a scan. */
+export class PdfScannedError extends AppError {
+  constructor(message = "PDF is a scanned image") {
+    super("PDF_SCANNED", message);
   }
 }
 
@@ -152,6 +161,13 @@ export class AiRateLimitedError extends AppError {
 export class AiMisconfiguredError extends AppError {
   constructor(message = "AI provider misconfigured", options?: ErrorOptions) {
     super("AI_MISCONFIGURED", message, options);
+  }
+}
+
+/** The provider account is out of balance or over its spend cap (HTTP 402): an operator problem, not the user's. */
+export class AiBillingError extends AppError {
+  constructor(message = "AI provider billing exhausted", options?: ErrorOptions) {
+    super("AI_BILLING", message, options);
   }
 }
 

@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import TranslationNotice from "@/components/i18n/TranslationNotice";
+import TranslationPending from "@/components/i18n/TranslationPending";
+import { localizedFeedback } from "@/lib/ai/contentTranslation";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import {
   fetchFeedbackByInterviewId,
@@ -9,13 +12,16 @@ import {
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
 import { isStranded } from "@/lib/elevenlabs/postCall";
 import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import { fetchResumeById } from "@/lib/database/resume";
 import { formatLongDate } from "@/lib/format";
+import { getLocale } from "@/lib/i18n/server";
 import AttemptNotScored from "./components/AttemptNotScored";
 import FeedbackFailed from "./components/FeedbackFailed";
 import FeedbackPending from "./components/FeedbackPending";
 import FeedbackReport from "./components/FeedbackReport";
 import FeedbackUnavailable from "./components/FeedbackUnavailable";
 import InterviewMayBeLive from "./components/InterviewMayBeLive";
+import { translateFeedbackAction } from "./actions/translateFeedbackAction";
 import { decideFeedbackView } from "./utils/feedbackView";
 
 type InterviewFeedbackScreenProps = {
@@ -26,11 +32,14 @@ type InterviewFeedbackScreenProps = {
    * interview is shown as "saving" and polled instead of bounced to the room.
    */
   justEnded: boolean;
+  /** Show the original prose without asking for a translation (after a translation call never got through). */
+  original?: boolean;
 };
 
 export default async function InterviewFeedbackScreen({
   interviewId,
   justEnded,
+  original = false,
 }: InterviewFeedbackScreenProps) {
   // Already scoped to the owner: another user's interview comes back null.
   const found = await fetchInterviewById(interviewId);
@@ -67,7 +76,8 @@ export default async function InterviewFeedbackScreen({
   );
   if (view.kind === "room") redirect(`/interview/${interview.id}`);
 
-  const date = formatLongDate(interview.createdAt);
+  const locale = await getLocale();
+  const date = formatLongDate(interview.createdAt, locale);
   const seen = {
     status: interview.status,
     hasFeedback: false,
@@ -142,7 +152,25 @@ export default async function InterviewFeedbackScreen({
         fetchInterviewTranscript(interview.id),
       ]);
       if (!feedback) return <FeedbackUnavailable role={interview.role} date={date} />;
-      return <FeedbackReport feedback={feedback} transcript={transcript} date={date} />;
+      // The model's prose from its stored translation; code-made words come from the locale files.
+      const analysis = locale !== "en" && interview.resumeAnalysisId ? await fetchResumeById(interview.resumeAnalysisId) : null;
+      const { report, state } = await localizedFeedback(
+        {
+          id: feedback.id,
+          report: feedback.report,
+          role: feedback.role,
+          analysis: analysis?.feedback ? { id: analysis.id, companyName: analysis.companyName, jobTitle: analysis.jobTitle, feedback: analysis.feedback } : null,
+        },
+        locale,
+        { original },
+      );
+      if (state === "pending") return <TranslationPending translate={translateFeedbackAction} input={{ interviewId: interview.id }} />;
+      return (
+        <>
+          <TranslationNotice state={state} className="wrap mt-8" />
+          <FeedbackReport feedback={{ ...feedback, report }} transcript={transcript} date={date} />
+        </>
+      );
     }
   }
 }

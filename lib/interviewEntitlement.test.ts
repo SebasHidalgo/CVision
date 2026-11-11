@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_SECONDS, decideEntitlement, PAID_BY_SOURCE, sourceCopy, sourceOfPaidBy, tierOfAgent, USAGE_KIND_BY_SOURCE, type EntitlementFacts } from "./interviewEntitlement";
+import { AGENT_SECONDS, decideEntitlement, PAID_BY_SOURCE, sourceOfPaidBy, tierOfAgent, USAGE_KIND_BY_SOURCE, type EntitlementFacts } from "./interviewEntitlement";
 import { INTERVIEW_TIERS, PLANS } from "./plans";
 
 const PERIOD_END = new Date("2026-11-05T00:00:00Z");
@@ -62,8 +62,5 @@ describe("decideEntitlement: the one answer to which interview the next start ge
     expect(tierOfAgent("trial")).toBe("TRIAL");
     expect(sourceOfPaidBy("CREDIT")).toBe("credit");
     expect(sourceOfPaidBy(null)).toBeNull();
-    expect(sourceCopy("credit")).toBe("Uses one credit.");
-    expect(sourceCopy("trial")).toMatch(/free trial/);
-    expect(sourceCopy("none")).toBeNull();
   });
 });

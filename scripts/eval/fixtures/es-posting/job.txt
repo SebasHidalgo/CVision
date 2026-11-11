@@ -1,0 +1,29 @@
+Analista de Datos Senior
+Mercado Verde Online · Madrid (híbrido) · Jornada completa
+
+Sobre el puesto
+Mercado Verde Online vende productos frescos a domicilio en ocho ciudades españolas. El equipo de Datos da servicio a operaciones, marketing y finanzas. Buscamos un/a Analista de Datos Senior para liderar el reporting comercial y los experimentos de producto.
+
+Qué harás
+- Diseñar y mantener los cuadros de mando de ventas, márgenes y devoluciones.
+- Analizar pruebas A/B del embudo de compra y presentar conclusiones a producto.
+- Definir y documentar las métricas de negocio junto a finanzas.
+- Acompañar al equipo de ciencia de datos en la previsión de demanda.
+
+Requisitos
+- Al menos 4 años de experiencia como analista de datos o de negocio.
+- Dominio de SQL y experiencia con un almacén de datos en la nube (BigQuery o Snowflake).
+- Python para análisis (pandas) o R.
+- Conocimientos de Airflow o disposición para aprenderlo.
+- Experiencia con una herramienta de BI, preferiblemente Power BI o Looker.
+- Base sólida de estadística y diseño de experimentos.
+- Español nativo o C2 e inglés profesional.
+- Grado en Estadística, Matemáticas, Economía o disciplina afín, o experiencia equivalente.
+
+Valoramos
+- Experiencia en comercio electrónico o retail.
+- Conocimiento de dbt o de modelado dimensional.
+- Portugués.
+
+Ofrecemos
+Contrato indefinido, 23 días de vacaciones, presupuesto de formación y dos días de teletrabajo a la semana. Salario entre 42.000 y 50.000 euros brutos anuales según experiencia.

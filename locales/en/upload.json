@@ -1,0 +1,79 @@
+{
+  "intro": {
+    "eyebrow": "New analysis",
+    "title": "Measure your CV against one job.",
+    "lede": "One posting, one PDF. The verdict is back in seconds."
+  },
+  "notes": {
+    "company": {
+      "title": "Company and title",
+      "body": "They name this analysis and frame the mock interview later."
+    },
+    "description": {
+      "title": "The description",
+      "body": "Paste all of it: requirements, responsibilities, nice-to-haves. The fuller the posting, the sharper the reading."
+    },
+    "cv": {
+      "title": "Your CV",
+      "body": "A PDF with a text layer, not a scan. It stays attached to the analysis so you can revisit it."
+    }
+  },
+  "form": {
+    "company": "Company",
+    "companyPlaceholder": "Northwind",
+    "jobTitle": "Job title",
+    "jobTitlePlaceholder": "Frontend Engineer",
+    "jobDescription": "Job description",
+    "jobDescriptionPlaceholder": "Paste the full posting: responsibilities, requirements, nice-to-haves.",
+    "cv": "Your CV",
+    "idle": "Runs while you wait · takes seconds",
+    "submit": "Run the analysis",
+    "quota_one": "{{count}} of {{limit}} analysis left this month · resets {{date}}",
+    "quota_other": "{{count}} of {{limit}} analyses left this month · resets {{date}}"
+  },
+  "validation": {
+    "fileRequired": "A file is required",
+    "companyRequired": "Company name is required",
+    "jobTitleRequired": "Job title is required",
+    "jobDescriptionRequired": "Job description is required",
+    "jobDescriptionTooLong": "Job description is too long",
+    "onlyPdf": "Only PDF files are allowed",
+    "fileEmpty": "The file is empty",
+    "fileTooLarge": "The file is larger than {{size}}",
+    "invalid": "Check this field."
+  },
+  "file": {
+    "details": "{{size}} · PDF",
+    "remove": "Remove",
+    "dropHere": "Drop it here",
+    "dropOrChoose": "Drop your CV here, or click to choose it",
+    "limits": "PDF · up to {{size}}",
+    "rejected": {
+      "tooLarge": "That file is over {{size}}. Export it again with compressed images and upload that.",
+      "tooMany": "Drop one file at a time.",
+      "notPdf": "Only PDF files are accepted."
+    }
+  },
+  "size": {
+    "bytes": "{{value}} Bytes",
+    "kb": "{{value}} KB",
+    "mb": "{{value}} MB",
+    "gb": "{{value}} GB",
+    "tb": "{{value}} TB"
+  },
+  "progress": {
+    "uploading": "Uploading",
+    "analyzing": "Analyzing",
+    "sending": "Sending your CV to storage",
+    "sendingWithSize": "Sending your CV to storage · {{size}}",
+    "uploadNote": "The analysis starts the moment it lands. Keep this tab open.",
+    "analysisNote": "Usually ready in seconds. Keep this tab open.",
+    "stages": {
+      "reading": "Reading the text layer of your PDF",
+      "comparing": "Comparing it with the posting, requirement by requirement",
+      "scoring": "Scoring six dimensions",
+      "writing": "Writing the verdict and the priority fixes",
+      "slow": "Still working. Thoroughness takes a moment"
+    }
+  }
+}

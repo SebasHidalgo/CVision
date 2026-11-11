@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { aiScoreSchema } from "@/lib/ai/schemas";
+import { sentencesSchema } from "@/lib/ai/sentences";
 import type { ScoreTone } from "@/lib/score";
 import { RESUME_KEY_PATTERN } from "@/lib/supabase/resumeKey";
-import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
+import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 
 export const MAX_COMPANY_NAME_CHARS = 100;
 export const MAX_JOB_TITLE_CHARS = 120;
@@ -12,26 +13,27 @@ export const MAX_JOB_DESCRIPTION_CHARS = 8000;
 // a global.
 const fileSchema = z.custom<File>(
   (value) => typeof File !== "undefined" && value instanceof File,
-  { message: "A file is required" },
+  { message: "validation.fileRequired" },
 );
 
+// Messages are keys of the upload namespace: the form translates them; the action only returns a code.
 /** The posting's text fields, shared by the form and the action. */
 const resumeDetailsSchema = z.object({
   companyName: z
     .string()
     .trim()
-    .min(1, "Company name is required")
+    .min(1, "validation.companyRequired")
     .max(MAX_COMPANY_NAME_CHARS),
   jobTitle: z
     .string()
     .trim()
-    .min(1, "Job title is required")
+    .min(1, "validation.jobTitleRequired")
     .max(MAX_JOB_TITLE_CHARS),
   jobDescription: z
     .string()
     .trim()
-    .min(1, "Job description is required")
-    .max(MAX_JOB_DESCRIPTION_CHARS, "Job description is too long"),
+    .min(1, "validation.jobDescriptionRequired")
+    .max(MAX_JOB_DESCRIPTION_CHARS, "validation.jobDescriptionTooLong"),
 });
 
 export type ResumeDetails = z.infer<typeof resumeDetailsSchema>;
@@ -45,10 +47,11 @@ export const createResumeInputSchema = resumeDetailsSchema.extend({
   resume: fileSchema
     .refine(
       (file) => file.type === "application/pdf",
-      "Only PDF files are allowed",
+      "validation.onlyPdf",
     )
-    .refine((file) => file.size > 0, "The file is empty")
-    .refine((file) => file.size <= MAX_RESUME_BYTES, `The file is larger than ${MAX_RESUME_SIZE_LABEL}`),
+    .refine((file) => file.size > 0, "validation.fileEmpty")
+    // The form fills {{size}} with MAX_RESUME_SIZE_LABEL.
+    .refine((file) => file.size <= MAX_RESUME_BYTES, "validation.fileTooLarge"),
 });
 
 export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;
@@ -87,21 +90,55 @@ const evidenceSectionBase = {
  */
 const lowerEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.preprocess(
-    (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+    // "Not evident" and "not-evident" arrive too.
+    (value) => (typeof value === "string" ? value.trim().toLowerCase().replace(/[\s-]+/g, "_") : value),
     z.enum(values),
   );
 
 export const REQUIREMENT_KINDS = ["required", "preferred"] as const;
-export const REQUIREMENT_STATUSES = ["met", "partial", "missing"] as const;
+/** `not_evident`: a CV cannot show it (an attitude, a condition); it never counts against the verdict. */
+export const REQUIREMENT_STATUSES = ["met", "partial", "missing", "not_evident"] as const;
+/** Where in the posting a requirement's source text sits. */
+export const POSTING_SECTIONS = ["requirements", "preferred", "responsibilities", "description", "other"] as const;
+
+/** `all`: the requirement needs every term; `any`: alternatives or examples, one is enough. */
+export const KEY_TERM_MODES = ["all", "any"] as const;
+/** How a CV word relates to the term it shows; `related` and `none` never count (M8-H). */
+export const KEY_TERM_RELATIONS = ["same", "synonym", "abbreviation", "translation", "related", "none"] as const;
+/** The CV section an evidence quote sits in, derived in code. */
+export const EVIDENCE_SOURCES = ["experience", "projects", "skills", "summary", "education", "other"] as const;
 
 export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
+export type PostingSection = (typeof POSTING_SECTIONS)[number];
+export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
+
+/** A term the requirement names, verbatim from its sourceQuote, and the CV word that shows it ("" when none). */
+const keyTermsSchema = z.object({
+  mode: lowerEnum(KEY_TERM_MODES),
+  // Optional: analyses stored before M8-H do not have it.
+  terms: z.array(z.object({ term: z.string(), cvMatch: z.string(), relation: lowerEnum(KEY_TERM_RELATIONS).optional() })),
+});
+
+export type KeyTerms = z.infer<typeof keyTermsSchema>;
+
+// A missing or unknown relation reads as "none": the match it came with does not count.
+const relationSchema = z.preprocess((value) => {
+  const relation = typeof value === "string" ? value.trim().toLowerCase() : value;
+  return (KEY_TERM_RELATIONS as readonly unknown[]).includes(relation) ? relation : "none";
+}, z.enum(KEY_TERM_RELATIONS));
+
+/** The model's key terms: every term says how its CV word relates to it, right after the word. */
+const modelKeyTermsSchema = z.object({
+  mode: lowerEnum(KEY_TERM_MODES),
+  terms: z.array(z.object({ term: z.string(), cvMatch: z.string(), relation: relationSchema })),
+});
 
 /**
  * One requirement from the posting, with how the resume answers it. This is
  * the unit the analysis is built on, and the reason is measured: while the
  * output asked for "missing keywords", every alternative in a list like
- * "C, C++, C#, Java, JavaScript, or Python" read as its own gap, and five
+ * "Python, Java, JavaScript, C, C++, or C#" read as its own gap, and five
  * phrasings of a rule telling the model otherwise never fixed it. One
  * requirement that any single alternative satisfies leaves the error nowhere
  * to live.
@@ -112,10 +149,62 @@ const requirementSchema = z.object({
   status: lowerEnum(REQUIREMENT_STATUSES),
   /** Verbatim from the resume, or empty when there is nothing to quote. */
   evidence: z.string(),
+  /** The model's note; "" when code wrote it (noteSentences). */
   note: z.string(),
+  /** A note code wrote, as data rendered per language; absent when the model's note stands or the row predates it. */
+  noteSentences: sentencesSchema.optional(),
+  // Optional: analyses stored before M8-B do not have them.
+  /** Verbatim from the posting, checked in code. */
+  sourceQuote: z.string().optional(),
+  section: lowerEnum(POSTING_SECTIONS).optional(),
+  /** False when no CV could show it; absent reads as true. */
+  assessable: z.boolean().optional(),
+  // Optional: analyses stored before M8-C do not have them.
+  keyTerms: keyTermsSchema.optional(),
+  evidenceSource: lowerEnum(EVIDENCE_SOURCES).optional(),
+  /** Met or partial on the skills list alone: no experience or project line shows its terms. */
+  skillsOnly: z.boolean().optional(),
+  /** Met or partial on the summary alone (M8-F): no experience or project line shows it. */
+  summaryOnly: z.boolean().optional(),
+  /** The years rule's inputs, when the posting asks for a number of years and the CV shows one. */
+  years: z
+    .object({ min: z.number(), candidate: z.number(), source: z.enum(["statement", "dates"]) })
+    .optional(),
 });
 
 export type Requirement = z.infer<typeof requirementSchema>;
+
+/** The model's form of a requirement, every field required; requirementGuardrails.ts turns it into a `Requirement`. */
+export const modelRequirementSchema = z.object({
+  sourceQuote: z.string(),
+  heading: z.string(),
+  section: lowerEnum(POSTING_SECTIONS),
+  demandsCapability: z.boolean(),
+  requirement: z.string(),
+  softenedClause: z.object({
+    quote: z.string(),
+    status: lowerEnum(REQUIREMENT_STATUSES),
+    evidence: z.string(),
+    note: z.string(),
+  }),
+  keyTerms: modelKeyTermsSchema,
+  kind: lowerEnum(REQUIREMENT_KINDS),
+  assessable: z.boolean(),
+  yearsEvidence: z.array(z.string()),
+  evidence: z.string(),
+  status: lowerEnum(REQUIREMENT_STATUSES),
+  note: z.string(),
+});
+
+export type ModelRequirement = z.infer<typeof modelRequirementSchema>;
+
+/** One repair entry: a new requirement (detailOf 0), or a detail of listed requirement N, decided first. */
+export const repairEntrySchema = z.object({ detailOf: z.number().int(), ...modelRequirementSchema.shape });
+
+export type RepairEntry = z.infer<typeof repairEntrySchema>;
+
+/** The repair call's answer: entries for the qualification lines the analysis skipped. */
+export const requirementRepairSchema = z.object({ requirements: z.array(repairEntrySchema) });
 
 /** A measured outcome the resume already states, and the line it comes from. */
 const quantifiedAchievementSchema = z.object({
@@ -141,7 +230,10 @@ export const resumeFeedbackSchema = z.object({
     // its own anchor put at 50-69. `deriveFitVerdict` computes it instead, the
     // same move that fixed the date anchor: compute the fact, do not ask.
     qualityScore: scoreSchema,
+    /** The model's summary; on rows with `headline`, without the headline code wrote before it. */
     summaryText: z.string(),
+    /** The first sentences, from the statuses, as data rendered per language; absent on rows stored before it. */
+    headline: sentencesSchema.optional(),
     prioritizedFixes: z.array(
       z.object({
         title: z.string(),
@@ -185,7 +277,7 @@ export const resumeFeedbackSchema = z.object({
     ...sectionBase,
     highlights: z.array(z.string()),
     improvements: z.array(z.string()),
-    recommendedCerts: z.array(z.string()),
+    // recommendedCerts is gone (M8-D: the model invented certifications); a stored row's copy is stripped on read.
   }),
 
   // No score, and before it no readability number. Readability went first
@@ -204,13 +296,42 @@ export const resumeFeedbackSchema = z.object({
   // No score of its own: the verdict is derived from the breakdown below, so a
   // number here could only disagree with it.
   jobFit: z.object({
+    // On rows with `outcomes`, only the model's prose that survived the outcome filter.
     ...evidenceSectionBase,
+    /** The outcome sentences that open the description, as data rendered per language; absent on rows stored before it. */
+    outcomes: sentencesSchema.optional(),
     requirements: z.array(requirementSchema),
     strategicRecommendations: z.array(z.string()),
   }),
 });
 
 export type ResumeAnalysisFeedback = z.infer<typeof resumeFeedbackSchema>;
+
+/** The model's answer: the stored shape with each requirement in its model form. */
+// Declaration order is generation order: the requirements before any text about them.
+export const analysisResponseSchema = z.object({
+  jobFit: z.object({
+    requirements: z.array(modelRequirementSchema),
+    description: resumeFeedbackSchema.shape.jobFit.shape.description,
+    strategicRecommendations: resumeFeedbackSchema.shape.jobFit.shape.strategicRecommendations,
+  }),
+  // The model writes no headline: code does, after the statuses.
+  overall: resumeFeedbackSchema.shape.overall.omit({ headline: true }),
+  // Each problem with the resume text that shows it, quote first; code keeps only quotes the CV has.
+  atsCompatibility: z.object({
+    description: z.string(),
+    encodingArtifacts: z.array(z.string()),
+    sectionsDetected: z.array(z.string()),
+    issues: z.array(z.object({ quote: z.string(), problem: z.string(), fix: z.string() })),
+    evidence: z.array(z.string()),
+  }),
+  experienceAndImpact: resumeFeedbackSchema.shape.experienceAndImpact,
+  skills: resumeFeedbackSchema.shape.skills,
+  educationAndCertifications: resumeFeedbackSchema.shape.educationAndCertifications,
+  toneAndClarity: resumeFeedbackSchema.shape.toneAndClarity,
+});
+
+export type AnalysisResponse = z.infer<typeof analysisResponseSchema>;
 
 /** Requirements of one kind, in the order the model listed them. */
 export function requirementsOfKind(
@@ -229,10 +350,13 @@ export function requirementsOfKind(
 export function requirementTally(feedback: ResumeAnalysisFeedback) {
   const count = (kind: RequirementKind) => {
     const all = requirementsOfKind(feedback, kind);
+    // What a CV cannot show is reported beside the counts, never inside them.
+    const judged = all.filter((requirement) => requirement.status !== "not_evident");
     return {
-      total: all.length,
-      met: all.filter((requirement) => requirement.status === "met").length,
-      partial: all.filter((requirement) => requirement.status === "partial").length,
+      total: judged.length,
+      met: judged.filter((requirement) => requirement.status === "met").length,
+      partial: judged.filter((requirement) => requirement.status === "partial").length,
+      notShown: all.length - judged.length,
     };
   };
 
@@ -277,6 +401,8 @@ export type FitVerdict = {
  * Partial counts as half a preferred item and as not-met for a required one,
  * which is why one partial required is tolerated and two are not.
  *
+ * A `not_evident` requirement is in neither count: a CV cannot show it.
+ *
  * Derived on read, never stored: a stored copy could drift from the breakdown
  * it describes, and this cannot. Given a correct breakdown it is correct by
  * construction, which moves the measurement to the eleven assertions that
@@ -290,7 +416,7 @@ export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
   // read it as "nothing unmet, nothing to differentiate on" and return the
   // best one. A posting that yielded no requirements is an extraction failure,
   // and it must not surface as a confident pass.
-  if (required.total === 0) return { tone: "weak", tally };
+  if (required.total + required.notShown === 0) return { tone: "weak", tally };
 
   const barCleared =
     required.total - required.met - required.partial === 0 && required.partial <= 1;
@@ -308,6 +434,7 @@ export function deriveFitVerdict(feedback: ResumeAnalysisFeedback): FitVerdict {
 export function describeTally(tally: RequirementTally): string {
   const part = (label: string, count: RequirementTally["required"]) =>
     `${count.met} of ${count.total} ${label}${count.partial ? ` (+${count.partial} partial)` : ""}`;
+  const notShown = tally.required.notShown + tally.preferred.notShown;
 
-  return `${part("required", tally.required)}, ${part("preferred", tally.preferred)}`;
+  return `${part("required", tally.required)}, ${part("preferred", tally.preferred)}${notShown ? `, ${notShown} not shown in your CV` : ""}`;
 }

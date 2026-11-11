@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { emptyGuardReport } from "@/lib/ai/analysisGuardrails";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume } from "@/lib/database/resume";
 import { refundUsage, reserveUsage } from "@/lib/database/usage";
 import {
+  AiBillingError,
   AiRateLimitedError,
   AiUnavailableError,
   AnalysisQuotaExceededError,
@@ -11,9 +15,11 @@ import {
   PdfUnreadableError,
   RateLimitedError,
 } from "@/lib/error/errors";
-import { extractTextFromPDFBytes } from "@/lib/pdfParse";
+import { extractPdfText } from "@/lib/pdfParse";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
+import { translateAnalysis } from "@/lib/ai/contentTranslation";
+import { getLocale } from "@/lib/i18n/server";
 import { analyzeResumeAction } from "./analyzeResumeAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -23,10 +29,12 @@ vi.mock("@/lib/database/usage", () => ({ reserveUsage: vi.fn(), refundUsage: vi.
 vi.mock("@/lib/supabase/server", () => ({ downloadObject: vi.fn(), removeObject: vi.fn(async () => true) }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
-  return { ...actual, extractTextFromPDFBytes: vi.fn() };
+  return { ...actual, extractPdfText: vi.fn() };
 });
 vi.mock("@/lib/ai/resumeAnalysis", () => ({ analyzeResume: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => "resume_1") }));
+vi.mock("@/lib/i18n/server", () => ({ getLocale: vi.fn(async () => "en") }));
+vi.mock("@/lib/ai/contentTranslation", () => ({ translateAnalysis: vi.fn(async () => "ready") }));
 
 const OWN_KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
 const OTHER_OWN_KEY = "cv/user_1/22222222-2222-4333-8444-555555555555.pdf";
@@ -57,17 +65,19 @@ beforeEach(() => {
   vi.mocked(refundUsage).mockResolvedValue(true);
   vi.mocked(createResume).mockImplementation(async (data) => data.id);
   vi.mocked(downloadObject).mockResolvedValue(pdfBytes());
-  vi.mocked(extractTextFromPDFBytes).mockResolvedValue("Jane Doe. Frontend engineer.");
+  vi.mocked(extractPdfText).mockResolvedValue({ text: "Jane Doe. Frontend engineer.", accentsComposed: 0 });
   vi.mocked(analyzeResume).mockResolvedValue({
     feedback: {} as never,
     resumeText: { chars: 10, charsSent: 10, truncated: false },
     guard: {
       violations: [{ check: "evidence-grounding", path: "skills.matchedSkills[0].evidence", value: "x" }] as never,
       interventions: [{ check: "evidence-grounding", action: "quote-dropped", path: "skills.matchedSkills[0].evidence", value: "x" }],
-      counts: { "quote-dropped": 1, "quote-normalized": 0, "number-placeheld": 0, "bullet-dropped": 0, recorded: 0 },
+      counts: { ...emptyGuardReport().counts, "quote-dropped": 1 },
     },
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.mocked(getLocale).mockResolvedValue("en");
+  vi.mocked(translateAnalysis).mockResolvedValue("ready");
 });
 
 describe("analyzeResumeAction: the key and the unit", () => {
@@ -152,10 +162,10 @@ describe("analyzeResumeAction: every failure refunds", () => {
     vi.mocked(downloadObject).mockResolvedValueOnce(new TextEncoder().encode("PK\u0003\u0004 a docx renamed"));
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "NOT_A_PDF" });
 
-    vi.mocked(extractTextFromPDFBytes).mockRejectedValueOnce(new PdfNoTextError());
+    vi.mocked(extractPdfText).mockRejectedValueOnce(new PdfNoTextError());
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_NO_TEXT" });
 
-    vi.mocked(extractTextFromPDFBytes).mockRejectedValueOnce(new PdfUnreadableError());
+    vi.mocked(extractPdfText).mockRejectedValueOnce(new PdfUnreadableError());
     expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_UNREADABLE" });
 
     vi.mocked(downloadObject).mockResolvedValueOnce(pdfBytes(MAX_RESUME_BYTES + 1));
@@ -173,9 +183,22 @@ describe("analyzeResumeAction: every failure refunds", () => {
     expect(analyzeResume).not.toHaveBeenCalled();
   });
 
+  it("refuses the scanned-cv fixture with PDF_SCANNED through the real parser: unit refunded, object deleted, no model call", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/pdfParse")>("@/lib/pdfParse");
+    const scan = new Uint8Array(readFileSync(path.join(process.cwd(), "scripts/eval/fixtures/scanned-cv/cv.pdf")));
+    vi.mocked(downloadObject).mockResolvedValueOnce(scan);
+    vi.mocked(extractPdfText).mockImplementationOnce(actual.extractPdfText);
+
+    expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "PDF_SCANNED" });
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "PDF_SCANNED");
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
+    expect(analyzeResume).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["the model is down", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiUnavailableError()), "AI_UNAVAILABLE"],
     ["the model is rate-limited", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiRateLimitedError()), "AI_RATE_LIMITED"],
+    ["the model account is out of balance", () => vi.mocked(analyzeResume).mockRejectedValueOnce(new AiBillingError()), "AI_BILLING"],
     ["the object never arrived", () => vi.mocked(downloadObject).mockResolvedValueOnce(null), "UPLOAD_FAILED"],
     ["the row cannot be written", () => vi.mocked(createResume).mockRejectedValueOnce(new Error("connection reset")), "UNKNOWN"],
   ])("refunds the unit with the code when %s", async (_, arrange, code) => {
@@ -205,6 +228,30 @@ describe("analyzeResumeAction: after the download", () => {
 
   it("keeps the object once the row points at it", async () => {
     await analyzeResumeAction(input());
+    expect(removeObject).not.toHaveBeenCalled();
+  });
+});
+
+describe("analyzeResumeAction: the interface language", () => {
+  it("translates a saved analysis for a Spanish interface, once, after the row exists", async () => {
+    vi.mocked(getLocale).mockResolvedValue("es");
+    const result = await analyzeResumeAction(input());
+    expect(result.ok).toBe(true);
+    const resumeId = vi.mocked(createResume).mock.calls[0][0].id;
+    expect(translateAnalysis).toHaveBeenCalledWith("user_1", expect.objectContaining({ id: resumeId, companyName: "Northwind", jobTitle: "Frontend Engineer" }), "es", expect.any(Number));
+    expect(vi.mocked(createResume).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(translateAnalysis).mock.invocationCallOrder[0]);
+  });
+
+  it("never translates English, and a translation problem never fails a saved analysis", async () => {
+    await analyzeResumeAction(input());
+    expect(translateAnalysis).not.toHaveBeenCalled();
+
+    vi.mocked(getLocale).mockResolvedValue("es");
+    vi.mocked(translateAnalysis).mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await analyzeResumeAction(input());
+    expect(result.ok).toBe(true);
+    expect(refundUsage).not.toHaveBeenCalled();
     expect(removeObject).not.toHaveBeenCalled();
   });
 });

@@ -17,7 +17,7 @@ const CV = [
   "Northwind, Backend Engineer, 2021 to present",
   "- Built backend services using Node.js.",
   "- Designed REST APIs with Express.js.",
-  "- Improved deployment reliability, reducing downtime by approximately 40%.",
+  "- Improved deployment reliability, cutting downtime by roughly 40%.",
   "",
   "SKILLS",
   "Docker, CI/CD, Git, C#, Java, JavaScript, Scalability, Google Cloud",
@@ -48,7 +48,7 @@ function feedback(
     experienceAndImpact: {
       ...section,
       quantifiedAchievements: [
-      { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+      { figure: '40%', quote: '- Improved deployment reliability, cutting downtime by roughly 40%.' },
     ],
       strengths: [],
       weaknesses: [],
@@ -59,7 +59,6 @@ function feedback(
       ...section,
       highlights: [],
       improvements: [],
-      recommendedCerts: [],
     },
     toneAndClarity: { description: '', suggestions: [] },
     jobFit: { description: '', requirements: [], strategicRecommendations: [] },
@@ -151,7 +150,7 @@ const withBullet = (...examples: string[]) =>
       score: 70,
       description: '',
       quantifiedAchievements: [
-      { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+      { figure: '40%', quote: '- Improved deployment reliability, cutting downtime by roughly 40%.' },
     ],
       strengths: [],
       weaknesses: [],
@@ -164,14 +163,14 @@ describe("checkEvidenceGrounding", () => {
     // Both halves are in the CV; the sentence is not.
     const violations = checkEvidenceGrounding(
       CV,
-      withEvidence("Built backend services using Node.js and Express.js"),
+      withEvidence("Built backend services with Express.js on Node.js"),
     );
 
     expect(violations).toEqual([
       expect.objectContaining({
         check: "evidence-grounding",
         path: "skills.matchedSkills[0].evidence",
-        value: "Built backend services using Node.js and Express.js",
+        value: "Built backend services with Express.js on Node.js",
         // Both halves are real, so it is a stitch, not an invention.
         kind: "altered",
       }),
@@ -286,7 +285,7 @@ describe("checkEvidenceGrounding", () => {
     ],
     [
       'an achievement quote that is in the CV',
-      withAchievement('40%', 'reducing downtime by approximately 40%'),
+      withAchievement('40%', 'cutting downtime by roughly 40%'),
     ],
   ])('passes %s', (_label, analysis) => {
     expect(checkEvidenceGrounding(CV, analysis)).toEqual([]);
@@ -338,22 +337,6 @@ describe("checkFalseMissing", () => {
         path: "jobFit.requirements[0].requirement",
         value: "Scalability",
       }),
-    ]);
-  });
-
-  it("flags a recommended certification the CV already holds", () => {
-    const analysis = feedback({
-      educationAndCertifications: {
-        score: 70,
-        description: "",
-        highlights: [],
-        improvements: [],
-        recommendedCerts: ["AWS Certified Developer", "Certified Kubernetes Administrator"],
-      },
-    });
-
-    expect(checkFalseMissing(CV, analysis)).toEqual([
-      expect.objectContaining({ value: "AWS Certified Developer" }),
     ]);
   });
 
@@ -452,7 +435,7 @@ describe("checkAnalysis", () => {
         score: 70,
         description: "",
         quantifiedAchievements: [
-        { figure: '40%', quote: '- Improved deployment reliability, reducing downtime by approximately 40%.' },
+        { figure: '40%', quote: '- Improved deployment reliability, cutting downtime by roughly 40%.' },
     ],
         strengths: [],
         weaknesses: [],
@@ -504,7 +487,7 @@ describe("checkMissedFigures", () => {
   });
 
   it("says nothing when the CV has no outcome figure to miss", () => {
-    const plain = CV.replace("by approximately 40%", "noticeably");
+    const plain = CV.replace("by roughly 40%", "noticeably");
 
     expect(checkMissedFigures(plain, withNoAchievements())).toEqual([]);
   });

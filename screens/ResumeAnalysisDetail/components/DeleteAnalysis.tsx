@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import {
@@ -17,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { deleteAnalysisAction } from "@/screens/ResumeAnalysisDetail/actions/deleteAnalysisAction";
 
 type DeleteAnalysisProps = {
@@ -34,6 +35,8 @@ type DeleteAnalysisProps = {
  */
 export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: DeleteAnalysisProps) {
   const router = useRouter();
+  const { t } = useTranslation("analysis");
+  const errorCopy = useErrorCopy();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -47,9 +50,9 @@ export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: Dele
         router.push("/resume/analyses");
         return;
       }
-      toast.error(actionErrorCopy(result.code));
+      toast.error(errorCopy(result.code));
     } catch {
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+      toast.error(errorCopy("REQUEST_FAILED"));
     }
     setDeleting(false);
     setOpen(false);
@@ -57,34 +60,31 @@ export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: Dele
 
   return (
     <section aria-labelledby="delete-analysis-title" className="mt-16 border-t border-line pt-10 lg:mt-20">
-      <Eyebrow tick>Remove</Eyebrow>
+      <Eyebrow tick>{t("delete.eyebrow")}</Eyebrow>
       <div className="mt-5 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="max-w-xl">
           <h2 id="delete-analysis-title" className="text-lg font-medium text-ink">
-            Delete this analysis
+            {t("delete.title")}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-            The CV, the analysis, every rehearsal and its feedback are removed for good.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">{t("delete.body")}</p>
         </div>
 
         <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" className="h-11 gap-2 px-5 text-signal hover:text-signal">
               <Trash2 className="size-4" />
-              Delete analysis
+              {t("delete.trigger")}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent className="border-line-strong bg-paper">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-ink">Delete this analysis?</AlertDialogTitle>
+              <AlertDialogTitle className="text-ink">{t("delete.dialogTitle")}</AlertDialogTitle>
               <AlertDialogDescription className="text-ink-2">
-                {jobTitle} at {companyName}: the CV, the analysis, every rehearsal and its feedback go with it.
-                This cannot be undone.
+                {t("delete.dialogBody", { jobTitle, companyName })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Keep it</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleting}>{t("delete.keep")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirm}
                 disabled={deleting}
@@ -93,10 +93,10 @@ export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: Dele
                 {deleting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Deleting
+                    {t("delete.deleting")}
                   </>
                 ) : (
-                  "Delete analysis"
+                  t("delete.confirm")
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

@@ -1,0 +1,96 @@
+{
+  "fixture": "es-cv-en-job",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "3+ years of experience as a data or business analyst",
+      "spans": ["3+ years of experience as a data or business analyst"],
+      "aliases": ["years of experience as an analyst", "data analyst experience"],
+      "status": "met",
+      "why": "Four years across two analyst roles (2020-2022 operations analyst, 2022-present data analyst); the profile says cuatro años.",
+      "years": { "min": 3, "cv": 4 }
+    },
+    {
+      "id": "r2",
+      "kind": "preferred",
+      "name": "e-commerce or retail experience",
+      "spans": ["ideally in e-commerce or retail."],
+      "aliases": ["ecommerce", "retail background"],
+      "status": "met",
+      "why": "Tiendas Aurora is comercio electrónico. Rule 5: 'ideally' softens this clause of a required bullet."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Strong SQL and a cloud warehouse such as BigQuery or Snowflake",
+      "spans": ["Strong SQL; experience with a cloud warehouse such as BigQuery or Snowflake."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Strong SQL", "a cloud warehouse such as BigQuery or Snowflake"],
+      "status": "met",
+      "why": "SQL on PostgreSQL and BigQuery in the skills section."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Python for analysis (pandas)",
+      "spans": ["Python for analysis (pandas)."],
+      "aliases": ["pandas", "Python"],
+      "status": "met",
+      "why": "Weekly report automated with Python (pandas); pandas in skills."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Experience with a BI tool",
+      "spans": ["Experience with a BI tool,"],
+      "aliases": ["BI tool", "business intelligence tool"],
+      "status": "met",
+      "why": "15 Power BI dashboards."
+    },
+    {
+      "id": "r6",
+      "kind": "preferred",
+      "name": "Power BI",
+      "spans": ["preferably Power BI."],
+      "status": "met",
+      "why": "Rule 5: 'preferably' makes this the preferred half of the BI bullet. Power BI is the tool she uses."
+    },
+    {
+      "id": "r7",
+      "kind": "required",
+      "name": "Solid understanding of statistics and experiment design",
+      "spans": ["Solid understanding of statistics and experiment design."],
+      "aliases": ["statistics", "A/B testing", "experiment design"],
+      "status": "met",
+      "why": "Degree in statistics and A/B test analysis in the current role."
+    },
+    {
+      "id": "r8",
+      "kind": "required",
+      "name": "Fluent English",
+      "spans": ["Fluent English; our working language is English."],
+      "aliases": ["English"],
+      "status": "met",
+      "why": "English C1."
+    },
+    {
+      "id": "r9",
+      "kind": "preferred",
+      "name": "Another European language",
+      "spans": ["Another European language is a plus."],
+      "aliases": ["second European language"],
+      "status": "met",
+      "why": "Native Spanish and Portuguese B1 besides English. Rule 5: 'is a plus' inside the English bullet."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Build and maintain dashboards (Power BI or Looker) for sales, margin and returns.", "reason": "responsibility" },
+    { "span": "Write SQL to answer business questions and automate recurring reports.", "reason": "responsibility" },
+    { "span": "Analyze A/B tests and explain the results to non-technical stakeholders.", "reason": "responsibility" },
+    { "span": "Support demand forecasting with the data science team.", "reason": "responsibility" },
+    { "span": "Improve data quality and keep metric definitions consistent across teams.", "reason": "responsibility" },
+    { "span": "We offer remote work within EMEA, a yearly learning budget and flexible hours.", "reason": "benefit" }
+  ]
+}

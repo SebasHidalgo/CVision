@@ -8,12 +8,15 @@ A self-assessment and practice tool for job seekers, used by a person on
 their own application: nobody else sees the results, and the interviewer is
 software. Next.js 16 (App Router), TypeScript, Clerk, Prisma on Supabase
 Postgres, Gemini for the text analysis, ElevenLabs Agents for the voice
-interview, Paddle as merchant of record. The product's name lives in one
-file, `lib/brand.ts`.
+interview, Paddle as merchant of record. The interface is in English and
+Spanish (i18next; the browser's language by default, a switcher in the
+header); analyses stay English underneath and are shown translated. The
+product's name lives in one file, `lib/brand.ts`.
 
 Reference material, once you are running: [docs/database.md](docs/database.md),
 [docs/accounts.md](docs/accounts.md), [docs/billing.md](docs/billing.md),
 [docs/storage.md](docs/storage.md), [docs/voice.md](docs/voice.md),
+[docs/analysis.md](docs/analysis.md), [docs/i18n.md](docs/i18n.md),
 [docs/data-inventory.md](docs/data-inventory.md).
 
 ## Getting started from zero
@@ -72,10 +75,11 @@ which step fills it:
 | `ELEVENLABS_API_KEY` | an API key with the permissions in step 6 | ElevenLabs → Developers → API keys | 6 |
 | `ELEVENLABS_AGENT_ID`, `ELEVENLABS_TRIAL_AGENT_ID` | the two agents `agent:sync` creates | printed by `npm run agent:sync` | 6 |
 | `ELEVENLABS_WEBHOOK_SECRET` | the post-call webhook's secret | printed once by `npm run agent:sync` | 6 |
-| `ELEVENLABS_BALANCE_FLOOR_CREDITS` | optional: credits below which starts are refused (default 12,000; 0 disables) | you | 6 |
+| `ELEVENLABS_BALANCE_FLOOR_CREDITS` | optional: credits below which starts are refused (default: the agent's floor, 12,000 full / 5,000 trial; 0 disables) | you | 6 |
 | `AI_PROVIDER`, `AI_MODEL` | `google`, `gemini-3.5-flash-lite` | the template | 7 |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | a Google AI Studio key | https://aistudio.google.com | 7 |
 | `AI_TEMPERATURE`, `AI_SEED` | eval harness only; leave unset | — | 10 |
+| `GOOGLE_GENERATIVE_AI_API_KEY_FREE`, `EVAL_BUDGET_PER_RUN_USD`, `EVAL_BUDGET_PER_DAY_USD`, `EVAL_PAID_TIER` | eval harness only: a free-tier key for invented fixtures, the spend caps (0.50 / 1.00 USD), and the paid tier (`flex`) | you | 10 |
 | `PADDLE_ENV` | `sandbox` (never anything else locally) | the template | 8 |
 | `PADDLE_API_KEY`, `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | a sandbox API key (`pdl_sdbx_`) and client token (`test_`) | Paddle sandbox → Developer tools → Authentication | 8 |
 | `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_INTERVIEW_PACK`, `PADDLE_WEBHOOK_SECRET` | the catalog's price ids and the webhook destination's secret | printed by `npm run billing:sync` | 8 |
@@ -208,7 +212,10 @@ free tier is fine. **For any real CV, the key's project must be on the
 paid tier**: on the free tier Google may use prompts and responses to
 improve its products and human reviewers may read them; on the paid tier
 it does not (the terms, "Paid Services"). AI Studio's API keys page shows
-the plan per project ("Paid"); "Set up billing" upgrades it.
+the plan per project ("Paid"); "Set up billing" upgrades it. Check the key
+with `npm run ai:doctor` (one call of a few tokens): it says whether the
+key answers, is rate limited, is out of balance (HTTP 402) or is
+misconfigured.
 
 ### 8. Paddle (sandbox)
 
@@ -261,7 +268,11 @@ call's webhook round trip. Then:
    interview, free" → the room → Start. Speak; End. The feedback page
    shows "saving" while the transcript travels (about a minute), then the
    report.
-4. **A sandbox purchase**: `/pricing` → Get Pro → the overlay → the test
+4. **Spanish**: the EN / ES switcher in the header. The whole interface,
+   Clerk's forms and the checkout follow; the analysis shows "Traduciendo…"
+   once and then reads in Spanish, quotes and suggested bullets untouched
+   ([docs/i18n.md](docs/i18n.md)).
+5. **A sandbox purchase**: `/pricing` → Get Pro → the overlay → the test
    card → the account page says "Pro is active." once the webhook lands.
    Then a pack. Then cancel from "Manage subscription".
 
@@ -271,10 +282,10 @@ call's webhook round trip. Then:
 |---|---|
 | `npm test` | the unit suite (Vitest): contracts, schemas, routes, components in jsdom, the script smoke test (every `tsx` script loaded under its own flags with the network blocked), the brand and wording rules. No network. |
 | `npx tsc --noEmit` and `npm run build` | type-check and production build; run both before handing in a change |
-| `npm run e2e` | the browser suite (Playwright, Chromium; `npx playwright install chromium` once): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Needs the tunnel up and `E2E_PUBLIC_URL`; creates and deletes its own accounts; starts the dev server if none is running. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
+| `npm run e2e` | the browser suite (Playwright, Chromium; `npx playwright install chromium` once), once per interface language (`chromium` in English, `chromium-es` in Spanish): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Needs the tunnel up and `E2E_PUBLIC_URL`; creates and deletes its own accounts; starts the dev server if none is running. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
 | `npm run e2e:voice` | opt-in: one real Start on a trial with fake media devices, ended after three seconds, which spends seconds of platform time; it prints the outcome and the cost. |
 | `npm run e2e:cleanup` | deletes every `+clerk_test` account a dead run left behind (`-- --dry-run` lists them) |
-| `npm run eval` | the analysis over fixed fixtures, one paid model call per fixture; `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias (`npm run eval -- help`) |
+| `npm run eval` | the analysis over fixed fixtures, one model call per fixture, priced into `scripts/eval/runs/spend.jsonl` and capped by `EVAL_BUDGET_PER_RUN_USD` / `EVAL_BUDGET_PER_DAY_USD` (invented fixtures on `GOOGLE_GENERATIVE_AI_API_KEY_FREE` when set, real ones on paid Flex); `npm run eval -- quick <label>` runs six fixtures at seed 7, `full <label> --confirm-cost` all of them, `spend` prints what was spent; `npm run eval -- gold <label> …` scores stored runs against the requirement gold standard, the regression gate for the extraction ([docs/analysis.md](docs/analysis.md#measuring-a-change)); `npm run eval -- replay <label> <newLabel>` re-runs stored answers through the current code without a call, to measure a rule change; `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias; `npm run eval -- translate <labels> --to <label>` translates stored analyses and interview feedback with the production call and guards (`npm run eval -- help`) |
 
 ### 11. Script reference
 
@@ -293,6 +304,7 @@ call's webhook round trip. Then:
 | `npm run user:set-plan -- <clerkUserId> <free\|pro>` | a manual comp, outside billing |
 | `npm run report:guards [-- --from … --to …]` | the guardrails' daily tallies |
 | `npm run agent:sync [-- --webhook-url … --replace-webhook --dry-run]` | push both ElevenLabs agents and the post-call webhook from code |
+| `npm run ai:doctor` | one minimal Gemini call: OK, rate limited, billing exhausted or misconfigured, and the model version |
 | `npm run voice:doctor [-- --webhook-url …]` | check the ElevenLabs key, balance, agents and webhook, read-only |
 | `npm run billing:sync [-- --webhook-url … --production]` | push the Paddle catalog and the webhook destination from code |
 | `npm run billing:doctor [-- --webhook-url … --production]` | check the Paddle account, read-only |
@@ -349,3 +361,9 @@ call's webhook round trip. Then:
   Try a change with `CSP_MODE=report-only` and the browser suite, which
   records every CSP message in `e2e/.artifacts/csp.log`.
 - **A dev server that survived its terminal**: `taskkill //F //IM node.exe //T`.
+- **A LaTeX CV whose accents came out split ("Jos´e", "Ingenier´ıa")**:
+  handled automatically. pdfTeX without `\usepackage[T1]{fontenc}` draws an
+  accent over its letter as two glyphs, and the parser puts them back
+  (`lib/pdfAccents.ts`, see [docs/analysis.md](docs/analysis.md#extraction-and-accents)).
+  The user does not need to change the CV. Text that is really broken
+  (mojibake such as "JosÃ©") is still reported as an artifact.

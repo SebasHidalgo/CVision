@@ -50,9 +50,9 @@ afterEach(() => {
 
 describe("openCheckout against Paddle.js's real sequence", () => {
   it("resolves completed, not closed, when the overlay completes and our own close() echoes a synchronous checkout.closed", async () => {
-    const outcome = start(TXN, "light");
+    const outcome = start(TXN, "light", "en");
     await outcome.ready;
-    expect(open).toHaveBeenCalledWith({ transactionId: TXN, settings: { displayMode: "overlay", theme: "light" } });
+    expect(open).toHaveBeenCalledWith({ transactionId: TXN, settings: { displayMode: "overlay", theme: "light", locale: "en" } });
 
     emit(event("checkout.loaded", { transaction_id: TXN, status: "ready" }));
     emit(event("checkout.customer.created", { transaction_id: TXN }));
@@ -67,8 +67,16 @@ describe("openCheckout against Paddle.js's real sequence", () => {
     expect(await outcome).toBe("completed");
   });
 
+  it("opens the overlay in the interface's language", async () => {
+    const outcome = start(TXN, "dark", "es");
+    await outcome.ready;
+    expect(open).toHaveBeenCalledWith({ transactionId: TXN, settings: { displayMode: "overlay", theme: "dark", locale: "es" } });
+    emit(event("checkout.closed"));
+    expect(await outcome).toBe("closed");
+  });
+
   it("resolves closed when the buyer closes without paying, and never closes the overlay itself", async () => {
-    const outcome = start(TXN, "dark");
+    const outcome = start(TXN, "dark", "en");
     await outcome.ready;
     emit(event("checkout.loaded", { transaction_id: TXN }));
     emit(event("checkout.closed"));
@@ -77,7 +85,7 @@ describe("openCheckout against Paddle.js's real sequence", () => {
   });
 
   it("resolves error on checkout.error or checkout.failed and closes the overlay once; payment-level errors are not outcomes", async () => {
-    let outcome = start(TXN, "light");
+    let outcome = start(TXN, "light", "en");
     await outcome.ready;
     emit(event("checkout.loaded"));
     emit(event("checkout.payment.error", { transaction_id: TXN }));
@@ -92,7 +100,7 @@ describe("openCheckout against Paddle.js's real sequence", () => {
     expect(close).toHaveBeenCalledTimes(1);
 
     close.mockClear();
-    outcome = start(TXN, "light");
+    outcome = start(TXN, "light", "en");
     await outcome.ready;
     emit(event("checkout.failed"));
     expect(await outcome).toBe("error");
@@ -101,14 +109,14 @@ describe("openCheckout against Paddle.js's real sequence", () => {
 
   it("gives up on an overlay that reports nothing within the open timeout, but any event cancels that clock", async () => {
     vi.useFakeTimers();
-    let outcome = start(TXN, "light");
+    let outcome = start(TXN, "light", "en");
     await outcome.ready;
     await vi.advanceTimersByTimeAsync(OPEN_TIMEOUT_MS + 1);
     expect(await outcome).toBe("timeout");
     expect(close).toHaveBeenCalledTimes(1);
 
     close.mockClear();
-    outcome = start(TXN, "light");
+    outcome = start(TXN, "light", "en");
     await outcome.ready;
     emit(event("checkout.loaded"));
     await vi.advanceTimersByTimeAsync(OPEN_TIMEOUT_MS * 3);
@@ -122,7 +130,7 @@ describe("openCheckout against Paddle.js's real sequence", () => {
 
   it("tells the caller once when the overlay is up, so the button can stop saying it is opening", async () => {
     const onLoaded = vi.fn();
-    const outcome = start(TXN, "light", { onLoaded });
+    const outcome = start(TXN, "light", "en", { onLoaded });
     await outcome.ready;
     expect(onLoaded).not.toHaveBeenCalled();
     emit(event("checkout.loaded", { transaction_id: TXN, status: "ready" }));
@@ -135,7 +143,7 @@ describe("openCheckout against Paddle.js's real sequence", () => {
 
   it("stops listening when aborted (the button went away) and resolves closed", async () => {
     const controller = new AbortController();
-    const outcome = start(TXN, "light", { signal: controller.signal });
+    const outcome = start(TXN, "light", "en", { signal: controller.signal });
     await outcome.ready;
     controller.abort();
     expect(await outcome).toBe("closed");
@@ -144,7 +152,7 @@ describe("openCheckout against Paddle.js's real sequence", () => {
   });
 
   it("records every event with its transaction in development, for a real sequence to be read off the console", async () => {
-    const outcome = start(TXN, "light");
+    const outcome = start(TXN, "light", "en");
     await outcome.ready;
     emit(event("checkout.loaded", { transaction_id: TXN, status: "ready" }));
     emit(event("checkout.completed", { transaction_id: TXN, status: "completed" }));

@@ -1,0 +1,99 @@
+{
+  "fixture": "equivalence-and-soft",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "4+ years of product management, at least 2 in payments or fintech",
+      "spans": ["4+ years of product management, at least 2 of them in payments or fintech."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["4+ years of product management", "at least 2 of them in payments or fintech"],
+      "aliases": ["years of product management", "payments experience"],
+      "status": "met",
+      "why": "Five years as PM or associate PM, three on payouts at a payments company.",
+      "years": { "min": 4, "cv": 5 }
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Bachelor's degree in business, economics or engineering, or equivalent experience",
+      "spans": ["A bachelor's degree in business, economics or engineering, or equivalent experience."],
+      "aliases": ["bachelor's degree", "degree or equivalent"],
+      "status": "met",
+      "why": "Rules 6 and 7. BSc Economics."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Shipped a product used by paying customers, from discovery to launch to the numbers afterwards",
+      "spans": ["You have shipped a product used by paying customers, from discovery to launch to the numbers afterwards."],
+      "aliases": ["shipped a product", "end-to-end product ownership"],
+      "status": "met",
+      "why": "Instant payouts, discovery to launch with adoption numbers."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Writes crisply and runs meetings that end on time",
+      "spans": ["You write crisply and run meetings that end on time."],
+      "aliases": ["clear writing", "written communication", "runs meetings"],
+      "assessable": false,
+      "status": "not_evident",
+      "statusAlso": ["met"],
+      "why": "Rule 13: a trait judged by its manner. Writing briefs and chairing a review is quotable evidence of the activity, so met is defensible too; missing is not."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Comfortable saying no to senior stakeholders when the data says no",
+      "spans": ["You are comfortable saying no to senior stakeholders when the data says no."],
+      "aliases": ["stakeholder management", "saying no to stakeholders", "data-driven decisions"],
+      "assessable": false,
+      "status": "not_evident",
+      "why": "Rule 13: an attitude. The CV says nothing about it, and a CV could only assert it."
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "Daily use of Jira or Linear to run a team's work",
+      "spans": ["Daily use of Jira or Linear to run a team's work."],
+      "aliases": ["Jira", "Linear"],
+      "status": "met",
+      "why": "Plans and tracks all work in Jira."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "SQL good enough to answer your own questions",
+      "spans": ["SQL good enough to answer your own questions."],
+      "aliases": ["SQL"],
+      "status": "missing",
+      "why": "No SQL; relied on the analytics team for data pulls."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "PSD2, strong customer authentication or card network rules",
+      "spans": ["Experience with PSD2, strong customer authentication or card network rules."],
+      "aliases": ["PSD2", "SCA", "card network rules"],
+      "status": "missing",
+      "why": "Payouts work only; none of the three named."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "A second European language besides English",
+      "spans": ["A second European language besides English."],
+      "aliases": ["second language", "European language"],
+      "status": "met",
+      "why": "Native Italian."
+    }
+  ],
+  "notRequirements": [
+    { "span": "You will own the payouts product: how and when sellers get paid, in which currencies, and what they see while they wait.", "reason": "responsibility" },
+    { "span": "Base salary €80,000 to €95,000, equity, a commuting allowance and 26 days of leave.", "reason": "benefit" },
+    { "span": "We hire on a four-week notice period at most.", "reason": "boilerplate" },
+    { "span": "Tessera runs checkout and payouts for 2,000 online marketplaces.", "reason": "description" }
+  ]
+}

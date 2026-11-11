@@ -2,13 +2,16 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
+import ClientMessages from "@/components/i18n/ClientMessages";
+import LocaleSwitcher from "@/components/i18n/LocaleSwitcher";
 import PageIntro from "@/components/layout/PageIntro";
 import { Button } from "@/components/ui/button";
 import type { Activation } from "@/lib/billing/activation";
-import { CATALOG } from "@/lib/billing/catalog";
+import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
 import { currentTransactionApplied, currentUsageSummary } from "@/lib/database/usage";
-import { formatLongDate } from "@/lib/format";
-import { INTERVIEW_PACK_CREDITS, PLANS } from "@/lib/plans";
+import { formatLongDate, formatMoney } from "@/lib/format";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
 import BillingActivation from "./components/BillingActivation";
 
 type AccountBillingScreenProps = {
@@ -16,90 +19,99 @@ type AccountBillingScreenProps = {
   activation: Activation | null;
 };
 
+const TRIAL_MINUTES = INTERVIEW_TIERS.TRIAL.seconds / 60;
+const FULL_MINUTES = INTERVIEW_TIERS.FULL.seconds / 60;
+
 /**
  * The plan in force and what it leaves: the period's end or the scheduled
  * cancellation, the interviews left, the credits, and the two things a
  * member can do (buy a pack, manage the subscription in the provider's
  * portal). After a checkout the change arrives by webhook, so the page
  * polls for that transaction until it lands instead of claiming it already
- * has; while it waits, the checkout button is out of reach.
+ * has; while it waits, the checkout button is out of reach. Last, the
+ * interface language, saved to the account.
  */
 export default async function AccountBillingScreen({ activation }: AccountBillingScreenProps) {
-  const [summary, applied] = await Promise.all([
+  const [summary, applied, t, common, locale] = await Promise.all([
     currentUsageSummary(),
     activation ? currentTransactionApplied(activation.transactionId) : Promise.resolve(false),
+    getT("account"),
+    getT("common"),
+    getLocale(),
   ]);
   const { plan, source, subscription, credits, interviews, hasBillingAccount } = summary;
+  const pro = plan === "PRO";
 
-  const periodEnd = formatLongDate(summary.resetsAt);
-  const cancelsAt = subscription?.cancelAtPeriodEnd && subscription.scheduledChangeAt ? formatLongDate(subscription.scheduledChangeAt) : null;
+  const periodEnd = formatLongDate(summary.resetsAt, locale);
+  const cancelsAt = subscription?.cancelAtPeriodEnd && subscription.scheduledChangeAt ? formatLongDate(subscription.scheduledChangeAt, locale) : null;
+  const price = (item: keyof typeof CATALOG) => formatMoney(Number(CATALOG[item].amountMinor) / 100, CATALOG_CURRENCY, locale);
 
-  const planLine =
-    plan === "PRO"
-      ? source === "comp"
-        ? "Pro, on the house."
-        : cancelsAt
-          ? `Pro, until ${cancelsAt}. Your cancellation is scheduled; nothing more will be charged.`
-          : subscription?.status === "PAST_DUE"
-            ? `Pro. The last payment did not go through; Paddle is retrying. Update the card from "Manage subscription" to keep Pro past ${periodEnd}.`
-            : `Pro, renews ${periodEnd}.`
-      : subscription?.status === "CANCELED"
-        ? "Free. Your Pro subscription ended; nothing was deleted, and Pro brings it all back."
-        : subscription?.status === "PAUSED"
-          ? "Free while your subscription is paused. Resume it from \"Manage subscription\"."
-          : "Free.";
+  const planLine = pro
+    ? source === "comp"
+      ? t("planLine.comp")
+      : cancelsAt
+        ? t("planLine.cancels", { date: cancelsAt })
+        : subscription?.status === "PAST_DUE"
+          ? t("planLine.pastDue", { date: periodEnd })
+          : t("planLine.renews", { date: periodEnd })
+    : subscription?.status === "CANCELED"
+      ? t("planLine.canceled")
+      : subscription?.status === "PAUSED"
+        ? t("planLine.paused")
+        : t("planLine.free");
 
   return (
     <div className="wrap py-12 lg:py-16">
-      <PageIntro eyebrow="Plan & billing" title={plan === "PRO" ? "You're on Pro." : "You're on Free."} lede={planLine} />
+      <PageIntro eyebrow={t("intro.eyebrow")} title={pro ? t("intro.titlePro") : t("intro.titleFree")} lede={planLine} />
 
       {activation && (
         <div className="border-b border-line py-8">
-          <BillingActivation activation={activation} applied={applied} />
+          <ClientMessages ns={["account"]}>
+            <BillingActivation activation={activation} applied={applied} />
+          </ClientMessages>
         </div>
       )}
 
       <dl className="grid gap-8 py-10 sm:grid-cols-3 lg:py-14">
         <div>
-          <dt className="eyebrow">Interviews this period</dt>
+          <dt className="eyebrow">{t("interviews.label")}</dt>
           <dd className="figure mt-3 text-5xl text-ink">
-            {plan === "PRO" ? interviews.left : 0}
-            <span className="eyebrow ml-2">of {plan === "PRO" ? interviews.limit : 0}</span>
+            {pro ? interviews.left : 0}
+            <span className="eyebrow ml-2">{t("interviews.of", { limit: pro ? interviews.limit : 0 })}</span>
           </dd>
           <p className="mt-2 text-sm text-ink-2">
-            {plan === "PRO"
-              ? `Resets ${periodEnd}.`
+            {pro
+              ? t("interviews.resets", { date: periodEnd })
               : summary.trial.available
-                ? "One free 5-minute practice interview."
+                ? t("interviews.trial", { minutes: TRIAL_MINUTES })
                 : credits.balance > 0
-                  ? `Your credits cover full interviews; Pro adds ${PLANS.PRO.interviewsPerMonth} a month.`
-                  : "Voice interviews are part of Pro."}
+                  ? t("interviews.creditsCover", { perMonth: PLANS.PRO.interviewsPerMonth })
+                  : t("interviews.proOnly")}
           </p>
         </div>
         <div>
-          <dt className="eyebrow">Interview credits</dt>
+          <dt className="eyebrow">{t("credits.label")}</dt>
           <dd className="figure mt-3 text-5xl text-ink">{credits.balance}</dd>
           <p className="mt-2 text-sm text-ink-2">
             {credits.balance === 0
-              ? `From packs of ${INTERVIEW_PACK_CREDITS}; each one a full interview.`
-              : plan === "PRO"
-                ? "Used after the period's interviews. They never expire."
-                : "Each one is a full 12-minute interview, on any plan. They never expire."}
+              ? t("credits.none", { size: INTERVIEW_PACK_CREDITS })
+              : pro
+                ? t("credits.pro")
+                : t("credits.free", { minutes: FULL_MINUTES })}
           </p>
           {credits.pending > 0 && (
             <p className="mt-2 text-sm text-ink-2" role="status">
-              {credits.pending === 1 ? "1 credit pending return" : `${credits.pending} credits pending return`}: an interview is still open. If
-              nothing was answered, it comes back within minutes of the call ending.
+              {t("credits.pending", { count: credits.pending })}
             </p>
           )}
         </div>
         <div>
-          <dt className="eyebrow">Analyses</dt>
+          <dt className="eyebrow">{t("analyses.label")}</dt>
           <dd className="figure mt-3 text-5xl text-ink">
-            {plan === "PRO" ? "∞" : summary.analyses.left}
-            {plan !== "PRO" && <span className="eyebrow ml-2">of {PLANS.FREE.analysesPerMonth} this month</span>}
+            {pro ? "∞" : summary.analyses.left}
+            {!pro && <span className="eyebrow ml-2">{t("analyses.ofMonth", { limit: PLANS.FREE.analysesPerMonth })}</span>}
           </dd>
-          <p className="mt-2 text-sm text-ink-2">{plan === "PRO" ? "Unlimited CV analyses." : `Free shows your last ${PLANS.FREE.historyLimit} analyses.`}</p>
+          <p className="mt-2 text-sm text-ink-2">{pro ? t("analyses.pro") : t("analyses.free", { limit: PLANS.FREE.historyLimit ?? 0 })}</p>
         </div>
       </dl>
 
@@ -107,25 +119,36 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
         {activation ? (
           <Button disabled size="default" className="gap-2">
             <Loader2 className="size-4 animate-spin" />
-            Confirming your payment…
+            {t("actions.confirming")}
           </Button>
-        ) : plan === "PRO" ? (
-          <CheckoutButton item="interview_pack" label={`Buy ${INTERVIEW_PACK_CREDITS} more interviews · ${CATALOG.interview_pack.amountLabel}`} size="default" />
+        ) : pro ? (
+          <CheckoutButton
+            item="interview_pack"
+            label={t("actions.buyPack", { count: INTERVIEW_PACK_CREDITS, price: price("interview_pack") })}
+            size="default"
+          />
         ) : (
-          <CheckoutButton item="pro_monthly" label={`Get Pro · ${CATALOG.pro_monthly.amountLabel} a month`} size="default" />
+          <CheckoutButton item="pro_monthly" label={t("actions.getPro", { price: price("pro_monthly") })} size="default" />
         )}
         {hasBillingAccount && <ManageSubscriptionButton />}
         <Link href="/pricing" className="link-rule px-2 text-sm text-ink-2">
-          Compare the plans
+          {t("actions.compare")}
         </Link>
       </div>
 
-      {hasBillingAccount && (
-        <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-2">
-          &ldquo;Manage subscription&rdquo; opens Paddle, the merchant of record: payment method, invoices and cancellation live there.
-          Cancelling keeps Pro until the end of the period you paid for.
-        </p>
-      )}
+      {hasBillingAccount && <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-2">{t("portalNote")}</p>}
+
+      <section aria-labelledby="account-language-title" className="mt-16 border-t border-line pt-10 lg:mt-20">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-xl">
+            <h2 id="account-language-title" className="eyebrow">
+              {common("locale.accountTitle")}
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-ink-2">{common("locale.accountBody")}</p>
+          </div>
+          <LocaleSwitcher className="self-start md:self-auto" />
+        </div>
+      </section>
     </div>
   );
 }

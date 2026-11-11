@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "tagline": "Compara tu CV con el puesto. Después, ensaya la entrevista en voz alta.",
+    "description": "Pega una oferta de empleo, sube tu CV y descubre qué tan alineado estás de verdad antes de postularte. Después, ensaya la entrevista en voz alta."
+  },
+  "nav": {
+    "primary": "Principal",
+    "analyses": "Análisis",
+    "interviews": "Entrevistas",
+    "pricing": "Precios",
+    "newAnalysis": "Nuevo análisis",
+    "newShort": "Nuevo",
+    "signIn": "Iniciar sesión",
+    "analyzeMyCv": "Analizar mi CV",
+    "accountMenu": "Menú de la cuenta",
+    "yourAccount": "Tu cuenta",
+    "planBilling": "Plan y facturación",
+    "profileSecurity": "Perfil y seguridad",
+    "signOut": "Cerrar sesión",
+    "home": "{{brand}}: inicio"
+  },
+  "footer": {
+    "label": "Pie de página",
+    "typeset": "Compuesto en Fraunces, Schibsted Grotesk e IBM Plex Mono.",
+    "howItWorks": "Cómo funciona",
+    "terms": "Términos",
+    "privacy": "Privacidad",
+    "refunds": "Reembolsos"
+  },
+  "theme": {
+    "toLight": "Cambiar a modo claro",
+    "toDark": "Cambiar a modo oscuro"
+  },
+  "locale": {
+    "label": "Idioma",
+    "switchTo": "Cambiar a {{language}}",
+    "accountTitle": "Idioma",
+    "accountBody": "El idioma de la interfaz, y de tus análisis y del feedback de tus entrevistas. Las citas de tu CV, las líneas de la oferta y las viñetas sugeridas se quedan como están escritas."
+  },
+  "score": {
+    "meter": "Puntaje",
+    "scoreOf": "Puntaje de {{label}}",
+    "outOf": "/ 100",
+    "tone": {
+      "weak": "Por mejorar",
+      "fair": "Aceptable",
+      "strong": "Sólido"
+    },
+    "fit": {
+      "weak": "Compatibilidad baja",
+      "fair": "Compatibilidad parcial",
+      "strong": "Compatibilidad alta"
+    },
+    "performance": {
+      "weak": "Necesitas práctica",
+      "fair": "Sólida",
+      "strong": "Convincente"
+    }
+  },
+  "tally": {
+    "part": "{{met}} de {{total}} {{label}}",
+    "partWithPartial": "{{met}} de {{total}} {{label}} (+{{partial}} en parte)",
+    "required": "obligatorios",
+    "preferred": "deseables",
+    "notShown_one": "{{count}} que no aparece en tu CV",
+    "notShown_many": "{{count}} que no aparecen en tu CV",
+    "notShown_other": "{{count}} que no aparecen en tu CV",
+    "joined": "{{required}}, {{preferred}}",
+    "joinedWithNotShown": "{{required}}, {{preferred}}, {{notShown}}"
+  },
+  "plan": {
+    "FREE": "Gratis",
+    "PRO": "Pro"
+  },
+  "actions": {
+    "tryAgain": "Intentar de nuevo",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "back": "Volver"
+  },
+  "translation": {
+    "pending": "Traduciendo…",
+    "pendingBody": "Traduciendo al español. Tarda unos segundos y solo pasa una vez.",
+    "unavailable": "Traducción no disponible, se muestra el original.",
+    "partial": "Algunas partes no se pudieron traducir y se muestran en el original.",
+    "showOriginal": "Ver el original"
+  }
+}

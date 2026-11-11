@@ -2,7 +2,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPortalSessionAction } from "./actions/createPortalSessionAction";
-import ManageSubscriptionButton, { openPortal } from "./ManageSubscriptionButton";
+// The client component itself: ManageSubscriptionButton is its server wrapper, which only sends the billing namespace.
+import ManageSubscriptionButton, { openPortal } from "./ManageSubscriptionButtonClient";
 
 vi.mock("./actions/createPortalSessionAction", () => ({ createPortalSessionAction: vi.fn() }));
 

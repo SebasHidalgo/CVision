@@ -1,0 +1,84 @@
+{
+  "fixture": "marketing-match",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "5+ years of marketing experience in consumer packaged goods, retail or a consumer brand",
+      "spans": ["5+ years of marketing experience in consumer packaged goods, retail or a consumer brand."],
+      "aliases": ["years of marketing experience", "CPG"],
+      "status": "met",
+      "why": "Seven years at consumer brands (home goods, outfitters, coffee).",
+      "years": { "min": 5, "cv": 7 }
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Planning and running integrated campaigns with a budget of $1M or more",
+      "spans": ["Proven record of planning and running integrated campaigns with a budget of $1M or more."],
+      "aliases": ["integrated campaigns", "$1M budget"],
+      "status": "met",
+      "why": "$1.2M annual budget across channels."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Paid social, email marketing platforms and web analytics (GA4)",
+      "spans": ["Hands-on experience with paid social, email marketing platforms and web analytics (GA4)."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["paid social", "email marketing platforms", "web analytics (GA4)"],
+      "status": "met",
+      "why": "Meta and TikTok ads, Klaviyo, Google Analytics 4."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Managing agencies or vendors",
+      "spans": ["Experience managing agencies or vendors."],
+      "aliases": ["agency management", "vendor management"],
+      "status": "met",
+      "why": "Manages two agencies and a freelance designer."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Clear written communication and comfort presenting to senior leaders",
+      "spans": ["Clear written communication and comfort presenting to senior leaders."],
+      "aliases": ["written communication", "presenting to leadership"],
+      "assessable": false,
+      "status": "met",
+      "statusAlso": ["not_evident"],
+      "why": "Rule 13: a trait judged by its manner. Monthly reports presented to the leadership team and copywriting quote the activity, so met; not_evident is defensible."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Retail media networks or trade marketing",
+      "spans": ["Experience with retail media networks or trade marketing."],
+      "why": "Status omitted: in-store displays and seasonal promotions with buyers are close to trade marketing, not plainly it."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "SQL or BI tools such as Looker Studio or Tableau",
+      "spans": ["Familiarity with SQL or BI tools such as Looker Studio or Tableau."],
+      "status": "met",
+      "why": "Basic SQL and Looker Studio in skills."
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "Product launch experience in the food and beverage category",
+      "spans": ["Product launch experience in the food and beverage category."],
+      "why": "Status omitted: a kitchenware launch is a launch outside the category; partial or missing are both defensible."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Own the marketing plan and budget for two product lines, from annual planning to weekly execution.", "reason": "responsibility" },
+    { "span": "Lead integrated campaigns across paid social, email, retail media and in-store promotions.", "reason": "responsibility" },
+    { "span": "Manage external agencies and freelancers, and brief the in-house creative team.", "reason": "responsibility" },
+    { "span": "Report campaign performance and return on spend to leadership every month.", "reason": "responsibility" },
+    { "span": "Salary range $95,000 - $115,000 plus bonus. Hybrid, three days a week in our Chicago office.", "reason": "benefit" }
+  ]
+}

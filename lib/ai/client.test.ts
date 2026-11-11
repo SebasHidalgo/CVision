@@ -2,9 +2,11 @@ import { inspect } from "node:util";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { z } from "zod";
 import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { tFor } from "@/lib/i18n/testing";
 import {
   AiContentBlockedError,
   AiFormatError,
+  AiBillingError,
   AiMisconfiguredError,
   AiRateLimitedError,
   AiUnavailableError,
@@ -404,6 +406,7 @@ describe("generateJson: provider failures are told apart", () => {
     { when: "the request is malformed (400)", answer: reply.error(400), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
     { when: "the model id is unknown (404)", answer: reply.error(404), errorClass: AiMisconfiguredError, code: "AI_MISCONFIGURED" },
     { when: "the rate limit or quota is hit (429)", answer: reply.error(429), errorClass: AiRateLimitedError, code: "AI_RATE_LIMITED" },
+    { when: "the account is out of balance (402)", answer: reply.error(402), errorClass: AiBillingError, code: "AI_BILLING" },
     { when: "the provider is overloaded (503)", answer: reply.error(503), errorClass: AiUnavailableError, code: "AI_UNAVAILABLE" },
     { when: "the safety filter blocks the prompt", answer: reply.blockedPrompt(), errorClass: AiContentBlockedError, code: "AI_CONTENT_BLOCKED" },
     { when: "the safety filter stops the answer", answer: reply.blockedAnswer(), errorClass: AiContentBlockedError, code: "AI_CONTENT_BLOCKED" },
@@ -430,19 +433,20 @@ describe("generateJson: provider failures are told apart", () => {
 
     await failureOf(generateJson({ prompt: PROMPT_MARKER, schema: simpleSchema }));
 
-    // A 429 earns one more line, the quota it hit; nothing else does.
-    const rateLimited = code === "AI_RATE_LIMITED" ? 1 : 0;
-    expect(lines).toHaveLength(1 + rateLimited);
-    if (rateLimited) {
-      expect(lines[0]).toMatch(/^\[CVision\]\[ai\] rate limited: http=429 /);
+    // A 429 earns one more line, the quota it hit, and a 402 one naming the billing cause; nothing else does.
+    const extra = code === "AI_RATE_LIMITED" || code === "AI_BILLING" ? 1 : 0;
+    expect(lines).toHaveLength(1 + extra);
+    if (extra) {
+      expect(lines[0]).toMatch(code === "AI_BILLING" ? /^\[CVision\]\[ai\] billing exhausted: http=402 / : /^\[CVision\]\[ai\] rate limited: http=429 /);
       expect(lines[0]).not.toContain(PROMPT_MARKER);
     }
-    expect(lines[rateLimited]).toMatch(AI_LOG_LINE);
+    expect(lines[extra]).toMatch(AI_LOG_LINE);
   });
 
   it("has user-facing copy for every code it can throw", () => {
     for (const { code } of cases) {
-      expect(actionErrorCopy(code)).not.toBe(actionErrorCopy("UNKNOWN"));
+      const t = tFor("errors");
+      expect(actionErrorCopy(t, "en", code)).not.toBe(actionErrorCopy(t, "en", "UNKNOWN"));
     }
   });
 });

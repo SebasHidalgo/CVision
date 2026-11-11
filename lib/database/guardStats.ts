@@ -26,8 +26,10 @@ export function guardStatIncrements(stats: GuardStats): GuardStatIncrement[] {
     else pairs.set(key, { check: intervention.check, action: intervention.action, count: 1 });
   }
 
+  // Composing split accents is the parser's work, not the model's guardrail firing.
   const fired =
-    stats.interventions.length > 0 || Object.values(stats.counts).some((count) => count > 0);
+    stats.interventions.some((intervention) => intervention.check !== "pdf-text") ||
+    Object.entries(stats.counts).some(([action, count]) => action !== "accent-composed" && count > 0);
 
   return [
     ...pairs.values(),

@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { ACCOUNT_BILLING_PATH, type Activation } from "@/lib/billing/activation";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
 import { pollDelayMs } from "@/lib/pollDelay";
 import { billingStatusSnapshotSchema } from "@/lib/schemas/billingSchema";
 import { checkBillingAction } from "../actions/checkBillingAction";
@@ -32,10 +33,13 @@ type Phase = "waiting" | "landed" | "stalled" | "checking";
  * replaces the URL with the plain account page, so a refresh cannot bring
  * the wait back. Past the ceiling it stops polling and offers "Check
  * again", which asks the provider directly (rate-limited). Nothing here
- * ever claims the change before the database has it.
+ * ever claims the change before the database has it. Its words are in the
+ * account namespace, which the screen sends.
  */
 export default function BillingActivation({ activation, applied }: BillingActivationProps) {
   const router = useRouter();
+  const { t } = useTranslation("account");
+  const errorCopy = useErrorCopy();
   const [phase, setPhase] = useState<Phase>(applied ? "landed" : "waiting");
 
   const routerRef = useRef(router);
@@ -102,15 +106,15 @@ export default function BillingActivation({ activation, applied }: BillingActiva
     try {
       const result = await checkBillingAction({ transactionId: activation.transactionId });
       if (!result.ok) {
-        toast.error(actionErrorCopy(result.code, result.meta));
+        toast.error(errorCopy(result.code, result.meta));
       } else if (result.data.applied) {
         setPhase("landed");
         return;
       } else {
-        toast.message("Not here yet. Paddle has the payment; it will appear shortly.");
+        toast.message(t("activation.notYet"));
       }
     } catch {
-      toast.error(actionErrorCopy("REQUEST_FAILED"));
+      toast.error(errorCopy("REQUEST_FAILED"));
     }
     setPhase("stalled");
   };
@@ -121,7 +125,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
     return (
       <p className="flex items-center gap-3 text-lg text-ink" role="status">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-signal" />
-        {pro ? "Pro is active." : "Your credits are in."}
+        {t(pro ? "activation.landedPro" : "activation.landedPack")}
       </p>
     );
   }
@@ -130,8 +134,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
     return (
       <p className="flex items-center gap-3 text-lg text-ink" role="status">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-signal animate-blink" />
-        {pro ? "Activating your plan…" : "Adding your credits…"} Your payment went through; the confirmation from Paddle usually takes a few
-        seconds.
+        {t(pro ? "activation.waitingPro" : "activation.waitingPack")}
       </p>
     );
   }
@@ -140,11 +143,11 @@ export default function BillingActivation({ activation, applied }: BillingActiva
     <div className="flex flex-col items-start gap-4" role="status">
       <p className="flex items-center gap-3 text-lg text-ink">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-fair" />
-        Your payment is confirmed by Paddle but hasn&rsquo;t reached us yet. It will appear shortly; you can refresh later.
+        {t("activation.stalled")}
       </p>
       <Button onClick={checkAgain} disabled={phase === "checking"} variant="outline" size="sm" className="gap-2">
         {phase === "checking" && <Loader2 className="size-4 animate-spin" />}
-        Check again
+        {t("activation.checkAgain")}
       </Button>
     </div>
   );

@@ -10,8 +10,8 @@ import {
 
 // The response goes out after the store; feedback generation runs in
 // after(), which the platform keeps alive up to this limit: a 45 s model
-// call plus two database writes.
-export const maxDuration = 60;
+// call, a second one when the first was not in English, and two writes.
+export const maxDuration = 105;
 
 const LOG = "[CVision][webhook] elevenlabs:";
 

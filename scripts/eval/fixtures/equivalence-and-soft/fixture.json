@@ -1,0 +1,27 @@
+{
+  "jobTitle": "Product Manager, Payments",
+  "purpose": "An equivalence clause on the degree ('or equivalent experience'), years of experience with a domain sub-clause, two soft requirements written as sentences, an alternative (Jira or Linear), and a preferred section introduced by 'It would be great if you also bring:' instead of a nice-to-have heading. Tests that the equivalence clause stays inside its item, that soft sentences are requirements, and that the unlabelled section is classified preferred.",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: six bullets under What we need; the years bullet may be split into total years and payments years."
+      },
+      {
+        "matching": "SQL|PSD2|strong customer authentication|card network|second European language",
+        "kind": "preferred",
+        "minCount": 3,
+        "maxCount": 3,
+        "why": "The three bullets under 'It would be great if you also bring' are preferred, not required."
+      },
+      {
+        "matching": "equivalent experience",
+        "kind": "preferred",
+        "count": 0,
+        "why": "'or equivalent experience' is a second way to satisfy the degree item, not a preferred item."
+      }
+    ]
+  }
+}

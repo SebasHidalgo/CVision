@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatResetDate, INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
+import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS, quotaPeriod, RATE_LIMITS } from "./plans";
 
 describe("the plans", () => {
   it("are the owner's numbers", () => {
@@ -44,10 +44,5 @@ describe("quotaPeriod", () => {
     expect(quotaPeriod(new Date("2026-11-01T00:00:00Z")).start).toEqual(new Date("2026-11-01T00:00:00Z"));
     // December rolls into the next year.
     expect(quotaPeriod(new Date("2026-12-15T12:00:00Z")).end).toEqual(new Date("2027-01-01T00:00:00Z"));
-  });
-
-  it("formats the reset day in UTC", () => {
-    expect(formatResetDate(quotaPeriod(new Date("2026-10-16T12:00:00Z")).end)).toBe("Nov 1");
-    expect(formatResetDate(new Date("2027-01-01T00:00:00Z"))).toBe("Jan 1");
   });
 });

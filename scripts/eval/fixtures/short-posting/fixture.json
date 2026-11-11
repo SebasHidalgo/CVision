@@ -1,0 +1,25 @@
+{
+  "jobTitle": "Junior QA Engineer",
+  "purpose": "A very short posting: four requirements and one preferred item inside a single sentence, no headings, with one alternative (Playwright or Cypress) and a start-date line that is not a requirement.",
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 4,
+        "maxCount": 5,
+        "why": "POSTING COUNT: 1+ years testing web apps; Playwright or Cypress; basic SQL; good written English."
+      },
+      {
+        "matching": "ISTQB",
+        "kind": "preferred",
+        "minCount": 1,
+        "why": "'is a plus' makes the certification preferred."
+      },
+      {
+        "matching": "january|start",
+        "count": 0,
+        "why": "The start date is a condition of the job, not a qualification."
+      }
+    ]
+  }
+}

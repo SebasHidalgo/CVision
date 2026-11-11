@@ -1,0 +1,16 @@
+Site Reliability Engineer
+Harbor Cloud · Remote (EU time zones)
+
+About us
+Harbor Cloud hosts managed PostgreSQL for 900 companies. Four SREs keep it running; you would be the fifth.
+
+What you will do
+You will run our Kubernetes clusters on GCP with the Go-based tooling we write ourselves, so you have operated Kubernetes in production before and you write Go every week. You will own the Terraform that provisions every environment, extend our Prometheus alerting, and take your turn on the on-call rotation. Expect to spend a third of your time on reliability projects you propose.
+
+You have
+- 5+ years in infrastructure, platform or SRE roles.
+- Shipped infrastructure as code with Terraform or Pulumi.
+
+It helps if you have been an incident commander on a formal rotation, or have run Prometheus and Grafana at scale yourself.
+
+We pay €85,000 to €105,000, fully remote within EU time zones, with a hardware budget and 28 days of leave.

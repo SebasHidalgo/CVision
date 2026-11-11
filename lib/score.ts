@@ -18,26 +18,16 @@ export function scoreTone(score: number): ScoreTone {
   return "weak";
 }
 
-/** Generic wording, for a section or a skill area. */
-export const TONE_LABEL: Record<ScoreTone, string> = {
-  weak: "Needs work",
-  fair: "Fair",
-  strong: "Strong",
-};
+/**
+ * Which words a tone reads in (common.json, score.<wording>.<tone>): generic for a section or a
+ * skill area, the fit verdict for "does this CV fit this job?", performance for an interview total.
+ */
+export type ToneWording = "tone" | "fit" | "performance";
 
-/** Wording for the headline question: does this CV fit this job? */
-export const FIT_LABEL: Record<ScoreTone, string> = {
-  weak: "Weak fit",
-  fair: "Partial fit",
-  strong: "Strong fit",
-};
-
-/** Wording for the interview performance total. */
-export const PERFORMANCE_LABEL: Record<ScoreTone, string> = {
-  weak: "Needs practice",
-  fair: "Solid",
-  strong: "Convincing",
-};
+/** The common-namespace key of a tone's word. */
+export function toneKey(wording: ToneWording, tone: ScoreTone) {
+  return `score.${wording}.${tone}` as const;
+}
 
 // Literal class names so Tailwind can see them.
 export const TONE_CLASS: Record<

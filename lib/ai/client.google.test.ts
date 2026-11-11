@@ -91,6 +91,18 @@ describe("Google provider: request shape", () => {
     expect(requests[0].thinking).toEqual({ thinkingBudget: 0 });
   });
 
+  // The SDK drops the field; Gemini's documented default without it is alphabetical.
+  it("sends propertyOrdering in declaration order on every object", async () => {
+    const { requests } = installFakeProvider(() => reply.json({ zeta: "z", alpha: { b: 1, a: 2 } }));
+    const ordered = z.object({ zeta: z.string(), alpha: z.object({ b: z.number(), a: z.number() }) });
+
+    await generateJson({ prompt: "p", schema: ordered });
+
+    const sent = requests[0].schema as { propertyOrdering?: string[]; properties: { alpha: { propertyOrdering?: string[] } } };
+    expect(sent.propertyOrdering).toEqual(["zeta", "alpha"]);
+    expect(sent.properties.alpha.propertyOrdering).toEqual(["b", "a"]);
+  });
+
   it("makes exactly one attempt per call: a 503 is not retried", async () => {
     const { requests } = installFakeProvider(() => reply.error(503));
 
@@ -136,6 +148,17 @@ describe("Google provider: a 429 is logged with its quota, never its message", (
       "[CVision][ai] rate limited: http=429 status=RESOURCE_EXHAUSTED model=gemini-3.5-flash-lite quotaMetric=generativelanguage.googleapis.com/generate_content_free_tier_requests quotaId=GenerateRequestsPerMinutePerProjectPerModel-FreeTier quotaValue=15 retryDelay=34s retryAfter=?",
     );
     expect(line).not.toContain("provider failed with status");
+  });
+
+  it("fails a 402 as billing, with one line naming the reason and never the message", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    installFakeProvider(() => reply.error(402, [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "BILLING_DISABLED", domain: "googleapis.com" }]));
+
+    const failure = await failureOf(generateJson({ prompt: "p", schema }));
+
+    expect(failure).toMatchObject({ code: "AI_BILLING" });
+    const line = error.mock.calls.map((call) => String(call[0])).find((text) => text.includes("billing exhausted"));
+    expect(line).toBe("[CVision][ai] billing exhausted: http=402 status=RESOURCE_EXHAUSTED reason=BILLING_DISABLED model=gemini-3.5-flash-lite");
   });
 
   it("still logs the line, with unknowns, when the body carries no details", async () => {

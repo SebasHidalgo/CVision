@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 /** One finished line of the call, in the roles the platform uses. */
@@ -24,6 +25,7 @@ type TranscriptProps = {
 export default function Transcript({ lines, live, className }: TranscriptProps) {
   const logRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const { t } = useTranslation("interview");
 
   // Scroll the log itself, never the page: scrollIntoView on mount would yank
   // the whole room down to the transcript.
@@ -35,17 +37,17 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
 
   return (
     <section
-      aria-label="Live transcript"
+      aria-label={t("room.transcript.label")}
       className={cn("flex min-h-0 flex-col", className)}
     >
       <header className="flex items-baseline justify-between border-b border-line pb-3">
-        <h2 className="eyebrow">Transcript</h2>
+        <h2 className="eyebrow">{t("room.transcript.title")}</h2>
         <span className="eyebrow tabular">
           {lines.length === 0
             ? live
-              ? "Listening"
-              : "Empty"
-            : `${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
+              ? t("room.transcript.listening")
+              : t("room.transcript.empty")
+            : t("room.transcript.lines", { count: lines.length })}
         </span>
       </header>
 
@@ -58,9 +60,7 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
       >
         {lines.length === 0 ? (
           <p className="max-w-xs text-sm leading-relaxed text-ink-3">
-            {live
-              ? "Every finished sentence lands here as it is said."
-              : "Once the call starts, the conversation is written down here as it happens."}
+            {live ? t("room.transcript.emptyLive") : t("room.transcript.emptyIdle")}
           </p>
         ) : (
           <ol className="space-y-5">
@@ -80,7 +80,7 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
                       mine ? "text-ink" : "text-signal",
                     )}
                   >
-                    {mine ? "You" : "Interviewer"}
+                    {mine ? t("room.you") : t("room.interviewer")}
                   </span>
                   <p
                     className={cn(

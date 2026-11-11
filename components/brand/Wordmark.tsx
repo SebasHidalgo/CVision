@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +12,11 @@ type WordmarkProps = {
 
 /** Typographic mark: the name set in the display face, closed by a signal dot. */
 export default function Wordmark({ size = "sm", className }: WordmarkProps) {
+  const { t } = useTranslation("common");
   return (
     <Link
       href="/"
-      aria-label={`${BRAND.name} — home`}
+      aria-label={t("nav.home")}
       className={cn(
         "group inline-flex items-baseline gap-[0.16em] font-display font-medium tracking-tight text-ink",
         size === "sm" ? "text-[1.375rem]" : "text-[2.25rem]",

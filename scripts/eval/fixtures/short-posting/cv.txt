@@ -1,0 +1,25 @@
+HARPREET KAUR
+QA Engineer | Leeds, UK | harpreet.kaur@example.com
+
+SUMMARY
+QA engineer with two years testing web applications for a small SaaS company. I write end-to-end tests, triage bugs with developers and keep the regression suite honest.
+
+EXPERIENCE
+
+QA Engineer | Fieldnote Software | Leeds (remote) | June 2024 - present
+- Test the web app for every release: exploratory sessions, regression runs and release sign-off.
+- Wrote and maintain 180 Cypress end-to-end tests covering sign-up, billing and the editor; the suite runs on every pull request.
+- Query the PostgreSQL database with SQL to verify data after test runs and to reproduce customer reports.
+- Write bug reports and weekly test summaries read by the whole team.
+
+QA Intern | Fieldnote Software | Leeds | January 2024 - May 2024
+- Ran manual test cases for the mobile web views and logged defects in Jira.
+
+SKILLS
+Cypress, manual and exploratory testing, SQL (basic), Jira, Git, HTML and CSS basics.
+
+EDUCATION
+BSc Computing | Leeds Beckett University | 2023
+
+LANGUAGES
+English (native), Punjabi (native).

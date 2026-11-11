@@ -1,10 +1,8 @@
-import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
-
 /**
  * The room's clock is display only: the agent's own limit ends the call. The
- * clock exists so the candidate can finish an answer before that happens,
- * and so a Spanish session gets its warning in Spanish before the platform's
- * English cutoff line.
+ * clock exists so the candidate can finish an answer before that happens. Its
+ * warnings are interface copy, in the interface language, whatever language
+ * the session speaks.
  */
 export const COUNTDOWN_WARNING_SECONDS = 60;
 export const COUNTDOWN_FINAL_SECONDS = 10;
@@ -33,18 +31,12 @@ export function formatClock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-const NOTICE: Record<InterviewLanguage, Record<Exclude<CountdownPhase, "normal">, string>> = {
-  en: {
-    warning: "One minute left. Finish the answer you are on.",
-    final: "Time is up. The interviewer is wrapping up.",
-  },
-  es: {
-    warning: "Queda un minuto. Termina la respuesta que estás dando.",
-    final: "Se acabó el tiempo. La entrevistadora está cerrando.",
-  },
-};
+const NOTICE_KEY = {
+  warning: "room.countdown.warning",
+  final: "room.countdown.final",
+} as const satisfies Record<Exclude<CountdownPhase, "normal">, string>;
 
-/** What the clock says in the session's language, or nothing while time is normal. */
-export function countdownNotice(phase: CountdownPhase, language: InterviewLanguage): string | null {
-  return phase === "normal" ? null : NOTICE[language][phase];
+/** The `interview`-namespace key of what the clock says, or nothing while time is normal. */
+export function countdownNoticeKey(phase: CountdownPhase): (typeof NOTICE_KEY)[keyof typeof NOTICE_KEY] | null {
+  return phase === "normal" ? null : NOTICE_KEY[phase];
 }

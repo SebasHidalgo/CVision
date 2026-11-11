@@ -1,0 +1,99 @@
+{
+  "cta": {
+    "analyze": "Analizar mi CV"
+  },
+  "hero": {
+    "eyebrow": "CV × puesto: la compatibilidad, medida",
+    "title": "¿Tu CV <underline>encaja de verdad</underline> con el puesto?",
+    "lede": "Pega la oferta, sube tu CV y recibe una lectura franca de tu propia postulación: qué coincide, qué falta y qué arreglar primero. Después, practica la entrevista en voz alta con un entrevistador de IA.",
+    "howLink": "Mira cómo funciona",
+    "contents": {
+      "fitScore": "Puntaje de compatibilidad",
+      "fixes": "Arreglos prioritarios",
+      "interview": "Entrevista de práctica por voz"
+    }
+  },
+  "specimen": {
+    "caption": "Análisis de ejemplo",
+    "role": "Frontend Engineer · Northwind",
+    "experience": "Experiencia",
+    "note": "← agrega una cifra",
+    "skills": "Habilidades vs. oferta",
+    "skillNames": {
+      "typescript": "TypeScript",
+      "react": "React",
+      "graphql": "GraphQL",
+      "testing": "Pruebas",
+      "accessibility": "Accesibilidad"
+    },
+    "fit": "Compatibilidad",
+    "meterLabel": "Puntaje de compatibilidad de ejemplo"
+  },
+  "how": {
+    "eyebrow": "Cómo funciona",
+    "title": "Tres pasos. Alrededor de un minuto.",
+    "aside": "Se hace mientras esperas. Inicia sesión y listo.",
+    "steps": {
+      "paste": {
+        "title": "Pega la oferta",
+        "body": "Empresa, puesto y la descripción completa, tal como aparecen en la oferta. Es la vara con la que se mide todo lo demás."
+      },
+      "upload": {
+        "title": "Sube tu CV",
+        "body": "Un PDF. Leemos su capa de texto y la comparamos con el puesto, requisito por requisito."
+      },
+      "verdict": {
+        "title": "Recibe el veredicto",
+        "body": "Un puntaje de compatibilidad, seis dimensiones con puntaje y los cambios que más pesan. Después, ensaya la entrevista para ese mismo puesto."
+      }
+    }
+  },
+  "dimensions": {
+    "eyebrow": "Qué se mide",
+    "title": "Seis lecturas, un veredicto.",
+    "lede": "Cada dimensión tiene su propio puntaje, su evidencia y los cambios concretos que lo subirían. El puntaje global de compatibilidad es el titular; estas son las razones.",
+    "items": {
+      "ats": {
+        "name": "Compatibilidad con ATS",
+        "body": "Si un sistema de seguimiento de postulaciones (ATS) puede leerlo siquiera: encabezados de sección, fechas, estructura."
+      },
+      "experience": {
+        "name": "Experiencia e impacto",
+        "body": "¿Tus viñetas muestran resultados y alcance, o solo tareas? Incluye reescrituras sugeridas."
+      },
+      "skills": {
+        "name": "Habilidades",
+        "body": "Qué habilidades obligatorias demuestras con evidencia, cuáles solo mencionas y cuáles faltan."
+      },
+      "education": {
+        "name": "Formación y certificaciones",
+        "body": "Qué cuenta para este puesto y qué valdría la pena agregar."
+      },
+      "tone": {
+        "name": "Tono y claridad",
+        "body": "Legibilidad, tiempos verbales, jerga y qué tan rápido quien lee entiende lo importante."
+      },
+      "jobFit": {
+        "name": "Compatibilidad con el puesto",
+        "body": "Coincidencia de palabras clave y requisitos con esta oferta en particular, más los movimientos estratégicos."
+      }
+    }
+  },
+  "interview": {
+    "eyebrow": "Después, en voz alta",
+    "title": "Ensaya la entrevista antes de la de verdad.",
+    "lede": "Un entrevistador de IA por voz, armado a partir de la misma oferta, te hace las preguntas que esa oferta sugiere y profundiza en las brechas que encontró tu análisis. Respondes en voz alta, desde tu computadora o tu teléfono. Cuando terminas la llamada, recibes un puntaje en cinco aspectos, cómo te fue con cada brecha, con tus propias palabras, y la transcripción. Es práctica, para ti: nadie más la escucha.",
+    "listening": "El entrevistador está escuchando",
+    "categories": {
+      "communicationSkills": "Habilidades de comunicación",
+      "technicalKnowledge": "Conocimientos técnicos",
+      "problemSolving": "Resolución de problemas",
+      "culturalFit": "Afinidad cultural",
+      "confidenceAndClarity": "Seguridad y claridad"
+    }
+  },
+  "finalCta": {
+    "title": "Tu próxima postulación merece una segunda opinión.",
+    "note": "Un PDF. Alrededor de un minuto."
+  }
+}

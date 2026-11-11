@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { tFor } from "@/lib/i18n/testing";
 import {
   analyzeResumeInputSchema,
   createResumeInputSchema,
@@ -37,9 +38,11 @@ describe("resume size limit: the form's schema", () => {
     expect(result.error?.issues).toEqual([
       expect.objectContaining({
         path: ["resume"],
-        message: `The file is larger than ${MAX_RESUME_SIZE_LABEL}`,
+        message: "validation.fileTooLarge",
       }),
     ]);
+    // The message is a key the form renders with the limit.
+    expect(tFor("upload")("validation.fileTooLarge", { size: MAX_RESUME_SIZE_LABEL })).toBe("The file is larger than 10 MB");
   });
 
   it("rejects an empty file", () => {

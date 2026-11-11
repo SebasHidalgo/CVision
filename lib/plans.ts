@@ -102,6 +102,11 @@ export const RATE_LIMITS = {
   portal: { limit: 10, windowMs: 60 * 60_000 },
   /** "Check again" after a checkout whose confirmation is late: two provider reads per press. */
   reconcile: { limit: 6, windowMs: 60 * 60_000 },
+  /**
+   * Translation calls (one per analysis or interview feedback and language): about USD 0.003 each,
+   * so 30 an hour caps a user near USD 0.09/h while covering a language switch over a full history.
+   */
+  translation: { limit: 30, windowMs: 60 * 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;
@@ -142,9 +147,4 @@ export function quotaPeriod(now: Date): QuotaPeriod {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return { start, end };
-}
-
-/** "Nov 1": the day the period's quota comes back, as the UI says it. */
-export function formatResetDate(end: Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(end);
 }

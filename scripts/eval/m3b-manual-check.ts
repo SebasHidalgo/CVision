@@ -49,7 +49,7 @@ async function main() {
     atsCompatibility: { description: "Synthetic check row: the text layer is clean, with standard section headings and no encoding artifacts to report.", encodingArtifacts: [], sectionsDetected: ["Experience", "Skills"], problems: ["Synthetic row"], fixes: ["Synthetic row"], evidence: [] },
     experienceAndImpact: { score: 70, description: "Synthetic check row: experience bullets name services and one measured outcome, written as outcomes rather than duties.", quantifiedAchievements: [], strengths: ["Synthetic row"], weaknesses: ["Synthetic row"], suggestedBullets: [] },
     skills: { score: 66, description: "Synthetic check row: skills are grouped and the main ones are backed by bullets in the experience section.", matchedSkills: [{ name: "Node.js", evidence: "Node.js services" }, { name: "PostgreSQL", evidence: "PostgreSQL" }], actionPlan: ["Synthetic row"] },
-    educationAndCertifications: { score: 60, description: "Synthetic check row: a relevant degree is listed with its year and no certifications.", highlights: ["Synthetic row"], improvements: [], recommendedCerts: [] },
+    educationAndCertifications: { score: 60, description: "Synthetic check row: a relevant degree is listed with its year and no certifications.", highlights: ["Synthetic row"], improvements: [] },
     toneAndClarity: { description: "Synthetic check row: short bullets in a consistent voice, with no passive constructions to speak of.", suggestions: ["Synthetic row"] },
     jobFit: { description: "Synthetic check row: the posting's required items are met except Kubernetes operation and on-call; GraphQL is the one preferred item and it is missing.", requirements: ctx.requirements, strategicRecommendations: ["Synthetic row"] },
   });

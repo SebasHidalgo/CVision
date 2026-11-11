@@ -4,41 +4,42 @@ import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
 import { fetchVisibleInterviews } from "@/lib/database/interview";
 import { formatDate, ordinal } from "@/lib/format";
+import { getLocale, getT } from "@/lib/i18n/server";
 import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
 import { cn } from "@/lib/utils";
 
 const VISIBLE_TECH = 4;
 
 /** The reading on the right of each row, by phase. */
-const READING: Record<InterviewPhase, { text: string; dot: string }> = {
-  ready: { text: "Ready to start", dot: "glow-signal bg-signal animate-blink" },
-  pending: { text: "Preparing feedback", dot: "bg-fair animate-blink" },
-  done: { text: "Completed · view feedback", dot: "bg-strong" },
-  failed: { text: "Didn't complete · see why", dot: "bg-weak" },
-  expired: { text: "Expired", dot: "bg-ink-3" },
+const READING: Record<InterviewPhase, { key: `list.reading.${InterviewPhase}`; dot: string }> = {
+  ready: { key: "list.reading.ready", dot: "glow-signal bg-signal animate-blink" },
+  pending: { key: "list.reading.pending", dot: "bg-fair animate-blink" },
+  done: { key: "list.reading.done", dot: "bg-strong" },
+  failed: { key: "list.reading.failed", dot: "bg-weak" },
+  expired: { key: "list.reading.expired", dot: "bg-ink-3" },
 };
 
 export default async function InterviewsScreen() {
   // An interview follows its analysis: hidden analyses hide their rehearsals too.
-  const { interviews, hidden } = await fetchVisibleInterviews();
+  const [{ interviews, hidden }, t, locale] = await Promise.all([fetchVisibleInterviews(), getT("interview"), getLocale()]);
   const completed = interviews.filter((interview) => interview.status === "COMPLETED").length;
 
   return (
     <div className="wrap py-12 lg:py-16">
       <PageIntro
-        eyebrow="Your interviews"
-        title="Every rehearsal, on the record."
+        eyebrow={t("list.eyebrow")}
+        title={t("list.title")}
         aside={
           interviews.length > 0 && (
             <dl className="flex gap-10 md:gap-14">
               <div>
-                <dt className="eyebrow">Interviews</dt>
+                <dt className="eyebrow">{t("list.count")}</dt>
                 <dd className="figure mt-3 text-5xl text-ink">
                   {interviews.length}
                 </dd>
               </div>
               <div>
-                <dt className="eyebrow">Completed</dt>
+                <dt className="eyebrow">{t("list.completed")}</dt>
                 <dd className="figure mt-3 text-5xl text-ink">{completed}</dd>
               </div>
             </dl>
@@ -48,9 +49,9 @@ export default async function InterviewsScreen() {
 
       {interviews.length === 0 && hidden === 0 ? (
         <EmptyState
-          title="No rehearsals yet."
-          body="Interviews start from an analysis, so the questions come from the actual job post you are applying to."
-          action={{ href: "/resume/analyses", label: "Pick an analysis" }}
+          title={t("list.emptyTitle")}
+          body={t("list.emptyBody")}
+          action={{ href: "/resume/analyses", label: t("list.emptyAction") }}
         />
       ) : (
         <ol className="divide-y divide-line border-b border-line">
@@ -67,7 +68,7 @@ export default async function InterviewsScreen() {
                 title={
                   <>
                     {interview.role}
-                    <span className="eyebrow ml-3 align-middle">Attempt {interview.attemptNumber}</span>
+                    <span className="eyebrow ml-3 align-middle">{t("list.attempt", { number: interview.attemptNumber })}</span>
                   </>
                 }
                 subtitle={
@@ -89,11 +90,11 @@ export default async function InterviewsScreen() {
                     </span>
                   ) : undefined
                 }
-                meta={formatDate(interview.createdAt)}
+                meta={formatDate(interview.createdAt, locale)}
                 reading={
                   <p className="flex items-center gap-3 text-sm font-medium text-ink">
                     <span aria-hidden className={cn("size-2 rounded-full", reading.dot)} />
-                    {reading.text}
+                    {t(reading.key)}
                   </p>
                 }
               />

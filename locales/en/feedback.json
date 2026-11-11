@@ -1,0 +1,135 @@
+{
+  "header": {
+    "eyebrow": "Interview feedback · {{date}}",
+    "kicker": "Mock interview"
+  },
+  "actions": {
+    "allInterviews": "All interviews",
+    "backToRoom": "Back to the room",
+    "pickAnalysis": "Pick an analysis"
+  },
+  "report": {
+    "overall": "Overall performance",
+    "gaps": {
+      "eyebrow": "Your weak spots, in the room",
+      "none": "The analysis found no gaps to probe.",
+      "title": "The analysis flagged these. Here is how each one went."
+    },
+    "outcome": {
+      "addressed": "Addressed",
+      "partially": "Partly addressed",
+      "dodged": "Dodged",
+      "notRaised": "Not raised"
+    },
+    "answers": {
+      "eyebrow": "Answers worth hearing again",
+      "title": "In your own words.",
+      "worked": "Worked",
+      "didntLand": "Didn't land"
+    },
+    "readings": {
+      "eyebrow": "Five readings",
+      "title": "Where the interview held up, and where it didn't."
+    },
+    "strengths": "What worked",
+    "improve": "Work on this",
+    "finalAssessment": "Final assessment"
+  },
+  "categories": {
+    "communicationSkills": "Communication Skills",
+    "technicalKnowledge": "Technical Knowledge",
+    "problemSolving": "Problem Solving",
+    "culturalFit": "Cultural Fit",
+    "confidenceAndClarity": "Confidence and Clarity"
+  },
+  "stats": {
+    "answers_one": "{{count}} answer",
+    "answers_other": "{{count}} answers",
+    "wordsEach_one": "{{count}} word each",
+    "wordsEach_other": "{{count}} words each",
+    "onFloor_one": "about {{count}} min on the floor",
+    "onFloor_other": "about {{count}} min on the floor",
+    "short": "short interview, low-confidence scores"
+  },
+  "transcript": {
+    "title": "Transcript",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "show": "show",
+    "hide": "hide",
+    "you": "You",
+    "interviewer": "Interviewer"
+  },
+  "pending": {
+    "saving": "Saving your interview.",
+    "preparing": "Preparing your feedback.",
+    "transcriptBody": "The transcript usually arrives within a minute of the call ending, then it is read against the posting and the gaps your analysis found. The page updates by itself.",
+    "scoringBody": "The transcript is being read against the posting and the gaps your analysis found. This usually takes under a minute; the page updates by itself.",
+    "leave": "You can leave this page; the result will be waiting under Interviews."
+  },
+  "poller": {
+    "stalled": "Your feedback is taking longer than expected.",
+    "reload": "Reload to check again, or come back later.",
+    "seeAttempts": "See every attempt"
+  },
+  "retry": {
+    "generating": "Generating feedback",
+    "again": "Try generating again"
+  },
+  "unavailable": {
+    "title": "This feedback can't be shown.",
+    "body": "It was written in a format this version no longer reads. Rehearse the interview again from its analysis to get a fresh report."
+  },
+  "mayBeLive": {
+    "title": "An interview may be in progress in another tab.",
+    "body": "If it is not, go back to the room. When a call ends, its feedback appears here by itself."
+  },
+  "notScored": {
+    "silent": {
+      "title": "The interviewer never heard you.",
+      "body": "The call ended without a single answer from you, which usually means the microphone was muted or not allowed. Nothing was scored."
+    },
+    "lost": {
+      "title": "That session never reached the interviewer.",
+      "body": "The voice platform has no record of the call, so there is nothing to score. This happens when the connection failed before the interview started."
+    },
+    "failed": {
+      "title": "The interviewer couldn't join the call.",
+      "body": "Nothing was charged, and this didn't use one of your starts. The voice platform could not run the call: a problem on our side, not with your microphone."
+    },
+    "startCounted_one": "That start counts, but the interview is still yours: you have {{count}} start left.",
+    "startCounted_other": "That start counts, but the interview is still yours: you have {{count}} starts left.",
+    "startReturned_one": "The interview is still yours: you have {{count}} start left.",
+    "startReturned_other": "The interview is still yours: you have {{count}} starts left."
+  },
+  "failure": {
+    "noCandidateTurns": {
+      "title": "The interviewer never heard you.",
+      "body": "Every connection ended without a single answer from you, which usually means the microphone was muted or not allowed. Check the browser's microphone permission, then rehearse again from the analysis."
+    },
+    "callFailed": {
+      "title": "The interviewer couldn't join the call.",
+      "body": "The voice platform could not run the call: a problem on our side, not with your microphone. Nothing was charged, and that connection did not count as one of your starts. Rehearse again from the analysis."
+    },
+    "transcriptInvalid": {
+      "title": "The transcript couldn't be read.",
+      "body": "What came back from the interview wasn't in a shape we can score. Rehearse again from the analysis; if it happens twice, something is wrong on our side."
+    },
+    "contextMissing": {
+      "title": "There's no analysis to score against.",
+      "body": "The feedback compares your answers with the gaps the analysis found, and this interview has no analysis any more. Run a new analysis and rehearse from there."
+    },
+    "feedbackFailed": {
+      "title": "We couldn't generate your feedback.",
+      "body": "Your interview is saved. Scoring it failed twice, which is usually the analyzer being unavailable. Try again now, or in a few minutes."
+    },
+    "expired": {
+      "title": "This interview expired.",
+      "body": "More than two hours passed since its last connection without the interviewer hearing an answer, so it was closed and the interview went back to your plan. Rehearse again from the analysis."
+    },
+    "unknown": {
+      "title": "This interview didn't complete.",
+      "body": "Something went wrong on our side and we couldn't score it. Rehearse again from the analysis."
+    }
+  }
+}

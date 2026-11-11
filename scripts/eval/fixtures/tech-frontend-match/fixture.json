@@ -1,6 +1,7 @@
 {
   "jobTitle": "Frontend Engineer",
-  "purpose": "Typical one-page technical CV against a matching technical posting: the common case.",
+  "purpose": "Typical one-page technical CV against a matching technical posting: the common case. Since M8-A the CV is a single-column PDF (cv.html rendered by scripts/eval/pdf.ts) and cv.txt is its text layer.",
+  "pdf": { "layout": "single-column" },
   "expect": {
     "requirements": [
       {

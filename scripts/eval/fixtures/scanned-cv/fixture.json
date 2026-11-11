@@ -1,0 +1,15 @@
+{
+  "jobTitle": "Backend Developer",
+  "purpose": "The mid-meets-required CV as an image-only PDF: cv.html is rendered to a page image and that image is the whole PDF, so there is no text layer. Production rejects it with PDF_NO_TEXT before any model call; the harness proves that for the text arm and runs the PDF arms on it. cv.txt holds the document's true text (from the HTML, not from the PDF) so quotes can still be checked.",
+  "pdf": { "layout": "single-column", "scanned": true },
+  "expect": {
+    "requirements": [
+      {
+        "kind": "required",
+        "minCount": 6,
+        "maxCount": 8,
+        "why": "POSTING COUNT: six items under Required qualifications."
+      }
+    ]
+  }
+}

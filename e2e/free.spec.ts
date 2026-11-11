@@ -2,47 +2,56 @@ import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
 import { accountText, interviewCta, mainText, openRoom, roomLength, runAnalysis, warmRoutes } from "./support/app";
+import { copyFor, literal, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
 
 /**
  * A fresh Free account: what it is told it has, and what its one trial
- * interview looks like before Start. One analysis (one model call); no
- * call is placed.
+ * interview looks like before Start. One analysis (one model call, plus its
+ * translation in Spanish); no call is placed. Runs once per interface language.
  */
 
 test.describe.configure({ mode: "serial" });
 
 let account: TestAccount;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({}, testInfo) => {
   assertSandbox();
   await warmRoutes();
-  account = await createAccount("free");
+  account = await createAccount(`free-${localeOf(testInfo)}`);
 });
 
 test.afterAll(async () => {
   if (account) await deleteAccount(account);
 });
 
-test("a new account is on Free, with the trial available and no credits", async ({ page }) => {
+test("a new account is on Free, with the trial available and no credits", async ({ page }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
   await signIn(page, account);
-  const text = await accountText(page);
-  expect(text).toMatch(/You're on Free\./);
-  expect(text).toContain("One free 5-minute practice interview.");
+  const text = await accountText(page, t);
+  expect(text).toMatch(literal(t("account:intro.titleFree")));
+  expect(text).toContain(t("account:interviews.trial", { minutes: 5 }));
   // innerText carries the page's uppercase styling and glues the figure to its unit.
-  expect(text).toMatch(/Interview credits\s*0/i);
-  expect(text).toMatch(/Analyses\s*3\s*of 3 this month/i);
+  expect(text).toMatch(new RegExp(`${literal(t("account:credits.label")).source}\\s*0`, "i"));
+  expect(text).toMatch(new RegExp(`${literal(t("account:analyses.label")).source}\\s*3\\s*${literal(t("account:analyses.ofMonth", { limit: 3 })).source}`, "i"));
 });
 
-test("an analysis offers the 5-minute trial, and the room promises five minutes on the trial", async ({ page }) => {
+test("an analysis offers the 5-minute trial, and the room promises five minutes on the trial", async ({ page }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
   await signIn(page, account);
   await runAnalysis(page);
-  expect((await interviewCta(page).innerText()).replace(/\s+/g, " ")).toMatch(/Try a 5-minute interview, free/i);
+  // The analysis page in the interface language: translated when it was created, so no "Translating…" state.
+  expect(await page.locator("html").getAttribute("lang")).toBe(localeOf(testInfo));
+  const analysis = await mainText(page);
+  expect(analysis).toContain(t("analysis:dimensions.fit.label"));
+  expect(analysis).not.toContain(t("common:translation.pending"));
+  expect(analysis).not.toContain(t("common:translation.unavailable"));
+  expect((await interviewCta(page).innerText()).replace(/\s+/g, " ")).toMatch(literal(t("analysis:cta.tryTrial", { minutes: 5 }), "i"));
 
-  await openRoom(page);
-  expect(await roomLength(page)).toBe("5:00");
+  await openRoom(page, t);
+  expect(await roomLength(page, t)).toBe("5:00");
   const text = await mainText(page);
-  expect(text).toContain("Up to 5 minutes");
-  expect(text).toContain("Your free trial, on us.");
-  expect(text).toMatch(/Attempt 1/i);
+  expect(text).toContain(t("interview:room.upTo", { count: 5 }));
+  expect(text).toContain(t("interview:room.source.trial"));
+  expect(text).toMatch(literal(t("analysis:attempts.attempt", { number: 1 }), "i"));
 });

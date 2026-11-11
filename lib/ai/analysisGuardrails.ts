@@ -1,5 +1,6 @@
 import {
   checkAnalysis,
+  groundQuotes,
   loosen,
   normalizeWhitespace,
   type CheckName,
@@ -31,10 +32,82 @@ export type InterventionAction =
   /** The figure could not be substituted cleanly, so the bullet went. */
   | "bullet-dropped"
   /** Logged and left alone, because correcting it is a bigger call than this. */
-  | "recorded";
+  | "recorded"
+  /** A requirement whose posting quote is not in the posting, or that the posting only describes. */
+  | "requirement-dropped"
+  /** A softened clause became its own preferred requirement. */
+  | "requirement-split"
+  /** A required entry that was all softened clause became preferred. */
+  | "kind-changed"
+  /** met or partial with no CV quote behind it. */
+  | "status-downgraded"
+  /** not_evident on something a CV can show, or missing on something it cannot. */
+  | "status-coerced"
+  /** Key-term coverage or the years rule lowered the model's status. */
+  | "status-capped"
+  /** A key term not in the requirement's posting quote. */
+  | "term-dropped"
+  /** A key term's CV match not in the CV: emptied. */
+  | "match-dropped"
+  /** The requirement text rewritten in the posting's spelling or language. */
+  | "text-replaced"
+  /** A matched skill with no CV quote behind it, or not in the CV at all. */
+  | "skill-dropped"
+  /** Key terms marked as alternatives where the posting offers none: they all count. */
+  | "mode-changed"
+  /** A skills-list quote replaced by the experience or project line that shows the same term. */
+  | "evidence-replaced"
+  /** Split accents the PDF parser put back on their letters ("Jos´e" → "José"); counted per document. */
+  | "accent-composed"
+  /** An ATS problem without a quote from the CV, dropped with its fix. */
+  | "problem-dropped"
+  /** The analysis came back in another language and was asked again once. */
+  | "regenerated"
+  /** A qualification line of the posting no extracted entry covers. */
+  | "requirement-uncovered"
+  /** An uncovered line the repair call covered: a requirement added, a restatement or a non-requirement. */
+  | "requirement-recovered"
+  /** A not_evident requirement's CV quote, cleared: "Not shown in your CV" cannot quote the CV. */
+  | "evidence-cleared"
+  /** A repaired line that details or restates an item already listed, merged into it instead of added. */
+  | "requirement-merged"
+  /** An alternative the posting's quote offers and the key terms left out, added with the CV word that shows it. */
+  | "alternative-added"
+  /** A cap to missing not applied: an alternative in the quote could not be examined (another language, an elided noun). */
+  | "cap-skipped"
+  /** A recommendation that contradicts the final statuses, dropped. */
+  | "recommendation-dropped"
+  /** A sentence of the description stating requirement outcomes, replaced by the sentences written from the statuses. */
+  | "sentence-dropped";
+
+/** The requirement rules of lib/ai/requirementGuardrails.ts. */
+export type RequirementCheckName =
+  | "posting-source"
+  | "posting-section"
+  | "posting-kind"
+  | "softened-clause"
+  | "met-without-evidence"
+  | "not-evident"
+  | "key-term"
+  | "years"
+  | "unshowable-alternative"
+  | "requirement-text"
+  | "matched-skill"
+  | "evidence-source"
+  | "language-level"
+  | "bullet-role"
+  | "bullet-figure"
+  /** Every qualification line of the posting covered by an entry: lib/ai/requirementCoverage.ts. */
+  | "requirement-coverage"
+  /** The PDF text itself, before the model: lib/pdfAccents.ts. */
+  | "pdf-text"
+  | "ats-problem"
+  | "language"
+  /** Prose that states requirement outcomes, written from the statuses: lib/ai/requirementProse.ts. */
+  | "prose";
 
 export type Intervention = {
-  check: CheckName;
+  check: CheckName | RequirementCheckName;
   action: InterventionAction;
   /** Where in the analysis, e.g. `skills.matchedSkills[0].evidence`. */
   path: string;
@@ -65,7 +138,70 @@ const emptyCounts = (): InterventionCounts => ({
   "number-placeheld": 0,
   "bullet-dropped": 0,
   recorded: 0,
+  "requirement-dropped": 0,
+  "requirement-split": 0,
+  "kind-changed": 0,
+  "status-downgraded": 0,
+  "status-coerced": 0,
+  "status-capped": 0,
+  "term-dropped": 0,
+  "match-dropped": 0,
+  "text-replaced": 0,
+  "skill-dropped": 0,
+  "mode-changed": 0,
+  "evidence-replaced": 0,
+  "accent-composed": 0,
+  "problem-dropped": 0,
+  regenerated: 0,
+  "requirement-uncovered": 0,
+  "requirement-recovered": 0,
+  "evidence-cleared": 0,
+  "requirement-merged": 0,
+  "alternative-added": 0,
+  "cap-skipped": 0,
+  "recommendation-dropped": 0,
+  "sentence-dropped": 0,
 });
+
+/** The report with more interventions in it, counted. */
+export function withInterventions(report: GuardReport, more: Intervention[]): GuardReport {
+  const counts = { ...report.counts };
+  for (const intervention of more) counts[intervention.action] += 1;
+  return { ...report, interventions: [...more, ...report.interventions], counts };
+}
+
+export type AtsIssue = { quote: string; problem: string; fix: string };
+
+/**
+ * The model's ATS issues as the stored problems and fixes: an issue whose
+ * quote is not in the CV text is dropped with its fix ("Lack of traditional
+ * contact icons" had nothing to quote). Without a CV text, all are kept.
+ */
+export function structureAtsIssues(
+  issues: AtsIssue[],
+  cvText: string,
+): { problems: string[]; fixes: string[]; interventions: Intervention[] } {
+  const interventions: Intervention[] = [];
+  const kept = issues.filter((issue, i) => {
+    if (!cvText.trim()) return true;
+    const miss = groundQuotes(cvText, [{ path: "", value: issue.quote }])[0];
+    if (normalizeWhitespace(issue.quote) && (!miss || miss.kind === "case-or-punctuation")) return true;
+    interventions.push({ check: "ats-problem", action: "problem-dropped", path: `atsCompatibility.issues[${i}]`, value: issue.problem, replacement: issue.quote ? "quote not in the CV" : "no quote" });
+    return false;
+  });
+  return {
+    problems: kept.map((issue) => issue.problem.trim()).filter(Boolean),
+    fixes: [...new Set(kept.map((issue) => issue.fix.trim()).filter(Boolean))],
+    interventions,
+  };
+}
+
+/** One intervention per document, the count in it: how many split accents extraction composed. */
+export function withAccentCompositions(report: GuardReport, composed: number): GuardReport {
+  if (composed <= 0) return report;
+  const intervention: Intervention = { check: "pdf-text", action: "accent-composed", path: "resumeText", value: String(composed) };
+  return { ...report, interventions: [...report.interventions, intervention], counts: { ...report.counts, "accent-composed": composed } };
+}
 
 /**
  * The span of the source text that a quote differs from only in case or
@@ -94,7 +230,7 @@ export function spanFor(cvText: string, quote: string): string | null {
 }
 
 /** `40%` -> `[X]%`, `1,200 users` -> `[N] users`, `$2m` -> `[$X]`. */
-function placeholderFor(bullet: string, number: string): string | null {
+export function placeholderFor(bullet: string, number: string): string | null {
   // The digits as the bullet writes them, which may carry separators the
   // normalized value lost. Separators go BETWEEN digits only: allowing one
   // after the last digit swallowed the sentence's full stop.

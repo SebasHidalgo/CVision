@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { renderJobFit, renderOverall } from "@/lib/i18n/analysisView";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 
 /** Only the id travels; role and description are read server-side. */
@@ -18,9 +19,9 @@ export const techstackSchema = z
 /**
  * The parts of a stored analysis the interviewer is briefed with. Rows saved
  * before validation existed can have no feedback at all; a row that fails
- * this is treated the same way.
+ * this is treated the same way. The interviewer and the feedback prompt read
+ * English: the code-made sentences come out rendered in English.
  */
-export const interviewContextSchema = resumeFeedbackSchema.pick({
-  overall: true,
-  jobFit: true,
-});
+export const interviewContextSchema = resumeFeedbackSchema
+  .pick({ overall: true, jobFit: true })
+  .transform(({ overall, jobFit }) => ({ overall: renderOverall(overall, "en"), jobFit: renderJobFit(jobFit, "en") }));

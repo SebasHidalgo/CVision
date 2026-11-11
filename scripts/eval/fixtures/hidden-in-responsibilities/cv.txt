@@ -1,0 +1,27 @@
+NIKOLAJ SORENSEN
+Site Reliability Engineer | Copenhagen, Denmark | nikolaj.sorensen@example.com
+
+SUMMARY
+Infrastructure engineer with six years across platform and SRE roles. I run Kubernetes in production, write the Go tooling around it, and keep the Terraform that provisions it readable. I take on-call seriously and I like projects that remove a class of pages for good.
+
+EXPERIENCE
+
+Site Reliability Engineer | Fjordbank | Copenhagen | May 2022 - present
+- Operate four production Kubernetes clusters (EKS) serving the bank's customer-facing APIs; 99.97% availability over the last twelve months.
+- Wrote the Go operator that rotates database credentials across 60 services without downtime, and the Go CLI the team uses for cluster upgrades.
+- Own the Terraform for all environments (about 400 resources); introduced plan review in CI so no change reaches production unreviewed.
+- Run Prometheus and Grafana for 300 services, including the alert rules and the dashboards on-call engineers use.
+- Member of the on-call rotation; reduced pages by 40% in 2024 by removing noisy alerts and fixing three recurring failure modes.
+
+Platform Engineer | Nordlys Media | Aarhus | August 2019 - April 2022
+- Migrated 30 services from VMs to Kubernetes and wrote the Go deployment tooling for the migration.
+- Built the Terraform modules for the company's AWS accounts.
+
+Systems Administrator | Nordlys Media | Aarhus | 2018 - 2019
+- Linux administration and backups for the media production fleet.
+
+SKILLS
+Kubernetes (EKS, kubeadm), Go, Terraform, AWS, Prometheus, Grafana, Alertmanager, Linux, PostgreSQL operations, Bash, Python (scripting).
+
+EDUCATION
+BEng Software Technology | Aarhus University | 2018

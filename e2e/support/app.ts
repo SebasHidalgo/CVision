@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Locator, Page } from "@playwright/test";
+import { literal, type Copy } from "./copy";
 import { BASE_URL } from "./env";
 
 /**
@@ -51,36 +52,37 @@ export function interviewCta(page: Page): Locator {
 }
 
 /** From an analysis page into its room, stopping before Start. Returns the room's URL. */
-export async function openRoom(page: Page): Promise<string> {
+export async function openRoom(page: Page, t: Copy): Promise<string> {
   const cta = interviewCta(page);
   const button = cta.getByRole("button").first();
   if (await button.isVisible({ timeout: 2_000 }).catch(() => false)) await button.click();
-  else await cta.getByRole("link", { name: /open the interview room/i }).first().click();
+  else await cta.getByRole("link", { name: literal(t("analysis:cta.openRoom"), "i") }).first().click();
   await page.waitForURL(/\/interview\/[^/?]+$/, { timeout: 60_000 });
-  await page.getByRole("button", { name: /start the interview/i }).waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: literal(t("interview:room.startButton.start"), "i") }).waitFor({ timeout: 30_000 });
   return page.url();
 }
 
 /** The clock the room shows before Start ("12:00", "5:00"). */
-export async function roomLength(page: Page): Promise<string> {
-  return ((await page.getByLabel("Interview length").textContent()) ?? "").trim();
+export async function roomLength(page: Page, t: Copy): Promise<string> {
+  return ((await page.getByLabel(t("interview:room.clock.length")).textContent()) ?? "").trim();
 }
 
 /** The account page's text after a fresh load. */
-export async function accountText(page: Page): Promise<string> {
+export async function accountText(page: Page, t: Copy): Promise<string> {
   await page.goto("/account/billing");
-  await page.getByRole("heading", { name: /You're on/ }).waitFor({ timeout: 30_000 });
+  const titles = [t("account:intro.titleFree"), t("account:intro.titlePro")].map((title) => literal(title).source).join("|");
+  await page.getByRole("heading", { name: new RegExp(titles) }).waitFor({ timeout: 30_000 });
   return mainText(page);
 }
 
 /** Reloads the account page until its text satisfies `predicate`, for a change a webhook has to land. */
-export async function waitForAccount(page: Page, predicate: (text: string) => boolean, { timeoutMs = 150_000, everyMs = 5_000 } = {}): Promise<string> {
+export async function waitForAccount(page: Page, t: Copy, predicate: (text: string) => boolean, { timeoutMs = 150_000, everyMs = 5_000 } = {}): Promise<string> {
   const until = Date.now() + timeoutMs;
-  let text = await accountText(page);
+  let text = await accountText(page, t);
   while (!predicate(text)) {
     if (Date.now() > until) throw new Error(`the account page never showed what was expected within ${timeoutMs / 1000} s; last text: ${text.slice(0, 400)}`);
     await page.waitForTimeout(everyMs);
-    text = await accountText(page);
+    text = await accountText(page, t);
   }
   return text;
 }

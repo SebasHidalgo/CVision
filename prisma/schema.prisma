@@ -27,6 +27,10 @@ model User {
   /// for the owner and anyone comped. Null for everyone else. The plan in
   /// force is derived: an access-granting subscription, else this, else FREE.
   compPlan  Plan?
+  /// The interface language the user chose ("en" | "es"), checked in code
+  /// (lib/i18n/config.ts). Null until they choose: the cookie, then the
+  /// browser's Accept-Language decide.
+  locale    String?   @db.VarChar(8)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -192,6 +196,8 @@ model ResumeAnalysis {
   feedback   ResumeFeedback?
   /// Every rehearsal of this analysis, numbered by `attemptNumber`.
   interviews Interview[]
+  /// Its model-written prose in other interface languages.
+  translations ContentTranslation[]
 
   @@index([userId, createdAt])
 }
@@ -342,6 +348,49 @@ model InterviewFeedback {
   /// When the feedback was stored; rows from before the column were dated
   /// from their interview's end (or creation) by the migration.
   createdAt   DateTime  @default(now())
+
+  /// Its model-written prose in other interface languages.
+  translations ContentTranslation[]
+}
+
+enum TranslationStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+/// The model-written prose of one analysis or one interview feedback,
+/// translated once into one interface language (lib/ai/translation.ts).
+/// Exactly one parent is set (a CHECK in the migration); deleting the
+/// parent deletes it. The canonical content stays English in the parent:
+/// this only holds the strings that passed the guards, by path.
+model ContentTranslation {
+  id                  String             @id @default(uuid())
+  analysisId          String?
+  analysis            ResumeAnalysis?    @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  interviewFeedbackId String?
+  interviewFeedback   InterviewFeedback? @relation(fields: [interviewFeedbackId], references: [id], onDelete: Cascade)
+  /// "es": never "en", the canonical language.
+  locale              String             @db.VarChar(8)
+  /// PENDING is the claim: one call per item and language, the others wait.
+  status              TranslationStatus  @default(PENDING)
+  /// Hash of the source prose and the translation prompt's version: a
+  /// mismatch means the row no longer describes its parent.
+  sourceHash          String
+  /// { [path]: translated text }, only strings that passed the guards.
+  payload             Json?
+  /// Guard results per string: counts and { path, check }, never text.
+  guardStats          Json?
+  model               String?
+  modelVersion        String?
+  attempts            Int                @default(0)
+  claimedAt           DateTime           @default(now())
+  failedAt            DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([analysisId, locale])
+  @@unique([interviewFeedbackId, locale])
 }
 
 /// Which guardrail a daily tally belongs to.

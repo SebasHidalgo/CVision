@@ -2,8 +2,9 @@
 
 import { FileText, Loader2, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { actionErrorCopy } from "@/lib/error/actionErrorCopy";
+import { useErrorCopy } from "@/hooks/useErrorCopy";
 import type { ErrorCode } from "@/lib/error/errors";
 import { getResumeViewUrlAction } from "@/screens/ResumeAnalysisDetail/actions/getResumeViewUrlAction";
 
@@ -25,9 +26,11 @@ type Sheet =
  * URL across opens.
  */
 export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
+  const { t } = useTranslation("analysis");
+  const errorCopy = useErrorCopy();
   const ref = useRef<HTMLDialogElement>(null);
   const [sheet, setSheet] = useState<Sheet>({ kind: "idle" });
-  const [tabNotice, setTabNotice] = useState<string | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
 
   const sign = async (): Promise<string | null> => {
     try {
@@ -47,7 +50,7 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
   };
 
   const show = () => {
-    setTabNotice(null);
+    setPopupBlocked(false);
     ref.current?.showModal();
     void load();
   };
@@ -60,26 +63,26 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
   const openInNewTab = async () => {
     // Opened inside the click, before the await, so the browser allows it.
     const popup = window.open("about:blank", "_blank");
-    setTabNotice(null);
+    setPopupBlocked(false);
     const url = await sign();
     if (!url) {
       popup?.close();
       return;
     }
     if (popup) popup.location.replace(url);
-    else setTabNotice("The browser blocked the new tab. Allow pop-ups for this site and try again.");
+    else setPopupBlocked(true);
   };
 
   return (
     <>
       <Button variant="outline" onClick={show} className="h-11 gap-2 px-5">
         <FileText className="size-4" />
-        View CV
+        {t("drawer.view")}
       </Button>
 
       <dialog
         ref={ref}
-        aria-label="Your CV"
+        aria-label={t("drawer.title")}
         className="drawer"
         onClose={() => setSheet({ kind: "idle" })}
         onClick={(event) => {
@@ -90,7 +93,7 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between gap-6 border-b border-line px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <p className="eyebrow">Your CV</p>
+              <p className="eyebrow">{t("drawer.title")}</p>
               <p className="mt-1 truncate font-medium text-ink">{title}</p>
             </div>
             <div className="flex shrink-0 items-center gap-4">
@@ -99,12 +102,12 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
                 onClick={openInNewTab}
                 className="link-rule hidden cursor-pointer text-sm text-ink-2 sm:inline"
               >
-                Open in new tab
+                {t("drawer.openInNewTab")}
               </button>
               <button
                 type="button"
                 onClick={close}
-                aria-label="Close"
+                aria-label={t("drawer.close")}
                 className="flex size-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-paper-2"
               >
                 <X className="size-5" />
@@ -112,25 +115,25 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
             </div>
           </div>
 
-          {tabNotice && (
+          {popupBlocked && (
             <p role="status" className="border-b border-line px-5 py-3 text-sm text-signal sm:px-6">
-              {tabNotice}
+              {t("drawer.popupBlocked")}
             </p>
           )}
 
           {sheet.kind === "loading" && (
             <p role="status" className="flex flex-1 items-center justify-center gap-3 text-sm text-ink-2">
               <Loader2 aria-hidden className="size-4 animate-spin" />
-              Opening your CV.
+              {t("drawer.opening")}
             </p>
           )}
 
           {sheet.kind === "failed" && (
             <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-              <p className="text-ink">Couldn&apos;t open the CV. Try again.</p>
-              <p className="max-w-sm text-sm text-ink-2">{actionErrorCopy(sheet.code)}</p>
+              <p className="text-ink">{t("drawer.failed")}</p>
+              <p className="max-w-sm text-sm text-ink-2">{errorCopy(sheet.code)}</p>
               <Button variant="outline" onClick={load} className="h-10 px-4">
-                Try again
+                {t("drawer.tryAgain")}
               </Button>
             </div>
           )}
@@ -139,15 +142,13 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
             <object
               data={`${sheet.url}#view=FitH`}
               type="application/pdf"
-              aria-label="Resume PDF"
+              aria-label={t("drawer.pdfLabel")}
               className="w-full flex-1 bg-paper-2"
             >
               <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-                <p className="text-ink-2">
-                  This browser can&apos;t display PDFs inline.
-                </p>
+                <p className="text-ink-2">{t("drawer.noInline")}</p>
                 <button type="button" onClick={openInNewTab} className="link-rule cursor-pointer font-medium text-ink">
-                  Open the PDF in a new tab
+                  {t("drawer.openPdf")}
                 </button>
               </div>
             </object>

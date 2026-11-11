@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { translateAnalysis } from "@/lib/ai/contentTranslation";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { toGuardStats } from "@/lib/ai/schemas";
 import { assertRateLimit } from "@/lib/database/rateLimit";
@@ -15,7 +16,8 @@ import {
 } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
-import { extractTextFromPDFBytes, hasPdfHeader } from "@/lib/pdfParse";
+import { getLocale } from "@/lib/i18n/server";
+import { extractPdfText, hasPdfHeader } from "@/lib/pdfParse";
 import { analyzeResumeInputSchema } from "@/lib/schemas/resumeSchema";
 import { isResumeKeyOf } from "@/lib/supabase/resumeKey";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
@@ -38,9 +40,15 @@ import type { ActionResult } from "@/types/action";
  * rate-limited burst, a form that failed validation and the file errors all
  * leave nothing behind in the bucket.
  */
+// The upload page's maxDuration (100 s) less a margin: the translation at the end only uses what is left.
+const ACTION_BUDGET_MS = 95_000;
+// Less than this left and the translation waits for the first view instead.
+const MIN_TRANSLATION_MS = 8_000;
+
 export async function analyzeResumeAction(
   input: unknown,
 ): Promise<ActionResult<{ resumeId: string }>> {
+  const deadline = Date.now() + ACTION_BUDGET_MS;
   let ownedKey: string | null = null;
   let reservation: Reservation | null = null;
 
@@ -88,12 +96,14 @@ export async function analyzeResumeAction(
     }
 
     // Rejects unreadable and text-less PDFs with their own codes.
-    const resumeText = await extractTextFromPDFBytes(bytes);
+    const { text: resumeText, accentsComposed } = await extractPdfText(bytes);
 
     const { feedback, guard } = await analyzeResume({
       jobTitle,
       jobDescription,
       resumeText,
+      accentsComposed,
+      logId: resumeId,
     });
 
     await createResume({
@@ -111,6 +121,17 @@ export async function analyzeResumeAction(
     reservation = null;
     revalidatePath("/resume/analyses");
     revalidatePath("/resume/upload");
+
+    // A Spanish interface reads the analysis in Spanish on its first view: translated now, once.
+    // The analysis is saved and charged already; a failed translation only means the page translates on view.
+    try {
+      const locale = await getLocale();
+      if (locale !== "en" && deadline - Date.now() >= MIN_TRANSLATION_MS) {
+        await translateAnalysis(userId, { id: resumeId, companyName, jobTitle, feedback }, locale, deadline);
+      }
+    } catch (error) {
+      console.warn(`[CVision][i18n] translation at creation skipped for ${resumeId}: ${error instanceof Error ? error.name : "unknown"}`);
+    }
 
     return { ok: true, data: { resumeId } };
   } catch (error) {

@@ -50,7 +50,7 @@ export async function payInOverlay(page: Page, { email }: { email: string }): Pr
   const postcode = await findInFrames(page, 'input[name="postcode"], input[name="postalCode"], input[autocomplete="postal-code"]', 1_500);
   if (postcode) await postcode.fill("1000");
 
-  const cont = await findInFrames(page, 'button[type="submit"], button:has-text("Continue")', 5_000);
+  const cont = await findInFrames(page, 'button[type="submit"], button:has-text("Continue"), button:has-text("Continuar")', 5_000);
   if (!cont) throw new Error("Paddle overlay: no Continue button on the customer step");
   await cont.click();
 
@@ -75,7 +75,7 @@ export async function payInOverlay(page: Page, { email }: { email: string }): Pr
   const until = Date.now() + 15_000;
   while (!pay && Date.now() < until) {
     for (const frame of page.frames()) {
-      const candidate = frame.getByRole("button", { name: /subscribe now|pay now|buy now|^pay\b|complete purchase/i }).first();
+      const candidate = frame.getByRole("button", { name: /subscribe now|pay now|buy now|^pay\b|complete purchase|suscr[ií]b|^pagar\b|comprar ahora|completar (la )?compra/i }).first();
       if (await candidate.isVisible({ timeout: 300 }).catch(() => false)) {
         pay = candidate;
         break;
@@ -90,7 +90,7 @@ export async function payInOverlay(page: Page, { email }: { email: string }): Pr
 /** Closes the overlay without paying: its close button, or Escape. */
 export async function closeOverlay(page: Page): Promise<void> {
   const frame = page.frameLocator(PADDLE_FRAME);
-  const close = frame.getByRole("button", { name: /close/i }).first();
+  const close = frame.getByRole("button", { name: /close|cerrar/i }).first();
   if (await close.isVisible({ timeout: 5_000 }).catch(() => false)) await close.click();
   else await page.keyboard.press("Escape");
   await expect(page.locator(PADDLE_FRAME)).toHaveCount(0, { timeout: 15_000 });

@@ -1,0 +1,106 @@
+{
+  "room": {
+    "title": "Sala de entrevista",
+    "loading": "Cargando la sala de entrevista.",
+    "eyebrow": "Sala de entrevista · Intento {{attempt}}",
+    "status": {
+      "connecting": "Conectando",
+      "speaking": "Habla el entrevistador",
+      "yourTurn": "Tu turno",
+      "ending": "Terminando la entrevista",
+      "ended": "Entrevista terminada",
+      "dropped": "Se perdió la conexión",
+      "noStarts": "No te quedan conexiones",
+      "ready": "Cuando quieras"
+    },
+    "startButton": {
+      "microphone": "Revisando el micrófono",
+      "session": "Iniciando",
+      "connecting": "Conectando",
+      "retry": "Intentar de nuevo",
+      "start": "Empezar la entrevista"
+    },
+    "clock": {
+      "timeLeft": "Tiempo restante",
+      "length": "Duración de la entrevista"
+    },
+    "interviewer": "Entrevistador",
+    "you": "Tú",
+    "candidate": "Postulante",
+    "length": "Duración",
+    "upTo_one": "Hasta {{count}} minuto",
+    "upTo_many": "Hasta {{count}} minutos",
+    "upTo_other": "Hasta {{count}} minutos",
+    "source": {
+      "period": "Usa una de las entrevistas de este período.",
+      "credit": "Usa un crédito.",
+      "trial": "Tu prueba gratis, por nuestra cuenta."
+    },
+    "lengthChanged_one": "Esta llamada dura {{count}} minuto, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
+    "lengthChanged_many": "Esta llamada dura {{count}} minutos, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
+    "lengthChanged_other": "Esta llamada dura {{count}} minutos, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
+    "backToAnalysis": "Volver al análisis",
+    "dropped": {
+      "title": "Se perdió la conexión con el entrevistador.",
+      "noStarts": "No quedan conexiones para esta entrevista.",
+      "mayScore": "Si ya habías respondido algunas preguntas, lo que se dijo puede puntuarse tal como quedó.",
+      "checkFeedback": "Ver si hay feedback"
+    },
+    "reconnect_one": "Reconectar — te queda {{count}} conexión",
+    "reconnect_many": "Reconectar — te quedan {{count}} conexiones",
+    "reconnect_other": "Reconectar — te quedan {{count}} conexiones",
+    "hint": {
+      "live": "Habla con naturalidad. Termina la entrevista cuando quieras.",
+      "ended": "Abriendo tu feedback.",
+      "idle": "Las preguntas salen de la oferta y de tu análisis."
+    },
+    "end": "Terminar la entrevista",
+    "ending": "Terminando",
+    "openingFeedback": "Abriendo tu feedback",
+    "countdown": {
+      "warning": "Queda un minuto. Termina la respuesta que estás dando.",
+      "final": "Se acabó el tiempo. El entrevistador está cerrando."
+    },
+    "microphone": {
+      "insecure": "El micrófono solo funciona en un sitio seguro. Abre esta página con https e inténtalo de nuevo.",
+      "denied": "Se bloqueó el acceso al micrófono. Permite el micrófono para este sitio en la configuración de sitios de tu navegador (el ícono junto a la barra de direcciones) e inténtalo de nuevo.",
+      "missing": "No se encontró ningún micrófono. Conecta uno, o revisa que el navegador lo detecte, e inténtalo de nuevo.",
+      "failed": "No se pudo abrir el micrófono. Cierra otras aplicaciones que puedan estar usándolo e inténtalo de nuevo."
+    },
+    "transcript": {
+      "label": "Transcripción en vivo",
+      "title": "Transcripción",
+      "listening": "Escuchando",
+      "empty": "Vacía",
+      "lines_one": "{{count}} línea",
+      "lines_many": "{{count}} líneas",
+      "lines_other": "{{count}} líneas",
+      "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
+      "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre."
+    }
+  },
+  "list": {
+    "eyebrow": "Tus entrevistas",
+    "title": "Cada ensayo, registrado.",
+    "count": "Entrevistas",
+    "completed": "Completadas",
+    "emptyTitle": "Todavía no hay ensayos.",
+    "emptyBody": "Las entrevistas parten de un análisis, así que las preguntas salen de la oferta real a la que te postulas.",
+    "emptyAction": "Elige un análisis",
+    "attempt": "Intento {{number}}",
+    "reading": {
+      "ready": "Lista para empezar",
+      "pending": "Preparando el feedback",
+      "done": "Completada · ver feedback",
+      "failed": "No se completó · ver por qué",
+      "expired": "Vencida"
+    }
+  },
+  "destination": {
+    "ready": "Abrir la sala de entrevista",
+    "pending": "Preparando tu feedback",
+    "done": "Leer el feedback de la entrevista",
+    "failed": "Ver qué salió mal",
+    "expired": "Entrevista vencida"
+  }
+}

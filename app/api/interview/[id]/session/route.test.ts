@@ -20,7 +20,11 @@ vi.mock("@/lib/database/interview", () => ({
   reserveInterviewSession: vi.fn(),
 }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
-vi.mock("@/lib/database/usage", () => ({ reserveInterview: vi.fn(), refundUsage: vi.fn(async () => true) }));
+vi.mock("@/lib/database/usage", () => ({
+  reserveInterview: vi.fn(),
+  refundUsage: vi.fn(async () => true),
+  resolveInterviewEntitlement: vi.fn(async () => ({ maxDurationSeconds: 300 })),
+}));
 vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 vi.mock("@/lib/elevenlabs/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
 
@@ -205,6 +209,17 @@ describe("POST /api/interview/[id]/session: checks before the paid call", () => 
     // After the ownership, state and context checks: a 404 or a 409 never reads the balance.
     expect(assertVoiceCapacity).toHaveBeenCalledTimes(1);
     expect(vi.mocked(fetchInterviewById).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(assertVoiceCapacity).mock.invocationCallOrder[0]);
+  });
+
+  it("sizes the balance floor on the agent: the entitlement's for a first start, the interview's tier for a reconnect", async () => {
+    stubElevenLabs(tokenResponse);
+    await post();
+    expect(assertVoiceCapacity).toHaveBeenLastCalledWith(300);
+
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "IN_PROGRESS", startCount: 1, conversationId: "conv_0", usageEventId: "evt_0", tier: "FULL", paidBy: "PERIOD" }));
+    stubElevenLabs(tokenResponse);
+    await post();
+    expect(assertVoiceCapacity).toHaveBeenLastCalledWith(720);
   });
 
   it("does not read the balance for an interview it refuses on state", async () => {

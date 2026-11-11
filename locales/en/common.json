@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "tagline": "Check your CV against the job. Then rehearse the interview out loud.",
+    "description": "Paste a job post, upload your CV, and find out how well you actually fit before you apply. Then rehearse the interview out loud."
+  },
+  "nav": {
+    "primary": "Primary",
+    "analyses": "Analyses",
+    "interviews": "Interviews",
+    "pricing": "Pricing",
+    "newAnalysis": "New analysis",
+    "newShort": "New",
+    "signIn": "Sign in",
+    "analyzeMyCv": "Analyze my CV",
+    "accountMenu": "Account menu",
+    "yourAccount": "Your account",
+    "planBilling": "Plan & billing",
+    "profileSecurity": "Profile & security",
+    "signOut": "Sign out",
+    "home": "{{brand}} — home"
+  },
+  "footer": {
+    "label": "Footer",
+    "typeset": "Set in Fraunces, Schibsted Grotesk and IBM Plex Mono.",
+    "howItWorks": "How it works",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "refunds": "Refunds"
+  },
+  "theme": {
+    "toLight": "Switch to light mode",
+    "toDark": "Switch to dark mode"
+  },
+  "locale": {
+    "label": "Language",
+    "switchTo": "Switch to {{language}}",
+    "accountTitle": "Language",
+    "accountBody": "The language of the interface, and of your analyses and interview feedback. Quotes from your CV, lines of the posting and suggested bullets stay as written."
+  },
+  "score": {
+    "meter": "Score",
+    "scoreOf": "{{label}} score",
+    "outOf": "/ 100",
+    "tone": {
+      "weak": "Needs work",
+      "fair": "Fair",
+      "strong": "Strong"
+    },
+    "fit": {
+      "weak": "Weak fit",
+      "fair": "Partial fit",
+      "strong": "Strong fit"
+    },
+    "performance": {
+      "weak": "Needs practice",
+      "fair": "Solid",
+      "strong": "Convincing"
+    }
+  },
+  "tally": {
+    "part": "{{met}} of {{total}} {{label}}",
+    "partWithPartial": "{{met}} of {{total}} {{label}} (+{{partial}} partial)",
+    "required": "required",
+    "preferred": "preferred",
+    "notShown_one": "{{count}} not shown in your CV",
+    "notShown_other": "{{count}} not shown in your CV",
+    "joined": "{{required}}, {{preferred}}",
+    "joinedWithNotShown": "{{required}}, {{preferred}}, {{notShown}}"
+  },
+  "plan": {
+    "FREE": "Free",
+    "PRO": "Pro"
+  },
+  "actions": {
+    "tryAgain": "Try again",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back"
+  },
+  "translation": {
+    "pending": "Translating…",
+    "pendingBody": "Translating. It takes a few seconds, and only happens once.",
+    "unavailable": "Translation unavailable; showing the original.",
+    "partial": "Some parts couldn't be translated and are shown in the original.",
+    "showOriginal": "Show the original"
+  }
+}

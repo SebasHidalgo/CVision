@@ -1,0 +1,165 @@
+{
+  "list": {
+    "eyebrow": "Your analyses",
+    "title": "Every CV you have measured.",
+    "count": "Analyses",
+    "strongFits": "Strong fits",
+    "emptyTitle": "Nothing measured yet.",
+    "emptyBody": "Paste a job post, upload your CV, and this page becomes the record of how each application stacks up.",
+    "emptyAction": "Start your first analysis",
+    "unreadable": "We couldn't read this analysis. Run it again."
+  },
+  "detail": {
+    "loading": "Loading analysis",
+    "historyTitle": "This analysis is in your history."
+  },
+  "header": {
+    "eyebrow": "Analysis · {{date}}",
+    "quality": "Resume quality, on its own",
+    "qualityMeter": "Resume quality",
+    "qualityNote": "{{tone}} · the part you can change by editing"
+  },
+  "status": {
+    "met": "Met",
+    "partial": "Partly met",
+    "missing": "Not met",
+    "not_evident": "Not shown in your CV"
+  },
+  "kind": {
+    "required": "Required",
+    "preferred": "Preferred"
+  },
+  "dimensions": {
+    "fit": { "label": "Requirements" },
+    "experience": { "label": "Experience & impact" },
+    "skills": { "label": "Skills" },
+    "education": { "label": "Education & certifications" },
+    "tone": { "label": "Tone & clarity" },
+    "ats": { "label": "What an ATS reads" }
+  },
+  "nav": {
+    "label": "Dimensions"
+  },
+  "fixes": {
+    "eyebrow": "Fix these first",
+    "title": "The changes that move the needle.",
+    "impact": {
+      "high": "High impact",
+      "medium": "Medium impact",
+      "low": "Low impact",
+      "other": "{{impact}} impact"
+    }
+  },
+  "sections": {
+    "strategicMoves": "Strategic moves",
+    "strengths": "Strengths",
+    "weakSpots": "Weak spots",
+    "actionPlan": "Action plan",
+    "highlights": "Highlights",
+    "improvements": "Improvements",
+    "suggestions": "Suggestions",
+    "atsProblems": "What gets in the way",
+    "atsFixes": "How to fix it",
+    "evidence": "What the analyzer relied on ({{n}})",
+    "rewrites": "Suggested rewrites",
+    "skillsProven": "Skills you prove",
+    "noSkillsProven": "None of the required skills is backed by evidence in the CV.",
+    "achievements": "Results you already quantify",
+    "noAchievements": "No bullet in the CV attaches a number to a result.",
+    "artifacts": "Characters that came out wrong",
+    "noArtifacts": "The text layer is clean.",
+    "atsSections": "Sections an ATS can see",
+    "noAtsSections": "No recognizable section headings."
+  },
+  "requirements": {
+    "none": "No requirements were extracted from this posting.",
+    "requiredTitle": "Required qualifications",
+    "preferredTitle": "Preferred qualifications",
+    "count": "{{met}} of {{total}} met",
+    "countWithPartial": "{{met}} of {{total}} met, {{partial}} partly",
+    "notShownAdvice": "Mention it in your cover letter or be ready to talk about it in the interview.",
+    "skillsOnly": "Only listed in your skills — show it in an experience bullet.",
+    "summaryOnly": "Only claimed in your summary — show it in an experience bullet.",
+    "termsLabel": "Terms the posting names",
+    "examplesLabel": "Examples the posting gives",
+    "examplesLead": "e.g.",
+    "or": "or",
+    "orBeforeO": "or",
+    "termShown": "shown in your CV",
+    "termMissing": "not in your CV"
+  },
+  "attempts": {
+    "label": "Interview attempts",
+    "attempt": "Attempt {{number}}",
+    "completed": "Completed",
+    "scored": "Scored {{score}}",
+    "reading": {
+      "ready": "Not finished",
+      "pending": "Preparing feedback",
+      "failed": "Didn't complete",
+      "expired": "Expired"
+    }
+  },
+  "cta": {
+    "eyebrow": "Next",
+    "preparing": "Preparing the interview…",
+    "openRoom": "Open the interview room",
+    "tryTrial": "Try a {{minutes}}-minute interview, free",
+    "rehearse": "Rehearse the interview",
+    "rehearseAgain": "Rehearse again",
+    "getMore_one": "Get {{count}} more interview",
+    "getMore_other": "Get {{count}} more interviews",
+    "note": {
+      "trial": "{{minutes}} minutes with the interviewer, on us",
+      "period_one": "{{count}} of {{limit}} interviews left this period",
+      "period_other": "{{count}} of {{limit}} interviews left this period",
+      "credits_one": "{{count}} credit",
+      "credits_other": "{{count}} credits",
+      "creditsLeft_one": "{{count}} credit left",
+      "creditsLeft_other": "{{count}} credits left",
+      "length": "up to {{minutes}} minutes",
+      "microphone": "needs a microphone",
+      "phone": "works on a phone"
+    },
+    "heading": {
+      "live": "Your interview is ready.",
+      "trial": "Try the {{jobTitle}} interview out loud.",
+      "needsPro": "Rehearse this interview out loud, with Pro.",
+      "proExhausted": "This period's interviews are used.",
+      "again": "Rehearse it again.",
+      "first": "Rehearse the {{jobTitle}} interview out loud."
+    },
+    "lede": {
+      "live": "An attempt is waiting in the room. Finish it, and the feedback lands here.",
+      "trial": "A voice interviewer built from this exact posting asks about the gaps your analysis found, you answer out loud, and you get scored on what you said. Your free trial runs {{minutes}} minutes.",
+      "needsPro": "You used the free trial. Pro interviews run twelve minutes, four a month, each scored against this posting and the gaps your analysis found.",
+      "proExhausted": "Every rehearsal is scored against the same posting and the same gaps. The next ones come back {{date}}.",
+      "again": "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed.",
+      "first": "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."
+    }
+  },
+  "drawer": {
+    "view": "View CV",
+    "title": "Your CV",
+    "openInNewTab": "Open in new tab",
+    "close": "Close",
+    "popupBlocked": "The browser blocked the new tab. Allow pop-ups for this site and try again.",
+    "opening": "Opening your CV.",
+    "failed": "Couldn't open the CV. Try again.",
+    "tryAgain": "Try again",
+    "pdfLabel": "Resume PDF",
+    "noInline": "This browser can't display PDFs inline.",
+    "openPdf": "Open the PDF in a new tab"
+  },
+  "delete": {
+    "eyebrow": "Remove",
+    "title": "Delete this analysis",
+    "body": "The CV, the analysis, every rehearsal and its feedback are removed for good.",
+    "trigger": "Delete analysis",
+    "dialogTitle": "Delete this analysis?",
+    "dialogBody": "{{jobTitle}} at {{companyName}}: the CV, the analysis, every rehearsal and its feedback go with it. This cannot be undone.",
+    "keep": "Keep it",
+    "deleting": "Deleting",
+    "confirm": "Delete analysis"
+  }
+}

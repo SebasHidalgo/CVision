@@ -1,0 +1,39 @@
+Camila Ortiz
+Backend Developer
+Medellín, Colombia · camila.ortiz@example.com · github.com/camila-ortiz-example
+SUMMARY
+Backend developer with four years building Python services for a fintech and an insurance company. I own services from
+the REST contract to the Kubernetes deployment, and I keep the dashboards that tell me when they break.
+
+EXPERIENCE
+Backend Developer · Pagoya (fintech) · Medellín
+January 2023 - present
+Own the merchant settlement service (Python, FastAPI) that pays out 12,000 merchants daily; designed its REST API
+and its PostgreSQL schema.
+Run the service on Kubernetes (EKS) in production, including the Helm charts and the rollout strategy.
+Wrote the Kafka consumers that feed settlement events into the ledger, with idempotent processing after a duplicate-
+delivery incident.
+Set up Prometheus metrics and Grafana dashboards for the team's five services; on-call for all of them.
+Maintain the GitHub Actions pipeline: tests, Docker image build and deployment to staging and production.
+Software Developer · Seguros Andina · Medellín
+March 2022 - December 2022
+Built the claims intake REST API in Python (Django REST Framework) against PostgreSQL.
+Containerised the legacy quoting service with Docker and moved its deployment to CI/CD.
+Junior Developer · Seguros Andina · Medellín
+February 2021 - February 2022
+Wrote SQL reports and small Python tools for the claims team.
+
+SKILLS
+Languages: Python, SQL, Bash
+Frameworks: FastAPI, Django REST Framework, pytest
+Infrastructure: Docker, Kubernetes (EKS), Helm, GitHub Actions, PostgreSQL, Kafka, Prometheus, Grafana
+Practices: REST API design, schema design, on-call, code review
+
+EDUCATION
+Ingeniería de Sistemas · Universidad de Antioquia · 2016 - 2021
+
+CERTIFICATIONS
+AWS Certified Developer - Associate (2024)
+
+LANGUAGES
+Spanish (native), English (B2, professional working proficiency)

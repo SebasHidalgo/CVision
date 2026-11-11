@@ -70,6 +70,29 @@ describe("buildInterviewerContext: the gaps", () => {
 
     expect(dynamicVariables.requirements_gaps).toBe("(none)");
     expect(dynamicVariables.requirements_met).toBe("(none)");
+    expect(dynamicVariables.requirements_not_evident).toBe("(none)");
+  });
+});
+
+describe("buildInterviewerContext: what the resume cannot show", () => {
+  const notShown = requirement({ requirement: "Pass a background check", status: "not_evident", evidence: "", note: "" });
+
+  it("lists not_evident requirements apart from the gaps, never counted as one", () => {
+    const { dynamicVariables } = buildInterviewerContext(input([...MIXED, notShown]));
+
+    expect(requirementGaps([...MIXED, notShown]).map((r) => r.requirement)).not.toContain("Pass a background check");
+    expect(dynamicVariables.requirements_not_evident).toBe("- [required, not_evident] Pass a background check");
+    expect(dynamicVariables.requirements_gaps).not.toContain("background check");
+    expect(dynamicVariables.gaps_to_cover).toBe("2");
+  });
+
+  it("takes the slots the gaps leave, before strengths, so a two-question trial with two gaps carries none", () => {
+    const trial = buildInterviewerContext(input([...MIXED, notShown], { gapsToCover: 2 })).dynamicVariables;
+    const three = buildInterviewerContext(input([...MIXED, notShown], { gapsToCover: 3 })).dynamicVariables;
+
+    expect(trial.requirements_not_evident).toBe("(none)");
+    expect(three.requirements_not_evident).toContain("background check");
+    expect(three.requirements_met).toBe("(none)");
   });
 });
 
@@ -186,7 +209,7 @@ describe("buildInterviewerContext: size", () => {
     const realistic = input(
       Array.from({ length: 12 }, (_, i) =>
         requirement({
-          requirement: `Requirement ${i}: ${"familiarity with distributed systems and cloud platforms ".repeat(3)}`,
+          requirement: `Requirement ${i}: ${"familiarity with distributed systems and public clouds ".repeat(3)}`,
           status: i % 2 ? "met" : "missing",
           evidence: i % 2 ? "Designed and operated services on AWS with CloudWatch telemetry".repeat(2) : "",
           note: "One sentence on why that status, naming the alternative the candidate has.".repeat(2),

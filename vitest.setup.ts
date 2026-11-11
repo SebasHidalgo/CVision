@@ -10,3 +10,21 @@ net.Socket.prototype.connect = function blockedConnect(this: net.Socket) {
   );
   return this;
 } as typeof net.Socket.prototype.connect;
+
+// Component tests render client components without the app's provider: react-i18next falls back to
+// this global English instance, so they assert the same copy users read. The app never uses it.
+import i18next from "i18next";
+import { initReactI18next } from "react-i18next";
+import { BRAND } from "@/lib/brand";
+import { NAMESPACES } from "@/lib/i18n/config";
+import { RESOURCES } from "@/lib/i18n/resources";
+
+void i18next.use(initReactI18next).init({
+  lng: "en",
+  resources: { en: RESOURCES.en },
+  ns: [...NAMESPACES],
+  defaultNS: "common",
+  initAsync: false,
+  interpolation: { escapeValue: false, defaultVariables: { brand: BRAND.name } },
+  react: { useSuspense: false },
+});

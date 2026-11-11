@@ -1,0 +1,80 @@
+{
+  "fixture": "long-boilerplate",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "Led a support team of at least five people for two or more years",
+      "spans": ["has led a support team of at least five people for two or more years"],
+      "aliases": ["team lead experience", "led a support team", "years leading a team"],
+      "status": "met",
+      "why": "Three years leading eight agents.",
+      "years": { "min": 2, "cv": 3 }
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Writes clearly in English and Spanish",
+      "spans": ["writes clearly in English and Spanish because a growing share of our customers prefer Spanish"],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["writes clearly in English", "Spanish"],
+      "aliases": ["English and Spanish", "written Spanish"],
+      "status": "met",
+      "why": "Native English, Spanish B2 written and spoken, writes Spanish replies."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Zendesk or a comparable helpdesk tool, well enough to build views and macros",
+      "spans": ["knows Zendesk or a comparable helpdesk tool well enough to build views and macros without help"],
+      "aliases": ["Zendesk", "helpdesk tool"],
+      "status": "met",
+      "why": "Configures Zendesk views, triggers and macros herself."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "Workforce scheduling and QA scorecards",
+      "spans": ["Experience with workforce scheduling and QA scorecards is important to us, since you will own both for your group."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["workforce scheduling", "QA scorecards"],
+      "aliases": ["scheduling", "quality scorecards"],
+      "status": "met",
+      "contested": true,
+      "why": "'is important to us' is read as required because the posting says you will own both; a reader may file it as preferred. Both are in the CV."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "Legally authorised to work in Ireland",
+      "spans": ["Applicants must be legally authorised to work in Ireland; we are not able to sponsor work permits for this role."],
+      "aliases": ["work authorisation", "right to work in Ireland", "authorized to work"],
+      "assessable": false,
+      "status": "met",
+      "contested": true,
+      "why": "Rule 3 exception: a condition the candidate must meet, stated as must. Irish citizen. Contested because it sits in the legal paragraph and a reader may treat it as boilerplate."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "A background in telecommunications",
+      "spans": ["A background in telecommunications would help but is not essential;"],
+      "aliases": ["telecommunications", "telecom"],
+      "status": "missing",
+      "why": "Utility and retail only.",
+      "keyTerms": { "mode": "all", "terms": [{ "term": "telecommunications", "present": false }] }
+    }
+  ],
+  "notRequirements": [
+    { "span": "Day to day you will coach agents through call reviews, run the weekly quality calibration, own the schedule for your group, and be the escalation point for the hardest customer cases.", "reason": "responsibility" },
+    { "span": "You report to the Head of Support and meet the other team leads daily.", "reason": "responsibility" },
+    { "span": "Salary from €48,000 to €56,000 depending on experience, a 10% annual bonus tied to customer satisfaction, 25 days of leave rising to 30, a health plan for you and your family, a pension matched up to 6%, a free Orbit mobile and broadband plan, and a learning allowance of €1,500 a year.", "reason": "benefit" },
+    { "span": "We work three days in the office and two from home, and we close the office between Christmas and New Year.", "reason": "benefit" },
+    { "span": "A 30-minute call with a recruiter, a conversation with the Head of Support, and a half-day with the team where you will review two recorded calls with us.", "reason": "boilerplate" },
+    { "span": "Orbit Telecom is an equal opportunity employer.", "reason": "boilerplate" },
+    { "span": "Straight talk. Customers hear the truth from us, even when it costs a sale.", "reason": "description" },
+    { "span": "Team leads run groups of eight to twelve agents and are the people our agents learn the job from.", "reason": "description" },
+    { "span": "most of our best leads came from retail, hospitality or utilities.", "reason": "description" }
+  ]
+}

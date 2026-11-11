@@ -1,3 +1,171 @@
+/** The fields of one requirement entry; the repair prompt asks for the same. */
+export const REQUIREMENT_FIELDS = `      // The sentence or bullet of the job description this requirement comes
+      // from, copied word for word from the job description, never from the
+      // resume: one continuous span, the shortest that holds the requirement.
+      // An entry whose sourceQuote is not in the job description is discarded.
+      sourceQuote: string;
+
+      // The heading of the part of the posting sourceQuote sits under, copied
+      // word for word ("What you will do", "Requirements", "Nice to have"),
+      // or "" when that part has no heading.
+      heading: string;
+
+      // What that part of the posting is, read from its heading, or from the
+      // sentence itself when there is none: "requirements" (required,
+      // minimum or must-have qualifications, or a demand on the candidate in
+      // prose), "preferred" (nice to have, bonus, a plus), "responsibilities"
+      // (what the hire will do: "What you will do", "Responsibilities", "Your
+      // role", "Lo que harás"), "description" (the company, team, product,
+      // tech stack, benefits or hiring process), "other" (anything else, such
+      // as an eligibility paragraph). A bullet under a responsibilities
+      // heading is "responsibilities" whatever tools it names.
+      section: "requirements" | "preferred" | "responsibilities" | "description" | "other";
+
+      // true only when the sentence says the candidate must already have
+      // this ("so you have operated Kubernetes in production", "you write Go
+      // every week"); false when it describes work the hire will do, even
+      // work that names a tool ("Build dashboards in Power BI", "Write SQL to
+      // answer business questions"), or what the team uses.
+      demandsCapability: boolean;
+
+      // The requirement in one line, as the posting puts it. When the posting
+      // offers alternatives, they belong INSIDE this one entry: "coding in Go,
+      // C, C++, C#, Java or Python" is ONE requirement, never one
+      // per language.
+      requirement: string;
+
+      // The part of a required bullet that the posting softens - "ideally in
+      // e-commerce", "preferably Power BI", "another European language is a
+      // plus", "preferiblemente", "deseable", "valorable" - copied word for
+      // word from the job description into quote. Judge that part here as a
+      // preferred requirement of its own, with status, evidence and note as
+      // below, and judge this entry without it. Examples ("such as BigQuery
+      // or Snowflake", "e.g. Jira") and alternatives ("or Looker") are not
+      // softened. When the entry has no softened part: quote "", status
+      // "missing", evidence "", note "".
+      softenedClause: {
+        quote: string;
+        status: "met" | "partial" | "missing" | "not_evident";
+        evidence: string;
+        note: string;
+      };
+
+      // The named subjects, technologies, tools, industries, fields of study,
+      // certifications and languages this requirement asks for (not general
+      // skills such as "scalability" or "communication", not years), each
+      // copied word for word from sourceQuote: every subject it joins ("data
+      // pipelines", "message queues" and "alerting" in "data pipelines and
+      // message queues (e.g. Kafka, RabbitMQ), including alerting"), the
+      // category a list of examples illustrates ("message queues"), every
+      // example, every alternative the posting offers, also the ones the
+      // resume lacks, and "related field" when the posting accepts one.
+      // With each,
+      // cvMatch: the word or phrase in the resume that shows the term, copied
+      // word for word, or "" when the resume does not show it; and
+      // relation: how cvMatch relates to the term. "same": the term itself,
+      // or a specific case of it: the resume word is one kind of what the
+      // term names ("PostgreSQL" for "relational databases"; "Heroku" for
+      // "cloud platforms", because Heroku is a cloud platform; "usability
+      // tests" for "user research"). "synonym": another name for the same
+      // thing ("Postgres" for "PostgreSQL"). "abbreviation": "K8s" for
+      // "Kubernetes". "translation": "estadística" for "Statistics".
+      // "related": a different thing beside it, or a broader one: "an
+      // AI-powered product" is not "AI development tools", "remote teams" is
+      // not "distributed systems", "Electrical Engineering" is not "Computer
+      // Science" (it shows "related field"), "scalable" is not "system
+      // design", and "data modeling" is broader than "dimensional modeling".
+      // Ask which way it goes: a case of the term is "same"; a neighbour, a
+      // quality or a wider field is "related". A related match does not
+      // count: the term reads as not shown, and the note may mention what
+      // the resume has instead. "none" when cvMatch is "".
+      // mode "all" when the requirement needs every subject it joins ("Ruby
+      // on Rails and MySQL", "X and Y, including Z"), "any" when it offers
+      // alternatives ("C, C++ or Java") or only examples ("tools such as
+      // Redis, Kafka and Celery"). terms is empty when it names none.
+      keyTerms: {
+        mode: "all" | "any";
+        terms: { term: string; cvMatch: string; relation: "same" | "synonym" | "abbreviation" | "translation" | "related" | "none" }[];
+      };
+
+      // "required" if the posting presents it as a minimum or required
+      // qualification; "preferred" if it is listed as preferred, desired, a
+      // plus, a bonus or nice to have. Use the posting's own framing: a plain
+      // bullet in a list of qualifications is required unless its own words
+      // soften it.
+      kind: "required" | "preferred";
+
+      // false when no resume could show this, only state it: an attitude
+      // ("comfortable saying no"), a trait judged by its manner ("writes
+      // crisply"), availability or willingness, or a hiring condition (work
+      // authorization, a background check, a security screening). true for
+      // experience, skills, tools, domains, degrees, languages, certifications.
+      assessable: boolean;
+
+      // For a requirement that asks for a number of years: the resume lines
+      // that show the candidate's years, each copied word for word - a line
+      // that states them ("2+ years of experience"), or else the date line of
+      // every relevant role. Empty for any other requirement.
+      yearsEvidence: string[];
+
+      // The text from the resume that decides the status, copied word for
+      // word: one line, never lines joined. The strongest line: an experience
+      // or project bullet that shows it in use, the skills list only when
+      // nothing else does. Empty string when the status is "missing" or
+      // "not_evident".
+      evidence: string;
+
+      // "met" when the resume satisfies it - for a list of alternatives, one
+      // of them is enough. "partial" when the resume shows something adjacent
+      // but not the thing asked for. "missing" when the resume shows nothing
+      // for it. "not_evident" when assessable is false and the resume does
+      // not state it.
+      status: "met" | "partial" | "missing" | "not_evident";
+
+      // One sentence on why that status. For a list of alternatives, name the
+      // one the candidate has. For "partial", say what is there and what is
+      // not. Never describe an alternative the candidate lacks as a gap when
+      // another alternative in the same requirement is met.
+      // Addressed to the candidate: "Your CV shows…", never "The candidate…".
+      note: string;`;
+
+/** How dates are judged against today; shared with the repair prompt. */
+export const DATE_RULE = (today: string) => `Today is ${today}. Before calling any degree, course, certification or role
+ongoing, current, in progress, expected or unfinished, compare its end date
+with today's date. An end date on or before today is finished, however recent
+it is. Only an end date after today, or the words "Present", "Current" or "to
+date" in the resume itself, mean ongoing. An entry with no end date at all is
+missing its end date: say that, and do not infer that it is ongoing.`;
+
+/** How posting text becomes requirements; shared with the repair prompt. */
+export const REQUIREMENT_RULES = `- "A, B, C, or D", "one of A, B, C" and "including, but not limited to, A, B,
+  C" are ONE requirement that any single item satisfies. If the resume has one
+  of them, that requirement is "met", and the alternatives the candidate lacks
+  are not gaps: they must not appear as their own requirement, and nothing
+  anywhere in the analysis may call them missing.
+- "A and B" is one requirement that needs both. It is "partial" when only one
+  is there.
+- The posting's own framing decides "kind". Preferred, desired, a plus, a
+  bonus and nice to have are all "preferred", never "required".
+- Cover every required qualification the posting states. A requirement the
+  resume genuinely does not answer is "missing" - report those plainly, the
+  goal is accuracy, not a short list.`;
+
+/** How a quoted field is copied; shared with the repair prompt. */
+export const QUOTE_RULES = `- Copy one continuous span of the resume character for character: same words,
+  same order, same case, same punctuation, same spelling. Prefer the shortest
+  span that makes the point, usually a single line.
+- Do not paraphrase, summarize or explain. "Listed under Databases", "Also
+  mentioned in the Languages section" and "Demonstrated through API ownership"
+  are descriptions, not quotes, and do not belong in these fields.
+- Add nothing of your own: no ellipsis, no "...", no square brackets, no label
+  before the text, no comment after it.
+- Never join text from two different places into one quote.
+- Never clean the text up. If a character is broken or mis-encoded in the
+  resume text, reproduce it exactly as it is; repairing it hides the problem
+  from the candidate and makes the quote false.
+- If there is nothing you can copy, use an empty string. An empty quoted field
+  is better than a description.`;
+
 /**
  * The field comments below are instructions the model follows, not
  * documentation. M2c-F audited them against the rules and removed three that
@@ -21,6 +189,30 @@
  */
 const AIResponseFormat = `
 {
+  // The headline of the analysis: what the posting asks for, one entry per
+  // requirement, and how this resume answers each one.
+  jobFit: {
+    // One entry per requirement in the posting: every required and every
+    // preferred qualification, met or not.
+    requirements: {
+${REQUIREMENT_FIELDS}
+    }[];
+
+    // At least 150 characters on how the resume presents itself for this
+    // posting: which experience reads closest to the role and how the document
+    // could bring it forward. Never say which requirements are met, partly
+    // met, missing or not shown, nor call anything a gap: code writes those
+    // sentences from the requirements list.
+    // Addressed to the candidate: "Your experience…", never "The candidate…".
+    description: string;
+
+    // 3 specific strategic recommendations to better align the resume
+    // with the target role (e.g., “Move the React project above older roles”).
+    // Never suggest adding a section the resume already has.
+    // Never ask to highlight what the resume does not show; condition it ("If you have Azure experience, …").
+    strategicRecommendations: string[];
+  };
+
   overall: {
     // How good this resume is as a document, 0-100, ignoring this posting
     // entirely. This is the score the candidate can change by editing, and it
@@ -38,12 +230,17 @@ const AIResponseFormat = `
     //   0-24    not usable as a resume
     qualityScore: number;
 
-    // 2-4 sentences. Lead with how the resume answers the posting's required
-    // qualifications, then what would most improve the document itself.
+    // 2-3 sentences. The app opens the summary with the requirement statuses,
+    // so do not restate which requirements are met, partial or missing: say
+    // how the experience reads for this role and what would most improve the
+    // document itself. Describe only what the requirements list shows.
+    // Addressed to the candidate ("Your experience…").
     summaryText: string;
 
     // A short, prioritized roadmap of the main fixes to make.
     // Each item should describe one concrete action and its expected impact.
+    // Never suggest adding a section the resume already has.
+    // Never ask to highlight what the resume does not show; condition it ("If you have Azure experience, …").
     prioritizedFixes: {
       // Short title describing what to improve (e.g., “Add measurable results”)
       title: string;
@@ -64,22 +261,30 @@ const AIResponseFormat = `
     // document parses. Ground every statement in the text above.
     description: string;
 
-    // Characters that came out of the PDF broken or mis-encoded, each quoted
-    // exactly as it appears in the resume text, with enough of the surrounding
-    // word to find it. Empty if the text layer is clean.
+    // Characters the text layer itself gets wrong, each quoted exactly as it
+    // appears in the resume text, with enough of the word to find it: mojibake
+    // ("JosÃ©", "Ã±"), the replacement character (�), letters missing from a
+    // word. A correctly accented letter is never an artifact. Empty if the
+    // text layer is clean.
     encodingArtifacts: string[];
 
     // The section headings present in the resume text, copied as written.
     // Empty if the text has no recognizable headings.
     sectionsDetected: string[];
 
-    // 2-4 problems that affect parsing, each one visible in the text above.
-    // Do not list a problem the text does not show.
-    problems: string[];
+    // 0-4 problems that affect parsing. A problem you cannot quote does not exist.
+    // Not problems: en dashes in date ranges, • bullets, accented letters, no icons.
+    issues: {
+      // The exact text from the resume that shows the problem.
+      quote: string;
 
-    // 2-4 actionable fixes for the problems listed. One per problem where you
-    // can. Must not repeat recommendations from other sections.
-    fixes: string[];
+      // The problem, in one sentence, in second person ("Your dates…").
+      problem: string;
+
+      // How to fix it. Never advise removing accents; for encodingArtifacts,
+      // advise re-exporting the PDF from the original document.
+      fix: string;
+    }[];
 
     // 1-3 short snippets copied from the resume that back up the analysis.
     evidence: string[];
@@ -117,7 +322,8 @@ const AIResponseFormat = `
     // phrasing. Keep every figure the original had; where a figure would help
     // but the resume does not have one, leave [X]% or [N] for the candidate.
     suggestedBullets: {
-      // Job role name (e.g., “Marketing Manager”)
+      // The role and the company, as the resume names them (e.g., “Marketing
+      // Manager, Acme”).
       role: string;
 
       // 1-3 rewritten bullet examples demonstrating better phrasing.
@@ -135,11 +341,12 @@ const AIResponseFormat = `
     description: string;
 
     // Skills the posting asks for that the resume has, each with the text from
-    // the resume that proves it.
+    // the resume that proves it. Only skills the posting names.
     matchedSkills: { name: string; evidence: string }[];
 
     // 2-4 clear and actionable steps explaining how to improve the skills section.
     // Example: “Group technical skills by category”, “Add proficiency levels”.
+    // Never ask to add a skill the resume does not show; condition it ("If you use Redis, …").
     actionPlan: string[];
   };
 
@@ -157,10 +364,6 @@ const AIResponseFormat = `
     // 1-3 specific, practical improvements. Each has to be something this
     // resume is actually missing - check the text before asking for it.
     improvements: string[];
-
-    // Optional: certifications not in the resume that would strengthen it
-    // (e.g., “AWS Certified Developer”). Leave empty rather than padding.
-    recommendedCerts: string[];
   };
 
   // How the resume reads. No score: describe what you see. A number here
@@ -173,49 +376,6 @@ const AIResponseFormat = `
     // 2-4 suggestions for tone and language improvements.
     // Example: “Avoid jargon”, “Use shorter sentences”, “Replace passive verbs”.
     suggestions: string[];
-  };
-
-  // The headline of the analysis: what the posting asks for, one entry per
-  // requirement, and how this resume answers each one.
-  jobFit: {
-    // At least 150 characters summarizing how the resume answers the posting's
-    // requirements, leading with the required ones.
-    description: string;
-
-    // One entry per requirement in the posting. Cover every required
-    // qualification; include the preferred ones that matter.
-    requirements: {
-      // The requirement in one line, as the posting puts it. When the posting
-      // offers alternatives, they belong INSIDE this one entry: "coding in C,
-      // C++, C#, Java, JavaScript, GO or Python" is ONE requirement, never one
-      // per language.
-      requirement: string;
-
-      // "required" if the posting presents it as a minimum or required
-      // qualification; "preferred" if it is listed as preferred, desired, a
-      // plus, a bonus or nice to have. Use the posting's own framing.
-      kind: "required" | "preferred";
-
-      // "met" when the resume satisfies it - for a list of alternatives, one
-      // of them is enough. "partial" when the resume shows something adjacent
-      // but not the thing asked for. "missing" when the resume shows nothing
-      // for it.
-      status: "met" | "partial" | "missing";
-
-      // The text from the resume that decides the status, copied word for
-      // word. Empty string when the status is "missing".
-      evidence: string;
-
-      // One sentence on why that status. For a list of alternatives, name the
-      // one the candidate has. For "partial", say what is there and what is
-      // not. Never describe an alternative the candidate lacks as a gap when
-      // another alternative in the same requirement is met.
-      note: string;
-    }[];
-
-    // 3 specific strategic recommendations to better align the resume
-    // with the target role (e.g., “Add a Key Achievements section”, “Reorder skills”).
-    strategicRecommendations: string[];
   };
 }
 `;
@@ -249,12 +409,7 @@ in the response format below. An answer that breaks one of them is wrong even
 if every field is filled in.
 
 RULE 1 - Classify dates by comparing them with today, never by how they are phrased.
-Today is ${today}. Before calling any degree, course, certification or role
-ongoing, current, in progress, expected or unfinished, compare its end date
-with today's date. An end date on or before today is finished, however recent
-it is. Only an end date after today, or the words "Present", "Current" or "to
-date" in the resume itself, mean ongoing. An entry with no end date at all is
-missing its end date: say that, and do not infer that it is ongoing.
+${DATE_RULE(today)}
 
 RULE 2 - Search the resume before claiming anything is absent from it.
 Saying the resume lacks something is a claim about the whole resume, so read
@@ -264,8 +419,8 @@ the whole resume before making it. Finding one instance makes the claim false.
   false if experienceAndImpact.quantifiedAchievements has even one entry. That
   list is the test: fill it from the resume first, and if it is not empty, any
   statement about metrics has to be qualified to match what is in it.
-- educationAndCertifications.recommendedCerts and improvements may only hold
-  things the resume does not already have. Check each one against the resume
+- educationAndCertifications.improvements may only hold things the resume
+  does not already have. Check each one against the resume
   text before you add it. A skill named in a skills section is present even if
   no bullet elaborates on it; if it is thinly evidenced, say so in the
   description instead of treating it as absent.
@@ -281,58 +436,49 @@ digits or in words, that the resume does not contain.
 
 RULE 4 - One requirement per requirement, and read its logic before judging it.
 jobFit.requirements is the only place a gap may appear in this analysis.
-- "A, B, C, or D", "one of A, B, C" and "including, but not limited to, A, B,
-  C" are ONE requirement that any single item satisfies. If the resume has one
-  of them, that requirement is "met", and the alternatives the candidate lacks
-  are not gaps: they must not appear as their own requirement, and nothing
-  anywhere in the analysis may call them missing.
-- "A and B" is one requirement that needs both. It is "partial" when only one
-  is there.
-- The posting's own framing decides "kind". Preferred, desired, a plus, a
-  bonus and nice to have are all "preferred", never "required".
-- Cover every required qualification the posting states. A requirement the
-  resume genuinely does not answer is "missing" - report those plainly, the
-  goal is accuracy, not a short list.
+${REQUIREMENT_RULES}
 
 RULE 5 - Quoted fields hold text copied out of the resume and nothing else.
 This covers atsCompatibility.evidence, atsCompatibility.encodingArtifacts,
-atsCompatibility.sectionsDetected, the evidence of every entry in
-skills.matchedSkills and jobFit.requirements, and the quote of every entry in
-experienceAndImpact.quantifiedAchievements.
-- Copy one continuous span of the resume character for character: same words,
-  same order, same case, same punctuation, same spelling. Prefer the shortest
-  span that makes the point, usually a single line.
-- Do not paraphrase, summarize or explain. "Listed under Databases", "Also
-  mentioned in the Languages section" and "Demonstrated through API ownership"
-  are descriptions, not quotes, and do not belong in these fields.
-- Add nothing of your own: no ellipsis, no "...", no square brackets, no label
-  before the text, no comment after it.
-- Never join text from two different places into one quote.
-- Never clean the text up. If a character is broken or mis-encoded in the
-  resume text, reproduce it exactly as it is; repairing it hides the problem
-  from the candidate and makes the quote false.
-- If there is nothing you can copy, use an empty string. An empty quoted field
-  is better than a description.
+atsCompatibility.sectionsDetected, the quote of every atsCompatibility.issues
+entry, the evidence of every entry in
+skills.matchedSkills and jobFit.requirements (its softenedClause included),
+the cvMatch and yearsEvidence of jobFit.requirements, and the quote of every
+entry in experienceAndImpact.quantifiedAchievements. The sourceQuote,
+softenedClause.quote and keyTerms term of jobFit.requirements follow the same
+rules, copied out of the job description instead.
+${QUOTE_RULES}
 `;
 
 /** UTC, unambiguous in both directions: a machine date and a written one. */
-const formatToday = (now: Date) =>
+export const formatToday = (now: Date) =>
   `${now.toISOString().slice(0, 10)} (${now.toLocaleDateString("en-US", {
     dateStyle: "long",
     timeZone: "UTC",
   })})`;
+
+// Experiment block (M8-A, scripts/eval only). Absent, the prompt is byte-identical to production's.
+const PDF_ATTACHED_NOTE = `
+  The resume is also attached as a PDF so you can see its layout and formatting. Every quoted field must still be copied from the resume text above, which is what an ATS extracts, never from the PDF.`;
+
+/** Appended once when the first answer's prose came back in another language. */
+export const ENGLISH_RETRY =
+  "Your previous answer was not written in English. Write every field in English, whatever language the resume or the job description is in; quoted fields stay verbatim in their own language.";
 
 export const resumeAnalysisPrompt = ({
   jobTitle,
   jobDescription,
   resumeText,
   now,
+  pdfAttached = false,
 }: {
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
   /** Resolved per request, so the date anchor is never baked in at build time. */
   now: Date;
+  /** Experiment: the PDF travels beside the text. */
+  pdfAttached?: boolean;
 }) => {
   const today = formatToday(now);
 
@@ -345,8 +491,9 @@ export const resumeAnalysisPrompt = ({
   Today's date is ${today}.
   The job title is: ${jobTitle}
   The job description is: ${jobDescription}
-  The resume text is: ${resumeText}
+  The resume text is: ${resumeText}${pdfAttached ? PDF_ATTACHED_NOTE : ""}
   ${ANALYSIS_RULES(today)}
+  Write every field in English, whatever language the resume or the job description is in; quoted fields stay verbatim in their own language.
   Provide the feedback using the following format: Please make sure to follow the format exactly as specified here, use the exact field names and types and do not forget to include all the fields.
   ${AIResponseFormat}
   Return the analysis as an JSON object, without any other text and without the backticks. Please ensure the JSON is properly formatted and can be parsed by a JSON parser.

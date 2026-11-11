@@ -1,0 +1,103 @@
+{
+  "fixture": "linkedin-mixed",
+  "status": "final",
+  "requirements": [
+    {
+      "id": "r1",
+      "kind": "required",
+      "name": "5+ years building data pipelines in production",
+      "spans": ["5+ years building data pipelines in production."],
+      "aliases": ["years building data pipelines", "data pipeline experience"],
+      "status": "met",
+      "why": "Six years, three data engineering roles.",
+      "years": { "min": 5, "cv": 6 }
+    },
+    {
+      "id": "r2",
+      "kind": "required",
+      "name": "Fluent Python or Scala, and strong SQL",
+      "spans": ["Fluent Python or Scala, and strong SQL."],
+      "splitAllowed": true,
+      "alsoAcceptedAs": ["Fluent Python or Scala", "strong SQL"],
+      "status": "met",
+      "why": "Python 6 years and advanced SQL."
+    },
+    {
+      "id": "r3",
+      "kind": "required",
+      "name": "Spark, Flink or Beam for large-scale processing",
+      "spans": ["Experience with Spark, Flink or Beam for large-scale processing."],
+      "aliases": ["Spark", "large-scale processing"],
+      "status": "met",
+      "why": "Spark and Spark Structured Streaming in two roles."
+    },
+    {
+      "id": "r4",
+      "kind": "required",
+      "name": "A modern orchestrator such as Airflow or Dagster",
+      "spans": ["A modern orchestrator such as Airflow or Dagster."],
+      "aliases": ["orchestrator", "Airflow"],
+      "status": "met",
+      "why": "Moved 40 jobs to Airflow."
+    },
+    {
+      "id": "r5",
+      "kind": "required",
+      "name": "A cloud data warehouse (BigQuery, Snowflake or Redshift)",
+      "spans": ["Hands-on experience with a cloud data warehouse (BigQuery, Snowflake or Redshift)."],
+      "aliases": ["cloud data warehouse", "data warehouse"],
+      "status": "missing",
+      "why": "ClickHouse, PostgreSQL and Parquet on S3; none of the three warehouses and no cloud warehouse. M8-H: the three are examples of the category, which is the requirement (rule 17); ClickHouse is not a cloud data warehouse.",
+      "keyTerms": { "mode": "any", "terms": [{ "term": "cloud data warehouse", "present": false }, { "term": "BigQuery", "present": false, "example": true }, { "term": "Snowflake", "present": false, "example": true }, { "term": "Redshift", "present": false, "example": true }] }
+    },
+    {
+      "id": "r6",
+      "kind": "required",
+      "name": "Explain trade-offs clearly to analysts and product managers",
+      "spans": ["You explain trade-offs clearly to analysts and product managers."],
+      "aliases": ["communication", "explain trade-offs", "stakeholder communication"],
+      "assessable": false,
+      "status": "met",
+      "statusAlso": ["not_evident"],
+      "why": "Rule 13: a trait judged by its manner. 'Presented pipeline options and their trade-offs to product managers' quotes the activity, so met; not_evident is defensible because clarity is not on the page."
+    },
+    {
+      "id": "p1",
+      "kind": "preferred",
+      "name": "Kafka or Kinesis in production",
+      "spans": ["Kafka or Kinesis in production."],
+      "aliases": ["Kafka", "Kinesis"],
+      "status": "met",
+      "why": "Kafka ingestion at 120 million events a day."
+    },
+    {
+      "id": "p2",
+      "kind": "preferred",
+      "name": "dbt and data contracts",
+      "spans": ["dbt and data contracts."],
+      "aliases": ["dbt", "data contracts"],
+      "status": "partial",
+      "why": "Rule 9: both are asked for. Data contracts yes, dbt nowhere in the CV.",
+      "keyTerms": { "mode": "all", "terms": [{ "term": "dbt", "present": false }, { "term": "data contracts", "present": true }] }
+    },
+    {
+      "id": "p3",
+      "kind": "preferred",
+      "name": "German at a conversational level",
+      "spans": ["German at a conversational level."],
+      "aliases": ["German"],
+      "status": "met",
+      "why": "German B1, conversational."
+    }
+  ],
+  "notRequirements": [
+    { "span": "Design and operate batch and streaming pipelines that land ride, payment and fleet telemetry in the warehouse.", "reason": "responsibility" },
+    { "span": "Model the core datasets (rides, vehicles, pricing) and keep their contracts stable for analysts and ML.", "reason": "responsibility" },
+    { "span": "Own data quality: tests, freshness checks and incident response for the datasets you build.", "reason": "responsibility" },
+    { "span": "Pair with backend engineers on event schemas before new producers ship.", "reason": "responsibility" },
+    { "span": "Help two mid-level engineers grow through reviews and design sessions.", "reason": "responsibility" },
+    { "span": "30 days of vacation, a monthly mobility budget and a yearly offsite.", "reason": "benefit" },
+    { "span": "Hybrid: two days a week in our Kreuzberg office.", "reason": "benefit" },
+    { "span": "We are a 60-person engineering organisation, remote-friendly, with a strong writing culture. We value people who finish what they start and tell us early when something is off.", "reason": "description" }
+  ]
+}
