@@ -83,7 +83,7 @@
     "back": "Volver"
   },
   "translation": {
-    "pending": "Traduciendo…",
+    "pending": "Traduciendo al español. Tarda unos segundos y solo pasa una vez.",
     "unavailable": "Traducción no disponible, se muestra el original.",
     "partial": "Algunas partes no se pudieron traducir y se muestran en el original.",
     "showOriginal": "Ver el original"
