@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { installFakeProvider, reply } from "./client.stub";
 import { TRANSLATION_PROMPT_VERSION } from "./prompts/translation.prompt";
-import { glossaryFor, quotableLabels, readPayload, translateContent, translationSourceHash } from "./translation";
+import { glossaryFor, glossaryTerms, quotableLabels, readPayload, translateContent, translationSourceHash } from "./translation";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -91,6 +91,20 @@ describe("translateContent", () => {
       ["Node.js", "name", "Node.js", true],
       ["Acme", "name", "Acme", true],
     ]);
+  });
+
+  it("makes a glossary entry a concept with the glossary's words, however the model classed it", async () => {
+    expect(glossaryTerms("es").get("applicant tracking system")).toBe("sistema de seguimiento de postulaciones (ATS)");
+    expect(glossaryTerms("es").get("resume")).toBe("CV");
+    installFakeProvider(() =>
+      reply.json({
+        terms: { t0: { kind: "name", text: "Applicant Tracking System" } },
+        strings: { s0: "Tu CV pasa por cualquier sistema de seguimiento de postulaciones (ATS)." },
+      }),
+    );
+    const result = await translateContent({ sources: { a: "Your CV passes any Applicant Tracking System." }, locale: "es", terms: ["Applicant Tracking System"], sentenceTerms: [], names: [], deadline: later() });
+    expect(result.decisions).toEqual([{ term: "Applicant Tracking System", kind: "concept", text: "sistema de seguimiento de postulaciones (ATS)", forced: true }]);
+    expect(result.stats.fallbacks).toBe(0);
   });
 
   it("retries a failing string telling the model what it broke, and keeps the fix", async () => {

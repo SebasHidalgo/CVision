@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { i18n as I18n } from "i18next";
 import { toast } from "sonner";
@@ -40,12 +39,11 @@ function ensureBundles(i18n: I18n, locale: Locale): Promise<void> {
 
 /**
  * Switches the interface language in place: client strings at once (their bundles are prefetched on
- * intent), then the server's re-render of the page, with no reload, so scroll and form state stay.
+ * intent), then the server's re-render of the page in the action's response, with no reload, so scroll and form state stay.
  */
 export function useLocaleSwitch() {
   const { i18n } = useTranslation();
   const current = useLocale();
-  const router = useRouter();
   const errorCopy = useErrorCopy();
   const [isPending, startTransition] = useTransition();
   const [target, setTarget] = useState<Locale | null>(null);
@@ -72,14 +70,14 @@ export function useLocaleSwitch() {
           await ensureBundles(i18n, locale);
           await i18n.changeLanguage(locale);
           document.documentElement.lang = locale;
+          // Setting the cookie makes Next re-render the page in the action's own response (a soft
+          // refresh, in this transition): the old text stays until the new one arrives. A second
+          // router.refresh() would render the page twice.
           const result = await setLocaleAction({ locale });
           if (!result.ok) {
             await revert();
             toast.error(errorCopy(result.code, result.meta));
-            return;
           }
-          // The server components re-render in the new language; the old text stays until they arrive.
-          startTransition(() => router.refresh());
         } catch {
           await revert();
           toast.error(errorCopy("REQUEST_FAILED"));
@@ -88,7 +86,7 @@ export function useLocaleSwitch() {
         }
       });
     },
-    [i18n, target, router, errorCopy],
+    [i18n, target, errorCopy],
   );
 
   return { current, pending: isPending ? target : null, switchTo, prefetch };

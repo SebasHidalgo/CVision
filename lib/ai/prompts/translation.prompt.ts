@@ -38,6 +38,7 @@ export const DOMAIN_GLOSSARY: Record<TargetLocale, Array<[string, string]>> = {
     ["skills section (of the CV)", "sección de Habilidades"],
     ["summary section (of the CV)", "sección de Resumen"],
     ["timelines (the dates of roles or studies in a CV)", "fechas"],
+    ["Languages (a CV's skill category: programming languages)", "Lenguajes"],
     ["achievement", "logro"],
   ],
 };
@@ -54,7 +55,7 @@ STRINGS
 2. Keep the meaning exactly: do not add, drop, soften or strengthen any claim, and add no explanation.
 3. Copy character for character: every term you marked "name"; every number and figure; e-mail addresses and URLs; and everything inside quotation marks ("…", “…”, '…'), because it quotes the CV, the job posting or the reader's own words. The one exception: a label of this interface in quotation marks that the glossary translates takes the glossary's text, inside the same quotation marks.
 4. Translate every term you marked "concept", with the text you gave it; never leave one in English.
-5. Where an English term of the glossary appears, use its translation, so the text matches the page around it. When a string lists words the CV itself uses as examples of its wording (its action verbs: "Built, Led, Designed"; its headings: "Summary, Experience, Languages"), keep the listed words as written; elsewhere, the CV's sections take the glossary's names.
+5. Where an English term of the glossary appears, use its translation, so the text matches the page around it; the CV's sections and skill categories take the glossary's names too.
 6. Write natural, plain prose in the target language, not a word-for-word calque, and keep each string about as long as the original.
 7. The reader is the person the feedback is about: address them as the LANGUAGE section says, in every string.`;
 

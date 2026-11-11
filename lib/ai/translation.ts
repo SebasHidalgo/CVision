@@ -71,6 +71,23 @@ export function glossaryFor(locale: TargetLocale): Array<[string, string]> {
 }
 
 /**
+ * The domain glossary as exact terms, English (lowercase) → target: "applicant tracking system" and
+ * "ATS" from "applicant tracking system (ATS)", each alternative of "CV / resume". Labels of the page
+ * are left out: as terms they are rare, and a status word inside a sentence reads differently.
+ */
+export function glossaryTerms(locale: TargetLocale): Map<string, string> {
+  const terms = new Map<string, string>();
+  for (const [english, target] of DOMAIN_GLOSSARY[locale]) {
+    const text = target.split(" / ")[0].trim();
+    for (const alternative of english.split(" / ")) {
+      const bare = alternative.replace(/\s*\([^)]*\)\s*/g, " ").trim().toLowerCase();
+      if (bare) terms.set(bare, text);
+    }
+  }
+  return terms;
+}
+
+/**
  * What a string may quote and translate: the interface's labels, and the examples the code-made
  * sentences quote (stored analyses from before M9 carry those sentences as text).
  */
@@ -195,7 +212,14 @@ export async function translateContent({ sources, locale, terms, sentenceTerms, 
   const first = await call(terms, paths, {});
   const decisions = new Map<string, TermDecision>();
   const termFailures = new Map<string, Failure[]>();
+  const glossed = glossaryTerms(locale);
   const decide = (term: string, answered: { kind: TermKind; text: string } | undefined) => {
+    // A glossary entry is a concept with the glossary's words, however capitalized ("Applicant Tracking System").
+    const fromGlossary = glossed.get(term.toLowerCase());
+    if (fromGlossary) {
+      decisions.set(term, { term, kind: "concept", text: fromGlossary, forced: answered?.kind === "name" });
+      return;
+    }
     const forced = forcedName(term) || always.has(term);
     // A retried term keeps the kind it was first given: only its text is fixed.
     const kind: TermKind = forced ? "name" : (decisions.get(term)?.kind ?? answered?.kind ?? "concept");

@@ -5,8 +5,6 @@ import { useTranslation } from "react-i18next";
 import I18nProvider from "@/components/providers/I18nProvider";
 import { RESOURCES } from "@/lib/i18n/resources";
 
-const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const toastError = vi.fn();
 vi.mock("sonner", () => ({ toast: { error: (message: string) => toastError(message) } }));
 const setLocaleAction = vi.fn();
@@ -46,7 +44,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("useLocaleSwitch", () => {
-  it("switches the client strings before the server answers, then refreshes the server's in place", async () => {
+  it("switches the client strings before the server answers; the action's own re-render brings the server's", async () => {
     let answer: (value: unknown) => void = () => {};
     setLocaleAction.mockReturnValue(new Promise((resolve) => (answer = resolve)));
     renderProbe();
@@ -57,10 +55,11 @@ describe("useLocaleSwitch", () => {
     expect(document.documentElement.lang).toBe("es");
     // The page's other namespaces came with one load, before the language changed.
     expect(loadMessagesAction).toHaveBeenCalledWith({ locale: "es", namespaces: ["common", "errors"] });
-    expect(refresh).not.toHaveBeenCalled();
-    await act(async () => answer({ ok: true, data: { locale: "es" } }));
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(setLocaleAction).toHaveBeenCalledWith({ locale: "es" });
+    await act(async () => answer({ ok: true, data: { locale: "es" } }));
+    // Answered: still Spanish, nothing reverted, no toast.
+    expect(screen.getByTestId("current").textContent).toBe("es");
+    expect(toastError).not.toHaveBeenCalled();
   });
 
   it("prefetches once on intent, so the click needs no second load", async () => {
@@ -81,6 +80,5 @@ describe("useLocaleSwitch", () => {
     expect(screen.getByTestId("current").textContent).toBe("en");
     expect(screen.getByTestId("text").textContent).toBe("Translating…");
     expect(document.documentElement.lang).toBe("en");
-    expect(refresh).not.toHaveBeenCalled();
   });
 });

@@ -30,6 +30,49 @@ export type Failure = { check: TranslationCheck; items?: string[] };
 /** Digit groups, separators aside: "2.5" and "2,5" are the same figures. */
 export const digitGroups = (text: string): string[] => [...(text.match(/\d+/g) ?? [])].sort();
 
+const UNITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+/** Figures the English writes in words ("sixty", "twenty-five", "hundred"): a translation may write them in digits. */
+export function numberWords(text: string): string[] {
+  const found: string[] = [];
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  for (let i = 0; i < words.length; i += 1) {
+    const ten = TENS.indexOf(words[i]);
+    if (ten >= 2) {
+      // "twenty-five" and "twenty five" are one figure.
+      const unit = UNITS.indexOf(words[i + 1] ?? "");
+      if (unit >= 1 && unit <= 9) {
+        found.push(String(ten * 10 + unit));
+        i += 1;
+      } else found.push(String(ten * 10));
+      continue;
+    }
+    const unit = UNITS.indexOf(words[i]);
+    if (unit >= 0) found.push(String(unit));
+    else if (words[i] === "hundred") found.push("100");
+    else if (words[i] === "thousand") found.push("1000");
+  }
+  return found;
+}
+
+/** The source's figures all kept, and no figure added except one the source spelled in words. */
+function digitsKept(source: string, text: string): boolean {
+  const kept = digitGroups(text);
+  for (const group of digitGroups(source)) {
+    const at = kept.indexOf(group);
+    if (at < 0) return false;
+    kept.splice(at, 1);
+  }
+  const spelled = numberWords(source);
+  return kept.every((group) => {
+    const at = spelled.indexOf(group);
+    if (at < 0) return false;
+    spelled.splice(at, 1);
+    return true;
+  });
+}
+
 /** The text inside quotation marks; a straight single quote counts only when it reads as a quote, not an apostrophe. */
 export function quotedSpans(text: string): string[] {
   const spans: string[] = [];
@@ -73,7 +116,7 @@ export function checkTranslation(source: string, translated: string | undefined,
   const text = translated.trim();
   if (!text) return [{ check: "empty" }];
   const failed: Failure[] = [];
-  if (digitGroups(source).join() !== digitGroups(text).join()) failed.push({ check: "digits", items: [...new Set(digitGroups(source))] });
+  if (!digitsKept(source, text)) failed.push({ check: "digits", items: [...new Set(digitGroups(source))] });
   const lostNames = context.names.filter((name) => tokenPattern(name).test(source) && !tokenPattern(name).test(text));
   if (lostNames.length) failed.push({ check: "name", items: lostNames });
   const lostQuotes = quotedSpans(source).filter((span) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carriedThrough, checkTerm, checkTranslation, fixInstructions, isHard, quotedSpans, type GuardContext } from "./translationGuards";
+import { carriedThrough, checkTerm, checkTranslation, fixInstructions, isHard, numberWords, quotedSpans, type GuardContext } from "./translationGuards";
 
 const SOURCE = "Add a figure to \"Led the migration\": your CV shows 2.5 years of Python and 40% fewer incidents.";
 
@@ -16,6 +16,12 @@ describe("checkTranslation", () => {
     expect(checks(SOURCE, "Agrega una cifra a \"Led the migration\": tu CV muestra 3 años de Python y 40% menos incidentes.")).toContain("digits");
     expect(checks("You use Ruby on Rails daily.", "Usas Ruby sobre Rieles a diario.", ctx({ names: ["Ruby on Rails"] }))).toContain("name");
     expect(checks(SOURCE, "Agrega una cifra a «Dirigí la migración»: tu CV muestra 2,5 años de Python y 40% menos incidentes.")).toContain("quote");
+  });
+
+  it("lets a figure the English spelled out come back in digits, never a new one", () => {
+    expect(checks("You explained managing sixty specs and twenty-five suites.", "Explicaste cómo gestionabas 60 specs y 25 suites.")).toEqual([]);
+    expect(checks("Your CV shows accessibility work.", "Tu CV muestra trabajo de accesibilidad (WCAG 2.1).").map((f) => f)).toContain("digits");
+    expect(numberWords("one hundred and sixty-five, eleven")).toEqual(["1", "100", "65", "11"]);
   });
 
   it("lets a quoted interface label take its label in the target language", () => {
