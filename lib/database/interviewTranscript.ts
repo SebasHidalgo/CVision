@@ -3,7 +3,10 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { INTERVIEW_TIERS } from "@/lib/plans";
+import { readSegments, RESUME_WINDOW_MS } from "@/lib/voice/segments";
 import {
+  AT_CAPACITY,
   CALL_FAILED,
   decidePostCallOutcome,
   interviewIdFromRecord,
@@ -32,6 +35,10 @@ const postCallSelect = {
   issuedContext: true,
   startCount: true,
   usageEventId: true,
+  tier: true,
+  segments: true,
+  finishRequestedAt: true,
+  resumableUntil: true,
 } satisfies Prisma.InterviewSelect;
 
 export type StoreTranscriptResult =
@@ -64,13 +71,29 @@ export async function storeConversationTranscript({
     const row = await findRow(data);
     if (!row) return { outcome: "unmatched" };
 
+    const now = new Date();
     const outcome = decidePostCallOutcome({
-      row,
+      row: { ...row, segments: readSegments(row.segments) },
       data,
       eventTimestamp,
       maxStarts: MAX_INTERVIEW_STARTS,
+      plannedSeconds: INTERVIEW_TIERS[row.tier ?? "FULL"].seconds,
+      now,
     });
     if (outcome.kind === "duplicate") return { outcome: "duplicate", interviewId: row.id };
+
+    // An earlier call's record, late: kept beside the live one. The window opens so the
+    // interview is scored even if the newer call never leaves a record.
+    if (outcome.kind === "segment") {
+      const kept = await prisma.interview.updateMany({
+        where: { id: row.id, status: "IN_PROGRESS", conversationId: row.conversationId },
+        data: {
+          segments: outcome.segments as Prisma.InputJsonValue,
+          ...(row.resumableUntil ? {} : { resumableUntil: new Date(now.getTime() + RESUME_WINDOW_MS) }),
+        },
+      });
+      return kept.count === 1 ? { outcome: "stored", interviewId: row.id, status: "IN_PROGRESS" } : { outcome: "duplicate", interviewId: row.id };
+    }
 
     // The state guard makes two concurrent deliveries of the same event
     // idempotent: the second finds the row already past the startable states
@@ -85,10 +108,12 @@ export async function storeConversationTranscript({
       data: {
         status: outcome.status,
         conversationId: data.conversationId,
-        transcript: data.turns as Prisma.InputJsonValue,
+        transcript: outcome.transcript as Prisma.InputJsonValue,
         transcriptSource: source,
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
+        resumableUntil: outcome.resumableUntil,
+        ...(outcome.segments ? { segments: outcome.segments as Prisma.InputJsonValue } : {}),
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
         ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
         ...(outcome.durationSeconds !== null ? { durationSeconds: outcome.durationSeconds } : {}),
@@ -98,18 +123,20 @@ export async function storeConversationTranscript({
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
 
-    // Nothing was heard (the candidate never spoke, or the platform could
-    // not run the call): the unit goes back, whatever paid for it (a period
-    // interview, a credit, the trial), the moment the transcript says so.
-    // With starts left the interview stays startable, so the row forgets
-    // the reservation and the next start reserves again, on the facts of
-    // that moment; only the latest session's transcript may do this (a late
-    // delivery from an earlier call must not release a live call's unit).
-    // With no start left the interview is FAILED and the reservation stays
-    // on the row, refunded, for support to read.
+    // Nothing was heard in any call (the candidate never spoke, or the
+    // platform could not run the call): the unit goes back, whatever paid
+    // for it (a period interview, a credit, the trial), the moment the
+    // transcript says so. With starts left the interview stays startable,
+    // so the row forgets the reservation and the next start reserves again,
+    // on the facts of that moment; only the latest session's transcript may
+    // do this (a late delivery from an earlier call must not release a live
+    // call's unit). With no start left the interview is FAILED and the
+    // reservation stays on the row, refunded, for support to read. An
+    // interview in which the candidate spoke keeps its unit: it is scored.
     const latestSession = data.conversationId === row.conversationId;
     const reason = outcome.failureReason;
-    if ((reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED) && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
+    const unheard = reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED || reason === AT_CAPACITY;
+    if (!outcome.counted && unheard && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
       await releaseReservation(row.id, row.usageEventId, reason, { retryable: outcome.status !== "FAILED" });
     }
     return { outcome: "stored", interviewId: row.id, status: outcome.status };
@@ -145,9 +172,11 @@ export async function fetchInterviewForReconcile(interviewId: string) {
         conversationId: true,
         transcriptSource: true,
         startedAt: true,
+        lastSessionAt: true,
         endedAt: true,
         startCount: true,
         usageEventId: true,
+        segments: true,
       },
     });
   } catch (error) {

@@ -9,6 +9,7 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
+import { INTERVIEW_LANGUAGES, type InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { EntitlementSource } from "@/lib/interviewEntitlement";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,10 @@ export type InterviewAgentProps = {
   maxDurationSeconds: number;
   /** What pays for the next start (or paid for this interview), from the entitlement; "none" when nothing can. */
   source: EntitlementSource | null;
+  /** The language the room proposes: the interview's when one was chosen, the posting's otherwise. */
+  language: InterviewLanguage;
+  /** Set when an earlier call of this interview dropped: how much of its length is used, and whether a reconnect continues it. */
+  resume: { usedSeconds: number; resumable: boolean } | null;
 };
 
 /**
@@ -62,7 +67,7 @@ export default function InterviewAgent(props: InterviewAgentProps) {
 
 type Phase =
   | { kind: "idle" }
-  | { kind: "starting"; step: "microphone" | "session" | "connecting" }
+  | { kind: "starting"; step: "microphone" | "session" | "connecting" | "queued" }
   | { kind: "live" }
   | { kind: "ending" }
   | { kind: "ended" }
@@ -95,6 +100,15 @@ async function requestMicrophone(): Promise<MicProblem | null> {
 /** The call always reports its end after endCall; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
 
+/** When the room tells the interviewer the time: once, with this much left. */
+const TIME_NOTE_SECONDS = 75;
+/** The interviewer cannot see a clock; this line is its only one. Not spoken, and not from the candidate. */
+const TIME_NOTE = "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call.";
+/** Past its length by this much, the room hangs up itself: a resumed call is shorter than the agent's own limit. */
+const OVERTIME_SECONDS = 3;
+/** Less than this left after a drop is not worth a call (the server refuses it too). */
+const MIN_RESUME_SECONDS = 30;
+
 function InterviewRoom({
   interviewId,
   role,
@@ -106,11 +120,17 @@ function InterviewRoom({
   maxStarts,
   maxDurationSeconds,
   source,
+  language: proposedLanguage,
+  resume,
 }: InterviewAgentProps) {
   const router = useRouter();
   const { t } = useTranslation("interview");
   const errorCopy = useErrorCopy();
-  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [phase, setPhase] = useState<Phase>(resume ? { kind: "dropped" } : { kind: "idle" });
+  const [language, setLanguage] = useState<InterviewLanguage>(proposedLanguage);
+  // Seconds of the interview used by earlier calls; the clock after a drop starts from what is left.
+  const [usedBefore, setUsedBefore] = useState(resume?.usedSeconds ?? 0);
+  const [finishing, setFinishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [startsUsed, setStartsUsed] = useState(startCount);
   const [session, setSession] = useState<InterviewSessionResponse | null>(null);
@@ -125,6 +145,10 @@ function InterviewRoom({
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  // What the end-of-call callback needs from the latest render.
+  const callRef = useRef<{ connectedAt: number | null; callSeconds: number }>({ connectedAt: null, callSeconds: maxDurationSeconds });
+  const timeNoted = useRef(false);
 
   const endFallback = useRef<number | null>(null);
   useEffect(() => {
@@ -145,30 +169,54 @@ function InterviewRoom({
     setPhase({ kind: "idle" });
   }, []);
 
-  const { start: startCall, end: endCall, mode } = useVoiceCall({
+  const { start: startCall, end: endCall, notify, mode } = useVoiceCall({
     onConnect: () => {
+      timeNoted.current = false;
       setConnectedAt(Date.now());
       setNow(Date.now());
       setNotice(null);
       setPhase({ kind: "live" });
     },
     onEnd: (end) => {
-      const current = phaseRef.current.kind;
+      const at = phaseRef.current;
+      const current = at.kind;
       if (current === "ended") return;
 
-      // Whatever ended it, the server learns the call is over now rather
-      // than when the transcript lands. Not awaited: nothing here depends on it.
-      void reportInterviewEnded(interviewId, end.reason);
+      // The call never began: refused for capacity, or the wait in line ran out. Nothing to resume.
+      const neverBegan = current === "starting";
+      // The candidate pressed End, or the SDK says they hung up: their decision to finish.
+      const finished = current === "ending" || end.reason === "user";
+      const dropped = !neverBegan && !finished && !end.finished;
 
-      if (current === "ending" || end.finished) {
+      // Whatever ended it, the server learns the call is over now rather
+      // than when the transcript lands, and how the room read the end. Not
+      // awaited: nothing here depends on it.
+      void reportInterviewEnded(interviewId, end.reason, fetch, finished ? "finish" : dropped ? "drop" : undefined);
+
+      if (neverBegan) {
+        failStart(errorCopy(end.busy || at.step === "queued" ? "VOICE_BUSY" : "VOICE_UNAVAILABLE"));
+        return;
+      }
+      if (finished || end.finished) {
         goToFeedback();
         return;
       }
-      if (current === "starting") {
-        failStart(errorCopy("VOICE_UNAVAILABLE"));
+      // A drop: what this call used comes off the interview's length.
+      const { connectedAt: began, callSeconds } = callRef.current;
+      const elapsed = began === null ? 0 : Math.max(0, Math.floor((Date.now() - began) / 1000));
+      setUsedBefore(Math.min(maxDurationSeconds, maxDurationSeconds - callSeconds + elapsed));
+      setPhase({ kind: "dropped" });
+    },
+    onQueue: (status) => {
+      // In line: the clock does not run and nothing is charged until an interviewer is free.
+      if (status === "waiting") {
+        setConnectedAt(null);
+        setPhase({ kind: "starting", step: "queued" });
         return;
       }
-      setPhase({ kind: "dropped" });
+      setConnectedAt(Date.now());
+      setNow(Date.now());
+      setPhase({ kind: "live" });
     },
     onError: (message) => {
       // The SDK's own message: about the session, never about the candidate.
@@ -205,8 +253,15 @@ function InterviewRoom({
     }
 
     setPhase({ kind: "starting", step: "session" });
-    const result = await requestInterviewSession(interviewId);
+    // The drop's own report may have died with the connection: say it again, so the server fetches that call first.
+    if (usedBefore > 0) await reportInterviewEnded(interviewId, "reconnect", fetch, "drop");
+    const result = await requestInterviewSession(interviewId, fetch, language);
     if (!result.ok) {
+      // The interview's time ran out, or it was closed meanwhile: its feedback is the next page.
+      if (result.code === "INTERVIEW_NOT_STARTABLE" && usedBefore > 0) {
+        goToFeedback();
+        return;
+      }
       if (result.code === "INTERVIEW_START_LIMIT") setStartsUsed(maxStarts);
       failStart(errorCopy(result.code));
       return;
@@ -227,6 +282,13 @@ function InterviewRoom({
     }, END_FALLBACK_MS);
   };
 
+  // After a drop: close the interview with what was said, and go to its feedback.
+  const handleFinish = async () => {
+    setFinishing(true);
+    await reportInterviewEnded(interviewId, "finish", fetch, "finish");
+    goToFeedback();
+  };
+
   // The clock ticks only while the call is live.
   useEffect(() => {
     if (phase.kind !== "live") return;
@@ -244,10 +306,13 @@ function InterviewRoom({
   // it, from the session the server issued. They differ only when the facts
   // changed in between (a credit spent in another tab): the session wins,
   // and the room says so rather than jumping silently.
-  const maxSeconds = session?.maxDurationSeconds ?? maxDurationSeconds;
+  const leftAfterDrop = Math.max(0, maxDurationSeconds - usedBefore);
+  const callSeconds = session?.maxDurationSeconds ?? (usedBefore > 0 ? leftAfterDrop : maxDurationSeconds);
+  const maxSeconds = dropped ? leftAfterDrop : callSeconds;
+  const canResume = dropped && startsLeft > 0 && leftAfterDrop >= MIN_RESUME_SECONDS;
   const shownSource = session?.source ?? source;
   const sourceKey = shownSource && shownSource !== "none" ? (`room.source.${shownSource}` as const) : null;
-  const lengthChanged = session !== null && maxDurationSeconds > 0 && session.maxDurationSeconds !== maxDurationSeconds;
+  const lengthChanged = session !== null && !session.resumed && maxDurationSeconds > 0 && session.maxDurationSeconds !== maxDurationSeconds;
   const remaining =
     live && connectedAt !== null ? remainingSeconds(maxSeconds, connectedAt, now) : maxSeconds;
   const clockPhase = live ? countdownPhase(remaining) : "normal";
@@ -255,6 +320,26 @@ function InterviewRoom({
   const clockNoticeKey = live ? countdownNoticeKey(clockPhase) : null;
 
   const speaking = live && mode === "speaking";
+  const queued = phase.kind === "starting" && phase.step === "queued";
+
+  useEffect(() => {
+    callRef.current = { connectedAt, callSeconds };
+  }, [connectedAt, callSeconds]);
+
+  // The interviewer has no clock: the room tells it once when a minute is
+  // left, and hangs up itself when a call runs past its length.
+  const elapsedLive = live && connectedAt !== null ? Math.floor((now - connectedAt) / 1000) : 0;
+  useEffect(() => {
+    if (!live) return;
+    if (!timeNoted.current && callSeconds - elapsedLive <= TIME_NOTE_SECONDS) {
+      timeNoted.current = true;
+      notify(TIME_NOTE);
+    }
+    if (elapsedLive >= callSeconds + OVERTIME_SECONDS) {
+      setPhase({ kind: "ending" });
+      endCall();
+    }
+  }, [live, elapsedLive, callSeconds, notify, endCall]);
 
   const orbState: VoiceOrbState =
     phase.kind === "ending" || phase.kind === "ended"
@@ -269,7 +354,9 @@ function InterviewRoom({
 
   const statusKey =
     phase.kind === "starting"
-      ? "room.status.connecting"
+      ? queued
+        ? "room.status.queued"
+        : "room.status.connecting"
       : phase.kind === "live"
         ? speaking
           ? "room.status.speaking"
@@ -290,9 +377,11 @@ function InterviewRoom({
         ? "room.startButton.microphone"
         : phase.step === "session"
           ? "room.startButton.session"
-          : "room.startButton.connecting"
+          : phase.step === "queued"
+            ? "room.startButton.queued"
+            : "room.startButton.connecting"
       : dropped
-        ? "room.startButton.retry"
+        ? "room.startButton.reconnect"
         : "room.startButton.start";
 
   const hintKey = live ? "room.hint.live" : phase.kind === "ended" ? "room.hint.ended" : "room.hint.idle";
@@ -348,6 +437,26 @@ function InterviewRoom({
                   <dd className="mt-1 text-ink">{t("room.upTo", { count: Math.round(maxSeconds / 60) })}</dd>
                   {sourceKey && <dd className="mt-1 text-ink-2">{t(sourceKey)}</dd>}
                 </div>
+                <div className="mt-6">
+                  <dt className="eyebrow">
+                    <label htmlFor="interview-language">{t("room.language.label")}</label>
+                  </dt>
+                  <dd className="mt-1">
+                    <select
+                      id="interview-language"
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value as InterviewLanguage)}
+                      className="h-10 w-full border-b border-line-strong bg-transparent text-ink focus-visible:border-ink focus-visible:outline-none"
+                    >
+                      {INTERVIEW_LANGUAGES.map((code) => (
+                        <option key={code} value={code}>
+                          {t(`room.language.${code}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </dd>
+                  <dd className="mt-2 text-ink-2">{t("room.language.note")}</dd>
+                </div>
               </dl>
             )}
 
@@ -375,21 +484,29 @@ function InterviewRoom({
               </div>
             )}
 
+            {queued && (
+              <p role="note" className="mt-12 w-full max-w-sm text-sm leading-relaxed text-ink-2">
+                {t("room.queue.waiting")}
+              </p>
+            )}
+
             {dropped && (
               <div className="mt-12 w-full max-w-sm">
                 <p className="text-sm leading-relaxed text-ink">
-                  {t("room.dropped.title")}
+                  {t("room.dropped.at", { at: formatClock(usedBefore), left: formatClock(leftAfterDrop) })}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                  {startsLeft === 0 ? t("room.dropped.noStarts") : t("room.dropped.mayScore")}
+                  {canResume ? t("room.dropped.resume") : startsLeft === 0 ? t("room.dropped.noStarts") : t("room.dropped.noTime")}
                 </p>
-                <Link
-                  href={feedbackHref}
-                  className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
+                <Button
+                  variant="outline"
+                  onClick={handleFinish}
+                  disabled={finishing || starting}
+                  className="mt-5 h-11 gap-2 px-5"
                 >
-                  {t("room.dropped.checkFeedback")}
-                  <ArrowRight className="size-4" />
-                </Link>
+                  {finishing ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+                  {t("room.dropped.finish")}
+                </Button>
               </div>
             )}
           </section>
@@ -413,7 +530,9 @@ function InterviewRoom({
                 <p className={cn("font-medium", clockPhase === "final" ? "text-signal" : "text-ink")}>
                   {t(clockNoticeKey)}
                 </p>
-              ) : dropped && startsLeft > 0 ? (
+              ) : queued ? (
+                <p className="font-medium text-ink">{t("room.queue.short")}</p>
+              ) : canResume ? (
                 <p className="font-medium text-ink">{t("room.reconnect", { count: startsLeft })}</p>
               ) : (
                 <p className="text-ink-2">{t(hintKey)}</p>
@@ -435,11 +554,11 @@ function InterviewRoom({
                 <Loader2 className="size-5 animate-spin" />
                 {phase.kind === "ending" ? t("room.ending") : t("room.openingFeedback")}
               </Button>
-            ) : atCap ? null : (
+            ) : atCap || (dropped && !canResume) ? null : (
               <Button
                 size="lg"
                 onClick={handleStart}
-                disabled={starting}
+                disabled={starting || finishing}
                 className="h-12 gap-2 px-6 text-base"
               >
                 {starting ? (

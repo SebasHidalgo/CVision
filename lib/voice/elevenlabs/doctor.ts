@@ -184,7 +184,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const agent = await client.conversationalAi.agents.get(id);
       const postCallWebhookId = agent.platformSettings?.workspaceOverrides?.webhooks?.postCallWebhookId ?? null;
       webhookIdsSeen.add(postCallWebhookId);
-      const expected = buildInterviewAgentDefinition({ postCallWebhookId, tier });
+      const expected = buildInterviewAgentDefinition({ postCallWebhookId, tier, env });
       // The dashboard's test-call placeholders are left out: the platform
       // answers `dynamic_variable_placeholders: {}` on read whatever the
       // sync pushed (seen 2026-10-23), and no real session depends on them.

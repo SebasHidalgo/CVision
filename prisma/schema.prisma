@@ -309,6 +309,20 @@ model Interview {
   /// session. A conditional update on it throttles the fallback to one
   /// platform call per minute per interview, however many tabs poll.
   reconcileCheckedAt DateTime?
+  /// The language the candidate chose for the call ("en" | "es"). Null until
+  /// a session is issued: the room then proposes the posting's language.
+  language          String?
+  /// Earlier calls of this interview that counted (the candidate spoke and
+  /// the call dropped), oldest first: { conversationId, turns,
+  /// durationSeconds, startTimeSeconds }. `transcript` holds the latest call
+  /// until the interview is final, then every call merged in order.
+  segments          Json?
+  /// Until when a dropped call may be resumed. Past it the interview is
+  /// scored with what exists (a lazy sweep). Null while a call is live.
+  resumableUntil    DateTime?
+  /// The candidate asked to finish: End in the room, or "Finish and get
+  /// feedback" after a drop. Cleared when a new session is issued.
+  finishRequestedAt DateTime?
   /// Feedback generation claims so far; the generator gives up after two.
   feedbackAttempts  Int       @default(0)
   /// When the current GENERATING claim was taken, to detect a dead worker.

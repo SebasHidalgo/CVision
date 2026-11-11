@@ -33,6 +33,7 @@ export type DbResumeWithFeedback = Prisma.ResumeAnalysisGetPayload<{
 export const interviewOmit = {
   transcript: true,
   issuedContext: true,
+  segments: true,
 } satisfies Prisma.InterviewOmit;
 
 export type DbInterview = Prisma.InterviewGetPayload<{ omit: typeof interviewOmit }>;

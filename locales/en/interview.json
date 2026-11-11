@@ -11,14 +11,17 @@
       "ended": "Interview ended",
       "dropped": "Connection lost",
       "noStarts": "No starts left",
-      "ready": "Ready when you are"
+      "ready": "Ready when you are",
+      "queued": "Waiting in line"
     },
     "startButton": {
       "microphone": "Checking the microphone",
       "session": "Starting",
       "connecting": "Connecting",
       "retry": "Try again",
-      "start": "Start the interview"
+      "start": "Start the interview",
+      "queued": "Waiting for an interviewer",
+      "reconnect": "Reconnect"
     },
     "clock": {
       "timeLeft": "Time left",
@@ -42,7 +45,11 @@
       "title": "The connection to the interviewer was lost.",
       "noStarts": "There are no starts left for this interview.",
       "mayScore": "If you had already answered some questions, what was said may be scored as it stands.",
-      "checkFeedback": "Check for feedback"
+      "checkFeedback": "Check for feedback",
+      "at": "Your call dropped at {{at}}. You have {{left}} left.",
+      "resume": "Reconnect and the interviewer picks up where you left off. If you don't come back within 10 minutes, the interview is scored with what you said.",
+      "noTime": "There is too little time left to reconnect. The interview is scored with what you said.",
+      "finish": "Finish and get feedback"
     },
     "reconnect_one": "Reconnect — {{count}} start left",
     "reconnect_other": "Reconnect — {{count}} starts left",
@@ -73,6 +80,16 @@
       "lines_other": "{{count}} lines",
       "emptyLive": "Every finished sentence lands here as it is said.",
       "emptyIdle": "Once the call starts, the conversation is written down here as it happens."
+    },
+    "language": {
+      "label": "Interview language",
+      "en": "English",
+      "es": "Spanish",
+      "note": "Proposed from the posting. The interviewer speaks and listens in the language you choose here."
+    },
+    "queue": {
+      "waiting": "All interviewers are busy right now. You are in line and the call starts by itself. Waiting is not charged and does not use your interview time.",
+      "short": "In line for an interviewer. Nothing is charged while you wait."
     }
   },
   "list": {

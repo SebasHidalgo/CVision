@@ -7,7 +7,7 @@ import { getT } from "@/lib/i18n/server";
 type AttemptNotScoredProps = {
   interview: { id: string; role: string };
   /** "silent": the platform heard nothing. "lost": it has no record of the session. "failed": it could not run the call. */
-  reason: "silent" | "lost" | "failed";
+  reason: "silent" | "lost" | "failed" | "busy";
   /** Starts (connections) this interview can still issue. */
   startsLeft: number;
   date: string;
@@ -18,6 +18,7 @@ const STARTS_KEY = {
   silent: "notScored.startCounted",
   lost: "notScored.startCounted",
   failed: "notScored.startReturned",
+  busy: "notScored.startReturned",
 } as const;
 
 /**

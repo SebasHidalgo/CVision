@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getUserProfile, requireUserId } from "@/lib/auth";
 import {
   fetchInterviewById,
+  fetchInterviewCallState,
   reserveInterviewSession,
   type InterviewWithResume,
 } from "@/lib/database/interview";
@@ -9,6 +10,7 @@ import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview } from "@/lib/database/usage";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/voice/elevenlabs/agentConfig";
+import { finalizeResumableInterview } from "@/lib/database/interviewResume";
 import { assertVoiceCapacity } from "@/lib/voice/health";
 import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
@@ -17,8 +19,15 @@ import { POST } from "./route";
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(), getUserProfile: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({
   fetchInterviewById: vi.fn(),
+  fetchInterviewCallState: vi.fn(),
   reserveInterviewSession: vi.fn(),
 }));
+vi.mock("@/lib/database/interviewResume", () => ({
+  finalizeResumableInterview: vi.fn(async () => "finalized"),
+  storedCallCounts: (transcript: unknown) =>
+    Array.isArray(transcript) && transcript.some((turn: { role?: string; message?: string }) => turn.role === "user" && Boolean(turn.message)),
+}));
+vi.mock("@/lib/voice/reconcile", () => ({ reconcileStrandedInterview: vi.fn(async () => ({ kind: "not-stranded" })) }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({
   reserveInterview: vi.fn(),
@@ -74,6 +83,9 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     usageEventId: null,
     tier: null,
     paidBy: null,
+    language: null,
+    resumableUntil: null,
+    finishRequestedAt: null,
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {
@@ -82,6 +94,26 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
       companyName: "Northwind",
       feedback,
     },
+    ...overrides,
+  };
+}
+
+type CallState = NonNullable<Awaited<ReturnType<typeof fetchInterviewCallState>>>;
+
+/** The calls of the interview so far; a first start has none. */
+function callState(overrides: Partial<CallState> = {}): CallState {
+  return {
+    status: "SCHEDULED",
+    conversationId: null,
+    transcript: null,
+    transcriptSource: null,
+    segments: null,
+    durationSeconds: null,
+    endedAt: null,
+    lastSessionAt: null,
+    resumableUntil: null,
+    startCount: 0,
+    language: null,
     ...overrides,
   };
 }
@@ -102,9 +134,12 @@ function stubElevenLabs(handler: (call: Call) => Response | Promise<Response>): 
 
 const tokenResponse = () => Response.json({ token: "tok_1", conversation_id: "conv_1" });
 
-async function post() {
+async function post(body?: unknown) {
   const response = await POST(
-    new Request(`http://localhost/api/interview/${INTERVIEW_ID}/session`, { method: "POST" }),
+    new Request(`http://localhost/api/interview/${INTERVIEW_ID}/session`, {
+      method: "POST",
+      ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+    }),
     { params: Promise.resolve({ id: INTERVIEW_ID }) },
   );
   return { status: response.status, body: (await response.json()) as unknown };
@@ -118,6 +153,7 @@ beforeEach(() => {
   vi.mocked(requireUserId).mockResolvedValue("user_1");
   vi.mocked(getUserProfile).mockResolvedValue({ firstName: "Ana" });
   vi.mocked(fetchInterviewById).mockResolvedValue(interview());
+  vi.mocked(fetchInterviewCallState).mockResolvedValue(callState());
   vi.mocked(reserveInterviewSession).mockResolvedValue(true);
   vi.mocked(assertRateLimit).mockResolvedValue(undefined);
   vi.mocked(reserveInterview).mockResolvedValue({ eventId: "evt_1", kind: "INTERVIEW", tier: "FULL", seconds: 720, source: "period" });
@@ -275,6 +311,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
       startedAt: expect.any(Date),
       issuedAt: expect.any(Date),
       maxStarts: MAX_INTERVIEW_STARTS,
+      language: "en",
       reservation: { usageEventId: "evt_1", tier: "FULL", paidBy: "PERIOD" },
     });
     // The abandoned-interview sweep ran for this user before the row was read.
@@ -391,5 +428,116 @@ describe("POST /api/interview/[id]/session: the platform fails", () => {
     expect(await post()).toEqual({ status, body: { ok: false, code } });
     expect(reserveInterviewSession).not.toHaveBeenCalled();
     expect(refundUsage).toHaveBeenCalledWith("evt_1", code);
+  });
+});
+
+describe("POST /api/interview/[id]/session: the language of the call", () => {
+  it("proposes the posting's language and stores it", async () => {
+    stubElevenLabs(tokenResponse);
+    const { body } = await post();
+    expect((body as { data: InterviewSessionResponse }).data.language).toBe("en");
+    expect(vi.mocked(reserveInterviewSession).mock.calls[0][0]).toMatchObject({ language: "en" });
+  });
+
+  it("speaks the language the room chose, whatever the posting's", async () => {
+    stubElevenLabs(tokenResponse);
+    const { body } = await post({ language: "es" });
+    const data = (body as { data: InterviewSessionResponse }).data;
+    expect(data.language).toBe("es");
+    expect(data.dynamicVariables.language_name).toBe("Spanish");
+    expect(data.dynamicVariables.opening_line).toContain("Hola Ana");
+    expect(vi.mocked(reserveInterviewSession).mock.calls[0][0]).toMatchObject({ language: "es" });
+  });
+
+  it("keeps the interview's language on a later start that names none", async () => {
+    stubElevenLabs(tokenResponse);
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(callState({ language: "es" }));
+    const { body } = await post();
+    expect((body as { data: InterviewSessionResponse }).data.language).toBe("es");
+  });
+
+  it("refuses a language the agent does not speak", async () => {
+    const calls = stubElevenLabs(tokenResponse);
+    expect(await post({ language: "fr" })).toEqual({ status: 400, body: { ok: false, code: "INVALID_INPUT" } });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("POST /api/interview/[id]/session: a reconnect continues the interview", () => {
+  const dropped = (overrides: Partial<CallState> = {}) =>
+    callState({
+      status: "IN_PROGRESS",
+      conversationId: "conv_0",
+      transcriptSource: "elevenlabs",
+      transcript: [
+        { role: "agent", message: "Hi Ana. Tell me about a checkout flow you owned?", time_in_call_secs: 0 },
+        { role: "user", message: "I rebuilt the cart at Northwind.", time_in_call_secs: 9 },
+      ],
+      durationSeconds: 192,
+      endedAt: new Date("2026-11-11T12:03:12Z"),
+      lastSessionAt: new Date("2026-11-11T12:00:00Z"),
+      resumableUntil: new Date("2026-11-11T12:13:12Z"),
+      startCount: 1,
+      ...overrides,
+    });
+
+  beforeEach(() => {
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "IN_PROGRESS", startCount: 1, usageEventId: "evt_1", tier: "FULL", paidBy: "PERIOD" }));
+  });
+
+  it("takes no new unit, gives the time left and tells the interviewer what was asked", async () => {
+    stubElevenLabs(tokenResponse);
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(dropped());
+
+    const { status, body } = await post();
+    const data = (body as { data: InterviewSessionResponse }).data;
+
+    expect(status).toBe(200);
+    expect(reserveInterview).not.toHaveBeenCalled();
+    expect(data.resumed).toBe(true);
+    expect(data.maxDurationSeconds).toBe(720 - 192);
+    expect(data.dynamicVariables.interview_minutes).toBe("9");
+    expect(data.dynamicVariables.opening_line).toContain("Welcome back, Ana");
+    expect(data.dynamicVariables.call_context).toContain("Tell me about a checkout flow you owned?");
+    const write = vi.mocked(reserveInterviewSession).mock.calls[0][0];
+    expect(write.carry?.fromConversationId).toBe("conv_0");
+    expect(write.carry?.segments).toHaveLength(1);
+    expect(write.carry?.segments[0]).toMatchObject({ conversationId: "conv_0", durationSeconds: 192 });
+  });
+
+  it("adds the stored call to the earlier ones on a second reconnect", async () => {
+    stubElevenLabs(tokenResponse);
+    const first = { conversationId: "conv_a", turns: [{ role: "user", message: "First answer.", time_in_call_secs: 2 }], durationSeconds: 100, startTimeSeconds: 1 };
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "IN_PROGRESS", startCount: 2, usageEventId: "evt_1", tier: "FULL", paidBy: "PERIOD" }));
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(dropped({ segments: [first], startCount: 2 }));
+
+    const { body } = await post();
+    expect((body as { data: InterviewSessionResponse }).data.maxDurationSeconds).toBe(720 - 100 - 192);
+    expect(vi.mocked(reserveInterviewSession).mock.calls[0][0].carry?.segments.map((segment) => segment.conversationId)).toEqual(["conv_a", "conv_0"]);
+  });
+
+  it("scores the interview instead of starting a call when its time is used up", async () => {
+    const calls = stubElevenLabs(tokenResponse);
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(dropped({ durationSeconds: 700 }));
+
+    expect(await post()).toEqual({ status: 409, body: { ok: false, code: "INTERVIEW_NOT_STARTABLE" } });
+    expect(finalizeResumableInterview).toHaveBeenCalledWith(INTERVIEW_ID);
+    expect(calls).toHaveLength(0);
+    expect(reserveInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it("starts fresh after a call in which nobody spoke", async () => {
+    stubElevenLabs(tokenResponse);
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "IN_PROGRESS", startCount: 1 }));
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(
+      dropped({ transcript: [{ role: "agent", message: "Hi Ana.", time_in_call_secs: 0 }], durationSeconds: 5, resumableUntil: null }),
+    );
+
+    const { body } = await post();
+    const data = (body as { data: InterviewSessionResponse }).data;
+    expect(reserveInterview).toHaveBeenCalledTimes(1);
+    expect(data.resumed).toBe(false);
+    expect(data.maxDurationSeconds).toBe(720);
+    expect(vi.mocked(reserveInterviewSession).mock.calls[0][0].carry).toBeUndefined();
   });
 });

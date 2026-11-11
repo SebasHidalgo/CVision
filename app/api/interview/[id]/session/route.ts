@@ -1,16 +1,24 @@
 import { buildInterviewerContext } from "@/lib/ai/prompts/interviewer.agent";
 import { getUserProfile, requireUserId } from "@/lib/auth";
+import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import {
   fetchInterviewById,
+  fetchInterviewCallState,
   reserveInterviewSession,
 } from "@/lib/database/interview";
+import { finalizeResumableInterview, storedCallCounts } from "@/lib/database/interviewResume";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview, resolveInterviewEntitlement, type InterviewReservation } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { startVoiceSession } from "@/lib/voice";
 import { assertVoiceCapacity } from "@/lib/voice/health";
-import { STARTABLE_STATUSES } from "@/lib/voice/postCall";
+import { STARTABLE_STATUSES, toSegment } from "@/lib/voice/postCall";
+import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
+import { addSegment, mergeSegments, MIN_RESUME_SECONDS, questionsAsked, readSegments, usedSeconds } from "@/lib/voice/segments";
+import { transcriptTurnSchema } from "@/lib/voice/transcript";
+import { ValidationError } from "@/lib/error/ValidationError";
+import { z } from "zod";
 import {
   InterviewContextMissingError,
   InterviewExpiredError,
@@ -22,6 +30,7 @@ import { routeOk, toRouteError } from "@/lib/error/toRouteResponse";
 import { PAID_BY_SOURCE, sourceOfPaidBy, type EntitlementSource } from "@/lib/interviewEntitlement";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
+import { interviewSessionRequestSchema } from "@/lib/schemas/interviewSessionSchema";
 import type { InterviewSessionResponse } from "@/types/interview";
 
 // Two database round trips, one Clerk profile read and a 10 s token call.
@@ -44,9 +53,14 @@ const LOG = "[CVision][session]";
  * guarded update: if that update finds the interview no longer startable (a
  * second tab won the race), the token is dropped unused, the unit goes back
  * and the caller gets a 409.
+ *
+ * A start after a dropped call that counted continues the same interview:
+ * no new unit, the time left instead of the full length, and a record of
+ * the questions already asked for the interviewer. The call speaks the
+ * language the room chose, stored on the interview.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   let reservation: InterviewReservation | null = null;
@@ -54,6 +68,10 @@ export async function POST(
     const userId = await requireUserId();
     await assertRateLimit(userId, "interviewStart");
     const { id } = await params;
+
+    const requestBody = await request.json().catch(() => ({}));
+    const requested = interviewSessionRequestSchema.safeParse(requestBody ?? {});
+    if (!requested.success) throw new ValidationError("Invalid session request");
 
     // A read of an interview is also the sweep for abandoned ones; one
     // expired here answers INTERVIEW_NOT_STARTABLE below.
@@ -102,9 +120,57 @@ export async function POST(
       tier = reservation.tier;
       source = reservation.source;
     }
-    const { seconds: maxDurationSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
+    const { seconds: tierSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
+
+    // The calls so far. A dropped call whose record has not arrived is fetched now
+    // (throttled, best effort) so the time used and the continuity record are exact.
+    let state = await fetchInterviewCallState(interview.id);
+    if (state?.conversationId && !state.transcriptSource && state.endedAt) {
+      await reconcileStrandedInterview(interview.id, new Date(), { graceSeconds: 0 }).catch((error) => {
+        console.warn(`${LOG} interview=${interview.id} could not fetch the dropped call:`, error instanceof Error ? error.message : error);
+      });
+      state = await fetchInterviewCallState(interview.id);
+    }
+    if (!state || !STARTABLE_STATUSES.has(state.status)) {
+      throw new InterviewNotStartableError("Interview is no longer startable");
+    }
+
+    const earlier = readSegments(state.segments);
+    const storedTurns = z.array(transcriptTurnSchema).safeParse(state.transcript);
+    const latestCounts = state.transcriptSource !== null && state.conversationId !== null && storedCallCounts(state.transcript) && storedTurns.success;
+    const calls =
+      latestCounts && storedTurns.success && state.conversationId
+        ? addSegment(
+            earlier,
+            toSegment({
+              conversationId: state.conversationId,
+              turns: storedTurns.data,
+              durationSeconds: state.durationSeconds,
+              startTimeSeconds: state.endedAt ? Math.round(state.endedAt.getTime() / 1000) - (state.durationSeconds ?? 0) : null,
+            }),
+          )
+        : earlier;
+    // A reconnect continues the interview when a call of it counted, or when the room reported a drop whose record is still on its way.
+    const resuming = !reservation && (calls.length > 0 || (state.transcriptSource === null && state.resumableUntil !== null));
+    const used = resuming
+      ? Math.min(
+          tierSeconds,
+          usedSeconds(
+            { segments: earlier, latestRecorded: state.transcriptSource !== null, latestSpoke: Boolean(latestCounts), latestDurationSeconds: state.durationSeconds, lastSessionAt: state.lastSessionAt, endedAt: state.endedAt },
+            new Date(),
+          ),
+        )
+      : 0;
+    const maxDurationSeconds = tierSeconds - used;
+    if (resuming && maxDurationSeconds < MIN_RESUME_SECONDS) {
+      // The interview length is used up: it is scored with what exists.
+      await finalizeResumableInterview(interview.id);
+      throw new InterviewNotStartableError("The interview's time is used up");
+    }
 
     const profile = await getUserProfile();
+
+    const chosen = requested.data.language ?? (state.language === "en" || state.language === "es" ? state.language : detectPostingLanguage(analysis.jobDescription));
 
     const { dynamicVariables, language } = buildInterviewerContext({
       interviewId: interview.id,
@@ -114,8 +180,10 @@ export async function POST(
       jobDescription: analysis.jobDescription,
       analysisSummary: context.data.overall.summaryText,
       requirements: context.data.jobFit.requirements,
-      maxDurationSeconds,
+      maxDurationSeconds: tierSeconds,
       gapsToCover,
+      language: chosen,
+      ...(resuming ? { resume: { remainingSeconds: maxDurationSeconds, questionsAsked: questionsAsked(mergeSegments(calls)) } } : {}),
     });
 
     const session = await startVoiceSession({ tier, variables: dynamicVariables });
@@ -128,6 +196,8 @@ export async function POST(
       startedAt: interview.startedAt ?? issuedAt,
       issuedAt,
       maxStarts: MAX_INTERVIEW_STARTS,
+      language,
+      ...(latestCounts && state.conversationId ? { carry: { segments: calls, fromConversationId: state.conversationId } } : {}),
       ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier, paidBy: PAID_BY_SOURCE[reservation.source] } } : {}),
     });
     if (!reserved) {
@@ -135,6 +205,9 @@ export async function POST(
     }
     if (reservation) {
       console.info(`${LOG} interview=${interview.id} reserved ${reservation.kind} tier=${tier}`);
+    }
+    if (resuming) {
+      console.info(`${LOG} interview=${interview.id} resumed: call ${calls.length + 1}, ${used} s used, ${maxDurationSeconds} s left, language=${language}`);
     }
     reservation = null;
 
@@ -147,6 +220,7 @@ export async function POST(
       expiresAt: session.expiresAt.toISOString(),
       maxDurationSeconds,
       source,
+      resumed: resuming,
     };
     return routeOk(body);
   } catch (error) {

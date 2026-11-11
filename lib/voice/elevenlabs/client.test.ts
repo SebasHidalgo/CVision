@@ -88,6 +88,7 @@ describe("fetchConversation", () => {
         startTimeSeconds: 1_760_000_000,
         durationSeconds: 200.4,
         variables: { interview_id: "int_1", system__time: "x" },
+        endedBy: "agent",
       },
     });
   });

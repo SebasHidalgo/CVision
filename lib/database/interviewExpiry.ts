@@ -3,6 +3,8 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
 import { INTERVIEW_ABANDON_MS } from "@/lib/interviewLimits";
+import { readSegments } from "@/lib/voice/segments";
+import { finalizeLapsedInterviews, finalizeResumableInterview } from "./interviewResume";
 import { refundUsage } from "./usage";
 
 /**
@@ -33,6 +35,9 @@ export const ABANDONED = "ABANDONED";
  */
 export async function expireAbandonedInterviews(userId: string, now = new Date()): Promise<number> {
   try {
+    // The same sweep closes the interviews whose resume window is over: they are scored, not expired.
+    await finalizeLapsedInterviews(userId, now);
+
     const cutoff = new Date(now.getTime() - INTERVIEW_ABANDON_MS);
     const candidates = await prisma.interview.findMany({
       where: {
@@ -40,11 +45,16 @@ export async function expireAbandonedInterviews(userId: string, now = new Date()
         status: "IN_PROGRESS",
         lastSessionAt: { lt: cutoff },
       },
-      select: { id: true, usageEventId: true },
+      select: { id: true, usageEventId: true, segments: true },
     });
 
     let expired = 0;
     for (const row of candidates) {
+      // The candidate spoke in an earlier call: that is an interview to score, never one to refund.
+      if (readSegments(row.segments).length > 0) {
+        await finalizeResumableInterview(row.id, { latestMissing: true });
+        continue;
+      }
       const result = await prisma.interview.updateMany({
         where: { id: row.id, userId, status: "IN_PROGRESS", lastSessionAt: { lt: cutoff } },
         data: { status: "EXPIRED", failureReason: ABANDONED },

@@ -25,7 +25,7 @@ const payload = (overrides: Partial<PostCallTranscription> = {}): PostCallTransc
     { role: "agent", message: "Hi Ana, thanks for joining.", time_in_call_secs: 0 },
     { role: "user", message: "Thanks, happy to be here.", time_in_call_secs: 4 },
   ],
-  metadata: { start_time_unix_secs: START, call_duration_secs: 421.4, termination_reason: "" },
+  metadata: { start_time_unix_secs: START, call_duration_secs: 421.4, termination_reason: "end_call tool was called." },
   conversation_initiation_client_data: { dynamic_variables: { ...ISSUED } },
   ...overrides,
 });
@@ -99,7 +99,7 @@ describe("initiationDataMatches", () => {
 
 describe("decidePostCallOutcome", () => {
   it("stores a transcript with candidate turns and hands off to feedback", () => {
-    expect(decide(row(), payload())).toEqual({
+    expect(decide(row(), payload())).toMatchObject({
       kind: "store",
       status: "FEEDBACK_PENDING",
       failureReason: null,

@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { markInterviewEnded } from "@/lib/database/interview";
+import { recordCallOutcome } from "@/lib/database/interviewResume";
 import { EARLY_END_WINDOW_MS } from "@/lib/voice/postCall";
 import { reconcileNeedsFeedback, reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { ValidationError } from "@/lib/error/ValidationError";
@@ -29,13 +30,19 @@ const LOG = "[CVision][ended]";
  * the response, through the same throttled reconcile the status poll uses,
  * so the feedback page learns in seconds, not after the grace, that the
  * start was given back.
+ *
+ * The report also says how the room read the end. `drop` (a lost
+ * connection, a closed tab) opens the resume window; `finish` (End, or
+ * "Finish and get feedback" after a drop) closes the interview: at once
+ * when its latest call is already stored, when that record arrives
+ * otherwise. The platform's record still decides what is scored.
  */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireUserId();
+    const userId = await requireUserId();
     const { id } = await params;
 
     const body = await request.json().catch(() => ({}));
@@ -64,7 +71,20 @@ export async function POST(
       });
     }
 
-    return routeOk({ recorded: mark.recorded });
+    const result = parsed.data.outcome ? await recordCallOutcome({ interviewId: id, userId, outcome: parsed.data.outcome }) : { finalized: false };
+    if (result.finalized) {
+      // The candidate finished and the calls are stored: score them now.
+      after(async () => {
+        try {
+          const outcome = await generateInterviewFeedback(id);
+          console.info(`${LOG} feedback after finish interview=${id}: ${outcome.kind}`);
+        } catch (error) {
+          console.error(`${LOG} feedback after finish interview=${id} threw:`, error);
+        }
+      });
+    }
+
+    return routeOk({ recorded: mark.recorded, finalized: result.finalized });
   } catch (error) {
     return toRouteError(error, "Failed to record the end of the interview");
   }

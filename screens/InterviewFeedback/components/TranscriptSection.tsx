@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
 import type { TranscriptTurn } from "@/lib/voice/postCall";
+import { isResumeMarker } from "@/lib/voice/segments";
 import { cn } from "@/lib/utils";
 
 type TranscriptSectionProps = {
@@ -31,7 +32,7 @@ export default function TranscriptSection({ turns, t }: TranscriptSectionProps) 
       <summary className="flex cursor-pointer list-none items-center justify-between gap-6 [&::-webkit-details-marker]:hidden">
         <Eyebrow tick as="span">{t("transcript.title")}</Eyebrow>
         <span className="eyebrow tabular">
-          {t("transcript.lines", { count: spoken.length })} ·{" "}
+          {t("transcript.lines", { count: spoken.filter((turn) => !isResumeMarker(turn)).length })} ·{" "}
           <span className="group-open:hidden">{t("transcript.show")}</span>
           <span className="hidden group-open:inline">{t("transcript.hide")}</span>
         </span>
@@ -39,6 +40,15 @@ export default function TranscriptSection({ turns, t }: TranscriptSectionProps) 
 
       <ol className="mt-8 space-y-5">
         {spoken.map((turn, i) => {
+          if (isResumeMarker(turn)) {
+            return (
+              <li key={i} className="eyebrow flex items-center gap-4 text-ink-3">
+                <span aria-hidden className="h-px flex-1 bg-line" />
+                {t("transcript.resumed")}
+                <span aria-hidden className="h-px flex-1 bg-line" />
+              </li>
+            );
+          }
           const mine = turn.role === "user";
           const time = stamp(turn.time_in_call_secs);
           return (

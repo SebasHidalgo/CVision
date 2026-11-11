@@ -6,7 +6,8 @@ import { WORKLET_PATHS } from "@/lib/voice/elevenlabs/worklets";
 /**
  * The browser side of the voice provider: the only file that imports the
  * ElevenLabs SDK. The room talks to it in its own words (start with what the
- * server issued, end, who is speaking, how the call ended).
+ * server issued, end, who is speaking, how the call ended, whether it is
+ * waiting in line).
  */
 
 export type VoiceCallStart = {
@@ -21,6 +22,8 @@ export type VoiceCallEnd = {
   reason: string;
   /** The interviewer or the candidate closed the call, or its time ran out: not a drop. */
   finished: boolean;
+  /** The platform refused the call because every interviewer was taken. */
+  busy: boolean;
 };
 
 export type VoiceCallHandlers = {
@@ -30,14 +33,28 @@ export type VoiceCallHandlers = {
   onLine: (line: { role: "user" | "agent"; text: string }) => void;
   /** An interrupted line, corrected to what was actually said. */
   onLineCorrected: (change: { original: string; corrected: string }) => void;
+  /** Held in the platform's queue ("waiting"), then let through ("admitted"). */
+  onQueue: (status: "waiting" | "admitted") => void;
 };
+
+/** The platform's close code and wording for "at max capacity" (seen live, code 4300). */
+const BUSY_CLOSE_CODE = 4300;
+const BUSY_TEXT = /max capacity|at capacity/i;
+
+/** The queue event the SDK has no callback for: it reaches `onDebug` as a raw event. */
+function queueStatus(event: unknown): "waiting" | "admitted" | null {
+  if (typeof event !== "object" || event === null) return null;
+  const { type, queue_status_event: detail } = event as { type?: unknown; queue_status_event?: { status?: unknown } };
+  if (type !== "queue_status") return null;
+  return detail?.status === "waiting" || detail?.status === "admitted" ? detail.status : null;
+}
 
 export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>;
 }
 
 export function useVoiceCall(handlers: VoiceCallHandlers) {
-  const { startSession, endSession, mode } = useConversation({
+  const { startSession, endSession, sendContextualUpdate, mode } = useConversation({
     onConnect: handlers.onConnect,
     onDisconnect: (details) => {
       // The platform hard limit arrives as an error event; it is the agent ending the call.
@@ -45,12 +62,18 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
         details.reason === "user" ||
         details.reason === "agent" ||
         (details.reason === "error" && details.context.type === "max_duration_exceeded");
-      handlers.onEnd({ reason: details.reason, finished });
+      const text = details.reason === "user" ? "" : [details.reason === "error" ? details.message : "", details.closeReason, details.context?.reason].join(" ");
+      const busy = details.reason !== "user" && (details.closeCode === BUSY_CLOSE_CODE || details.context?.code === BUSY_CLOSE_CODE || BUSY_TEXT.test(text));
+      handlers.onEnd({ reason: details.reason, finished, busy });
     },
     onError: handlers.onError,
     onMessage: ({ role, message }) => handlers.onLine({ role, text: message }),
     onAgentResponseCorrection: ({ original_agent_response, corrected_agent_response }) =>
       handlers.onLineCorrected({ original: original_agent_response, corrected: corrected_agent_response }),
+    onDebug: (event: unknown) => {
+      const status = queueStatus(event);
+      if (status) handlers.onQueue(status);
+    },
   });
 
   return {
@@ -67,5 +90,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
       }),
     /** Resolves nothing: the end arrives through `onEnd`. */
     end: () => endSession(),
+    /** A note for the interviewer that the candidate does not hear: the room's clock. */
+    notify: (text: string) => sendContextualUpdate(text),
   };
 }

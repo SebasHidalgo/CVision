@@ -11,14 +11,17 @@
       "ended": "Entrevista terminada",
       "dropped": "Se perdió la conexión",
       "noStarts": "No te quedan conexiones",
-      "ready": "Cuando quieras"
+      "ready": "Cuando quieras",
+      "queued": "En espera"
     },
     "startButton": {
       "microphone": "Revisando el micrófono",
       "session": "Iniciando",
       "connecting": "Conectando",
       "retry": "Intentar de nuevo",
-      "start": "Empezar la entrevista"
+      "start": "Empezar la entrevista",
+      "queued": "Esperando a un entrevistador",
+      "reconnect": "Reconectar"
     },
     "clock": {
       "timeLeft": "Tiempo restante",
@@ -44,7 +47,11 @@
       "title": "Se perdió la conexión con el entrevistador.",
       "noStarts": "No quedan conexiones para esta entrevista.",
       "mayScore": "Si ya habías respondido algunas preguntas, lo que se dijo puede puntuarse tal como quedó.",
-      "checkFeedback": "Ver si hay feedback"
+      "checkFeedback": "Ver si hay feedback",
+      "at": "Tu llamada se cortó a los {{at}}. Te quedan {{left}}.",
+      "resume": "Reconecta y el entrevistador retoma donde quedaron. Si no vuelves en 10 minutos, la entrevista se evalúa con lo que dijiste.",
+      "noTime": "Queda muy poco tiempo para reconectar. La entrevista se evalúa con lo que dijiste.",
+      "finish": "Terminar y ver el feedback"
     },
     "reconnect_one": "Reconectar — te queda {{count}} conexión",
     "reconnect_many": "Reconectar — te quedan {{count}} conexiones",
@@ -77,6 +84,16 @@
       "lines_other": "{{count}} líneas",
       "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
       "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre."
+    },
+    "language": {
+      "label": "Idioma de la entrevista",
+      "en": "Inglés",
+      "es": "Español",
+      "note": "Propuesto según la oferta. El entrevistador habla y escucha en el idioma que elijas aquí."
+    },
+    "queue": {
+      "waiting": "Todos los entrevistadores están ocupados en este momento. Estás en la fila y la llamada empieza sola. La espera no se cobra ni gasta el tiempo de tu entrevista.",
+      "short": "En la fila para un entrevistador. No se cobra nada mientras esperas."
     }
   },
   "list": {

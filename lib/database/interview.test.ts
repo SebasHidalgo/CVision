@@ -106,6 +106,7 @@ describe("reserveInterviewSession", () => {
     startedAt: new Date("2026-10-16T12:00:00Z"),
     issuedAt: new Date("2026-10-16T12:05:00Z"),
     maxStarts: 3,
+  language: "en" as const,
   };
 
   it("clears every leftover of the previous session, the reconcile throttle included, and dates this session", async () => {

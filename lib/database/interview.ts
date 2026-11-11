@@ -5,7 +5,9 @@ import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
+import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
+import type { CallSegment } from "@/lib/voice/segments";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import { expireAbandonedInterviews } from "./interviewExpiry";
@@ -178,6 +180,14 @@ export type ReserveInterviewSessionData = {
   /** This session's time: what the abandoned-interview sweep measures from. */
   issuedAt: Date;
   maxStarts: number;
+  /** The language of the call, as chosen in the room. */
+  language: InterviewLanguage;
+  /**
+   * A reconnect after a dropped call that counted: the calls so far, the
+   * stored one included, and the conversation they were read under. The
+   * write goes through only if that is still the row's latest call.
+   */
+  carry?: { segments: CallSegment[]; fromConversationId: string };
   /**
    * The usage unit, the agent tier and what paid for the unit, on the first
    * token only. A reconnect passes nothing here and keeps what the first
@@ -208,11 +218,16 @@ export async function reserveInterviewSession(
         startCount: { lt: data.maxStarts },
         // The first token sets the unit and the tier; a later one must not.
         ...(data.reservation ? { usageEventId: null } : {}),
+        ...(data.carry ? { conversationId: data.carry.fromConversationId } : {}),
       },
       data: {
         status: "IN_PROGRESS",
         ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier, paidBy: data.reservation.paidBy } : {}),
         issuedContext: data.issuedContext,
+        language: data.language,
+        ...(data.carry ? { segments: data.carry.segments as Prisma.InputJsonValue } : {}),
+        resumableUntil: null,
+        finishRequestedAt: null,
         conversationId: data.conversationId,
         issuedConversationIds: { push: data.conversationId },
         startedAt: data.startedAt,
@@ -232,6 +247,34 @@ export async function reserveInterviewSession(
     return result.count === 1;
   } catch (error) {
     handleError(error, "Failed to reserve interview session");
+  }
+}
+
+/**
+ * What the session endpoint and the room need to continue an interview:
+ * the calls so far and the clock. Owner-scoped; null for anyone else's.
+ */
+export async function fetchInterviewCallState(interviewId: string) {
+  try {
+    const userId = await requireUserId();
+    return await prisma.interview.findFirst({
+      where: { id: interviewId, userId },
+      select: {
+        status: true,
+        conversationId: true,
+        transcript: true,
+        transcriptSource: true,
+        segments: true,
+        durationSeconds: true,
+        endedAt: true,
+        lastSessionAt: true,
+        resumableUntil: true,
+        startCount: true,
+        language: true,
+      },
+    });
+  } catch (error) {
+    handleError(error, "Failed to read the interview's calls");
   }
 }
 

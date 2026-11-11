@@ -58,7 +58,8 @@
     "show": "show",
     "hide": "hide",
     "you": "You",
-    "interviewer": "Interviewer"
+    "interviewer": "Interviewer",
+    "resumed": "Call resumed"
   },
   "pending": {
     "saving": "Saving your interview.",
@@ -100,7 +101,11 @@
     "startCounted_one": "That start counts, but the interview is still yours: you have {{count}} start left.",
     "startCounted_other": "That start counts, but the interview is still yours: you have {{count}} starts left.",
     "startReturned_one": "The interview is still yours: you have {{count}} start left.",
-    "startReturned_other": "The interview is still yours: you have {{count}} starts left."
+    "startReturned_other": "The interview is still yours: you have {{count}} starts left.",
+    "busy": {
+      "title": "All interviewers were busy.",
+      "body": "Nothing was charged, and this didn't use one of your starts. Every interviewer was taken when you called; try again in a minute."
+    }
   },
   "failure": {
     "noCandidateTurns": {

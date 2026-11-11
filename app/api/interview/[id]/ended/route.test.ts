@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { markInterviewEnded } from "@/lib/database/interview";
+import { recordCallOutcome } from "@/lib/database/interviewResume";
 import { EARLY_END_WINDOW_MS } from "@/lib/voice/postCall";
 import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { UnauthorizedError } from "@/lib/error/errors";
@@ -10,6 +11,7 @@ import { POST } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ markInterviewEnded: vi.fn() }));
+vi.mock("@/lib/database/interviewResume", () => ({ recordCallOutcome: vi.fn(async () => ({ finalized: false })) }));
 vi.mock("@/lib/voice/reconcile", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/voice/reconcile")>();
   return { ...actual, reconcileStrandedInterview: vi.fn() };
@@ -50,7 +52,7 @@ describe("POST /api/interview/[id]/ended", () => {
   it("records the end of the call once, with the SDK's reason in the log only", async () => {
     expect(await post(JSON.stringify({ reason: "agent" }))).toEqual({
       status: 200,
-      body: { ok: true, data: { recorded: true } },
+      body: { ok: true, data: { recorded: true, finalized: false } },
     });
     expect(markInterviewEnded).toHaveBeenCalledWith({
       interviewId: INTERVIEW_ID,
@@ -62,12 +64,43 @@ describe("POST /api/interview/[id]/ended", () => {
     expect(reconcileStrandedInterview).not.toHaveBeenCalled();
   });
 
+  it("records nothing about the outcome when the room names none", async () => {
+    await post(JSON.stringify({ reason: "agent" }));
+    expect(recordCallOutcome).not.toHaveBeenCalled();
+  });
+
+  it("opens the resume window on a drop", async () => {
+    expect(await post(JSON.stringify({ reason: "error", outcome: "drop" }))).toEqual({
+      status: 200,
+      body: { ok: true, data: { recorded: true, finalized: false } },
+    });
+    expect(recordCallOutcome).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, userId: "user_1", outcome: "drop" });
+    expect(generateInterviewFeedback).not.toHaveBeenCalled();
+  });
+
+  it("closes the interview on Finish and scores it at once when its calls are already stored", async () => {
+    vi.mocked(recordCallOutcome).mockResolvedValue({ finalized: true });
+    vi.mocked(generateInterviewFeedback).mockResolvedValue({ kind: "completed", feedbackId: "fb_1" });
+
+    expect(await post(JSON.stringify({ reason: "finish", outcome: "finish" }))).toEqual({
+      status: 200,
+      body: { ok: true, data: { recorded: true, finalized: true } },
+    });
+    expect(recordCallOutcome).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, userId: "user_1", outcome: "finish" });
+    expect(generateInterviewFeedback).toHaveBeenCalledWith(INTERVIEW_ID);
+  });
+
+  it("refuses an outcome it does not know", async () => {
+    expect((await post(JSON.stringify({ reason: "x", outcome: "refund" }))).status).toBe(400);
+    expect(markInterviewEnded).not.toHaveBeenCalled();
+  });
+
   it("answers recorded=false when there was nothing to write, as for a second report", async () => {
     vi.mocked(markInterviewEnded).mockResolvedValue({ recorded: false });
 
     expect(await post(JSON.stringify({ reason: "user" }))).toEqual({
       status: 200,
-      body: { ok: true, data: { recorded: false } },
+      body: { ok: true, data: { recorded: false, finalized: false } },
     });
     expect(after).not.toHaveBeenCalled();
   });

@@ -1,5 +1,6 @@
 import type { InterviewStats } from "@/lib/ai/schemas";
 import type { TranscriptTurn } from "@/lib/voice/postCall";
+import { isResumeMarker } from "@/lib/voice/segments";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
 /**
@@ -27,7 +28,7 @@ export function shortThresholds(plannedSeconds: number): ShortThresholds {
   };
 }
 
-/** Transcript roles: ElevenLabs writes "user" and "agent". */
+/** Transcript roles: the platform writes "user" and "agent"; the merge adds a marker between two calls. */
 export const CANDIDATE_ROLE = "user";
 
 export const isCandidateTurn = (turn: TranscriptTurn) =>
@@ -51,7 +52,9 @@ export function computeInterviewStats(
   durationSeconds: number | null,
   plannedSeconds: number = MAX_INTERVIEW_DURATION_SECONDS,
 ): InterviewStats {
-  const candidate = turns.filter(isCandidateTurn);
+  // The marker between two calls keeps its place in the timings and is not a turn.
+  const spoken = turns.filter((turn) => !isResumeMarker(turn));
+  const candidate = spoken.filter(isCandidateTurn);
   const candidateWords = candidate.reduce((sum, turn) => sum + wordCount(turn.message ?? ""), 0);
 
   const timed = turns.every((turn) => typeof turn.time_in_call_secs === "number");
@@ -80,7 +83,7 @@ export function computeInterviewStats(
     (candidateOnFloorSeconds !== null && candidateOnFloorSeconds < thresholds.seconds);
 
   return {
-    totalTurns: turns.length,
+    totalTurns: spoken.length,
     candidateTurns: candidate.length,
     candidateWords,
     averageCandidateTurnWords: candidate.length ? round(candidateWords / candidate.length) : 0,

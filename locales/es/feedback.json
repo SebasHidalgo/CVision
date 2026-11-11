@@ -62,7 +62,8 @@
     "show": "mostrar",
     "hide": "ocultar",
     "you": "Tú",
-    "interviewer": "Entrevistador"
+    "interviewer": "Entrevistador",
+    "resumed": "Llamada retomada"
   },
   "pending": {
     "saving": "Guardando tu entrevista.",
@@ -106,7 +107,11 @@
     "startCounted_other": "Esa conexión cuenta, pero la entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
     "startReturned_one": "La entrevista sigue siendo tuya: te queda {{count}} conexión.",
     "startReturned_many": "La entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
-    "startReturned_other": "La entrevista sigue siendo tuya: te quedan {{count}} conexiones."
+    "startReturned_other": "La entrevista sigue siendo tuya: te quedan {{count}} conexiones.",
+    "busy": {
+      "title": "Todos los entrevistadores estaban ocupados.",
+      "body": "No se cobró nada y no gastaste ninguno de tus inicios. Todos los entrevistadores estaban tomados cuando llamaste; vuelve a intentarlo en un minuto."
+    }
   },
   "failure": {
     "noCandidateTurns": {

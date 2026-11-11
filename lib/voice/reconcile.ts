@@ -7,7 +7,9 @@ import {
   storeConversationTranscript,
   type StoreTranscriptResult,
 } from "@/lib/database/interviewTranscript";
+import { finalizeResumableInterview } from "@/lib/database/interviewResume";
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { readSegments } from "@/lib/voice/segments";
 import { fetchConversation } from "@/lib/voice";
 import {
   isStranded,
@@ -61,7 +63,8 @@ export async function reconcileStrandedInterview(
       status: row.status,
       conversationId: row.conversationId,
       hasTranscript: row.transcriptSource !== null,
-      startedAt: row.startedAt,
+      // The latest call's own start: a resumed interview began long before it.
+      startedAt: row.lastSessionAt ?? row.startedAt,
       endedAt: row.endedAt,
     },
     now,
@@ -78,6 +81,13 @@ export async function reconcileStrandedInterview(
   if (fetched.kind === "in-progress") {
     console.info(`${LOG} interview=${interviewId} conversation still ${fetched.platformStatus} on the platform`);
     return { kind: "in-progress", platformStatus: fetched.platformStatus };
+  }
+
+  // The latest call left no record, but the candidate spoke in an earlier one: score those.
+  if (fetched.kind === "not-found" && readSegments(row.segments).length > 0) {
+    const result = await finalizeResumableInterview(interviewId, { latestMissing: true });
+    console.warn(`${LOG} interview=${interviewId} latest call not found on the platform; earlier calls: ${result}`);
+    return result === "finalized" ? { kind: "stored", result: { outcome: "stored", interviewId, status: "FEEDBACK_PENDING" } } : { kind: "lost" };
   }
 
   if (fetched.kind === "not-found") {

@@ -1,5 +1,6 @@
 import type { InterviewStatus } from "@prisma/client";
-import { z } from "zod";
+import { addSegment, mergeSegments, MIN_RESUME_SECONDS, RESUME_WINDOW_MS, segmentsSeconds, type CallSegment } from "./segments";
+import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
 
 /**
  * A finished call, and what to do with it. Pure: the adapter verifies and
@@ -7,14 +8,7 @@ import { z } from "zod";
  * them lives here where a test can reach it.
  */
 
-/** One turn, kept loose on purpose: the row stores the array verbatim. */
-export const transcriptTurnSchema = z.looseObject({
-  role: z.string(),
-  message: z.string().nullish(),
-  time_in_call_secs: z.number().nullish(),
-});
-
-export type TranscriptTurn = z.infer<typeof transcriptTurnSchema>;
+export { transcriptTurnSchema, type TranscriptTurn };
 
 /**
  * One finished call as the app reads it, whoever the provider is: the adapter
@@ -32,6 +26,12 @@ export type CallRecord = {
   durationSeconds: number | null;
   /** The variables the browser handed the agent, when the record carries them. */
   variables: Record<string, unknown> | null;
+  /**
+   * Who ended the call, as the platform recorded it: the interviewer (its
+   * end_call tool), the hard time limit, the client (End, a closed tab or a
+   * lost connection look the same from there), or unknown.
+   */
+  endedBy: "agent" | "limit" | "client" | "unknown";
 };
 
 /** `failureReason` when the candidate never spoke. */
@@ -47,6 +47,18 @@ export const SESSION_LOST = "SESSION_LOST";
  * the call at once with a conversation of zero turns.
  */
 export const CALL_FAILED = "CALL_FAILED";
+/**
+ * `failureReason` when the platform refused the call for concurrency: every
+ * interviewer was taken, or the wait in the queue ran out. Handled like
+ * CALL_FAILED (the unit and the start go back) with its own, honest copy.
+ */
+export const AT_CAPACITY = "AT_CAPACITY";
+
+/** The platform's refusal for concurrency: code 4300 ("at max capacity"), or a queue wait that ran out. */
+export function refusedForCapacity(record: CallRecord): boolean {
+  if (!record.failed || !record.failure) return false;
+  return record.failure.code === 4300 || /max capacity|at capacity|queue/i.test(record.failure.reason ?? "");
+}
 
 /**
  * The platform's own account of a failed call, for the server log only:
@@ -165,10 +177,17 @@ export type PostCallRow = {
   transcript: unknown;
   issuedContext: unknown;
   startCount: number;
+  /** Earlier calls of the interview that counted; none for a first call. */
+  segments?: CallSegment[];
+  /** The candidate asked to finish (End, or "Finish and get feedback"). */
+  finishRequestedAt?: Date | null;
+  resumableUntil?: Date | null;
 };
 
 export type PostCallOutcome =
   | { kind: "duplicate" }
+  /** The record of an earlier call, delivered after a newer session was issued: kept, nothing else changes. */
+  | { kind: "segment"; segments: CallSegment[] }
   | {
       kind: "store";
       status: Extract<InterviewStatus, "FEEDBACK_PENDING" | "IN_PROGRESS" | "FAILED">;
@@ -183,41 +202,73 @@ export type PostCallOutcome =
        * microphone and connection, not for the platform's outages.
        */
       startRefunded: boolean;
+      /** What the row's transcript holds after this write: this call, or every call merged when final. */
+      transcript: TranscriptTurn[];
+      /** The earlier calls to store; null leaves the column as it is. */
+      segments: CallSegment[] | null;
+      /** Set while a dropped interview may still be resumed; null otherwise. */
+      resumableUntil: Date | null;
+      /** The candidate spoke in some call of the interview: the unit stays spent. */
+      counted: boolean;
     };
 
+/** A recorded call as a segment. */
+export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | "durationSeconds" | "startTimeSeconds">): CallSegment {
+  return {
+    conversationId: record.conversationId,
+    turns: record.turns,
+    durationSeconds: Math.max(0, record.durationSeconds ?? 0),
+    startTimeSeconds: record.startTimeSeconds,
+  };
+}
+
 /**
- * What a verified, matched payload does to its row.
+ * What a verified, matched record does to its row.
  *
- * - A row that already holds this conversation's transcript, or is past the
- *   startable states, is a retry or a stale delivery: do nothing.
- * - Candidate turns present: store and hand off to feedback generation.
- * - No candidate turns (the mic never worked, or they hung up at the greeting):
- *   store the turns as evidence, record why, and leave the interview
- *   startable while attempts remain. Only when the start cap is used up does
- *   the interview fail; otherwise a mic problem would consume the interview
- *   and the retries the cap exists to allow would be unreachable.
- * - No candidate turns and the platform reports the call failed (its
- *   status is "failed": the agent never joined): `CALL_FAILED`, so nobody
- *   is told to check a microphone that was fine, the interview stays
- *   startable whatever the count, and the start is given back: a call the
- *   platform could not run does not count against the candidate.
+ * - A call already stored, or a row past the startable states, is a retry
+ *   or a stale delivery: do nothing.
+ * - The record of an earlier call arriving after a newer session was
+ *   issued: kept as a segment when the candidate spoke in it.
+ * - Nobody has spoken in any call (the mic never worked, they hung up at
+ *   the greeting): store the turns as evidence, record why, and leave the
+ *   interview startable while starts remain; with none left it fails. When
+ *   the platform reports the call failed (the agent never joined, or every
+ *   interviewer was busy), the start is given back too.
+ * - The candidate has spoken, in this call or an earlier one. How the call
+ *   ended decides: the interviewer's end_call, the time limit, the
+ *   candidate's request to finish, the interview length used up, the last
+ *   start, or a resume window already over make it final, and every call
+ *   is merged for the feedback. Anything else (a lost connection, a closed
+ *   tab) leaves it resumable for `RESUME_WINDOW_MS`.
  */
 export function decidePostCallOutcome({
   row,
   data,
   eventTimestamp,
   maxStarts,
+  plannedSeconds = Number.POSITIVE_INFINITY,
+  now = new Date(),
 }: {
   row: PostCallRow;
   data: CallRecord;
   eventTimestamp: number | null | undefined;
   maxStarts: number;
+  /** The interview length of the tier; every call together may not exceed it. */
+  plannedSeconds?: number;
+  now?: Date;
 }): PostCallOutcome {
-  const sameConversation = row.conversationId === data.conversationId;
-  if (sameConversation && row.transcript !== null) return { kind: "duplicate" };
+  const earlier = row.segments ?? [];
+  if (earlier.some((segment) => segment.conversationId === data.conversationId)) return { kind: "duplicate" };
+  const latest = row.conversationId === data.conversationId;
+  if (latest && row.transcript !== null) return { kind: "duplicate" };
   if (!STARTABLE_STATUSES.has(row.status)) return { kind: "duplicate" };
 
   const spoke = hasCandidateTurns(data.turns);
+  // The row has moved on to a newer session: this is an earlier call's record, late.
+  if (!latest && row.conversationId !== null) {
+    return spoke ? { kind: "segment", segments: addSegment(earlier, toSegment(data)) } : { kind: "duplicate" };
+  }
+
   const attemptsLeft = row.startCount < maxStarts;
 
   const issued = isStringRecord(row.issuedContext) ? row.issuedContext : null;
@@ -236,17 +287,86 @@ export function decidePostCallOutcome({
 
   const failed = data.failed;
   const platformFailed = !spoke && failed;
-
-  return {
-    kind: "store",
-    status: spoke ? "FEEDBACK_PENDING" : platformFailed || attemptsLeft ? "IN_PROGRESS" : "FAILED",
-    failureReason: spoke ? null : failed ? CALL_FAILED : NO_CANDIDATE_TURNS,
+  const base = {
+    kind: "store" as const,
     contextMismatch: matches === false,
-    startedAt,
     endedAt,
-    durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
     startRefunded: platformFailed,
   };
+
+  // Nobody has spoken in any call of this interview.
+  if (!spoke && earlier.length === 0) {
+    return {
+      ...base,
+      status: platformFailed || attemptsLeft ? "IN_PROGRESS" : "FAILED",
+      failureReason: failed ? (refusedForCapacity(data) ? AT_CAPACITY : CALL_FAILED) : NO_CANDIDATE_TURNS,
+      startedAt,
+      durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
+      transcript: data.turns,
+      segments: null,
+      resumableUntil: null,
+      counted: false,
+    };
+  }
+
+  // The interview counts. A silent or failed resumed call adds nothing to it.
+  const all = spoke ? addSegment(earlier, toSegment(data)) : earlier;
+  const used = segmentsSeconds(all);
+  const callEnd = endedAt ?? now;
+  const windowOver = callEnd.getTime() + RESUME_WINDOW_MS <= now.getTime();
+  const final =
+    !platformFailed &&
+    (data.endedBy === "agent" ||
+      data.endedBy === "limit" ||
+      Boolean(row.finishRequestedAt) ||
+      used >= plannedSeconds - MIN_RESUME_SECONDS ||
+      !attemptsLeft ||
+      windowOver);
+
+  if (final) {
+    return {
+      ...base,
+      status: "FEEDBACK_PENDING",
+      failureReason: null,
+      // The interview began with its first call.
+      startedAt: earlier.length === 0 ? startedAt : null,
+      durationSeconds: Math.round(used),
+      transcript: mergeSegments(all),
+      segments: all.length > 1 ? all : null,
+      resumableUntil: null,
+      counted: true,
+    };
+  }
+
+  return {
+    ...base,
+    status: "IN_PROGRESS",
+    failureReason: null,
+    startedAt: earlier.length === 0 ? startedAt : null,
+    durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
+    transcript: data.turns,
+    segments: null,
+    resumableUntil: row.resumableUntil ?? new Date(callEnd.getTime() + RESUME_WINDOW_MS),
+    counted: true,
+  };
+}
+
+/**
+ * The row of a resumable interview made final without a new record: the
+ * resume window lapsed, or the candidate asked to finish after the latest
+ * call was already stored. Null when there is nothing to score.
+ */
+export function finalizeFromStored({
+  segments,
+  latest,
+}: {
+  segments: CallSegment[];
+  /** The latest call as the row holds it; null when its record never came. */
+  latest: CallSegment | null;
+}): { transcript: TranscriptTurn[]; durationSeconds: number; segments: CallSegment[] | null } | null {
+  const all = latest && hasCandidateTurns(latest.turns) ? addSegment(segments, latest) : segments;
+  if (all.length === 0) return null;
+  return { transcript: mergeSegments(all), durationSeconds: Math.round(segmentsSeconds(all)), segments: all.length > 1 ? all : null };
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

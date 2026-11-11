@@ -19,12 +19,15 @@ export type SessionRequestResult =
 export async function requestInterviewSession(
   interviewId: string,
   fetchImpl: typeof fetch = fetch,
+  /** The language chosen in the room; the server keeps the interview's when absent. */
+  language?: "en" | "es",
 ): Promise<SessionRequestResult> {
   let response: Response;
   try {
     response = await fetchImpl(`/api/interview/${encodeURIComponent(interviewId)}/session`, {
       method: "POST",
-      headers: { accept: "application/json" },
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify(language ? { language } : {}),
     });
   } catch {
     return { ok: false, code: "REQUEST_FAILED" };
@@ -58,12 +61,14 @@ export async function reportInterviewEnded(
   interviewId: string,
   reason: string,
   fetchImpl: typeof fetch = fetch,
+  /** How the room read the end: the candidate finished, or the call dropped and may resume. */
+  outcome?: "finish" | "drop",
 ): Promise<void> {
   try {
     await fetchImpl(`/api/interview/${encodeURIComponent(interviewId)}/ended`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify(outcome ? { reason, outcome } : { reason }),
       keepalive: true,
     });
   } catch {

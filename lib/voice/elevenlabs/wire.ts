@@ -94,6 +94,19 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
   };
 }
 
+/**
+ * The platform's termination reason in the app's terms. Seen live: "end_call
+ * tool was called." when the interviewer hangs up and "Client disconnected:
+ * 1005" for End, a closed tab and a lost connection alike.
+ */
+function endedBy(reason: string | null | undefined): CallRecord["endedBy"] {
+  const text = (reason ?? "").toLowerCase();
+  if (text.includes("end_call")) return "agent";
+  if (/max(imum)?[ _]?(conversation[ _])?duration|duration (limit|exceeded)|time limit/.test(text)) return "limit";
+  if (text.includes("client")) return "client";
+  return "unknown";
+}
+
 /** The platform's payload in the app's terms. The turns keep the stored shape, verbatim. */
 export function toCallRecord(data: PostCallTranscription): CallRecord {
   const error = data.metadata?.error;
@@ -106,5 +119,6 @@ export function toCallRecord(data: PostCallTranscription): CallRecord {
     startTimeSeconds: data.metadata?.start_time_unix_secs ?? null,
     durationSeconds: data.metadata?.call_duration_secs ?? null,
     variables: data.conversation_initiation_client_data?.dynamic_variables ?? null,
+    endedBy: endedBy(data.metadata?.termination_reason),
   };
 }

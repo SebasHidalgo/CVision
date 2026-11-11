@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import { INTERVIEW_ABANDON_MS } from "@/lib/interviewLimits";
 import { ABANDONED, expireAbandonedInterviews } from "./interviewExpiry";
+import { finalizeLapsedInterviews, finalizeResumableInterview } from "./interviewResume";
 import { refundUsage } from "./usage";
 
 vi.mock("@/lib/prisma", () => ({
   default: { interview: { findMany: vi.fn(), updateMany: vi.fn() } },
 }));
 vi.mock("./usage", () => ({ refundUsage: vi.fn(async () => true) }));
+vi.mock("./interviewResume", () => ({
+  finalizeLapsedInterviews: vi.fn(async () => []),
+  finalizeResumableInterview: vi.fn(async () => "finalized"),
+}));
 
 const NOW = new Date("2026-10-20T12:00:00Z");
 const CUTOFF = new Date(NOW.getTime() - INTERVIEW_ABANDON_MS);
@@ -32,10 +37,27 @@ describe("expireAbandonedInterviews", () => {
         status: "IN_PROGRESS",
         lastSessionAt: { lt: CUTOFF },
       },
-      select: { id: true, usageEventId: true },
+      select: { id: true, usageEventId: true, segments: true },
     });
     expect(prisma.interview.updateMany).not.toHaveBeenCalled();
     expect(INTERVIEW_ABANDON_MS).toBe(2 * 60 * 60_000);
+  });
+
+  it("first closes the interviews whose resume window is over: they are scored, not expired", async () => {
+    await expireAbandonedInterviews("user_1", NOW);
+    expect(finalizeLapsedInterviews).toHaveBeenCalledWith("user_1", NOW);
+  });
+
+  it("scores, never refunds, an interview in which the candidate spoke in an earlier call", async () => {
+    vi.mocked(prisma.interview.findMany).mockResolvedValue([
+      { id: "int_1", usageEventId: "evt_1", segments: [{ conversationId: "conv_a", turns: [{ role: "user", message: "An answer." }], durationSeconds: 90, startTimeSeconds: 1 }] },
+    ] as never);
+
+    expect(await expireAbandonedInterviews("user_1", NOW)).toBe(0);
+
+    expect(finalizeResumableInterview).toHaveBeenCalledWith("int_1", { latestMissing: true });
+    expect(prisma.interview.updateMany).not.toHaveBeenCalled();
+    expect(refundUsage).not.toHaveBeenCalled();
   });
 
   it("expires each one with a guarded update and refunds its reservation as ABANDONED", async () => {

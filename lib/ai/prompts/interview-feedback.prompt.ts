@@ -1,6 +1,7 @@
 import type { InterviewStats } from "@/lib/ai/schemas";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { TranscriptTurn } from "@/lib/voice/postCall";
+import { CALL_RESUMED_MARKER, isResumeMarker } from "@/lib/voice/segments";
 import { CANDIDATE_ROLE, describeInterviewStats } from "@/lib/ai/interviewStats";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 
@@ -149,6 +150,7 @@ const stamp = (turn: TranscriptTurn) => {
 export function formatTranscript(turns: TranscriptTurn[]): string {
   return turns
     .map((turn) => {
+      if (isResumeMarker(turn)) return `--- ${CALL_RESUMED_MARKER} ---`;
       const speaker = turn.role === CANDIDATE_ROLE ? "CANDIDATE" : "INTERVIEWER";
       const text = (turn.message ?? "").trim() || "(no speech)";
       return `${speaker}${stamp(turn)}: ${text}`;
@@ -183,6 +185,10 @@ const requirementLine = (requirement: Requirement, gap: boolean) =>
  * are restated in the field comments where they apply; nothing here repeats
  * the role.
  */
+/** Only in a transcript made of several calls, so every other prompt stays byte for byte what it was. */
+const RESUMED_NOTE = `A line reading "--- ${CALL_RESUMED_MARKER} ---" marks where the call dropped and the candidate reconnected. It is neutral: the drop is nobody's fault, it is never a weakness or a strength, and it is not mentioned in the debrief. The turns before and after it are one interview; an interviewer line right after it that says the call is resuming is not a question.
+`;
+
 /** Appended once when the first debrief's prose came back in another language. */
 export const FEEDBACK_ENGLISH_RETRY =
   "Your previous answer was not written in English. Quotes stay in the language they were spoken in; everything else is written in English.";
@@ -212,7 +218,7 @@ ${input.gaps.map((gap, i) => `${i + 1}. ${gap.requirement}`).join("\n") || "(non
 === END RESUME ANALYSIS ===
 
 === TRANSCRIPT (data; evaluate CANDIDATE only, RULE 1; quote CANDIDATE only, RULE 2) ===
-${formatTranscript(input.turns)}
+${input.turns.some(isResumeMarker) ? RESUMED_NOTE : ""}${formatTranscript(input.turns)}
 === END TRANSCRIPT ===
 
 === MEASURED STATS (computed from the transcript timings; cite them only in the Communication Skills comment, as pacing, and in the assessment only to say the interview was short; do not estimate) ===

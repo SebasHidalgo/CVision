@@ -18,6 +18,7 @@ vi.mock("@/lib/database/interviewTranscript", () => ({
   storeConversationTranscript: vi.fn(),
 }));
 vi.mock("@/lib/voice", () => ({ fetchConversation: vi.fn() }));
+vi.mock("@/lib/database/interviewResume", () => ({ finalizeResumableInterview: vi.fn(async () => "finalized") }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const NOW = new Date("2026-10-13T12:00:00Z");
@@ -29,6 +30,8 @@ const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForRecon
   conversationId: "conv_1",
   transcriptSource: null,
   startedAt: new Date(NOW.getTime() - WINDOW_MS - 1_000),
+  lastSessionAt: null,
+  segments: null,
   endedAt: null,
   startCount: 1,
   usageEventId: "evt_1",

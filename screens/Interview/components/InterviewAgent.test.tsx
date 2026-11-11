@@ -23,12 +23,14 @@ type Callbacks = {
     original_agent_response: string;
     corrected_agent_response: string;
   }) => void;
+  onDebug?: (event: unknown) => void;
 };
 
 const sdk = vi.hoisted(() => ({
   callbacks: {} as Record<string, unknown>,
   startSession: vi.fn(),
   endSession: vi.fn(),
+  sendContextualUpdate: vi.fn(),
   setMode: (_mode: "speaking" | "listening") => {},
 }));
 
@@ -43,6 +45,7 @@ vi.mock("@elevenlabs/react", async () => {
       return {
         startSession: sdk.startSession,
         endSession: sdk.endSession,
+        sendContextualUpdate: sdk.sendContextualUpdate,
         mode,
         isSpeaking: mode === "speaking",
         isListening: mode === "listening",
@@ -94,6 +97,8 @@ const props: InterviewAgentProps = {
   maxStarts: 3,
   maxDurationSeconds: 720,
   source: "period",
+  language: "es",
+  resume: null,
 };
 
 const getUserMedia = vi.fn();
@@ -106,7 +111,7 @@ function respond(body: unknown, status = 200) {
 const requests = () => vi.mocked(fetch).mock.calls as unknown as [string, RequestInit | undefined][];
 const endedReports = () => requests().filter(([url]) => url === ENDED_URL);
 
-const startButton = () => screen.getByRole("button", { name: /start the interview|try again/i });
+const startButton = () => screen.getByRole("button", { name: /start the interview|reconnect/i });
 
 async function clickStart() {
   await act(async () => {
@@ -377,9 +382,61 @@ describe("InterviewAgent: during the call", () => {
     expect(screen.getByRole("status").textContent).toMatch(/time is up/i);
 
     act(() => {
-      vi.advanceTimersByTime(30_000);
+      vi.advanceTimersByTime(11_000);
     });
     expect(screen.getByLabelText("Time left").textContent).toBe("0:00");
+    expect(sdk.endSession).not.toHaveBeenCalled();
+  });
+
+  it("tells the interviewer the time once, with about a minute left, in a line the candidate never hears", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(224_000);
+    });
+    expect(sdk.sendContextualUpdate).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(1);
+    expect(sdk.sendContextualUpdate.mock.calls[0][0]).toMatch(/^\[time\] About one minute remains/);
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("hangs up by itself when a call runs past its length, and reports it as finished", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 90, resumed: true } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(92_000);
+    });
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "user" });
+    });
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "user", outcome: "finish" }));
+    expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
   });
 
   it("speaks the interface's Spanish while the session keeps the language the server issued", async () => {
@@ -425,7 +482,7 @@ describe("InterviewAgent: ending", () => {
     // One session request, one end-of-call report with the SDK's reason, kept alive past the navigation.
     expect(fetch).toHaveBeenCalledTimes(2);
     const [, init] = endedReports()[0];
-    expect(init).toMatchObject({ method: "POST", keepalive: true, body: JSON.stringify({ reason: "user" }) });
+    expect(init).toMatchObject({ method: "POST", keepalive: true, body: JSON.stringify({ reason: "user", outcome: "finish" }) });
   });
 
   it.each<DisconnectionDetails>([
@@ -461,9 +518,14 @@ describe("InterviewAgent: ending", () => {
     expect(fetch).toHaveBeenCalledWith(ENDED_URL, expect.anything());
   });
 
-  it("on an unexpected disconnect, says the connection was lost, shows the starts left next to Try again, and Try again goes through Start", async () => {
+  it("on an unexpected disconnect, says when the call dropped and how much is left, and offers Reconnect and Finish", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
     render(<InterviewAgent {...props} startCount={1} />);
     await connect();
+    act(() => {
+      vi.advanceTimersByTime(192_000);
+    });
 
     await act(async () => {
       callbacks().onDisconnect?.({
@@ -475,20 +537,65 @@ describe("InterviewAgent: ending", () => {
 
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByText("Connection lost")).toBeTruthy();
+    expect(screen.getByText("Your call dropped at 3:12. You have 8:48 left.")).toBeTruthy();
+    expect(screen.getByText(/picks up where you left off/i)).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("Reconnect — 1 start left");
-    expect(screen.getByRole("button", { name: /try again/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /check for feedback/i }).getAttribute("href")).toBe(
-      `/interview/${INTERVIEW_ID}/feedback?ended=1`,
-    );
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "error" }));
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
+    // The clock shows what is left of the interview, not its full length.
+    expect(screen.getByLabelText("Interview length").textContent).toBe("8:48");
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "error", outcome: "drop" }));
 
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 528, resumed: true } });
     await clickStart();
-    // Session, report, session again.
-    expect(fetch).toHaveBeenCalledTimes(3);
+    // The drop is reported again before the new session is asked for: the first report may not have left the browser.
+    expect(requests().map(([url, init]) => `${url.split("/").pop()} ${init?.body ?? ""}`)).toEqual([
+      `ended ${JSON.stringify({ reason: "reconnect", outcome: "drop" })}`,
+      `session ${JSON.stringify({ language: "es" })}`,
+    ]);
     expect(sdk.startSession).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_2" });
+    });
+    expect(screen.getByLabelText("Time left").textContent).toBe("8:48");
+    // A shorter resumed call is not "what pays for it changed".
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("after the last start drops, offers no retry and says so", async () => {
+  it("Finish and get feedback closes the interview and opens its feedback", async () => {
+    render(<InterviewAgent {...props} startCount={1} />);
+    await connect();
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /finish and get feedback/i }));
+    });
+
+    const reports = endedReports();
+    expect(reports[reports.length - 1][1]?.body).toBe(JSON.stringify({ reason: "finish", outcome: "finish" }));
+    expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+    expect(sdk.startSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens on what is left when an earlier call of the interview dropped", async () => {
+    render(<InterviewAgent {...props} startCount={1} resume={{ usedSeconds: 192, resumable: true }} />);
+
+    expect(screen.getByText("Your call dropped at 3:12. You have 8:48 left.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
+    // The language was chosen on the first call: no selector on a reconnect.
+    expect(screen.queryByLabelText("Interview language")).toBeNull();
+  });
+
+  it("offers only Finish when too little of the interview is left to reconnect", async () => {
+    render(<InterviewAgent {...props} startCount={1} resume={{ usedSeconds: 700, resumable: false }} />);
+    expect(screen.getByText(/too little time left to reconnect/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reconnect" })).toBeNull();
+    expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
+  });
+
+  it("after the last start drops, offers no reconnect, says so, and still lets the candidate finish", async () => {
     render(<InterviewAgent {...props} startCount={2} />);
     await connect();
 
@@ -498,6 +605,89 @@ describe("InterviewAgent: ending", () => {
 
     expect(screen.getByText(/no starts left for this interview/i)).toBeTruthy();
     expect(screen.queryByText(/Reconnect/)).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
+  });
+});
+
+describe("InterviewAgent: the language of the call", () => {
+  it("proposes the language it was given and sends the one chosen with the start", async () => {
+    respond({ ok: true, data: { ...SESSION, language: "en" } });
+    render(<InterviewAgent {...props} language="es" />);
+
+    const select = screen.getByLabelText("Interview language") as HTMLSelectElement;
+    expect(select.value).toBe("es");
+    expect([...select.options].map((option) => option.textContent)).toEqual(["English", "Spanish"]);
+
+    fireEvent.change(select, { target: { value: "en" } });
+    await clickStart();
+
+    const [url, init] = requests()[0];
+    expect(url).toBe(`/api/interview/${INTERVIEW_ID}/session`);
+    expect(init?.body).toBe(JSON.stringify({ language: "en" }));
+    expect(sdk.startSession).toHaveBeenCalledWith(expect.objectContaining({ overrides: { agent: { language: "en" } } }));
+  });
+});
+
+describe("InterviewAgent: a full house", () => {
+  it("shows a waiting state while the platform holds the call in line, and starts the clock when it is let through", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    render(<InterviewAgent {...props} />);
+    await connect();
+
+    await act(async () => {
+      callbacks().onDebug?.({ type: "queue_status", queue_status_event: { status: "waiting" } });
+    });
+    expect(screen.getByText("Waiting in line")).toBeTruthy();
+    expect(screen.getByRole("note").textContent).toMatch(/all interviewers are busy right now/i);
+    expect(screen.getByRole("status").textContent).toMatch(/nothing is charged while you wait/i);
+    expect(screen.getByRole("button", { name: /waiting for an interviewer/i }).hasAttribute("disabled")).toBe(true);
+
+    // Twenty seconds in line use none of the interview.
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    await act(async () => {
+      callbacks().onDebug?.({ type: "queue_status", queue_status_event: { status: "admitted" } });
+    });
+    expect(screen.getByLabelText("Time left").textContent).toBe("12:00");
+    expect(screen.getByRole("button", { name: /end the interview/i })).toBeTruthy();
+  });
+
+  it("says every interviewer is busy when the wait runs out, charges nothing and stays in the room", async () => {
+    render(<InterviewAgent {...props} />);
+    await connect();
+    await act(async () => {
+      callbacks().onDebug?.({ type: "queue_status", queue_status_event: { status: "waiting" } });
+    });
+
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "agent", context: { type: "close", reason: "agent disconnected" } });
+    });
+
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe("All interviewers are busy right now. Try again in a minute. Nothing was charged.");
+    expect(screen.getByRole("button", { name: /start the interview/i })).toBeTruthy();
+    // Reported as an end, with no outcome: nothing to resume and nothing finished.
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "agent" }));
+  });
+
+  it("says so when the platform refuses the call for capacity before it connects", async () => {
+    respond({ ok: true, data: SESSION });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+
+    await act(async () => {
+      callbacks().onDisconnect?.({
+        reason: "error",
+        message: "This AI agent is currently at max capacity. Please try again later.",
+        context: { type: "close", code: 4300 },
+        closeCode: 4300,
+      });
+    });
+
+    expect(screen.getByRole("status").textContent).toBe("All interviewers are busy right now. Try again in a minute. Nothing was charged.");
+    expect(push).not.toHaveBeenCalled();
   });
 });

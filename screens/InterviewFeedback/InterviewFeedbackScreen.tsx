@@ -12,6 +12,7 @@ import {
 import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { isStranded } from "@/lib/voice/postCall";
 import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/voice/reconcile";
+import { finalizeLapsedInterviews } from "@/lib/database/interviewResume";
 import { fetchResumeById } from "@/lib/database/resume";
 import { formatLongDate } from "@/lib/format";
 import { getLocale } from "@/lib/i18n/server";
@@ -69,8 +70,19 @@ export default async function InterviewFeedbackScreen({
     }
   }
 
+  // A dropped interview whose resume window is over is scored with what exists.
+  if (interview.status === "IN_PROGRESS" && interview.resumableUntil && interview.resumableUntil.getTime() <= now.getTime()) {
+    await finalizeLapsedInterviews(interview.userId, now);
+    interview = (await fetchInterviewById(interview.id)) ?? interview;
+  }
+
   const view = decideFeedbackView(
-    { ...candidateOf(interview), failureReason: interview.failureReason, justEnded },
+    {
+      ...candidateOf(interview),
+      failureReason: interview.failureReason,
+      justEnded,
+      resumable: interview.resumableUntil !== null && interview.resumableUntil.getTime() > now.getTime(),
+    },
     now,
     MAX_INTERVIEW_DURATION_SECONDS,
   );

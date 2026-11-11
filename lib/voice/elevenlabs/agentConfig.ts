@@ -2,6 +2,7 @@ import { BRAND } from "@/lib/brand";
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import {
   INTERVIEWER_AGENT_PROMPT,
+  FIRST_CALL_CONTEXT,
   INTERVIEWER_FIRST_MESSAGE,
   type InterviewerVariables,
 } from "@/lib/ai/prompts/interviewer.agent";
@@ -55,6 +56,27 @@ export const INTERVIEW_AGENT_DAILY_CALL_LIMITS: Record<InterviewTierId, number> 
   TRIAL: 25,
 };
 
+/** Per environment: production raises these as usage grows; unset keeps the development caps. */
+export const INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV: Record<InterviewTierId, string> = {
+  FULL: "ELEVENLABS_DAILY_CALL_LIMIT",
+  TRIAL: "ELEVENLABS_TRIAL_DAILY_CALL_LIMIT",
+};
+
+/** The daily cap of a tier: its env var when it holds a positive integer, the default otherwise. */
+export function readDailyCallLimit(tier: InterviewTierId, env: Record<string, string | undefined> = process.env): number {
+  const raw = env[INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV[tier]]?.trim();
+  const value = raw && /^\d+$/.test(raw) ? Number(raw) : 0;
+  return value > 0 ? value : INTERVIEW_AGENT_DAILY_CALL_LIMITS[tier];
+}
+
+/**
+ * Concurrency. Bursting lets calls past the plan limit (up to three times it,
+ * at twice the rate) instead of refusing them; past that, the queue holds a
+ * caller this long before the platform refuses. Queue time is not billed.
+ */
+export const INTERVIEW_BURSTING_ENABLED = true;
+export const INTERVIEW_QUEUE_WAIT_SECONDS = 60;
+
 export const INTERVIEW_AGENT_NAMES: Record<InterviewTierId, string> = {
   FULL: `${BRAND.name} Interviewer`,
   TRIAL: `${BRAND.name} Interviewer (5-minute trial)`,
@@ -90,9 +112,20 @@ export const INTERVIEW_AGENT_DEFAULT_LANGUAGE = "en";
 /** The other language the agent is configured for, as a preset the override can select. */
 export const INTERVIEW_AGENT_EXTRA_LANGUAGES = ["es"] as const;
 
-/** Said by the platform when the hard cap cuts the call. Plain field, English only. */
+/** Said by the platform when the hard cap cuts the call; each language preset carries its own. */
 const MAX_DURATION_MESSAGE =
   "We're at time, so we'll stop here. Thank you for your answers. Your feedback will be ready shortly.";
+const MAX_DURATION_MESSAGES: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[number], string> = {
+  es: "Se nos acabó el tiempo, así que lo dejamos aquí. Gracias por tus respuestas. Tu feedback estará listo en un momento.",
+};
+
+/**
+ * The voice of each extra language. Null keeps the default voice on the
+ * multilingual model; the owner picks one from the samples (docs/voice.md).
+ */
+export const INTERVIEW_AGENT_PRESET_VOICE_IDS: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[number], string | null> = {
+  es: null,
+};
 
 /** What the dashboard's test call uses when nothing passes variables. */
 function placeholders(tier: InterviewTierId): InterviewerVariables {
@@ -105,6 +138,7 @@ function placeholders(tier: InterviewTierId): InterviewerVariables {
     language_name: "English",
     interview_minutes: minutes,
     gaps_to_cover: "1",
+    call_context: FIRST_CALL_CONTEXT,
     opening_line: `Hi Alex, thanks for joining. I'll be interviewing you for the Frontend Engineer role at Northwind. We have about ${minutes} minutes. To start, tell me briefly about your background.`,
     job_description: "Build and ship the checkout flow in React and TypeScript.",
     analysis_summary: "The resume meets the required qualifications and shows one preferred one.",
@@ -129,9 +163,12 @@ export type InterviewAgentDefinition = {
 export function buildInterviewAgentDefinition({
   postCallWebhookId,
   tier = "FULL",
+  env = process.env,
 }: {
   postCallWebhookId: string | null;
   tier?: InterviewTierId;
+  /** Where the per-environment daily cap is read from. */
+  env?: Record<string, string | undefined>;
 }): InterviewAgentDefinition {
   return {
     name: INTERVIEW_AGENT_NAMES[tier],
@@ -164,16 +201,19 @@ export function buildInterviewAgentDefinition({
         modelId: INTERVIEW_AGENT_TTS_MODEL,
         voiceId: INTERVIEW_AGENT_VOICE_ID,
       },
-      // One preset per non-default language: same voice, multilingual model.
-      // The first message is a variable already in the session's language,
-      // so no translation is attached.
+      // One preset per non-default language: multilingual model, its own cutoff
+      // line and, once chosen, its own voice. The first message is a variable
+      // already in the session's language, so no translation is attached.
       languagePresets: Object.fromEntries(
         INTERVIEW_AGENT_EXTRA_LANGUAGES.map((language) => [
           language,
           {
             overrides: {
-              agent: { language },
-              tts: { modelId: INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL },
+              agent: { language, maxConversationDurationMessage: MAX_DURATION_MESSAGES[language] },
+              tts: {
+                modelId: INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL,
+                ...(INTERVIEW_AGENT_PRESET_VOICE_IDS[language] ? { voiceId: INTERVIEW_AGENT_PRESET_VOICE_IDS[language] } : {}),
+              },
             },
           },
         ]),
@@ -216,9 +256,10 @@ export function buildInterviewAgentDefinition({
           : { events: [] },
       },
       callLimits: {
-        dailyLimit: INTERVIEW_AGENT_DAILY_CALL_LIMITS[tier],
-        burstingEnabled: false,
+        dailyLimit: readDailyCallLimit(tier, env),
+        burstingEnabled: INTERVIEW_BURSTING_ENABLED,
       },
+      queueingConfig: { enabled: true, waitTimeoutSeconds: INTERVIEW_QUEUE_WAIT_SECONDS },
       // The transcript reaches us by webhook; the platform's copy is only for
       // debugging, so it does not keep audio and expires after a month.
       privacy: {

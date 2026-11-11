@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import { fromConversationApi, toCallRecord, type PostCallTranscription } from "@/lib/voice/elevenlabs/wire";
 import { claimReconcile, markSessionLost, storeConversationTranscript } from "./interviewTranscript";
@@ -25,10 +25,12 @@ const payload = (overrides: Partial<PostCallTranscription> = {}): PostCallTransc
     { role: "agent", message: "Hi.", time_in_call_secs: 0 },
     { role: "user", message: "Hello.", time_in_call_secs: 3 },
   ],
-  metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, termination_reason: null },
+  metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, termination_reason: "end_call tool was called." },
   conversation_initiation_client_data: { dynamic_variables: { interview_id: "int_1" } },
   ...overrides,
 });
+
+const DROPPED = { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, termination_reason: "Client disconnected: 1005" };
 
 const row = (overrides: Record<string, unknown> = {}) => ({
   id: "int_1",
@@ -39,6 +41,10 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   issuedContext: null,
   startCount: 2,
   usageEventId: "evt_1",
+  tier: "FULL",
+  segments: null,
+  finishRequestedAt: null,
+  resumableUntil: null,
   ...overrides,
 });
 
@@ -49,8 +55,100 @@ beforeEach(() => {
   vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
 });
 
+describe("storeConversationTranscript: one interview, several calls", () => {
+  const earlier = { conversationId: "conv_1", turns: [{ role: "agent", message: "Tell me about your last project?", time_in_call_secs: 0 }, { role: "user", message: "I led a migration.", time_in_call_secs: 5 }], durationSeconds: 180, startTimeSeconds: 1_759_999_000 };
+
+  // A minute after the fixture call ended: its resume window is open.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date((1_760_000_000 + 260) * 1000));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a record that arrives after its resume window is over closes the interview", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 200 + 601) * 1000));
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+  });
+
+  it("a call that drops after an answer leaves the interview resumable, with its unit kept", async () => {
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+
+    const result = await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    const { data } = updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(data).toMatchObject({ status: "IN_PROGRESS", failureReason: null, durationSeconds: 200 });
+    // Ten minutes from the end of the call.
+    expect(data.resumableUntil).toEqual(new Date((1_760_000_000 + 200 + 600) * 1000));
+    expect(data).not.toHaveProperty("segments");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("the resumed call's end_call closes it: every call merged in order, with the marker between them, and the time summed", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
+
+    const result = await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
+    const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Array<{ role: string; message: string; time_in_call_secs: number }>; durationSeconds: number; segments: unknown[]; resumableUntil: unknown } };
+    expect(data.transcript.map((turn) => `${turn.role}@${turn.time_in_call_secs}`)).toEqual(["agent@0", "user@5", "system@180", "agent@180", "user@183"]);
+    expect(data.transcript[2].message).toBe("[call resumed]");
+    expect(data.durationSeconds).toBe(380);
+    expect(data.segments).toHaveLength(2);
+    expect(data.resumableUntil).toBeNull();
+  });
+
+  it("a second delivery of a call already kept as a segment is a duplicate", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null })).toEqual({ outcome: "duplicate", interviewId: "int_1" });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("the candidate's request to finish closes it on the drop's record", async () => {
+    findFirst.mockResolvedValueOnce(row({ finishRequestedAt: new Date() }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+  });
+
+  it("the interview length used up across calls closes it", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [{ ...earlier, durationSeconds: 500 }] }) as never);
+    // 500 s + 200 s of 720: under thirty seconds left.
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+    expect((updateMany.mock.calls[0][0] as { data: { durationSeconds: number } }).data.durationSeconds).toBe(700);
+  });
+
+  it("the last start's drop closes it: there is no reconnect left", async () => {
+    findFirst.mockResolvedValueOnce(row({ startCount: 3 }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+  });
+
+  it("a resumed call the platform could not run gives its start back and keeps the interview and its unit", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier], resumableUntil: new Date("2026-11-11T12:10:00Z") }) as never);
+
+    const failed = payload({ status: "failed", transcript: [], metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 0, termination_reason: "", error: { code: 4300, reason: "This AI agent is currently at max capacity. Please try again later." } } });
+    const result = await storeConversationTranscript({ data: toCallRecord(failed), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    const { data } = updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(data).toMatchObject({ startCount: { decrement: 1 }, resumableUntil: new Date("2026-11-11T12:10:00Z") });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("a first call refused for capacity is AT_CAPACITY: the start and the unit go back", async () => {
+    findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
+
+    const failed = payload({ status: "failed", transcript: [], metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 0, termination_reason: "", error: { code: 4300, reason: "This AI agent is currently at max capacity. Please try again later." } } });
+    await storeConversationTranscript({ data: toCallRecord(failed), eventTimestamp: null });
+
+    expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { status: "IN_PROGRESS", failureReason: "AT_CAPACITY", startCount: { decrement: 1 } } });
+    expect(tx.interview.updateMany).toHaveBeenCalledWith({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+  });
+});
+
 describe("storeConversationTranscript: how a delivery finds its row", () => {
-  it("matches on membership in the issued ids, so an earlier session's delivery still lands", async () => {
+  it("matches on membership in the issued ids, so an earlier session's delivery still lands: kept as a segment beside the newer call", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
 
     const result = await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null });
@@ -59,12 +157,14 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
     expect(findFirst.mock.calls[0][0]).toMatchObject({
       where: { issuedConversationIds: { has: "conv_1" } },
     });
-    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
-    // The stored transcript's conversation becomes the row's, and the source is the webhook's.
-    expect(updateMany.mock.calls[0][0]).toMatchObject({
-      where: { id: "int_1" },
-      data: { conversationId: "conv_1", transcriptSource: "elevenlabs", status: "FEEDBACK_PENDING" },
-    });
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    // The newer call stays the row's; the earlier one waits in the segments, and the window opens.
+    const write = updateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(write.where).toMatchObject({ id: "int_1", status: "IN_PROGRESS", conversationId: "conv_2" });
+    expect(write.data).not.toHaveProperty("status");
+    expect(write.data).not.toHaveProperty("conversationId");
+    expect(write.data.segments).toMatchObject([{ conversationId: "conv_1", durationSeconds: 200 }]);
+    expect(write.data.resumableUntil).toBeInstanceOf(Date);
   });
 
   it("falls back to the interview_id variable only for a row that was never issued a session", async () => {
@@ -90,17 +190,17 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
     expect(result).toEqual({ outcome: "unmatched" });
   });
 
-  it("the first delivery with candidate turns wins; a later one for another issued session is a duplicate", async () => {
-    // First call: conv_1 delivers with candidate turns.
+  it("a finished call closes the interview; a later delivery for another issued session is a duplicate", async () => {
+    // The latest call, conv_2, ends by the interviewer's end_call.
     findFirst.mockResolvedValueOnce(row() as never);
-    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null })).toMatchObject({
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_2" })), eventTimestamp: null })).toMatchObject({
       outcome: "stored",
       status: "FEEDBACK_PENDING",
     });
 
-    // Then conv_2 delivers: the row is past the startable states.
-    findFirst.mockResolvedValueOnce(row({ status: "FEEDBACK_PENDING", conversationId: "conv_1", transcript: [{ role: "user", message: "Hello." }] }) as never);
-    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_2" })), eventTimestamp: null })).toEqual({
+    // Then conv_1 delivers: the row is past the startable states.
+    findFirst.mockResolvedValueOnce(row({ status: "FEEDBACK_PENDING", conversationId: "conv_2", transcript: [{ role: "user", message: "Hello." }] }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null })).toEqual({
       outcome: "duplicate",
       interviewId: "int_1",
     });
