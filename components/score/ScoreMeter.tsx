@@ -40,7 +40,7 @@ export default function ScoreMeter({
   const t = tone ?? scoreTone(value);
   const reduce = useReducedMotion();
 
-  const transition = { duration: 1.1, ease: [0.16, 1, 0.3, 1] as const, delay };
+  const transition = reduce ? { duration: 0 } : { duration: 1.1, ease: [0.16, 1, 0.3, 1] as const, delay };
   const fill = { width: `${value}%` };
   const needle = { left: `${value}%` };
   const onMount = reveal === "mount";
@@ -69,7 +69,7 @@ export default function ScoreMeter({
 
         <motion.span
           aria-hidden
-          initial={reduce ? fill : { width: "0%" }}
+          initial={{ width: "0%" }}
           animate={onMount ? fill : undefined}
           whileInView={onMount ? undefined : fill}
           viewport={onMount ? undefined : VIEWPORT}
@@ -79,7 +79,7 @@ export default function ScoreMeter({
 
         <motion.span
           aria-hidden
-          initial={reduce ? needle : { left: "0%" }}
+          initial={{ left: "0%" }}
           animate={onMount ? needle : undefined}
           whileInView={onMount ? undefined : needle}
           viewport={onMount ? undefined : VIEWPORT}

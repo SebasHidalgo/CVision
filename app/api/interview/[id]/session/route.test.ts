@@ -375,7 +375,7 @@ describe("POST /api/interview/[id]/session: the platform fails", () => {
   it.each([
     { when: "ElevenLabs is down", respond: () => Response.json({ detail: "down" }, { status: 503 }), status: 503, code: "VOICE_UNAVAILABLE" },
     { when: "ElevenLabs is rate limiting", respond: () => Response.json({ detail: "slow" }, { status: 429 }), status: 503, code: "VOICE_UNAVAILABLE" },
-    { when: "the key is rejected", respond: () => Response.json({ detail: "nope" }, { status: 401 }), status: 500, code: "VOICE_MISCONFIGURED" },
+    { when: "the key is rejected", respond: () => Response.json({ detail: "nope" }, { status: 401 }), status: 503, code: "VOICE_KEY_REJECTED" },
     { when: "the agent id is unknown", respond: () => Response.json({ detail: "nope" }, { status: 422 }), status: 500, code: "VOICE_MISCONFIGURED" },
     {
       when: "nothing is listening",

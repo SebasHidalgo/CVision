@@ -9,6 +9,7 @@ import { readConversationCost } from "@/lib/voice/admin";
 
 // The voice spec runs in English only: the interview's spoken language is not part of the interface switch.
 const t = copyFor("en");
+const TRIAL_AVAILABLE = t("account:trial.availableNote", { minutes: 5 });
 
 /**
  * One real Start, opt-in (`npm run e2e:voice`): it may spend seconds of
@@ -71,7 +72,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
     expect(status).toContain("Voice interviews are temporarily unavailable. Nothing was charged.");
     await expect(page.getByRole("button", { name: /start the interview/i })).toBeEnabled();
     const text = await accountText(page, t);
-    expect(text).toContain("One free 5-minute practice interview.");
+    expect(text).toContain(TRIAL_AVAILABLE);
     expect(text).not.toContain("pending return");
     const row = await db.interview.findFirst({ where: { userId: account.id }, orderBy: { createdAt: "desc" } });
     expect(row?.startCount ?? 0).toBe(0);
@@ -128,14 +129,14 @@ test("one start on the trial: refused before any charge, failed by the platform 
 
   // Whatever happened, the trial was not spent: no answer was ever heard.
   const text = await waitForAccountTrial(page);
-  expect(text).toContain("One free 5-minute practice interview.");
+  expect(text).toContain(TRIAL_AVAILABLE);
   expect(text).not.toContain("pending return");
 });
 
 async function waitForAccountTrial(page: Parameters<typeof signIn>[0]): Promise<string> {
   const until = Date.now() + 150_000;
   let text = await accountText(page, t);
-  while (!/One free 5-minute practice interview\./.test(text) && Date.now() < until) {
+  while (!text.includes(TRIAL_AVAILABLE) && Date.now() < until) {
     await page.waitForTimeout(5_000);
     text = await accountText(page, t);
   }

@@ -17,6 +17,7 @@ import {
 } from "./wire";
 import {
   type AppError,
+  VoiceKeyRejectedError,
   VoiceMisconfiguredError,
   VoiceUnavailableError,
 } from "@/lib/error/errors";
@@ -291,7 +292,11 @@ function toVoiceError(error: unknown): AppError {
       return new VoiceUnavailableError("ElevenLabs is not reachable");
     }
     if (status === 401 || status === 403) {
-      return new VoiceMisconfiguredError(`ElevenLabs rejected the API key (HTTP ${status})`);
+      // A key that lacks one permission is a configuration gap; a refused key is an outage.
+      const permission = missingPermission(error);
+      if (permission) return new VoiceMisconfiguredError(`The ElevenLabs API key lacks ${permission} (HTTP ${status})`);
+      reportKeyRejected(status);
+      return new VoiceKeyRejectedError(`ElevenLabs rejected the API key (HTTP ${status})`);
     }
     if (status === 404 || status === 422 || status === 400) {
       return new VoiceMisconfiguredError(`ElevenLabs rejected the agent or request (HTTP ${status})`);
@@ -301,6 +306,23 @@ function toVoiceError(error: unknown): AppError {
   }
   return new VoiceUnavailableError(
     `ElevenLabs call failed with ${error instanceof Error ? error.name : typeof error}`,
+  );
+}
+
+/** One line per window: a dead key fails every start, and the log must say so without flooding. */
+export const KEY_REJECTED_LOG_INTERVAL_MS = 10 * 60_000;
+let keyRejectedLoggedAt = 0;
+
+/** Forgets the throttle; for tests. */
+export function resetKeyRejectedLog(): void {
+  keyRejectedLoggedAt = 0;
+}
+
+function reportKeyRejected(status: number, now = Date.now()): void {
+  if (keyRejectedLoggedAt && now - keyRejectedLoggedAt < KEY_REJECTED_LOG_INTERVAL_MS) return;
+  keyRejectedLoggedAt = now;
+  console.error(
+    `[CVision][voice] KEY REJECTED (HTTP ${status}): ElevenLabs refused ELEVENLABS_API_KEY. It is expired, revoked, or from another workspace, and EVERY voice interview is down until it is replaced. Create a key at ElevenLabs > Developer > API keys, set it in the environment, redeploy, run npm run voice:doctor.`,
   );
 }
 

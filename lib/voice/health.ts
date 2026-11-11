@@ -1,6 +1,6 @@
 import "server-only";
 
-import { VoiceUnavailableError } from "@/lib/error/errors";
+import { VoiceKeyRejectedError, VoiceUnavailableError } from "@/lib/error/errors";
 import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor } from "./balance";
 import { readVoiceBalance, type VoiceBalanceRead } from "@/lib/voice";
 
@@ -43,6 +43,8 @@ export async function assertVoiceCapacity(maxDurationSeconds: number, now = Date
     try {
       read = await readVoiceBalance();
     } catch (error) {
+      // A refused key fails the token call too: say so now, before anything is reserved.
+      if (error instanceof VoiceKeyRejectedError) throw error;
       // The platform did not answer: the token call that follows will say
       // so itself if it is really down. The guard does not add an outage.
       console.warn(`${LOG} balance not read, start not guarded:`, error instanceof Error ? `${error.name}: ${error.message}` : error);

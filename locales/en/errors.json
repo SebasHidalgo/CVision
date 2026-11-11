@@ -18,6 +18,8 @@
     "AI_CONTENT_BLOCKED": "The analyzer declined to process this content. Remove anything unusual from the CV or job description and try again.",
     "AI_BAD_FORMAT": "We couldn't read the analysis. Try again — it usually works on a retry.",
     "VOICE_UNAVAILABLE": "Voice interviews are temporarily unavailable. Nothing was charged. Try again in a few minutes.",
+    "VOICE_KEY_REJECTED": "Voice interviews are temporarily unavailable. Nothing was charged. Try again in a few minutes.",
+    "VOICE_BUSY": "All interviewers are busy right now. Try again in a minute. Nothing was charged.",
     "VOICE_MISCONFIGURED": "The interview room is misconfigured on our side. Retrying won't help — please check back later.",
     "INTERVIEW_NOT_STARTABLE": "This interview has already ended. Your feedback will appear under Interviews once it's ready.",
     "INTERVIEW_EXPIRED": "This attempt expired: two hours passed without a session, so it was closed and nothing was charged. Rehearse again from the analysis.",

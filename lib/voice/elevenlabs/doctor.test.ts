@@ -163,6 +163,15 @@ describe("voice:doctor", () => {
     expect(byName(checks, "balance floor (trial)").outcome).toBe("skip");
   });
 
+  it("says a rejected key is rejected, once, and stops", async () => {
+    serve({ ...healthy(), "GET /v1/user/subscription": { status: 401, body: { detail: { status: "invalid_api_key", message: "Invalid API key" } } } });
+    const checks = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
+
+    expect(byName(checks, "key")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("key rejected: expired, revoked, or from another workspace") });
+    expect(checks.filter((check) => check.outcome === "fail")).toHaveLength(1);
+    expect(checks.at(-1)?.name).toBe("key");
+  });
+
   it("fails the floor when the credits left are below it, and counts an unlimited extension as enough", async () => {
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000 }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({

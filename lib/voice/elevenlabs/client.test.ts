@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteConversation, fetchConversation, missingPermission, readVoiceBalance } from "./client";
+import { deleteConversation, fetchConversation, KEY_REJECTED_LOG_INTERVAL_MS, missingPermission, readVoiceBalance, resetKeyRejectedLog } from "./client";
 
 const API_KEY = "test-elevenlabs-key";
 
@@ -104,7 +104,7 @@ describe("fetchConversation", () => {
 
   it.each([
     { status: 503, code: "VOICE_UNAVAILABLE" },
-    { status: 401, code: "VOICE_MISCONFIGURED" },
+    { status: 401, code: "VOICE_KEY_REJECTED" },
   ])("throws the app's voice error on HTTP $status", async ({ status, code }) => {
     stubElevenLabs(() => Response.json({ detail: "x" }, { status }));
     await expect(fetchConversation("conv_1")).rejects.toMatchObject({ code });
@@ -194,7 +194,7 @@ describe("readVoiceBalance", () => {
 
   it.each([
     { status: 503, code: "VOICE_UNAVAILABLE" },
-    { status: 401, code: "VOICE_MISCONFIGURED" },
+    { status: 401, code: "VOICE_KEY_REJECTED" },
   ])("throws the app's voice error on any other HTTP $status", async ({ status, code }) => {
     stubElevenLabs(() => Response.json({ detail: "x" }, { status }));
     await expect(readVoiceBalance()).rejects.toMatchObject({ code });
@@ -212,5 +212,42 @@ describe("missingPermission", () => {
   it("names the permission only for a missing_permissions refusal", () => {
     expect(missingPermission(new Error("x"))).toBeNull();
     expect(missingPermission({ statusCode: 401 })).toBeNull();
+  });
+});
+
+describe("a rejected key", () => {
+  const rejected = () => Response.json({ detail: { status: "invalid_api_key", message: "Invalid API key" } }, { status: 401 });
+
+  beforeEach(() => {
+    resetKeyRejectedLog();
+    vi.useRealTimers();
+  });
+
+  it("is its own error, logged once per window at error level, never with the key", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stubElevenLabs(rejected);
+
+    for (let i = 0; i < 5; i++) await expect(fetchConversation("conv_1")).rejects.toMatchObject({ code: "VOICE_KEY_REJECTED" });
+
+    expect(error).toHaveBeenCalledTimes(1);
+    const line = String(error.mock.calls[0][0]);
+    expect(line).toContain("KEY REJECTED");
+    expect(line).toContain("expired, revoked, or from another workspace");
+    expect(line).not.toContain(API_KEY);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + KEY_REJECTED_LOG_INTERVAL_MS + 1);
+    await expect(fetchConversation("conv_1")).rejects.toMatchObject({ code: "VOICE_KEY_REJECTED" });
+    expect(error).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("is not confused with a key that lacks one permission", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stubElevenLabs(() =>
+      Response.json({ detail: { status: "missing_permissions", message: "The API key you used is missing the permission convai_read to execute this operation." } }, { status: 401 }),
+    );
+    await expect(fetchConversation("conv_1")).rejects.toMatchObject({ code: "VOICE_MISCONFIGURED" });
+    expect(error).not.toHaveBeenCalled();
   });
 });

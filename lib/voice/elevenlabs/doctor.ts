@@ -50,11 +50,16 @@ function namedPermission(error: unknown): string | null {
 }
 
 /** A failed check from a platform error: a missing permission is named with its fix; anything else as the platform said it. */
+/** The platform refused the key itself, not one permission of it. */
+function keyRejected(error: unknown): boolean {
+  return error instanceof ElevenLabsError && (error.statusCode === 401 || error.statusCode === 403) && !namedPermission(error);
+}
+
 function failFrom(name: string, error: unknown, fallbackPermission: string): VoiceDoctorCheck {
   const permission = namedPermission(error);
   if (permission) return fail(name, `the API key lacks ${permission} (the platform refused with missing_permissions)`, `Grant ${permission} at ${KEYS_PAGE}.`);
   if (error instanceof ElevenLabsError && (error.statusCode === 401 || error.statusCode === 403)) {
-    return fail(name, `the platform refused the key (HTTP ${error.statusCode})`, `Check ELEVENLABS_API_KEY, and that the key has ${fallbackPermission} at ${KEYS_PAGE}.`);
+    return fail(name, `key rejected: expired, revoked, or from another workspace (HTTP ${error.statusCode}); needed for ${fallbackPermission}`, `Create a new key at ElevenLabs > Developer > API keys in the workspace that owns the agents, put it in ELEVENLABS_API_KEY and run this again. Until then every voice interview fails.`);
   }
   const said = error instanceof ElevenLabsError ? `HTTP ${error.statusCode ?? "?"}` : error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   return fail(name, `the call failed: ${said}`, "Check the key and the network, then run the doctor again.");
@@ -130,6 +135,13 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       resetsAt: subscription.nextCharacterCountResetUnix ? new Date(subscription.nextCharacterCountResetUnix * 1000) : null,
     };
     checks.push(pass("permission user_read", describeVoiceBalance(balance)));
+    checks.push(
+      skip(
+        "key expiry",
+        "the platform does not let a key read its own expiry or credit quota (that list needs workspace_read, a workspace permission)",
+        "Look at the key at ElevenLabs > Developer > API keys and note its expiry; a key with no expiry and no credit quota is the safe choice for the server.",
+      ),
+    );
     // One floor per agent: the full interview's, and the 5-minute trial's.
     for (const tier of ["FULL", "TRIAL"] as const) {
       const name = tier === "FULL" ? "balance floor" : "balance floor (trial)";
@@ -148,6 +160,11 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       );
     }
   } catch (error) {
+    // A refused key fails every check the same way: say it once and stop.
+    if (keyRejected(error)) {
+      checks.push(failFrom("key", error, "every call"));
+      return checks;
+    }
     checks.push(failFrom("permission user_read", error, "user_read"));
     for (const name of ["balance floor", "balance floor (trial)"]) {
       checks.push(skip(name, "not checked: the balance could not be read (see permission user_read)", "Without user_read the session endpoint logs a warning once and guards nothing."));

@@ -48,17 +48,20 @@ export function HeroSpecimen() {
   const { t } = useTranslation("landing");
   const { t: common } = useTranslation("common");
 
+  // Reduced motion: the same first render as the server, then no travel.
+  const still = reduce ? { duration: 0 } : undefined;
+
   const item = (delay: number) => ({
-    initial: reduce ? false : { opacity: 0, y: 8 },
+    initial: { opacity: 0, y: 8 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.6, ease: EASE, delay },
+    transition: still ?? { duration: 0.6, ease: EASE, delay },
   });
 
   return (
     <motion.figure
-      initial={reduce ? false : { opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.9, ease: EASE, delay: 0.2 }}
+      transition={still ?? { duration: 0.9, ease: EASE, delay: 0.2 }}
       className="relative mx-auto w-full max-w-[420px]"
     >
       <figcaption className="eyebrow mb-3 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
@@ -83,9 +86,9 @@ export function HeroSpecimen() {
             <Line w={58} />
             <motion.span
               aria-hidden
-              initial={reduce ? false : { scaleX: 0 }}
+              initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
-              transition={{ duration: 0.7, ease: EASE, delay: 1.5 }}
+              transition={still ?? { duration: 0.7, ease: EASE, delay: 1.5 }}
               className="absolute top-[9px] left-0 h-[2px] w-[58%] origin-left bg-signal"
             />
             <motion.span

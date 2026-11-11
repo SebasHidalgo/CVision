@@ -21,6 +21,10 @@ export type ErrorCode =
   // Voice session (ElevenLabs): the interview room's equivalent of AI_*.
   | "VOICE_UNAVAILABLE"
   | "VOICE_MISCONFIGURED"
+  // The provider refused the API key itself (expired, revoked, other workspace): an outage until rotated.
+  | "VOICE_KEY_REJECTED"
+  // Every interviewer is taken: the provider refused the call for concurrency, or the queue wait ran out.
+  | "VOICE_BUSY"
   // Interview state at session start.
   | "INTERVIEW_NOT_STARTABLE"
   | "INTERVIEW_EXPIRED"
@@ -198,6 +202,18 @@ export class VoiceUnavailableError extends AppError {
 export class VoiceMisconfiguredError extends AppError {
   constructor(message = "Voice platform misconfigured", options?: ErrorOptions) {
     super("VOICE_MISCONFIGURED", message, options);
+  }
+}
+
+export class VoiceKeyRejectedError extends AppError {
+  constructor(message = "Voice platform rejected the API key", options?: ErrorOptions) {
+    super("VOICE_KEY_REJECTED", message, options);
+  }
+}
+
+export class VoiceBusyError extends AppError {
+  constructor(message = "Voice platform at capacity", options?: ErrorOptions) {
+    super("VOICE_BUSY", message, options);
   }
 }
 

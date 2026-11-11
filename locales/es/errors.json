@@ -18,6 +18,8 @@
     "AI_CONTENT_BLOCKED": "El analizador se negó a procesar este contenido. Quita cualquier cosa inusual del CV o de la descripción del puesto e inténtalo de nuevo.",
     "AI_BAD_FORMAT": "No pudimos leer el análisis. Inténtalo de nuevo: suele funcionar al reintentar.",
     "VOICE_UNAVAILABLE": "Las entrevistas por voz no están disponibles por ahora. No se cobró nada. Inténtalo de nuevo en unos minutos.",
+    "VOICE_KEY_REJECTED": "Las entrevistas por voz no están disponibles por ahora. No se cobró nada. Inténtalo de nuevo en unos minutos.",
+    "VOICE_BUSY": "Todos los entrevistadores están ocupados en este momento. Vuelve a intentarlo en un minuto. No se cobró nada.",
     "VOICE_MISCONFIGURED": "La sala de entrevista está mal configurada de nuestro lado. Reintentar no va a servir: vuelve más tarde.",
     "INTERVIEW_NOT_STARTABLE": "Esta entrevista ya terminó. Tu feedback aparecerá en Entrevistas cuando esté listo.",
     "INTERVIEW_EXPIRED": "Este intento expiró: pasaron dos horas sin una sesión, así que se cerró y no se cobró nada. Vuelve a ensayar desde el análisis.",

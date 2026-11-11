@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readVoiceBalance, type VoiceBalanceRead } from "@/lib/voice";
+import { VoiceKeyRejectedError } from "@/lib/error/errors";
 import { assertVoiceCapacity, resetVoiceHealth, VOICE_BALANCE_CACHE_MS } from "./health";
 
 vi.mock("@/lib/voice", () => ({ readVoiceBalance: vi.fn() }));
@@ -96,5 +97,10 @@ describe("assertVoiceCapacity", () => {
     vi.mocked(readVoiceBalance).mockResolvedValue(read(0));
     await expect(assertVoiceCapacity(FULL, NOW)).resolves.toBeUndefined();
     expect(readVoiceBalance).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses the start outright when the key is rejected, before anything is reserved", async () => {
+    vi.mocked(readVoiceBalance).mockRejectedValue(new VoiceKeyRejectedError());
+    await expect(assertVoiceCapacity(720, NOW)).rejects.toMatchObject({ code: "VOICE_KEY_REJECTED" });
   });
 });
