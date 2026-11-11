@@ -289,6 +289,14 @@ function InterviewRoom({
     goToFeedback();
   };
 
+  // A tab closed mid-call: tell the server on the way out, so the interview is resumable at once.
+  useEffect(() => {
+    if (phase.kind !== "live") return;
+    const leave = () => void reportInterviewEnded(interviewId, "pagehide", fetch, "drop");
+    window.addEventListener("pagehide", leave);
+    return () => window.removeEventListener("pagehide", leave);
+  }, [phase.kind, interviewId]);
+
   // The clock ticks only while the call is live.
   useEffect(() => {
     if (phase.kind !== "live") return;

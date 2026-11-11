@@ -180,6 +180,10 @@ function printEffectiveSettings(tier: InterviewTierId, agent: Agent) {
     ["tts model", cc.tts?.modelId],
     ["asr provider", cc.asr?.provider],
     ["daily call limit", ps?.callLimits?.dailyLimit],
+    ["bursting", ps?.callLimits?.burstingEnabled],
+    ["queueing", ps?.queueingConfig?.enabled],
+    ["queue wait (s)", ps?.queueingConfig?.waitTimeoutSeconds],
+    ["preset voices", Object.fromEntries(Object.entries(cc.languagePresets ?? {}).map(([language, preset]) => [language, preset.overrides?.tts?.voiceId ?? "(default voice)"]))],
     ["record voice", ps?.privacy?.recordVoice],
     ["retention days", ps?.privacy?.retentionDays],
   ];

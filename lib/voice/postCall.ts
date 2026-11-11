@@ -309,8 +309,9 @@ export function decidePostCallOutcome({
     };
   }
 
-  // The interview counts. A silent or failed resumed call adds nothing to it.
-  const all = spoke ? addSegment(earlier, toSegment(data)) : earlier;
+  // The interview counts, and so does every call of it the platform ran: a resumed call in
+  // which the candidate said nothing is still part of what happened. A failed one is not.
+  const all = platformFailed ? earlier : addSegment(earlier, toSegment(data));
   const used = segmentsSeconds(all);
   const callEnd = endedAt ?? now;
   const windowOver = callEnd.getTime() + RESUME_WINDOW_MS <= now.getTime();
@@ -364,7 +365,8 @@ export function finalizeFromStored({
   /** The latest call as the row holds it; null when its record never came. */
   latest: CallSegment | null;
 }): { transcript: TranscriptTurn[]; durationSeconds: number; segments: CallSegment[] | null } | null {
-  const all = latest && hasCandidateTurns(latest.turns) ? addSegment(segments, latest) : segments;
+  // The latest call belongs once the interview counts: when the candidate spoke in it, or in an earlier one.
+  const all = latest && latest.turns.length > 0 && (segments.length > 0 || hasCandidateTurns(latest.turns)) ? addSegment(segments, latest) : segments;
   if (all.length === 0) return null;
   return { transcript: mergeSegments(all), durationSeconds: Math.round(segmentsSeconds(all)), segments: all.length > 1 ? all : null };
 }

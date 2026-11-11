@@ -1,6 +1,6 @@
 import { ElevenLabsClient, ElevenLabsError } from "@elevenlabs/elevenlabs-js";
 import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor, type VoiceBalance } from "@/lib/voice/balance";
-import { buildInterviewAgentDefinition, INTERVIEW_AGENT_ID_ENV } from "./agentConfig";
+import { buildInterviewAgentDefinition, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV } from "./agentConfig";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
 /**
@@ -50,6 +50,15 @@ function namedPermission(error: unknown): string | null {
 }
 
 /** A failed check from a platform error: a missing permission is named with its fix; anything else as the platform said it. */
+/** The limits that decide whether a call is taken: the daily cap and where it comes from, bursting, the queue. */
+function describeLimits(tier: InterviewTierId, settings: { callLimits?: { dailyLimit?: number; burstingEnabled?: boolean }; queueingConfig?: { enabled?: boolean; waitTimeoutSeconds?: number } } | undefined, env: Record<string, string | undefined>): string {
+  const fromEnv = Boolean(env[INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV[tier]]?.trim());
+  const daily = `daily cap ${settings?.callLimits?.dailyLimit ?? "?"} (${fromEnv ? INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV[tier] : "the default"})`;
+  const burst = `bursting ${settings?.callLimits?.burstingEnabled ? "on" : "OFF"}`;
+  const queue = settings?.queueingConfig?.enabled ? `queue on (wait ${settings.queueingConfig.waitTimeoutSeconds ?? "?"} s)` : "queue OFF";
+  return `${daily}, ${burst}, ${queue}`;
+}
+
 /** The platform refused the key itself, not one permission of it. */
 function keyRejected(error: unknown): boolean {
   return error instanceof ElevenLabsError && (error.statusCode === 401 || error.statusCode === 403) && !namedPermission(error);
@@ -196,12 +205,20 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       checks.push(
         differences.length
           ? fail(name, `${id} ("${agent.name}") differs from agentConfig.ts at ${differences.join(", ")}`, "Run npm run agent:sync to push the definition in code; a change made in the dashboard is overwritten.")
-          : pass(name, `${id} ("${agent.name}") matches agentConfig.ts, hard limit ${agent.conversationConfig.conversation?.maxDurationSeconds ?? "?"} s, daily cap ${agent.platformSettings?.callLimits?.dailyLimit ?? "?"}`),
+          : pass(name, `${id} ("${agent.name}") matches agentConfig.ts, hard limit ${agent.conversationConfig.conversation?.maxDurationSeconds ?? "?"} s, ${describeLimits(tier, agent.platformSettings, env)}`),
       );
     } catch (error) {
       checks.push(error instanceof ElevenLabsError && error.statusCode === 404 ? fail(name, `${id} does not exist on this workspace`, `Clear ${INTERVIEW_AGENT_ID_ENV[tier]} and run npm run agent:sync to create it, or point the variable at the right agent.`) : failFrom(name, error, "agents read (ConvAI)"));
     }
   }
+
+  checks.push(
+    skip(
+      "plan concurrency",
+      "the subscription API does not report the plan's concurrent-call limit. With bursting on, calls past it run (up to three times the limit, at twice the rate); past that the queue holds a caller, and a wait that runs out is refused with nothing charged",
+      "The plan's limit is on ElevenLabs > Subscription. Raise the plan, not the daily cap, when the room often shows the wait in line.",
+    ),
+  );
 
   // The conversation read the reconcile needs when a webhook never comes.
   try {

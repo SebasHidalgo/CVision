@@ -74,7 +74,7 @@ export type TimeFacts = {
   segments: CallSegment[];
   /** The latest call: recorded (its transcript is stored) or still outstanding. */
   latestRecorded: boolean;
-  /** The candidate spoke in the latest recorded call; a silent call uses no interview time. */
+  /** The latest recorded call counts: the candidate spoke in it, or already had in an earlier call. A silent first call uses no interview time. */
   latestSpoke: boolean;
   latestDurationSeconds: number | null;
   lastSessionAt: Date | null;

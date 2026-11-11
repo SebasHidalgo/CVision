@@ -107,6 +107,18 @@ describe("storeConversationTranscript: one interview, several calls", () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it("a resumed call in which the candidate said nothing is still part of the interview", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier], finishRequestedAt: new Date() }) as never);
+    const silent = payload({ transcript: [{ role: "agent", message: "Welcome back. We will pick up where we left off.", time_in_call_secs: 0 }], metadata: { ...DROPPED, call_duration_secs: 5 } });
+
+    expect(await storeConversationTranscript({ data: toCallRecord(silent), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+    const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Array<{ role: string }>; durationSeconds: number } };
+    expect(data.transcript.map((turn) => turn.role)).toEqual(["agent", "user", "system", "agent"]);
+    expect(data.durationSeconds).toBe(185);
+    // The unit stays spent: the candidate spoke in the first call.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("the candidate's request to finish closes it on the drop's record", async () => {
     findFirst.mockResolvedValueOnce(row({ finishRequestedAt: new Date() }) as never);
     expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });

@@ -137,7 +137,9 @@ export async function POST(
 
     const earlier = readSegments(state.segments);
     const storedTurns = z.array(transcriptTurnSchema).safeParse(state.transcript);
-    const latestCounts = state.transcriptSource !== null && state.conversationId !== null && storedCallCounts(state.transcript) && storedTurns.success;
+    // The stored call is part of the interview when the candidate spoke in it, or already had in an earlier one.
+    const latestCounts =
+      state.transcriptSource !== null && state.conversationId !== null && storedTurns.success && storedTurns.data.length > 0 && (earlier.length > 0 || storedCallCounts(state.transcript));
     const calls =
       latestCounts && storedTurns.success && state.conversationId
         ? addSegment(

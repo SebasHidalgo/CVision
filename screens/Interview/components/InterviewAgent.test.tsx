@@ -610,6 +610,29 @@ describe("InterviewAgent: ending", () => {
   });
 });
 
+describe("InterviewAgent: a tab closed mid-call", () => {
+  it("reports the drop on the way out, so the interview is resumable at once", async () => {
+    render(<InterviewAgent {...props} />);
+    await connect();
+
+    await act(async () => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+
+    const [, init] = endedReports()[0];
+    expect(init).toMatchObject({ keepalive: true, body: JSON.stringify({ reason: "pagehide", outcome: "drop" }) });
+  });
+
+  it("reports nothing when the page is left before or after a call", async () => {
+    render(<InterviewAgent {...props} />);
+    respond({ ok: true, data: SESSION });
+    await act(async () => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(endedReports()).toHaveLength(0);
+  });
+});
+
 describe("InterviewAgent: the language of the call", () => {
   it("proposes the language it was given and sends the one chosen with the start", async () => {
     respond({ ok: true, data: { ...SESSION, language: "en" } });

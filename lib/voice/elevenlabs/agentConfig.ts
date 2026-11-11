@@ -56,6 +56,11 @@ export const INTERVIEW_AGENT_DAILY_CALL_LIMITS: Record<InterviewTierId, number> 
   TRIAL: 25,
 };
 
+/** The agent ids the environment holds, full first. */
+export function interviewAgentIdsFromEnv(env: Record<string, string | undefined> = process.env): string[] {
+  return (["FULL", "TRIAL"] as const).map((tier) => env[INTERVIEW_AGENT_ID_ENV[tier]]?.trim() ?? "").filter(Boolean);
+}
+
 /** Per environment: production raises these as usage grows; unset keeps the development caps. */
 export const INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV: Record<InterviewTierId, string> = {
   FULL: "ELEVENLABS_DAILY_CALL_LIMIT",
@@ -126,6 +131,22 @@ const MAX_DURATION_MESSAGES: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[num
 export const INTERVIEW_AGENT_PRESET_VOICE_IDS: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[number], string | null> = {
   es: null,
 };
+
+/**
+ * The voices the owner chooses the Spanish one from (npm run voice:samples):
+ * the current voice, and two native Latin American voices of the ElevenLabs
+ * library tagged conversational. A library voice is added to the workspace
+ * before an agent can use it, and may carry a surcharge voice:cost shows.
+ */
+export const SPANISH_VOICE_CANDIDATES = [
+  { slug: "actual-sarah", name: "Sarah, the current voice (American English, on the multilingual model)", id: INTERVIEW_AGENT_VOICE_ID },
+  { slug: "norah-latinoamericana", name: "Norah, Latin American Spanish, warm and clear", id: "kcQkGnn0HAT2JRDQ4Ljp" },
+  { slug: "ana-maria-mexicana", name: "Ana María, Mexican Spanish, calm and natural", id: "m7yTemJqdIqrcNleANfX" },
+] as const;
+
+/** The same greeting the interviewer opens a Spanish call with, for an invented candidate. */
+export const SPANISH_VOICE_SAMPLE_TEXT =
+  "Hola Ana, gracias por conectarte. Voy a entrevistarte para el puesto de Analista de Datos en Northwind. Tenemos unos doce minutos. Para empezar, cuéntame brevemente sobre tu trayectoria.";
 
 /** What the dashboard's test call uses when nothing passes variables. */
 function placeholders(tier: InterviewTierId): InterviewerVariables {

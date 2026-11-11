@@ -72,7 +72,10 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
       handlers.onLineCorrected({ original: original_agent_response, corrected: corrected_agent_response }),
     onDebug: (event: unknown) => {
       const status = queueStatus(event);
-      if (status) handlers.onQueue(status);
+      if (!status) return;
+      // For support: a call that waited says so in the browser console.
+      console.info(`[CVision][room] queue: ${status}`);
+      handlers.onQueue(status);
     },
   });
 

@@ -1,7 +1,18 @@
 /**
  * The operator side of the voice provider, for scripts: the agents as code,
- * the read-only doctor and what a conversation cost. No server-only import, so tsx can load it.
+ * the read-only doctor, what conversations cost and the voice samples. No server-only import, so tsx can load it.
  */
 export { runVoiceDoctor, type VoiceDoctorCheck, type VoiceDoctorOptions } from "./elevenlabs/doctor";
 export { syncAgents, type SyncAgentsOptions } from "./elevenlabs/sync";
-export { listConversationIds, readConversationCost, type ConversationCost } from "./elevenlabs/cost";
+import { INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL, interviewAgentIdsFromEnv, SPANISH_VOICE_SAMPLE_TEXT } from "./elevenlabs/agentConfig";
+import { synthesizeSample } from "./elevenlabs/cost";
+
+export { listConversationIds, readConversationCost, readPlanPrice, summarizeCosts, type ConversationCost, type CostSummary, type PlanPrice } from "./elevenlabs/cost";
+export { SPANISH_VOICE_CANDIDATES, SPANISH_VOICE_SAMPLE_TEXT } from "./elevenlabs/agentConfig";
+
+/** The agent ids the environment holds: the conversations voice:cost reads are theirs. */
+export const INTERVIEW_AGENT_IDS_FROM_ENV = interviewAgentIdsFromEnv;
+
+/** The Spanish greeting in one voice, on the model the Spanish preset uses. */
+export const synthesizeVoiceSample = (voiceId: string) =>
+  synthesizeSample({ voiceId, text: SPANISH_VOICE_SAMPLE_TEXT, modelId: INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL, languageCode: "es" });

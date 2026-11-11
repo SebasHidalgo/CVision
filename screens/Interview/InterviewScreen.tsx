@@ -58,7 +58,7 @@ export default async function InterviewScreen({
         {
           segments: readSegments(calls.segments),
           latestRecorded: calls.transcriptSource !== null,
-          latestSpoke: storedCallCounts(calls.transcript),
+          latestSpoke: storedCallCounts(calls.transcript) || readSegments(calls.segments).length > 0,
           latestDurationSeconds: calls.durationSeconds,
           lastSessionAt: calls.lastSessionAt,
           endedAt: calls.endedAt,
