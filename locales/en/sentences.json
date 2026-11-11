@@ -40,5 +40,6 @@
   "forInterview_other": "{{count}} required items no CV can show are under \"Not shown in your CV\"; expect them in the interview or the hiring process.",
   "preferredNotShown": "Preferred and not shown: {{list}}",
   "notShownAsAsked": "Not shown as asked: {{label}}",
-  "relatedOnly": "It shows {{shown}}, which is related but not the same."
+  "relatedOnly": "It shows {{shown}}, which is related but not the same.",
+  "relatedOnly_several": "It shows {{shown}}, which is related but not the same."
 }

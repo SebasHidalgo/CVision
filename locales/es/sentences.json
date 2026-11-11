@@ -43,5 +43,6 @@
   "forInterview_other": "{{count}} requisitos obligatorios que ningún CV puede mostrar están en \"No aparece en tu CV\"; espéralos en la entrevista o en otra etapa del proceso.",
   "preferredNotShown": "Deseables que no aparecen: {{list}}",
   "notShownAsAsked": "No aparece como se pide: {{label}}",
-  "relatedOnly": "Muestra {{shown}}, que es algo relacionado pero no lo mismo."
+  "relatedOnly": "Muestra {{shown}}, que es algo relacionado pero no lo mismo.",
+  "relatedOnly_several": "Muestra {{shown}}, que son cosas relacionadas pero no lo mismo."
 }

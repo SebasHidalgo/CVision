@@ -114,5 +114,9 @@ export const say = {
   forInterview: (count: number): Sentence => ({ key: "forInterview", count }),
   preferredNotShown: (labels: Phrase[]): Sentence => ({ key: "preferredNotShown", params: { list: { stop: semicolons(labels) } } }),
   notShownAsAsked: (label: Phrase): Sentence => ({ key: "notShownAsAsked", params: { label: { stop: label } } }),
-  relatedOnly: (shown: string[]): Sentence => ({ key: "relatedOnly", params: { shown: and(shown.map((quote) => ({ quote }))) } }),
+  relatedOnly: (shown: string[]): Sentence => ({
+    key: "relatedOnly",
+    params: { shown: and(shown.map((quote) => ({ quote }))) },
+    ...(shown.length > 1 ? { context: "several" as const } : {}),
+  }),
 };
