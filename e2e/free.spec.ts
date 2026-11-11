@@ -57,4 +57,11 @@ test("an analysis offers the 5-minute trial, and the room promises five minutes 
   expect(text).toContain(t("interview:room.upTo", { count: 5 }));
   expect(text).toContain(t("interview:room.source.trial"));
   expect(text).toMatch(literal(t("analysis:attempts.attempt", { number: 1 }), "i"));
+
+  // The room proposes the posting language (English here), whatever the interface language, and lets it be changed.
+  const language = page.getByLabel(t("interview:room.language.label"));
+  expect(await language.inputValue()).toBe("en");
+  expect(await language.locator("option").allInnerTexts()).toEqual([t("interview:room.language.en"), t("interview:room.language.es")]);
+  await language.selectOption("es");
+  expect(await language.inputValue()).toBe("es");
 });
