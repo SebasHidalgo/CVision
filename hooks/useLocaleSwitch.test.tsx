@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTranslation } from "react-i18next";
 import I18nProvider from "@/components/providers/I18nProvider";
 import { RESOURCES } from "@/lib/i18n/resources";
+import en from "@/locales/en/common.json";
+import es from "@/locales/es/common.json";
 
 const toastError = vi.fn();
 vi.mock("sonner", () => ({ toast: { error: (message: string) => toastError(message) } }));
@@ -48,9 +50,9 @@ describe("useLocaleSwitch", () => {
     let answer: (value: unknown) => void = () => {};
     setLocaleAction.mockReturnValue(new Promise((resolve) => (answer = resolve)));
     renderProbe();
-    expect(screen.getByTestId("text").textContent).toBe("Translating…");
+    expect(screen.getByTestId("text").textContent).toBe(en.translation.pending);
     await act(async () => screen.getByText("switch").click());
-    await waitFor(() => expect(screen.getByTestId("text").textContent).toBe("Traduciendo…"));
+    await waitFor(() => expect(screen.getByTestId("text").textContent).toBe(es.translation.pending));
     expect(screen.getByTestId("current").textContent).toBe("es");
     expect(document.documentElement.lang).toBe("es");
     // The page's other namespaces came with one load, before the language changed.
@@ -78,7 +80,7 @@ describe("useLocaleSwitch", () => {
     await act(async () => screen.getByText("switch").click());
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     expect(screen.getByTestId("current").textContent).toBe("en");
-    expect(screen.getByTestId("text").textContent).toBe("Translating…");
+    expect(screen.getByTestId("text").textContent).toBe(en.translation.pending);
     expect(document.documentElement.lang).toBe("en");
   });
 });

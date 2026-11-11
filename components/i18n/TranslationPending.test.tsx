@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import en from "@/locales/en/common.json";
 import TranslationPending from "./TranslationPending";
 
 const refresh = vi.fn();
@@ -16,7 +17,7 @@ describe("TranslationPending", () => {
   it("says it is translating, calls the action once, then refreshes", async () => {
     const translate = vi.fn(async () => ({ ok: true as const, data: { outcome: "ready" } }));
     const { rerender } = render(<TranslationPending translate={translate} input={{ resumeId: "a1" }} />);
-    expect(screen.getByRole("status").textContent).toContain("Translating…");
+    expect(screen.getByRole("status").textContent).toContain(en.translation.pending);
     rerender(<TranslationPending translate={translate} input={{ resumeId: "a1" }} />);
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(translate).toHaveBeenCalledTimes(1);
