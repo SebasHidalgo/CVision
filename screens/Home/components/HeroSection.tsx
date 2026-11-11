@@ -1,3 +1,4 @@
+import { Children, Fragment } from "react";
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
@@ -8,6 +9,7 @@ import Eyebrow from "@/components/layout/Eyebrow";
 import Reveal from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/lib/i18n/server";
+import { cn } from "@/lib/utils";
 import { HeroSpecimen } from "./HeroSpecimen";
 
 const CONTENTS = [
@@ -16,28 +18,48 @@ const CONTENTS = [
   { index: "03", labelKey: "hero.contents.interview" },
 ] as const;
 
-/** The hand-drawn underline under the headline's key words; the words come from the translation. */
-function Underlined({ children }: { children?: React.ReactNode }) {
+/** One hand-drawn stroke under a word; `joined` carries it across the space to the next word. */
+function Stroke({ joined }: { joined: boolean }) {
   return (
-    <span className="relative inline-block whitespace-nowrap">
-      {children}
-      <svg
-        aria-hidden
-        viewBox="0 0 300 14"
-        preserveAspectRatio="none"
-        className="absolute -bottom-[0.06em] left-0 h-[0.16em] w-full overflow-visible text-signal"
-      >
-        <path
-          d="M2 9 C 60 3, 120 12, 180 6 S 260 4, 298 8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="4"
-          strokeLinecap="round"
-          pathLength="1"
-          className="[stroke-dasharray:1] [stroke-dashoffset:1] motion-safe:animate-draw motion-reduce:[stroke-dashoffset:0]"
-        />
-      </svg>
-    </span>
+    <svg
+      aria-hidden
+      viewBox="0 0 300 14"
+      preserveAspectRatio="none"
+      className={cn(
+        "absolute -bottom-[0.06em] left-0 h-[0.16em] overflow-visible text-signal",
+        joined ? "w-[calc(100%+0.28em)]" : "w-full",
+      )}
+    >
+      <path
+        d="M2 9 C 60 3, 120 12, 180 6 S 260 4, 298 8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        pathLength="1"
+        className="[stroke-dasharray:1] [stroke-dashoffset:1] motion-safe:animate-draw motion-reduce:[stroke-dashoffset:0]"
+      />
+    </svg>
+  );
+}
+
+/** The underline under the headline key words, drawn per word so the phrase wraps inside its column. */
+function Underlined({ children }: { children?: React.ReactNode }) {
+  const words = Children.toArray(children)
+    .flatMap((child) => (typeof child === "string" ? child.split(/\s+/) : [child]))
+    .filter((word) => word !== "");
+  return (
+    <>
+      {words.map((word, index) => (
+        <Fragment key={index}>
+          <span className="relative inline-block">
+            {word}
+            <Stroke joined={index < words.length - 1} />
+          </span>
+          {index < words.length - 1 ? " " : null}
+        </Fragment>
+      ))}
+    </>
   );
 }
 
