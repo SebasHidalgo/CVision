@@ -35,8 +35,11 @@ const conjunction = (locale: Locale, join: "and" | "or", next: string): string =
 const formatNumber = (value: number, locale: Locale) =>
   new Intl.NumberFormat(INTL_LOCALE[locale], { useGrouping: false, maximumFractionDigits: 1 }).format(value);
 
-export function renderPhrase(phrase: Phrase, locale: Locale): string {
-  if (typeof phrase === "string") return phrase;
+/** The posting's words a sentence names, in another language: generic terms translated, names as they are. */
+export type TermMap = Readonly<Record<string, string>>;
+
+export function renderPhrase(phrase: Phrase, locale: Locale, terms?: TermMap): string {
+  if (typeof phrase === "string") return terms?.[phrase] ?? phrase;
   if ("quote" in phrase) return `"${phrase.quote}"`;
   if ("number" in phrase) return formatNumber(phrase.number, locale);
   if ("language" in phrase) {
@@ -44,11 +47,11 @@ export function renderPhrase(phrase: Phrase, locale: Locale): string {
     return names[phrase.language] ?? phrase.language;
   }
   if ("stop" in phrase) {
-    const text = renderPhrase(phrase.stop, locale);
+    const text = renderPhrase(phrase.stop, locale, terms);
     return text.endsWith("…") ? text : `${text}.`;
   }
-  if ("msg" in phrase) return renderSentence(phrase.msg, locale);
-  const items = phrase.list.map((item) => renderPhrase(item, locale));
+  if ("msg" in phrase) return renderSentence(phrase.msg, locale, terms);
+  const items = phrase.list.map((item) => renderPhrase(item, locale, terms));
   if (phrase.join === "semicolon") return items.join("; ");
   if (phrase.chain) return items.reduce((text, item, i) => (i === 0 ? item : `${text} ${conjunction(locale, phrase.join as "and" | "or", item)} ${item}`), "");
   // "A, B and C": the same shape the guardrails always wrote.
@@ -57,11 +60,11 @@ export function renderPhrase(phrase: Phrase, locale: Locale): string {
   return `${items.slice(0, -1).join(", ")} ${conjunction(locale, phrase.join, last)} ${last}`;
 }
 
-export function renderSentence(sentence: Sentence, locale: Locale): string {
+export function renderSentence(sentence: Sentence, locale: Locale, terms?: TermMap): string {
   const i18n = instance(locale);
   // A key this build does not know (a row from a newer one) renders as nothing rather than as its name.
   if (!i18n.exists(sentence.key, { ns: "sentences", ...(sentence.count !== undefined ? { count: sentence.count } : {}) })) return "";
-  const values = Object.fromEntries(Object.entries(sentence.params ?? {}).map(([name, phrase]) => [name, renderPhrase(phrase, locale)]));
+  const values = Object.fromEntries(Object.entries(sentence.params ?? {}).map(([name, phrase]) => [name, renderPhrase(phrase, locale, terms)]));
   return i18n.t(sentence.key, {
     ns: "sentences",
     ...values,
@@ -71,6 +74,22 @@ export function renderSentence(sentence: Sentence, locale: Locale): string {
 }
 
 /** Several sentences as one paragraph, the way the analysis always joined them. */
-export function renderSentences(sentences: readonly Sentence[], locale: Locale): string {
-  return sentences.map((sentence) => renderSentence(sentence, locale)).filter(Boolean).join(" ");
+export function renderSentences(sentences: readonly Sentence[], locale: Locale, terms?: TermMap): string {
+  return sentences.map((sentence) => renderSentence(sentence, locale, terms)).filter(Boolean).join(" ");
+}
+
+/** The verbatim words of a phrase (posting words and terms), never its CV quotes, figures or language names. */
+export function phraseTerms(phrase: Phrase, into: Set<string> = new Set()): Set<string> {
+  if (typeof phrase === "string") {
+    if (phrase.trim()) into.add(phrase);
+  } else if ("stop" in phrase) phraseTerms(phrase.stop, into);
+  else if ("msg" in phrase) sentenceTerms([phrase.msg], into);
+  else if ("list" in phrase) for (const item of phrase.list) phraseTerms(item, into);
+  return into;
+}
+
+/** Every verbatim word the sentences name: what another language needs translated to render them. */
+export function sentenceTerms(sentences: readonly Sentence[], into: Set<string> = new Set()): Set<string> {
+  for (const sentence of sentences) for (const phrase of Object.values(sentence.params ?? {})) phraseTerms(phrase, into);
+  return into;
 }

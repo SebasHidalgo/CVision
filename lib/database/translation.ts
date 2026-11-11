@@ -1,8 +1,9 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type GuardKind } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
+import { recordGuardIncrements, type GuardStatIncrement } from "@/lib/database/guardStats";
 import { handleError } from "@/lib/error/handleError";
 
 /**
@@ -84,11 +85,16 @@ export async function completeTranslation(
   id: string,
   claimedAt: Date,
   data: { payload: Prisma.InputJsonValue; guardStats: Prisma.InputJsonValue; model: string; modelVersion: string | null },
+  daily?: { kind: GuardKind; increments: GuardStatIncrement[] },
+  now = new Date(),
 ): Promise<boolean> {
   try {
-    // Only the claim that is still current writes: a taken-over claim's late answer is dropped.
-    const written = await prisma.contentTranslation.updateMany({ where: { id, status: "PENDING", claimedAt }, data: { ...data, status: "READY" } });
-    return written.count === 1;
+    return await prisma.$transaction(async (tx) => {
+      // Only the claim that is still current writes: a taken-over claim's late answer is dropped.
+      const written = await tx.contentTranslation.updateMany({ where: { id, status: "PENDING", claimedAt }, data: { ...data, status: "READY" } });
+      if (written.count === 1 && daily) await recordGuardIncrements(tx, daily.kind, now, daily.increments);
+      return written.count === 1;
+    });
   } catch (error) {
     handleError(error, "Failed to store a translation");
   }

@@ -250,8 +250,9 @@ Usage:
   npm run eval -- recheck <label>
   npm run eval -- replay <label> <newLabel>
   npm run eval -- canary <reference-label> [--only <id>]
-  npm run eval -- translate <label>... --to <new-label> [--only ids] [--twice ids]
-      (Spanish translation of stored analyses, replayed, and of interview
+  npm run eval -- translate [<label>...] [--db ids] --to <new-label> [--only ids] [--twice ids] [--print ids]
+      (Spanish translation of stored analyses, replayed or read from the database
+      by id (real data, Flex), and of interview
       feedback runs; production call and guards, routed tiers, spend caps)
   npm run eval -- stability <label> <label> [...] [--force]
   npm run eval -- list

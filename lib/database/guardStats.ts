@@ -55,8 +55,18 @@ export async function recordGuardStatsDaily(
   at: Date,
   stats: GuardStats,
 ): Promise<void> {
+  await recordGuardIncrements(tx, kind, at, guardStatIncrements(stats));
+}
+
+/** Adds increments to the day's tallies; the translation path records its own (check, action) pairs. */
+export async function recordGuardIncrements(
+  tx: Prisma.TransactionClient,
+  kind: GuardKind,
+  at: Date,
+  increments: GuardStatIncrement[],
+): Promise<void> {
   const date = guardStatDay(at);
-  for (const { check, action, count } of guardStatIncrements(stats)) {
+  for (const { check, action, count } of increments) {
     await tx.guardStatDaily.upsert({
       where: { date_kind_check_action: { date, kind, check, action } },
       create: { date, kind, check, action, count },

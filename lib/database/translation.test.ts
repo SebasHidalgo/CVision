@@ -2,13 +2,17 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "u1") }));
-vi.mock("@/lib/prisma", () => ({
-  default: {
+vi.mock("@/lib/prisma", () => {
+  const client = {
     resumeAnalysis: { count: vi.fn(async () => 1) },
     interviewFeedback: { count: vi.fn(async () => 1) },
     contentTranslation: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
-  },
-}));
+    guardStatDaily: { upsert: vi.fn(async () => ({})) },
+    // The transaction runs on the same mocks.
+    $transaction: vi.fn(async (run: (tx: unknown) => unknown) => run(client)),
+  };
+  return { default: client };
+});
 
 const prisma = (await import("@/lib/prisma")).default;
 const { claimTranslation, completeTranslation, readOwnTranslation, TRANSLATION_CLAIM_STALE_MS, TRANSLATION_RETRY_AFTER_MS } = await import("./translation");
@@ -68,10 +72,22 @@ describe("claimTranslation", () => {
 });
 
 describe("completeTranslation", () => {
-  it("writes only while its claim is the current one", async () => {
+  const daily = { kind: "ANALYSIS" as const, increments: [{ check: "translation", action: "recorded", count: 1 }] };
+
+  it("writes only while its claim is the current one, and then adds nothing to the day", async () => {
     vi.mocked(prisma.contentTranslation.updateMany).mockResolvedValueOnce({ count: 0 });
-    expect(await completeTranslation("t1", NOW, { payload: {}, guardStats: {}, model: "m", modelVersion: null })).toBe(false);
+    expect(await completeTranslation("t1", NOW, { payload: {}, guardStats: {}, model: "m", modelVersion: null }, daily, NOW)).toBe(false);
     expect(vi.mocked(prisma.contentTranslation.updateMany).mock.lastCall?.[0]).toMatchObject({ where: { id: "t1", status: "PENDING", claimedAt: NOW } });
+    expect(prisma.guardStatDaily.upsert).not.toHaveBeenCalled();
+  });
+
+  it("adds the translation's tallies to the day in the same transaction", async () => {
+    vi.mocked(prisma.contentTranslation.updateMany).mockResolvedValueOnce({ count: 1 });
+    expect(await completeTranslation("t1", NOW, { payload: {}, guardStats: {}, model: "m", modelVersion: null }, daily, NOW)).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.guardStatDaily.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ kind: "ANALYSIS", check: "translation", action: "recorded", count: 1 }) }),
+    );
   });
 });
 

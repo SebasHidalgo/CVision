@@ -1,30 +1,78 @@
 import { describe, expect, it } from "vitest";
-import { checkTranslation, guardTranslations, quotedSpans } from "./translationGuards";
+import { carriedThrough, checkTerm, checkTranslation, fixInstructions, isHard, quotedSpans, type GuardContext } from "./translationGuards";
 
 const SOURCE = "Add a figure to \"Led the migration\": your CV shows 2.5 years of Python and 40% fewer incidents.";
+
+const ctx = (over: Partial<GuardContext> = {}): GuardContext => ({ locale: "es", names: ["Python"], concepts: [], labels: new Map(), ...over });
+const checks = (source: string, text: string | undefined, context = ctx()) => checkTranslation(source, text, context).map((f) => f.check);
 
 describe("checkTranslation", () => {
   it("passes a faithful translation, decimal comma included", () => {
     const es = "Agrega una cifra a \"Led the migration\": tu CV muestra 2,5 años de Python y 40% menos incidentes.";
-    expect(checkTranslation(SOURCE, es, ["Python"])).toEqual([]);
+    expect(checks(SOURCE, es)).toEqual([]);
   });
 
-  it("fails a changed figure, a translated protected term and an altered quote", () => {
-    expect(checkTranslation(SOURCE, "Agrega una cifra a \"Led the migration\": tu CV muestra 3 años de Python y 40% menos incidentes.", ["Python"])).toContain("digits");
-    expect(checkTranslation("You use Ruby on Rails daily.", "Usas Ruby sobre Rieles a diario.", ["Ruby on Rails"])).toContain("protected-term");
-    expect(checkTranslation(SOURCE, "Agrega una cifra a «Dirigí la migración»: tu CV muestra 2,5 años de Python y 40% menos incidentes.", ["Python"])).toContain("quote");
+  it("fails a changed figure, a translated name and an altered quote", () => {
+    expect(checks(SOURCE, "Agrega una cifra a \"Led the migration\": tu CV muestra 3 años de Python y 40% menos incidentes.")).toContain("digits");
+    expect(checks("You use Ruby on Rails daily.", "Usas Ruby sobre Rieles a diario.", ctx({ names: ["Ruby on Rails"] }))).toContain("name");
+    expect(checks(SOURCE, "Agrega una cifra a «Dirigí la migración»: tu CV muestra 2,5 años de Python y 40% menos incidentes.")).toContain("quote");
   });
 
-  it("matches protected terms as whole tokens, case-sensitively", () => {
-    expect(checkTranslation("Go is listed.", "Google aparece.", ["Go"])).toContain("protected-term");
-    expect(checkTranslation("Write in plain English here.", "Escribe en un inglés sencillo aquí.", ["Go"])).toEqual([]);
+  it("lets a quoted interface label take its label in the target language", () => {
+    const labels = new Map([["Not shown in your CV", "No aparece en tu CV"]]);
+    const source = 'One required item is under "Not shown in your CV"; expect it in the interview.';
+    expect(checks(source, 'Un requisito está en "No aparece en tu CV"; espéralo en la entrevista.', ctx({ labels }))).toEqual([]);
+    expect(checks(source, 'Un requisito está en "No se muestra"; espéralo en la entrevista.', ctx({ labels }))).toEqual(["quote"]);
+    // The retry says how the label reads.
+    expect(fixInstructions(checkTranslation(source, 'Un requisito está en "No se muestra"; espéralo.', ctx({ labels })))[0]).toContain('write it as "No aparece en tu CV"');
+  });
+
+  it("matches names as whole tokens, case-sensitively", () => {
+    expect(checks("Go is listed.", "Google aparece.", ctx({ names: ["Go"] }))).toContain("name");
+    expect(checks("Write in plain English here.", "Escribe en un inglés sencillo aquí.", ctx({ names: ["Go"] }))).toEqual([]);
   });
 
   it("fails what is missing, empty, far off in length or left in English", () => {
-    expect(checkTranslation(SOURCE, undefined, [])).toEqual(["missing"]);
-    expect(checkTranslation(SOURCE, "   ", [])).toEqual(["empty"]);
-    expect(checkTranslation(SOURCE, "Sí.", [])).toContain("length");
-    expect(checkTranslation("Your summary names the role and the stack clearly.", "Your summary names the role and the stack clearly.", [])).toEqual(["unchanged"]);
+    expect(checks(SOURCE, undefined)).toEqual(["missing"]);
+    expect(checks(SOURCE, "   ")).toEqual(["empty"]);
+    expect(checks(SOURCE, "Sí.")).toContain("length");
+    expect(checks("Your summary names the role and the stack clearly.", "Your summary names the role and the stack clearly.")).toEqual(["unchanged"]);
+  });
+
+  it("accepts a string of only names and figures that reads the same in both languages", () => {
+    expect(checks("React, TypeScript, Next.js (2021)", "React, TypeScript, Next.js (2021)", ctx({ names: ["React", "TypeScript", "Next.js"] }))).toEqual([]);
+  });
+
+  it("fails a short title returned as it was, and an answer with an English sentence left inside", () => {
+    expect(checks("Highlight Cloud Experience", "Highlight Cloud Experience")).toEqual(["unchanged"]);
+    const source = "Education and certifications are clearly presented with the dates. The degree is relevant to the role.";
+    const half = "Education and certifications are clearly presented with the dates. El título es afín al puesto.";
+    expect(checks(source, half)).toEqual(["english-left"]);
+    // English quoted from the CV, or a name with "and" in it, is not English left behind.
+    const quoting = 'Tu viñeta "Led the migration of the billing service to the cloud" muestra impacto en Ethereum and Smart Contracts.';
+    expect(checks('Your bullet "Led the migration of the billing service to the cloud" shows impact in Ethereum and Smart Contracts.', quoting, ctx({ names: ["Ethereum and Smart Contracts"] }))).toEqual([]);
+  });
+
+  it("flags a concept left in English and the third person, as soft checks", () => {
+    const concepts = [{ term: "software architecture", text: "arquitectura de software" }, { term: "stack", text: "stack" }];
+    const failed = checkTranslation("Your CV shows software architecture.", "Su CV muestra Software Architecture.", ctx({ concepts }));
+    expect(failed.map((f) => f.check)).toEqual(["english-term", "third-person"]);
+    expect(failed.every((f) => !isHard(f))).toBe(true);
+    expect(failed[0].items).toEqual(["software architecture → arquitectura de software"]);
+    // A concept inside a name is not English left behind.
+    expect(checks("Data pipelines on Azure Data Factory.", "Pipelines de datos en Azure Data Factory.", ctx({ names: ["Azure Data Factory"], concepts: [{ term: "data", text: "datos" }] }))).toEqual([]);
+  });
+});
+
+describe("checkTerm", () => {
+  it("wants a translation that keeps figures and inner names, and is not left as it was", () => {
+    expect(checkTerm("schema design", "diseño de esquemas", [])).toEqual([]);
+    expect(checkTerm("experience with React", "experiencia con Reacción", ["React"]).map((f) => f.check)).toEqual(["name"]);
+    expect(checkTerm("5+ years", "más de cinco años", []).map((f) => f.check)).toEqual(["digits"]);
+    expect(checkTerm("Computer Science", "Computer Science", []).map((f) => f.check)).toEqual(["unchanged"]);
+    // One word may read the same ("software", "BSc"), and a term already in Spanish needs nothing.
+    expect(checkTerm("software", "software", [])).toEqual([]);
+    expect(checkTerm("comercio electrónico", "comercio electrónico", [], "es")).toEqual([]);
   });
 });
 
@@ -35,15 +83,10 @@ describe("quotedSpans", () => {
   });
 });
 
-describe("guardTranslations", () => {
-  it("keeps what passes, reports the rest by path and check, and counts terms and digits", () => {
-    const sources = { a: "Your CV shows Python for 3 years.", b: "Quantify the 40% drop in \"incidents\"." };
-    const translated = { a: "Tu CV muestra Python durante 3 años.", b: "Cuantifica la baja del 50% en «incidentes»." };
-    const { kept, stats } = guardTranslations(sources, translated, ["Python"]);
-    expect(kept).toEqual({ a: "Tu CV muestra Python durante 3 años." });
-    expect(stats).toMatchObject({ strings: 2, kept: 1, counts: { digits: 1, quote: 1 }, protectedTerms: { present: 1, preserved: 1 }, digits: { present: 2, preserved: 1 } });
-    expect(stats.failures).toEqual([{ path: "b", check: "digits" }, { path: "b", check: "quote" }]);
-    // No text in the stats: they are stored and logged.
-    expect(JSON.stringify(stats)).not.toContain("incidentes");
+describe("carriedThrough", () => {
+  it("counts names and digit groups in the final strings, the English original where one fell back", () => {
+    const sources = { a: "Your CV shows Python for 3 years.", b: "Quantify the 40% drop." };
+    const result = carriedThrough(sources, { a: "Tu CV muestra Python durante 3 años." }, ["Python"]);
+    expect(result).toEqual({ protectedTerms: { present: 1, preserved: 1 }, digits: { present: 2, preserved: 2 } });
   });
 });
