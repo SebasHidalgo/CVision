@@ -19,6 +19,7 @@ import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import type { InterviewFeedback } from "@/types/interview";
 import TranscriptSection from "./TranscriptSection";
+import Prose from "@/components/i18n/Prose";
 
 type FeedbackReportProps = {
   feedback: InterviewFeedback;
@@ -87,7 +88,9 @@ function PointList({
           <li key={i} className="flex gap-3 text-[15px] leading-relaxed text-ink">
             {marker}
             <div className="min-w-0">
-              <p>{item.point}</p>
+              <p>
+                <Prose text={item.point} lines={1} />
+              </p>
               {anchor && (
                 <p className="mt-1.5 border-l border-line pl-3 text-sm text-ink-2">
                   “{anchor}”
@@ -175,7 +178,7 @@ export default async function FeedbackReport({ feedback, transcript, date }: Fee
                         </blockquote>
                       )}
                       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                        {row.note}
+                        <Prose text={row.note} lines={1} />
                       </p>
                     </div>
                   </li>
@@ -209,7 +212,9 @@ export default async function FeedbackReport({ feedback, transcript, date }: Fee
                   <blockquote className="mt-3 text-[15px] leading-relaxed text-ink">
                     “{answer.quote}”
                   </blockquote>
-                  <p className="mt-3 text-sm leading-relaxed text-ink-2">{answer.why}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-ink-2">
+                    <Prose text={answer.why} />
+                  </p>
                 </li>
               </Reveal>
             ))}
@@ -254,7 +259,7 @@ export default async function FeedbackReport({ feedback, transcript, date }: Fee
                         </div>
                       </div>
                       <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                        {category.comment}
+                        <Prose text={category.comment} />
                       </p>
                     </div>
                   </li>
@@ -298,7 +303,7 @@ export default async function FeedbackReport({ feedback, transcript, date }: Fee
             <span id="assessment-title">{t("report.finalAssessment")}</span>
           </Eyebrow>
           <blockquote className="display-md mt-6 max-w-4xl text-ink">
-            {report.finalAssessment}
+            <Prose text={report.finalAssessment} lines={3} />
           </blockquote>
         </section>
       </Reveal>

@@ -1,0 +1,422 @@
+{
+ "companyName": "Northwind Labs",
+ "jobTitle": "Frontend Engineer",
+ "jobDescription": "Frontend Engineer - Meridian Health (Remote, US)\n\nAbout the role\nMeridian Health builds scheduling and intake software used by 2,000 clinics. We are looking for a Frontend Engineer to join the team that owns our patient-facing web app. You will ship features used by millions of patients a year and help raise the bar on performance and accessibility.\n\nWhat you will do\n- Build and maintain features in our React and TypeScript web application.\n- Own the performance of key flows (booking, intake forms) and track Core Web Vitals.\n- Make every screen accessible; we target WCAG 2.1 AA.\n- Collaborate with product designers on our component library.\n- Write unit and end-to-end tests and keep the suite fast and reliable.\n- Review code and mentor less experienced engineers.\n\nWhat we are looking for\n- 3+ years of professional experience with React and TypeScript.\n- Experience with Next.js or another server-side rendering framework.\n- Strong CSS skills; experience with Tailwind CSS or a design system.\n- Experience with automated testing (Jest or Vitest, and Playwright or Cypress).\n- Working knowledge of web accessibility standards.\n\nNice to have\n- GraphQL experience.\n- Experience in healthcare or another regulated industry.\n- Familiarity with CI/CD pipelines such as GitHub Actions.\n\nWhat we offer\nFully remote team, four weeks of paid time off, a learning budget and a yearly team offsite.\n",
+ "feedback": {
+  "jobFit": {
+   "requirements": [
+    {
+     "requirement": "3+ years of professional experience with React and TypeScript",
+     "kind": "required",
+     "status": "met",
+     "evidence": "Rebuilt the checkout flow in React 18 and TypeScript, cutting median time-to-interactive from 4.1 s to 1.8 s and lifting conversion by 6%.",
+     "note": "",
+     "sourceQuote": "3+ years of professional experience with React and TypeScript.",
+     "section": "requirements",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "all",
+      "terms": [
+       {
+        "term": "React",
+        "cvMatch": "React",
+        "relation": "same"
+       },
+       {
+        "term": "TypeScript",
+        "cvMatch": "TypeScript",
+        "relation": "same"
+       }
+      ]
+     },
+     "years": {
+      "min": 3,
+      "candidate": 5,
+      "source": "statement"
+     },
+     "noteSentences": [
+      {
+       "key": "years",
+       "params": {
+        "min": {
+         "number": 3
+        },
+        "value": {
+         "number": 5
+        }
+       }
+      }
+     ],
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "Experience with Next.js or another server-side rendering framework",
+     "kind": "required",
+     "status": "met",
+     "evidence": "Implemented server-side rendering with Next.js for marketing pages, growing organic traffic by 35% in two",
+     "note": "Your CV demonstrates direct experience with Next.js for server-side rendering.",
+     "sourceQuote": "Experience with Next.js or another server-side rendering framework.",
+     "section": "requirements",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "Next.js",
+        "cvMatch": "Next.js",
+        "relation": "same"
+       },
+       {
+        "term": "another server-side rendering framework",
+        "cvMatch": "",
+        "relation": "none"
+       }
+      ]
+     },
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "Strong CSS skills; experience with Tailwind CSS or a design system",
+     "kind": "required",
+     "status": "met",
+     "evidence": "Led the migration of 140 legacy class components to hooks and a shared design system built on Radix primitives and Tailwind CSS.",
+     "note": "Your CV shows experience with both Tailwind CSS and shared design systems.",
+     "sourceQuote": "Strong CSS skills; experience with Tailwind CSS or a design system.",
+     "section": "requirements",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "Tailwind CSS",
+        "cvMatch": "Tailwind CSS",
+        "relation": "same"
+       },
+       {
+        "term": "design system",
+        "cvMatch": "design system",
+        "relation": "same"
+       }
+      ]
+     },
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "Experience with automated testing (Jest or Vitest, and Playwright or Cypress)",
+     "kind": "required",
+     "status": "met",
+     "evidence": "Introduced Playwright end-to-end tests for the purchase path; production checkout incidents dropped from 9 to 2 per quarter.",
+     "note": "Your CV lists Vitest, Jest, and Playwright under your testing tools and experience.",
+     "sourceQuote": "Experience with automated testing (Jest or Vitest, and Playwright or Cypress).",
+     "section": "requirements",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "Vitest",
+        "cvMatch": "Vitest",
+        "relation": "same"
+       },
+       {
+        "term": "Jest",
+        "cvMatch": "Jest",
+        "relation": "same"
+       },
+       {
+        "term": "Playwright",
+        "cvMatch": "Playwright",
+        "relation": "same"
+       },
+       {
+        "term": "Cypress",
+        "cvMatch": "",
+        "relation": "none"
+       }
+      ]
+     },
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "Working knowledge of web accessibility standards",
+     "kind": "required",
+     "status": "met",
+     "evidence": "Worked with design to reach WCAG 2.1 AA on all checkout screens, verified with axe and manual screen-reader",
+     "note": "Your CV shows working knowledge of accessibility standards through practical implementation.",
+     "sourceQuote": "Working knowledge of web accessibility standards.",
+     "section": "requirements",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "web accessibility standards",
+        "cvMatch": "accessibility (WCAG 2.1)",
+        "relation": "synonym"
+       }
+      ]
+     },
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "GraphQL experience",
+     "kind": "preferred",
+     "status": "met",
+     "evidence": "Created a GraphQL client layer with Apollo, including cache normalization and optimistic updates.",
+     "note": "Your CV includes practical GraphQL client layer experience using Apollo.",
+     "sourceQuote": "GraphQL experience.",
+     "section": "preferred",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "GraphQL",
+        "cvMatch": "GraphQL",
+        "relation": "same"
+       }
+      ]
+     },
+     "evidenceSource": "experience"
+    },
+    {
+     "requirement": "Experience in healthcare or another regulated industry",
+     "kind": "preferred",
+     "status": "missing",
+     "evidence": "",
+     "note": "Your CV does not explicitly mention experience in healthcare or another regulated industry.",
+     "sourceQuote": "Experience in healthcare or another regulated industry.",
+     "section": "preferred",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "healthcare",
+        "cvMatch": "",
+        "relation": "none"
+       },
+       {
+        "term": "regulated industry",
+        "cvMatch": "",
+        "relation": "none"
+       }
+      ]
+     }
+    },
+    {
+     "requirement": "Familiarity with CI/CD pipelines such as GitHub Actions",
+     "kind": "preferred",
+     "status": "met",
+     "evidence": "Tooling: Vite, Webpack, GitHub Actions, Storybook",
+     "note": "Your CV lists GitHub Actions under your tooling skills.",
+     "sourceQuote": "Familiarity with CI/CD pipelines such as GitHub Actions.",
+     "section": "preferred",
+     "assessable": true,
+     "keyTerms": {
+      "mode": "any",
+      "terms": [
+       {
+        "term": "GitHub Actions",
+        "cvMatch": "GitHub Actions",
+        "relation": "same"
+       }
+      ]
+     },
+     "evidenceSource": "skills",
+     "skillsOnly": true
+    }
+   ],
+   "description": "Your resume highlights specific metrics and outcomes from modern component migrations and testing implementations that closely parallel the responsibilities listed in the job description.",
+   "strategicRecommendations": [
+    "Add a brief bullet point under your recent experience highlighting your familiarity with GitHub Actions if you have used it in a pipeline.",
+    "If you have any exposure to healthcare or regulated industries, explicitly mention it in your summary or experience bullets.",
+    "Keep the core React, TypeScript, and accessibility achievements prominent at the top of your professional experience section."
+   ],
+   "outcomes": [
+    {
+     "key": "showsOf",
+     "params": {
+      "met": {
+       "number": 5
+      },
+      "total": {
+       "number": 5
+      }
+     }
+    },
+    {
+     "key": "preferredNotShown",
+     "params": {
+      "list": {
+       "stop": {
+        "list": [
+         {
+          "list": [
+           "healthcare",
+           "regulated industry"
+          ],
+          "join": "or"
+         }
+        ],
+        "join": "semicolon"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "overall": {
+   "qualityScore": 92,
+   "summaryText": "Your resume is exceptionally well-structured, clean, and packed with quantifiable achievements that clearly demonstrate your engineering impact. Minor additions to incorporate missing preferred stack elements or regulatory experience would make it completely comprehensive.",
+   "prioritizedFixes": [
+    {
+     "title": "Add CI/CD Pipeline Context",
+     "impact": "Medium",
+     "action": "If you have hands-on experience with GitHub Actions, add a bullet point describing how you used it in a deployment or testing pipeline."
+    },
+    {
+     "title": "Highlight Healthcare/Regulated Experience",
+     "impact": "Low",
+     "action": "If you have worked in healthcare or another regulated sector, weave that domain context into your summary or project descriptions."
+    }
+   ],
+   "headline": [
+    {
+     "key": "allMet"
+    }
+   ]
+  },
+  "atsCompatibility": {
+   "description": "The extracted text layer of your resume parses cleanly and logically, utilizing standard section headings that ATS systems can easily index. There are no unusual encoding artifacts, special characters, or broken text streams that would impede parsing.",
+   "encodingArtifacts": [],
+   "sectionsDetected": [
+    "SUMMARY",
+    "EXPERIENCE",
+    "SKILLS",
+    "EDUCATION"
+   ],
+   "evidence": [
+    "Frontend engineer with five years of experience building React and TypeScript applications for e-commerce and SaaS",
+    "Frontend Engineer · Lumen Commerce · Portland, OR",
+    "SKILLS"
+   ],
+   "problems": [],
+   "fixes": []
+  },
+  "experienceAndImpact": {
+   "score": 95,
+   "description": "Your experience section is exceptionally well-written, consistently leading with strong action verbs and backing up technical changes with impressive, hard metrics (such as performance improvements, incident reductions, and traffic growth). The structure is clear, concise, and focused heavily on high-value outcomes.",
+   "quantifiedAchievements": [
+    {
+     "figure": "4.1 s to 1.8 s",
+     "quote": "Rebuilt the checkout flow in React 18 and TypeScript, cutting median time-to-interactive from 4.1 s to 1.8 s and"
+    },
+    {
+     "figure": "6%",
+     "quote": "lifting conversion by 6%."
+    },
+    {
+     "figure": "140",
+     "quote": "Led the migration of 140 legacy class components to hooks and a shared design system built on Radix primitives"
+    },
+    {
+     "figure": "9 to 2",
+     "quote": "Introduced Playwright end-to-end tests for the purchase path; production checkout incidents dropped from 9 to 2"
+    },
+    {
+     "figure": "35%",
+     "quote": "Implemented server-side rendering with Next.js for marketing pages, growing organic traffic by 35% in two"
+    },
+    {
+     "figure": "40%",
+     "quote": "Reduced the JavaScript bundle by 40% through code splitting and removal of unused dependencies."
+    },
+    {
+     "figure": "20",
+     "quote": "Delivered more than 20 responsive marketing sites with HTML, SCSS and vanilla JavaScript."
+    }
+   ],
+   "strengths": [
+    "Consistently pairs technical implementations with measurable business and performance outcomes.",
+    "Clear separation of roles, companies, and dates with concise, punchy bullet points.",
+    "Strong emphasis on code quality, testing rigor, and accessibility compliance."
+   ],
+   "weaknesses": [
+    "Some earlier roles (like Junior Web Developer) are slightly thinner on metrics compared to the most recent role, though still clear."
+   ],
+   "suggestedBullets": [
+    {
+     "role": "Frontend Developer · Brightpath Software",
+     "examples": [
+      "Implemented server-side rendering with Next.js for marketing pages, growing organic traffic by [X]% in two quarters."
+     ]
+    }
+   ]
+  },
+  "skills": {
+   "score": 90,
+   "description": "Your skills section is extremely well-categorized and easy to scan, breaking down competencies cleanly into Languages, Frameworks, Styling, Testing, Tooling, and Other categories. It directly aligns with the technical terminology expected for senior frontend engineering roles.",
+   "matchedSkills": [
+    {
+     "name": "React",
+     "evidence": "Frontend engineer with five years of experience building React and TypeScript applications for e-commerce and SaaS"
+    },
+    {
+     "name": "TypeScript",
+     "evidence": "Languages: TypeScript, JavaScript (ES2022), HTML, CSS"
+    },
+    {
+     "name": "Next.js",
+     "evidence": "Implemented server-side rendering with Next.js for marketing pages, growing organic traffic by 35% in two"
+    },
+    {
+     "name": "Tailwind CSS",
+     "evidence": "Styling: Tailwind CSS, CSS Modules, SCSS"
+    },
+    {
+     "name": "Vitest",
+     "evidence": "Testing: Vitest, Jest, React Testing Library, Playwright"
+    },
+    {
+     "name": "Jest",
+     "evidence": "Testing: Vitest, Jest, React Testing Library, Playwright"
+    },
+    {
+     "name": "Playwright",
+     "evidence": "Introduced Playwright end-to-end tests for the purchase path; production checkout incidents dropped from 9 to 2"
+    },
+    {
+     "name": "GraphQL",
+     "evidence": "Created a GraphQL client layer with Apollo, including cache normalization and optimistic updates."
+    },
+    {
+     "name": "GitHub Actions",
+     "evidence": "Tooling: Vite, Webpack, GitHub Actions, Storybook"
+    }
+   ],
+   "actionPlan": [
+    "Maintain the categorized structure for any future tools or frameworks you add.",
+    "If you use additional cloud or CI/CD platforms like GitHub Actions in your daily work, make sure they are prominently featured in your experience bullets as well."
+   ]
+  },
+  "educationAndCertifications": {
+   "score": 85,
+   "description": "The education section is concise, correctly formatted, and clearly states your relevant degree and graduation year without adding unnecessary clutter.",
+   "highlights": [
+    "B.S. in Computer Science provides a strong foundational academic background for an engineering role.",
+    "Clean, straightforward presentation that does not distract from your professional experience."
+   ],
+   "improvements": [
+    "If you earned any academic honors or relevant coursework during your B.S., consider adding a brief sub-bullet."
+   ]
+  },
+  "toneAndClarity": {
+   "description": "The writing tone throughout the resume is professional, confident, and direct. Sentences and bullet points start with strong action verbs, avoid fluff, and maintain an active, results-oriented voice from top to bottom.",
+   "suggestions": [
+    "Maintain your current concise, outcome-driven bullet style for any future updates.",
+    "Ensure all verbs remain in the past tense for completed roles and present tense for your current role."
+   ]
+  }
+ }
+}

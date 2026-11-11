@@ -1,6 +1,6 @@
 import { createInstance, type i18n as I18n, type Resource } from "i18next";
 import { BRAND } from "@/lib/brand";
-import type { Locale, Namespace } from "./config";
+import { LOCALES, type Locale, type Namespace } from "./config";
 
 /** The resources of one locale, by namespace. */
 export type LocaleResources = Partial<Record<Namespace, Record<string, unknown>>>;
@@ -14,7 +14,8 @@ export function createI18n(locale: Locale, resources: LocaleResources): I18n {
   void instance.init({
     lng: locale,
     fallbackLng: false,
-    supportedLngs: [locale],
+    // Every locale: the client switches in place once it has added the other language's bundles.
+    supportedLngs: [...LOCALES],
     resources: { [locale]: resources } as Resource,
     ns: Object.keys(resources),
     defaultNS: "common",

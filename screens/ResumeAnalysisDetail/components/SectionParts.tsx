@@ -14,6 +14,7 @@ import type {
 import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import { displayQuote } from "../utils/displayQuote";
+import Prose from "@/components/i18n/Prose";
 
 /* Shared building blocks for the six dimension sections. Server components: the screen hands them its t. */
 
@@ -71,7 +72,7 @@ export function Section({
       </header>
 
       <p className="mt-7 max-w-2xl text-[17px] leading-relaxed text-ink-2">
-        {description}
+        <Prose text={description} lines={3} />
       </p>
 
       <div className="mt-9 space-y-10">{children}</div>
@@ -109,7 +110,9 @@ export function MarkedList({ title, items, mark, className }: MarkedListProps) {
         {items.map((item, i) => (
           <li key={i} className="flex gap-3 text-[15px] leading-relaxed text-ink">
             <Marker mark={mark} />
-            <span>{item}</span>
+            <span className="min-w-0 flex-1">
+              <Prose text={item} lines={1} />
+            </span>
           </li>
         ))}
       </ul>
@@ -135,7 +138,9 @@ export function NumberedList({ title, items }: NumberedListProps) {
             className="grid grid-cols-[2.5rem_1fr] gap-x-3 py-3.5 text-[15px] leading-relaxed text-ink"
           >
             <span className="eyebrow pt-1 text-ink">{ordinal(i)}</span>
-            <span>{item}</span>
+            <span>
+              <Prose text={item} lines={1} />
+            </span>
           </li>
         ))}
       </ol>
@@ -373,7 +378,9 @@ function RequirementRow({ requirement, label, t }: { requirement: Requirement; l
           <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
           {keyTerms && <KeyTermList keyTerms={keyTerms} quote={requirement.sourceQuote ?? ""} t={t} />}
           {requirement.note && (
-            <p className="mt-2 text-sm leading-relaxed text-ink-2">{requirement.note}</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink-2">
+              <Prose text={requirement.note} lines={1} />
+            </p>
           )}
           {evidence && (
             <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">

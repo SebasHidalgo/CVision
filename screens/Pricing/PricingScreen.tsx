@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
-import SignInCta from "@/components/auth/SignInCta";
 import SignInCtaButton from "@/components/auth/SignInCtaButton";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
@@ -9,7 +8,6 @@ import RichText from "@/components/i18n/RichText";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Footer } from "@/components/layout/Footer";
 import PageIntro from "@/components/layout/PageIntro";
-import { Button } from "@/components/ui/button";
 import { getOptionalUserId } from "@/lib/auth";
 import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
 import type { PriceKey } from "@/lib/billing/types";
@@ -70,11 +68,9 @@ export default async function PricingScreen() {
             promises={freePromises}
             action={
               plan === null ? (
-                <SignInCta mode="signUp" forceRedirectUrl="/resume/upload">
-                  <Button size="lg" variant="outline" className="h-12 px-6 text-base">
-                    {t("free.start")}
-                  </Button>
-                </SignInCta>
+                <SignInCtaButton mode="signUp" forceRedirectUrl="/resume/upload" variant="outline" className="h-12 px-6 text-base">
+                  {t("free.start")}
+                </SignInCtaButton>
               ) : (
                 <p className="eyebrow pt-3">{plan === "FREE" ? t("currentPlan") : t("free.includedInPro")}</p>
               )

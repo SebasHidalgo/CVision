@@ -45,9 +45,6 @@ export default async function ResumeAnalysisDetailScreen({
     locale,
     { original },
   );
-  // Never a page half in one language without saying so: no translation yet means "Translating…".
-  if (state === "pending") return <TranslationPending translate={translateAnalysisAction} input={{ resumeId: analysis.id }} />;
-
   const scores = dimensionScores(feedback);
   const navItems = DIMENSION_IDS.map((id) => ({
     id,
@@ -74,7 +71,12 @@ export default async function ResumeAnalysisDetailScreen({
         quota={quota}
       />
 
-      <TranslationNotice state={state} className="mt-8" />
+      {/* No translation yet: the prose shows skeletons and this line asks for it; never a page half in one language unannounced. */}
+      {state === "pending" ? (
+        <TranslationPending translate={translateAnalysisAction} input={{ resumeId: analysis.id }} className="mt-8" />
+      ) : (
+        <TranslationNotice state={state} className="mt-8" />
+      )}
 
       <PriorityFixes fixes={feedback.overall.prioritizedFixes} />
 

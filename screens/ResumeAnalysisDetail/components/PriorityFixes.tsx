@@ -4,6 +4,7 @@ import { ordinal } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import type { ResumeAnalysisFeedback } from "@/types/resume";
+import Prose from "@/components/i18n/Prose";
 
 type PriorityFixesProps = {
   fixes: ResumeAnalysisFeedback["overall"]["prioritizedFixes"];
@@ -45,9 +46,11 @@ export default async function PriorityFixes({ fixes }: PriorityFixesProps) {
             <li className="grid gap-4 py-6 sm:grid-cols-[3rem_1fr_auto] sm:gap-6">
               <span className="eyebrow pt-1.5 text-ink">{ordinal(i)}</span>
               <div>
-                <h3 className="display-sm text-ink">{fix.title}</h3>
+                <h3 className="display-sm text-ink">
+                  <Prose text={fix.title} lines={1} className="w-2/3" />
+                </h3>
                 <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                  {fix.action}
+                  <Prose text={fix.action} />
                 </p>
               </div>
               <span

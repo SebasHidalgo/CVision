@@ -164,10 +164,13 @@ export default async function InterviewFeedbackScreen({
         locale,
         { original },
       );
-      if (state === "pending") return <TranslationPending translate={translateFeedbackAction} input={{ interviewId: interview.id }} />;
       return (
         <>
-          <TranslationNotice state={state} className="wrap mt-8" />
+          {state === "pending" ? (
+            <TranslationPending translate={translateFeedbackAction} input={{ interviewId: interview.id }} className="wrap mt-8" />
+          ) : (
+            <TranslationNotice state={state} className="wrap mt-8" />
+          )}
           <FeedbackReport feedback={{ ...feedback, report }} transcript={transcript} date={date} />
         </>
       );

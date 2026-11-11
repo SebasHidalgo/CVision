@@ -4,20 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import type { ActionResult } from "@/types/action";
 
 type TranslationPendingProps<I> = {
   /** The screen's translate action; the server decides what to translate and whether it is the caller's. */
   translate: (input: I) => Promise<ActionResult<{ outcome: string }>>;
   input: I;
+  className?: string;
 };
 
 /**
- * "Translating…" in place of content that has no translation yet: calls the action once, then
- * refreshes, and the server renders the stored translation (or the original with its notice). A
- * call that never reached the server offers the original instead of looping.
+ * The status line over a page whose prose is waiting for its translation (the prose itself shows
+ * skeletons): calls the action once, then refreshes in place. A call that never reached the server
+ * offers the original instead of looping.
  */
-export default function TranslationPending<I>({ translate, input }: TranslationPendingProps<I>) {
+export default function TranslationPending<I>({ translate, input, className }: TranslationPendingProps<I>) {
   const { t } = useTranslation("common");
   const router = useRouter();
   const pathname = usePathname();
@@ -35,22 +37,20 @@ export default function TranslationPending<I>({ translate, input }: TranslationP
 
   if (failed) {
     return (
-      <div role="status" className="wrap py-16 text-ink-2">
-        <p>{t("translation.unavailable")}</p>
-        <Link href={`${pathname}?original=1`} className="link-rule mt-4 inline-block text-ink">
+      <p role="status" className={cn("eyebrow flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-2", className)}>
+        <span aria-hidden className="size-1.5 shrink-0 bg-fair" />
+        {t("translation.unavailable")}
+        <Link href={`${pathname}?original=1`} className="link-rule text-ink">
           {t("translation.showOriginal")}
         </Link>
-      </div>
+      </p>
     );
   }
 
   return (
-    <div role="status" aria-live="polite" className="wrap flex flex-col gap-3 py-16">
-      <p className="eyebrow flex items-center gap-3">
-        <span aria-hidden className="size-1.5 shrink-0 animate-pulse bg-signal" />
-        {t("translation.pending")}
-      </p>
-      <p className="lede max-w-xl">{t("translation.pendingBody")}</p>
-    </div>
+    <p role="status" aria-live="polite" className={cn("eyebrow flex items-center gap-3 text-ink-2", className)}>
+      <span aria-hidden className="size-1.5 shrink-0 animate-pulse bg-signal" />
+      {t("translation.pending")}
+    </p>
   );
 }

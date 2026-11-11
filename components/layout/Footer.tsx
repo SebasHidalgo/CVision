@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
-import SignInCta from "@/components/auth/SignInCta";
+import SignInCtaLink from "@/components/auth/SignInCtaLink";
 import Wordmark from "@/components/brand/Wordmark";
 import { BRAND } from "@/lib/brand";
 import { getT } from "@/lib/i18n/server";
@@ -40,11 +40,7 @@ export async function Footer() {
             </Link>
           </SignedIn>
           <SignedOut>
-            <SignInCta>
-              <button type="button" className="link-rule cursor-pointer text-ink-2">
-                {t("nav.signIn")}
-              </button>
-            </SignInCta>
+            <SignInCtaLink className="link-rule cursor-pointer text-ink-2">{t("nav.signIn")}</SignInCtaLink>
           </SignedOut>
           {LEGAL.map((page) => (
             <Link key={page.href} href={page.href} className="link-rule text-ink-2">

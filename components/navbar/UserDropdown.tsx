@@ -11,23 +11,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useClerkAppearance } from "@/hooks/useClerkAppearance";
-import { PRIMARY_NAV } from "./nav";
+import { ACCOUNT_LINKS } from "./nav";
+import UserAvatar, { UserIdentity } from "./UserAvatar";
 
-/** Initials from the name when Clerk has one, else the first letter of the email. */
-function initialsFor(user: {
-  firstName: string | null;
-  lastName: string | null;
-  primaryEmailAddress: { emailAddress: string } | null;
-}) {
-  const fromName = [user.firstName, user.lastName]
-    .flatMap((part) => (part ? [part.charAt(0)] : []))
-    .join("");
-  if (fromName) return fromName.toUpperCase();
-  return (user.primaryEmailAddress?.emailAddress.charAt(0) ?? "?").toUpperCase();
-}
+const ITEM = "px-2.5 py-2 text-ink-2 focus:text-ink";
 
+/**
+ * The account menu behind the avatar (md and up; below that the same entries live in the mobile
+ * sheet). Pricing is offered to everyone: the plan is derived on the server and the client has no
+ * cheap way to know it.
+ */
 export default function UserDropdown() {
   const { user, isLoaded } = useUser();
   const { openUserProfile, signOut } = useClerk();
@@ -35,70 +29,41 @@ export default function UserDropdown() {
   const { t } = useTranslation("common");
 
   if (!isLoaded || !user) {
-    return <span aria-hidden className="size-9 rounded-full bg-paper-3" />;
+    return <span aria-hidden className="block size-9 rounded-full bg-paper-3" />;
   }
-
-  const email = user.primaryEmailAddress?.emailAddress;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t("nav.accountMenu")}
-        className="rounded-full transition-transform duration-200 ease-out-expo hover:scale-[1.04] data-[state=open]:scale-[1.04]"
+        className="cursor-pointer rounded-full transition-transform duration-200 ease-out-expo hover:scale-[1.04] data-[state=open]:scale-[1.04]"
       >
-        <Avatar className="size-9 border border-line-strong">
-          <AvatarImage src={user.imageUrl} alt="" />
-          <AvatarFallback className="bg-ink font-mono text-xs font-medium text-paper">
-            {initialsFor(user)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar user={user} />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="end"
-        sideOffset={10}
+        sideOffset={12}
         className="w-60 rounded-md border-line-strong p-1.5 shadow-float"
       >
         <DropdownMenuLabel className="px-2.5 py-2 font-normal">
-          <p className="truncate text-sm font-medium text-ink">
-            {user.fullName ?? email ?? t("nav.yourAccount")}
-          </p>
-          {user.fullName && email && (
-            <p className="mt-0.5 truncate font-mono text-[11px] text-ink-3">
-              {email}
-            </p>
-          )}
+          <UserIdentity user={user} fallback={t("nav.yourAccount")} />
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
 
-        {/* Primary navigation lives here below the md breakpoint. */}
-        <div className="md:hidden">
-          {PRIMARY_NAV.map((item) => (
-            <DropdownMenuItem key={item.href} asChild className="px-2.5 py-2">
-              <Link href={item.href}>{t(item.labelKey)}</Link>
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-        </div>
-
-        <DropdownMenuItem asChild className="px-2.5 py-2">
-          <Link href="/account/billing">{t("nav.planBilling")}</Link>
+        <DropdownMenuItem className={ITEM} onSelect={() => openUserProfile({ appearance })}>
+          {t("nav.account")}
         </DropdownMenuItem>
-
-        <DropdownMenuItem
-          className="px-2.5 py-2"
-          onSelect={() => openUserProfile({ appearance })}
-        >
-          {t("nav.profileSecurity")}
-        </DropdownMenuItem>
+        {ACCOUNT_LINKS.map((item) => (
+          <DropdownMenuItem key={item.href} asChild className={ITEM}>
+            <Link href={item.href}>{t(item.labelKey)}</Link>
+          </DropdownMenuItem>
+        ))}
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          className="px-2.5 py-2 text-ink-2"
-          onSelect={() => signOut({ redirectUrl: "/" })}
-        >
+        <DropdownMenuItem className={ITEM} onSelect={() => signOut({ redirectUrl: "/" })}>
           {t("nav.signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>

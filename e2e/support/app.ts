@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { literal, type Copy } from "./copy";
+import { literal, type Copy, type SpecLocale } from "./copy";
 import { BASE_URL } from "./env";
 
 /**
@@ -44,6 +44,18 @@ export async function runAnalysis(page: Page): Promise<string> {
   await page.waitForURL(/\/resume\/analysis\/[^/?]+$/, { timeout: 120_000 });
   await page.waitForLoadState("networkidle");
   return page.url();
+}
+
+const LANGUAGE_NAMES: Record<SpecLocale, string> = { en: "English", es: "Español" };
+
+/**
+ * Picks a language in the header's menu (desktop widths) and waits for the document to say so.
+ * Returns when the client strings switched; the server's re-render follows on its own.
+ */
+export async function switchLanguage(page: Page, target: SpecLocale): Promise<void> {
+  await page.getByRole("banner").getByRole("button", { name: /^(EN|ES), (language|idioma):/i }).click();
+  await page.getByRole("menuitemradio", { name: LANGUAGE_NAMES[target] }).click();
+  await page.waitForFunction((lang) => document.documentElement.lang === lang, target, { timeout: 30_000 });
 }
 
 /** The interview call to action on an analysis page. */

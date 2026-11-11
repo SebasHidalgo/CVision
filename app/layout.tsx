@@ -69,8 +69,8 @@ export default async function RootLayout({
         <body
           className={`${fraunces.variable} ${schibsted.variable} ${plexMono.variable} flex min-h-dvh flex-col`}
         >
-          {/* Keyed by locale: a language switch rebuilds the client tree from the new resources. */}
-          <I18nProvider key={locale} locale={locale} resources={pickResources(locale, GLOBAL_CLIENT_NAMESPACES)}>
+          {/* Not keyed by locale: a language switch keeps the client tree (and its form state). */}
+          <I18nProvider locale={locale} resources={pickResources(locale, GLOBAL_CLIENT_NAMESPACES)}>
             <Providers>
               <Header />
               <main className="flex flex-1 flex-col">{children}</main>

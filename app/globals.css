@@ -246,6 +246,8 @@
 
   html {
     scroll-behavior: smooth;
+    /* An anchor (/#how) lands below the sticky 64 px header. */
+    scroll-padding-top: 5rem;
     -webkit-text-size-adjust: 100%;
   }
 

@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
 import ClientMessages from "@/components/i18n/ClientMessages";
-import LocaleSwitcher from "@/components/i18n/LocaleSwitcher";
+import LocaleMenu from "@/components/i18n/LocaleMenu";
 import PageIntro from "@/components/layout/PageIntro";
 import { Button } from "@/components/ui/button";
 import type { Activation } from "@/lib/billing/activation";
@@ -146,7 +146,7 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-2">{common("locale.accountBody")}</p>
           </div>
-          <LocaleSwitcher className="self-start md:self-auto" />
+          <LocaleMenu variant="full" className="self-start md:self-auto" />
         </div>
       </section>
     </div>

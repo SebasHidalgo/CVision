@@ -7,16 +7,19 @@
     "primary": "Principal",
     "analyses": "Análisis",
     "interviews": "Entrevistas",
+    "howItWorks": "Cómo funciona",
     "pricing": "Precios",
     "newAnalysis": "Nuevo análisis",
-    "newShort": "Nuevo",
     "signIn": "Iniciar sesión",
-    "analyzeMyCv": "Analizar mi CV",
+    "startFree": "Empieza gratis",
     "accountMenu": "Menú de la cuenta",
     "yourAccount": "Tu cuenta",
+    "account": "Cuenta",
     "planBilling": "Plan y facturación",
-    "profileSecurity": "Perfil y seguridad",
     "signOut": "Cerrar sesión",
+    "menu": "Menú",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
     "home": "{{brand}}: inicio"
   },
   "footer": {
@@ -28,12 +31,13 @@
     "refunds": "Reembolsos"
   },
   "theme": {
+    "label": "Tema",
     "toLight": "Cambiar a modo claro",
     "toDark": "Cambiar a modo oscuro"
   },
   "locale": {
     "label": "Idioma",
-    "switchTo": "Cambiar a {{language}}",
+    "current": "{{code}}, idioma: {{language}}",
     "accountTitle": "Idioma",
     "accountBody": "El idioma de la interfaz, y de tus análisis y del feedback de tus entrevistas. Las citas de tu CV, las líneas de la oferta y las viñetas sugeridas se quedan como están escritas."
   },
@@ -80,7 +84,6 @@
   },
   "translation": {
     "pending": "Traduciendo…",
-    "pendingBody": "Traduciendo al español. Tarda unos segundos y solo pasa una vez.",
     "unavailable": "Traducción no disponible, se muestra el original.",
     "partial": "Algunas partes no se pudieron traducir y se muestran en el original.",
     "showOriginal": "Ver el original"

@@ -8,6 +8,7 @@ import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
 import ResumeDrawer from "./ResumeDrawer";
+import Prose from "@/components/i18n/Prose";
 
 type AnalysisHeaderProps = {
   companyName: string;
@@ -79,7 +80,9 @@ export default async function AnalysisHeader({
       </div>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:items-start">
-        <p className="lede lg:col-span-8">{summary}</p>
+        <p className="lede lg:col-span-8">
+          <Prose text={summary} lines={3} />
+        </p>
         <div className="flex flex-wrap gap-3 lg:col-span-4 lg:justify-end">
           <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />
           <InterviewCta
