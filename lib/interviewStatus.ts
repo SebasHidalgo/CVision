@@ -41,6 +41,31 @@ const LABEL_KEY = {
 
 export type InterviewDestinationLabelKey = (typeof LABEL_KEY)[InterviewPhase];
 
+/**
+ * The failure reasons the feedback step writes (lib/ai/interviewFeedback.ts): the candidate
+ * answered and only the scoring failed. Every other FAILED interview (nothing said, the call lost
+ * or never run) did not happen as a rehearsal.
+ */
+export const FAILED_AFTER_ANSWERS: ReadonlySet<string> = new Set(["FEEDBACK_FAILED", "TRANSCRIPT_INVALID", "CONTEXT_MISSING"]);
+
+/**
+ * Whether an attempt was a rehearsal that actually ran: the candidate answered. Scheduled,
+ * in-progress, expired and never-answered attempts do not count, so "again" is never said about a
+ * rehearsal that never happened.
+ */
+export function attemptRan(attempt: { status: InterviewStatus; failureReason: string | null }): boolean {
+  switch (interviewPhase(attempt.status)) {
+    case "pending":
+    case "done":
+      return true;
+    case "failed":
+      return attempt.failureReason !== null && FAILED_AFTER_ANSWERS.has(attempt.failureReason);
+    case "ready":
+    case "expired":
+      return false;
+  }
+}
+
 /** The one attempt of an analysis that can still be started, if any. */
 export function liveAttempt<T extends { status: InterviewStatus }>(attempts: T[]): T | null {
   return attempts.find((attempt) => interviewPhase(attempt.status) === "ready") ?? null;

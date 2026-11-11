@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import { useErrorCopy, useResetDate } from "@/hooks/useErrorCopy";
-import { interviewDestination, liveAttempt } from "@/lib/interviewStatus";
+import { attemptRan, interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
-import { INTERVIEW_PACK_CREDITS, type InterviewQuotaView } from "@/lib/plans";
+import { INTERVIEW_PACK_CREDITS, PLANS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -105,11 +105,15 @@ export default function InterviewCta({
   };
 
   const live = liveAttempt(attempts);
-  const rehearsed = attempts.length > 0;
+  // "Again" only after a rehearsal that ran: an expired or never-answered attempt was not one.
+  const rehearsed = attempts.some(attemptRan);
   const offer = interviewOffer(quota, live !== null);
 
-  const compactClasses = "h-11 gap-2 px-5";
-  const fullClasses = "group h-12 gap-2 px-7 text-base";
+  // Labels wrap inside the button instead of overflowing it: a nowrap label is a min-content width
+  // that pushes the button over the text beside it (the Spanish trial label did).
+  const sharedClasses = "h-auto max-w-full gap-2 whitespace-normal text-center";
+  const compactClasses = `${sharedClasses} min-h-11 px-5 py-2`;
+  const fullClasses = `${sharedClasses} group min-h-12 px-5 py-3 text-base sm:px-7`;
   const buttonClasses = variant === "compact" ? compactClasses : fullClasses;
 
   const startButton = (label: string, icon: React.ReactNode) => (
@@ -144,7 +148,7 @@ export default function InterviewCta({
       rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
     )
   ) : offer.kind === "pro-exhausted" ? (
-    <div className="flex flex-col items-start gap-2 md:items-end">
+    <div className="flex min-w-0 flex-col items-start gap-2">
       <p className="text-sm font-medium text-ink">
         {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
       </p>
@@ -153,7 +157,7 @@ export default function InterviewCta({
       </Link>
     </div>
   ) : (
-    <p className="flex h-11 items-center text-sm font-medium text-ink">
+    <p className="flex min-h-11 min-w-0 items-center text-sm font-medium text-ink">
       {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
     </p>
   );
@@ -197,7 +201,7 @@ export default function InterviewCta({
       : offer.kind === "trial"
         ? t("cta.lede.trial", { minutes: TRIAL_MINUTES })
         : offer.kind === "needs-pro"
-          ? t("cta.lede.needsPro")
+          ? t("cta.lede.needsPro", { minutes: FULL_MINUTES, perMonth: PLANS.PRO.interviewsPerMonth })
           : offer.kind === "pro-exhausted"
             ? t("cta.lede.proExhausted", { date: resetDate(offer.resetsAt) })
             : rehearsed
@@ -210,17 +214,16 @@ export default function InterviewCta({
       className="mt-6 border-t border-line pt-12 lg:pt-16"
     >
       <Eyebrow tick>{t("cta.eyebrow")}</Eyebrow>
-      <div className="mt-5 grid gap-8 md:grid-cols-12 md:items-end">
-        <div className="md:col-span-8">
-          <h2 id="interview-cta-title" className="display-md text-ink">
-            {heading}
-          </h2>
-          <p className="lede mt-4 max-w-xl">{lede}</p>
-        </div>
-        <div className="flex flex-col items-start gap-3 md:col-span-4 md:items-end">
-          {control}
-          {note && <p className="eyebrow">{note}</p>}
-        </div>
+      {/* Text, then the control under it: the section is at most ~48rem wide, too narrow to give a long label a column of its own. */}
+      <div className="mt-5 min-w-0 max-w-2xl">
+        <h2 id="interview-cta-title" className="display-md text-ink">
+          {heading}
+        </h2>
+        <p className="lede mt-4 max-w-xl">{lede}</p>
+      </div>
+      <div className="mt-8 flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+        {control}
+        {note && <p className="eyebrow min-w-0">{note}</p>}
       </div>
       {children && <div className="mt-10">{children}</div>}
     </section>

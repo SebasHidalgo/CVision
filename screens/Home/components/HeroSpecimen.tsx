@@ -5,10 +5,18 @@ import { Check, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CountUp from "@/components/motion/CountUp";
 import ScoreMeter from "@/components/score/ScoreMeter";
+import { tallyCopy } from "@/lib/i18n/tally";
+import type { RequirementTally } from "@/lib/schemas/resumeSchema";
 import { toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 
-const SAMPLE_SCORE = 74;
+const SAMPLE_QUALITY = 74;
+
+// Every required qualification met and two preferred ones: what "strong fit" means (deriveFitVerdict).
+const SAMPLE_TALLY: RequirementTally = {
+  required: { total: 3, met: 3, partial: 0, notShown: 0 },
+  preferred: { total: 4, met: 2, partial: 0, notShown: 0 },
+};
 
 const SKILLS = [
   { id: "typescript", matched: true },
@@ -72,17 +80,17 @@ export function HeroSpecimen() {
           <Line w={92} className="mt-3" />
           <Line w={84} className="mt-2" />
           <div className="relative mt-2">
-            <Line w={70} />
+            <Line w={58} />
             <motion.span
               aria-hidden
               initial={reduce ? false : { scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{ duration: 0.7, ease: EASE, delay: 1.5 }}
-              className="absolute top-[9px] left-0 h-[2px] w-[70%] origin-left bg-signal"
+              className="absolute top-[9px] left-0 h-[2px] w-[58%] origin-left bg-signal"
             />
             <motion.span
               {...item(1.9)}
-              className="absolute top-[-4px] left-[73%] font-mono text-[10.5px] whitespace-nowrap text-signal"
+              className="absolute top-[-4px] left-[61%] font-mono text-[10.5px] whitespace-nowrap text-signal"
             >
               {t("specimen.note")}
             </motion.span>
@@ -116,24 +124,23 @@ export function HeroSpecimen() {
           </ul>
         </motion.div>
 
-        {/* The verdict */}
+        {/* The verdict as the analysis page gives it: a word and the count behind it; the score is the CV's own quality */}
         <motion.div {...item(1.4)} className="mt-9 border-t border-line pt-6">
-          <div className="flex items-end justify-between">
-            <p className="eyebrow">{t("specimen.fit")}</p>
-            <p className="flex items-baseline gap-2">
-              <span className="figure text-5xl text-ink">
-                <CountUp value={SAMPLE_SCORE} delay={1.7} />
-              </span>
-              <span className="text-sm font-medium text-strong">{common(toneKey("fit", "strong"))}</span>
-            </p>
+          <p className="display-md text-strong">{common(toneKey("fit", "strong"))}</p>
+          <p className="mt-2 font-mono text-[11px] leading-relaxed text-ink-2">{tallyCopy(common, SAMPLE_TALLY)}</p>
+          <div className="mt-6 flex items-baseline justify-between gap-4">
+            <p className="eyebrow">{t("specimen.quality")}</p>
+            <span className="figure text-3xl text-ink">
+              <CountUp value={SAMPLE_QUALITY} delay={1.7} />
+            </span>
           </div>
           <ScoreMeter
-            score={SAMPLE_SCORE}
-            size="md"
+            score={SAMPLE_QUALITY}
+            size="sm"
             reveal="mount"
             delay={1.7}
             label={t("specimen.meterLabel")}
-            className="mt-3"
+            className="mt-2"
           />
         </motion.div>
 

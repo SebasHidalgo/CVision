@@ -28,9 +28,9 @@
     "cv": "Tu CV",
     "idle": "Se hace mientras esperas · tarda unos segundos",
     "submit": "Hacer el análisis",
-    "quota_one": "Te queda {{count}} de {{limit}} análisis este mes · se reinician el {{date}}",
-    "quota_many": "Te quedan {{count}} de {{limit}} análisis este mes · se reinician el {{date}}",
-    "quota_other": "Te quedan {{count}} de {{limit}} análisis este mes · se reinician el {{date}}"
+    "quota_one": "Tienes {{left}} de {{count}} análisis disponible este mes · se reinicia el {{date}}",
+    "quota_many": "Tienes {{left}} de {{count}} análisis disponibles este mes · se reinician el {{date}}",
+    "quota_other": "Tienes {{left}} de {{count}} análisis disponibles este mes · se reinician el {{date}}"
   },
   "validation": {
     "fileRequired": "Falta el archivo",
@@ -72,7 +72,7 @@
     "stages": {
       "reading": "Leyendo la capa de texto de tu PDF",
       "comparing": "Comparándolo con la oferta, requisito por requisito",
-      "scoring": "Calificando seis dimensiones",
+      "scoring": "Calificando tu experiencia, habilidades y formación",
       "writing": "Escribiendo el veredicto y los arreglos prioritarios",
       "slow": "Todavía trabajando. Hacerlo bien lleva un momento"
     }

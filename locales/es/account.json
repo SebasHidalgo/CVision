@@ -14,15 +14,22 @@
     "renews": "Pro, se renueva el {{date}}.",
     "canceled": "Gratis. Tu suscripción a Pro terminó; no se borró nada, y con Pro recuperas todo.",
     "paused": "Gratis mientras tu suscripción está en pausa. Reanúdala desde \"Administrar suscripción\".",
-    "free": "Gratis."
+    "free": "{{analyses}} análisis al mes, y tus últimos {{history}} guardados en tu historial."
   },
   "interviews": {
     "label": "Entrevistas de este período",
     "of": "de {{limit}}",
     "resets": "Se reinician el {{date}}.",
-    "trial": "Una entrevista de práctica gratis de {{minutes}} minutos.",
     "creditsCover": "Tus créditos cubren entrevistas completas; Pro suma {{perMonth}} al mes.",
     "proOnly": "Las entrevistas por voz son parte de Pro."
+  },
+  "trial": {
+    "label": "Entrevista de prueba gratis",
+    "available": "Disponible",
+    "used": "Usada",
+    "unavailable": "No disponible",
+    "availableNote": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA, una sola vez por cuenta.",
+    "unavailableNote": "La prueba gratis es para cuentas que nunca tuvieron Pro ni una entrevista completa. Las entrevistas por voz son parte de Pro."
   },
   "credits": {
     "label": "Créditos de entrevista",

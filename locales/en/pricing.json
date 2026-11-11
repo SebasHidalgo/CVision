@@ -15,7 +15,7 @@
     "promises": {
       "analyses_one": "{{count}} CV check per month",
       "analyses_other": "{{count}} CV checks per month",
-      "trial": "One {{minutes}}-minute practice interview with the AI interviewer",
+      "trial": "One {{minutes}}-minute practice interview with the AI interviewer, once per account (not for accounts that had Pro)",
       "history_one": "Your last analysis",
       "history_other": "Your last {{count}} analyses"
     }

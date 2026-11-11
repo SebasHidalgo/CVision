@@ -104,7 +104,7 @@
     "eyebrow": "Siguiente paso",
     "preparing": "Preparando la entrevista…",
     "openRoom": "Abrir la sala de entrevista",
-    "tryTrial": "Prueba una entrevista de {{minutes}} minutos, gratis",
+    "tryTrial": "Entrevista de prueba gratis · {{minutes}} min",
     "rehearse": "Ensayar la entrevista",
     "rehearseAgain": "Ensayar de nuevo",
     "getMore_one": "Consigue {{count}} entrevista más",
@@ -136,7 +136,7 @@
     "lede": {
       "live": "Hay un intento esperándote en la sala. Termínalo y el feedback llegará aquí.",
       "trial": "Un entrevistador de IA por voz, armado a partir de esta misma oferta, te pregunta por las brechas que encontró tu análisis, tú respondes en voz alta y recibes un puntaje según lo que dijiste. Tu prueba gratis dura {{minutes}} minutos.",
-      "needsPro": "Ya usaste la prueba gratis. Las entrevistas de Pro duran doce minutos, cuatro al mes, y cada una se califica según esta oferta y las brechas que encontró tu análisis.",
+      "needsPro": "Las entrevistas de Pro duran hasta {{minutes}} minutos, {{perMonth}} al mes, y cada una se califica según esta oferta y las brechas que encontró tu análisis.",
       "proExhausted": "Cada ensayo se califica según la misma oferta y las mismas brechas. Las próximas vuelven el {{date}}.",
       "again": "Cada intento se califica por separado según la misma oferta y las mismas brechas, para que veas qué cambió.",
       "first": "Un entrevistador de IA por voz, armado a partir de esta misma oferta, hace las preguntas, tú respondes en voz alta y, cuando terminas la llamada, recibes un puntaje en cinco aspectos, con la transcripción."

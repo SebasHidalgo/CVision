@@ -104,7 +104,7 @@
     "eyebrow": "Next",
     "preparing": "Preparing the interview…",
     "openRoom": "Open the interview room",
-    "tryTrial": "Try a {{minutes}}-minute interview, free",
+    "tryTrial": "Free trial interview · {{minutes}} min",
     "rehearse": "Rehearse the interview",
     "rehearseAgain": "Rehearse again",
     "getMore_one": "Get {{count}} more interview",
@@ -132,7 +132,7 @@
     "lede": {
       "live": "An attempt is waiting in the room. Finish it, and the feedback lands here.",
       "trial": "A voice interviewer built from this exact posting asks about the gaps your analysis found, you answer out loud, and you get scored on what you said. Your free trial runs {{minutes}} minutes.",
-      "needsPro": "You used the free trial. Pro interviews run twelve minutes, four a month, each scored against this posting and the gaps your analysis found.",
+      "needsPro": "Pro interviews run up to {{minutes}} minutes, {{perMonth}} a month, each scored against this posting and the gaps your analysis found.",
       "proExhausted": "Every rehearsal is scored against the same posting and the same gaps. The next ones come back {{date}}.",
       "again": "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed.",
       "first": "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."

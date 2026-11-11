@@ -8,7 +8,7 @@
     "lede": "Paste the posting, upload your CV, and get a frank read of your own application: what matches, what's missing, and what to fix first. Then practice the interview out loud with an AI interviewer.",
     "howLink": "See how it works",
     "contents": {
-      "fitScore": "Fit score",
+      "fitVerdict": "Fit verdict",
       "fixes": "Priority fixes",
       "interview": "Voice mock interview"
     }
@@ -26,8 +26,8 @@
       "testing": "Testing",
       "accessibility": "Accessibility"
     },
-    "fit": "Fit",
-    "meterLabel": "Sample fit score"
+    "quality": "Resume quality",
+    "meterLabel": "Sample resume quality score"
   },
   "how": {
     "eyebrow": "How it works",
@@ -44,14 +44,14 @@
       },
       "verdict": {
         "title": "Get the verdict",
-        "body": "A fit score, six scored dimensions and the fixes that move the needle most. Then rehearse the interview for that same job."
+        "body": "A fit verdict (weak, partial or strong) with the count of requirements behind it, a resume quality score, and the fixes that move the needle most. Then rehearse the interview for that same job."
       }
     }
   },
   "dimensions": {
     "eyebrow": "What gets measured",
     "title": "Six readings, one verdict.",
-    "lede": "Each dimension gets its own score, its evidence, and the concrete changes that would raise it. The global fit score is the headline; these are the reasons.",
+    "lede": "Each one comes with its evidence and the concrete changes that would improve it, and three of them (experience, skills, education) also get a score. The fit verdict is the headline, counted from the requirements you meet; these are the reasons.",
     "items": {
       "ats": {
         "name": "ATS compatibility",

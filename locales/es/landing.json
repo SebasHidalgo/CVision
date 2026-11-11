@@ -8,7 +8,7 @@
     "lede": "Pega la oferta, sube tu CV y recibe una lectura franca de tu propia postulación: qué coincide, qué falta y qué arreglar primero. Después, practica la entrevista en voz alta con un entrevistador de IA.",
     "howLink": "Mira cómo funciona",
     "contents": {
-      "fitScore": "Puntaje de compatibilidad",
+      "fitVerdict": "Veredicto de compatibilidad",
       "fixes": "Arreglos prioritarios",
       "interview": "Entrevista de práctica por voz"
     }
@@ -26,8 +26,8 @@
       "testing": "Pruebas",
       "accessibility": "Accesibilidad"
     },
-    "fit": "Compatibilidad",
-    "meterLabel": "Puntaje de compatibilidad de ejemplo"
+    "quality": "Calidad del CV",
+    "meterLabel": "Puntaje de calidad del CV de ejemplo"
   },
   "how": {
     "eyebrow": "Cómo funciona",
@@ -44,14 +44,14 @@
       },
       "verdict": {
         "title": "Recibe el veredicto",
-        "body": "Un puntaje de compatibilidad, seis dimensiones con puntaje y los cambios que más pesan. Después, ensaya la entrevista para ese mismo puesto."
+        "body": "Un veredicto de compatibilidad (baja, parcial o alta) con la cuenta de requisitos que lo respalda, un puntaje de calidad del CV y los cambios que más pesan. Después, ensaya la entrevista para ese mismo puesto."
       }
     }
   },
   "dimensions": {
     "eyebrow": "Qué se mide",
     "title": "Seis lecturas, un veredicto.",
-    "lede": "Cada dimensión tiene su propio puntaje, su evidencia y los cambios concretos que lo subirían. El puntaje global de compatibilidad es el titular; estas son las razones.",
+    "lede": "Cada una viene con su evidencia y los cambios concretos que la mejorarían, y tres de ellas (experiencia, habilidades, formación) además tienen puntaje. El veredicto de compatibilidad es el titular, calculado a partir de los requisitos que cumples; estas son las razones.",
     "items": {
       "ats": {
         "name": "Compatibilidad con ATS",

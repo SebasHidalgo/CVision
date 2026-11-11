@@ -11,7 +11,7 @@ import { getT } from "@/lib/i18n/server";
 import { HeroSpecimen } from "./HeroSpecimen";
 
 const CONTENTS = [
-  { index: "01", labelKey: "hero.contents.fitScore" },
+  { index: "01", labelKey: "hero.contents.fitVerdict" },
   { index: "02", labelKey: "hero.contents.fixes" },
   { index: "03", labelKey: "hero.contents.interview" },
 ] as const;

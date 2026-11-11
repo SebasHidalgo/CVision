@@ -28,8 +28,8 @@
     "cv": "Your CV",
     "idle": "Runs while you wait · takes seconds",
     "submit": "Run the analysis",
-    "quota_one": "{{count}} of {{limit}} analysis left this month · resets {{date}}",
-    "quota_other": "{{count}} of {{limit}} analyses left this month · resets {{date}}"
+    "quota_one": "{{left}} of {{count}} analysis left this month · resets {{date}}",
+    "quota_other": "{{left}} of {{count}} analyses left this month · resets {{date}}"
   },
   "validation": {
     "fileRequired": "A file is required",
@@ -71,7 +71,7 @@
     "stages": {
       "reading": "Reading the text layer of your PDF",
       "comparing": "Comparing it with the posting, requirement by requirement",
-      "scoring": "Scoring six dimensions",
+      "scoring": "Scoring your experience, skills and education",
       "writing": "Writing the verdict and the priority fixes",
       "slow": "Still working. Thoroughness takes a moment"
     }

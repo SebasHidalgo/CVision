@@ -21,7 +21,7 @@
     },
     "plans": {
       "heading": "3. Plans, prices and billing",
-      "p1": "Free includes {{freeAnalyses}} CV checks per month, one {{trialMinutes}}-minute practice interview, and your last {{freeHistory}} analyses. Pro is a monthly subscription that includes unlimited CV checks (subject to fair use), {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each, and your full history. Interview packs add {{packCredits}} practice interviews for Pro subscribers; pack credits do not expire and can be used while Pro is active.",
+      "p1": "Free includes {{freeAnalyses}} CV checks per month, one {{trialMinutes}}-minute practice interview for an account that has never had Pro or a full interview, and your last {{freeHistory}} analyses. Pro is a monthly subscription that includes unlimited CV checks (subject to fair use), {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each, and your full history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
       "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from your account page, and Pro stays active until the end of the period you paid for.",
       "p3": "[PLACEHOLDER: price changes and how they are notified.]"
     },
@@ -108,7 +108,7 @@
     },
     "problems": {
       "heading": "4. Something went wrong",
-      "p1": "If a paid interview failed on our side (the interviewer never connected, or the call was lost with no reconnection left), the interview is given back to your plan automatically; you do not need to ask. If something else went wrong with a charge, write to us and we will sort it out with the merchant of record."
+      "p1": "If a paid interview failed before you answered anything (the interviewer never connected, the call was lost, or nothing you said reached it), the interview or the credit it used comes back automatically; you do not need to ask. If something else went wrong with a charge, write to us and we will sort it out with the merchant of record."
     },
     "contact": {
       "heading": "5. Contact",

@@ -29,16 +29,23 @@ describe("quotaLine", () => {
   it("announces the Free allowance with its reset, says nothing for Pro, and at zero says why for either", () => {
     const en = copy("en");
     expect(quotaLine(free(2), en)).toBe("2 of 3 analyses left this month · resets Nov 1");
-    expect(quotaLine(free(1), en)).toBe("1 of 3 analysis left this month · resets Nov 1");
+    expect(quotaLine(free(1), en)).toBe("1 of 3 analyses left this month · resets Nov 1");
     expect(quotaLine(pro(40), en)).toBeNull();
     expect(quotaLine(free(0), en)).toBe("You've used this month's analyses. Resets Nov 1.");
     expect(quotaLine(pro(0), en)).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
   });
 
-  it("says the same in Spanish, with the singular when one is left", () => {
+  it("takes the noun's number from the allowance, not from what is left", () => {
+    const en = copy("en");
+    const single = { ...free(1), limit: 1 };
+    expect(quotaLine(single, en)).toBe("1 of 1 analysis left this month · resets Nov 1");
+    expect(quotaLine(single, copy("es"))).toBe("Tienes 1 de 1 análisis disponible este mes · se reinicia el 1 nov");
+  });
+
+  it("says the same in Spanish, whatever is left", () => {
     const es = copy("es");
-    expect(quotaLine(free(2), es)).toBe("Te quedan 2 de 3 análisis este mes · se reinician el 1 nov");
-    expect(quotaLine(free(1), es)).toBe("Te queda 1 de 3 análisis este mes · se reinician el 1 nov");
+    expect(quotaLine(free(2), es)).toBe("Tienes 2 de 3 análisis disponibles este mes · se reinician el 1 nov");
+    expect(quotaLine(free(1), es)).toBe("Tienes 1 de 3 análisis disponibles este mes · se reinician el 1 nov");
   });
 });
 

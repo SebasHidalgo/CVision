@@ -26,6 +26,8 @@ export type InterviewAttempt = {
   id: string;
   status: InterviewStatus;
   attemptNumber: number;
+  /** Why the latest step produced nothing, when it did not; tells a FAILED rehearsal that ran from one that never did. */
+  failureReason: string | null;
   /** The feedback's total, once there is one. */
   totalScore: number | null;
   createdAt: string;

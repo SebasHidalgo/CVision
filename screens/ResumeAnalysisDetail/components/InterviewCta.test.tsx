@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decideEntitlement } from "@/lib/interviewEntitlement";
-import type { InterviewQuotaView } from "@/lib/plans";
+import { PLANS, type InterviewQuotaView } from "@/lib/plans";
 import type { InterviewAttempt } from "@/types/resume";
 import InterviewCta, { interviewOffer } from "./InterviewCta";
 
@@ -18,10 +18,11 @@ vi.mock("@/screens/ResumeAnalysisDetail/actions/createInterviewAction", () => ({
 const RESUME_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESETS = "2026-11-01T00:00:00.000Z";
 
-const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: number): InterviewAttempt => ({
+const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: number, failureReason: string | null = null): InterviewAttempt => ({
   id,
   status,
   attemptNumber,
+  failureReason,
   totalScore: status === "COMPLETED" ? 60 : null,
   createdAt: "2026-10-01T00:00:00.000Z",
 });
@@ -72,15 +73,17 @@ describe("InterviewCta by plan", () => {
   it("offers a Free account its five-minute trial", () => {
     mount(free(true));
 
-    expect(screen.getByRole("button", { name: /try a 5-minute interview, free/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /free trial interview · 5 min/i })).toBeTruthy();
     expect(screen.getByText(/5 minutes with the interviewer, on us/)).toBeTruthy();
   });
 
-  it("tells a Free account that used the trial that interviews are part of Pro, with no button", () => {
-    mount(free(false), [attempt("i1", "COMPLETED", 1)]);
+  it("tells a Free account that used the trial that interviews are part of Pro, with no button, and Pro's numbers from the plans", () => {
+    const { container } = mount(free(false), [attempt("i1", "COMPLETED", 1)]);
 
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getAllByText("Voice interviews are part of Pro.").length).toBeGreaterThan(0);
+    expect(container.textContent).toContain(`Pro interviews run up to 12 minutes, ${PLANS.PRO.interviewsPerMonth} a month`);
+    expect(container.textContent).not.toMatch(/twelve|four a month/);
   });
 
   it("tells a Pro account how many interviews are left this period, the credits when it has any, and never how many analyses it gets", () => {
@@ -122,6 +125,35 @@ describe("InterviewCta by plan", () => {
 
     expect(screen.getByRole("link", { name: /open the interview room/i }).getAttribute("href")).toBe("/interview/i3");
     expect(screen.queryByText("Voice interviews are part of Pro.")).toBeNull();
+  });
+
+  it("says \"again\" only after a rehearsal that ran, not after expired or never-answered attempts", () => {
+    const neverRan = [
+      attempt("i3", "EXPIRED", 3, "ABANDONED"),
+      attempt("i2", "FAILED", 2, "NO_CANDIDATE_TURNS"),
+      attempt("i1", "FAILED", 1, "SESSION_LOST"),
+    ];
+    mount(pro(3), neverRan);
+    expect(screen.getByRole("button", { name: /rehearse the interview/i })).toBeTruthy();
+    expect(screen.queryByText("Rehearse it again.")).toBeNull();
+
+    cleanup();
+    mount(pro(3), [attempt("i2", "FAILED", 2, "FEEDBACK_FAILED"), ...neverRan.slice(1)]);
+    expect(screen.getByRole("button", { name: /rehearse again/i })).toBeTruthy();
+    expect(screen.getByText("Rehearse it again.")).toBeTruthy();
+
+    cleanup();
+    mount(pro(3), [attempt("i1", "FEEDBACK_PENDING", 1)]);
+    expect(screen.getByRole("button", { name: /rehearse again/i })).toBeTruthy();
+  });
+
+  it("lets a long label wrap inside the button rather than overflow onto the text", () => {
+    mount(free(true));
+
+    const button = screen.getByRole("button", { name: /free trial interview/i });
+    expect(button.className).toMatch(/\bwhitespace-normal\b/);
+    expect(button.className).toMatch(/\bmax-w-full\b/);
+    expect(button.className).not.toMatch(/(^|\s)h-1[12](\s|$)/);
   });
 
   it("the compact variant renders only the control", () => {

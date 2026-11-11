@@ -16,7 +16,7 @@
       "analyses_one": "{{count}} análisis de CV al mes",
       "analyses_many": "{{count}} análisis de CV al mes",
       "analyses_other": "{{count}} análisis de CV al mes",
-      "trial": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA",
+      "trial": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA, una vez por cuenta (no para cuentas que tuvieron Pro)",
       "history_one": "Tu último análisis",
       "history_many": "Tus últimos {{count}} análisis",
       "history_other": "Tus últimos {{count}} análisis"

@@ -85,3 +85,35 @@ describe("the wording rule", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * The analysis has no fit score: fit is a verdict derived from the requirements
+ * (lib/schemas/resumeSchema.ts, deriveFitVerdict), and of its six sections only
+ * three carry a score (screens/ResumeAnalysisDetail/utils/dimensions.ts). The pages
+ * that sell it must not promise either.
+ */
+const SCORE_CLAIMS = [
+  /fit score/i,
+  /global (?:fit )?score/i,
+  /six scored/i,
+  /(?:scoring|scores?) six/i,
+  /puntaje (?:global )?de compatibilidad/i,
+  /dimensiones con puntaje/i,
+  /calificando seis/i,
+];
+
+describe("the promise about scores", () => {
+  it("never claims a fit score or six scored dimensions, in any language", () => {
+    const offenders: string[] = [];
+    for (const locale of readdirSync(path.join(ROOT, "locales"))) {
+      for (const ns of ["landing", "pricing", "upload", "common"]) {
+        const text = readFileSync(path.join(ROOT, "locales", locale, `${ns}.json`), "utf8");
+        for (const pattern of SCORE_CLAIMS) {
+          const match = pattern.exec(text);
+          if (match) offenders.push(`locales/${locale}/${ns}.json: "${match[0]}"`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

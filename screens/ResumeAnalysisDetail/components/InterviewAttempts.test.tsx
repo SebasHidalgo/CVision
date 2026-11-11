@@ -9,9 +9,9 @@ vi.mock("next/link", () => ({
 }));
 
 const attempts: InterviewAttempt[] = [
-  { id: "i3", status: "IN_PROGRESS", attemptNumber: 3, totalScore: null, createdAt: "2026-10-13T10:00:00.000Z" },
-  { id: "i2", status: "COMPLETED", attemptNumber: 2, totalScore: 61, createdAt: "2026-10-12T10:00:00.000Z" },
-  { id: "i1", status: "FAILED", attemptNumber: 1, totalScore: null, createdAt: "2026-10-11T10:00:00.000Z" },
+  { id: "i3", status: "IN_PROGRESS", attemptNumber: 3, failureReason: null, totalScore: null, createdAt: "2026-10-13T10:00:00.000Z" },
+  { id: "i2", status: "COMPLETED", attemptNumber: 2, failureReason: null, totalScore: 61, createdAt: "2026-10-12T10:00:00.000Z" },
+  { id: "i1", status: "FAILED", attemptNumber: 1, failureReason: null, totalScore: null, createdAt: "2026-10-11T10:00:00.000Z" },
 ];
 
 describe("InterviewAttempts", () => {

@@ -264,8 +264,8 @@ call's webhook round trip. Then:
 1. Sign up (the code arrives by email). A `User` row appears.
 2. **A first analysis**: New analysis → company, title, the posting's
    text, a PDF CV → about seven seconds → the analysis page.
-3. **A first interview**: on the analysis page, "Try a 5-minute
-   interview, free" → the room → Start. Speak; End. The feedback page
+3. **A first interview**: on the analysis page, "Free trial interview ·
+   5 min" → the room → Start. Speak; End. The feedback page
    shows "saving" while the transcript travels (about a minute), then the
    report.
 4. **Spanish**: the EN / ES switcher in the header. The whole interface,

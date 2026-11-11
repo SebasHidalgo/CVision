@@ -14,15 +14,22 @@
     "renews": "Pro, renews {{date}}.",
     "canceled": "Free. Your Pro subscription ended; nothing was deleted, and Pro brings it all back.",
     "paused": "Free while your subscription is paused. Resume it from \"Manage subscription\".",
-    "free": "Free."
+    "free": "{{analyses}} analyses a month, and your last {{history}} kept in your history."
   },
   "interviews": {
     "label": "Interviews this period",
     "of": "of {{limit}}",
     "resets": "Resets {{date}}.",
-    "trial": "One free {{minutes}}-minute practice interview.",
     "creditsCover": "Your credits cover full interviews; Pro adds {{perMonth}} a month.",
     "proOnly": "Voice interviews are part of Pro."
+  },
+  "trial": {
+    "label": "Free trial interview",
+    "available": "Available",
+    "used": "Used",
+    "unavailable": "Not available",
+    "availableNote": "One {{minutes}}-minute practice interview with the AI interviewer, once per account.",
+    "unavailableNote": "The free trial is for accounts that have never had Pro or a full interview. Voice interviews are part of Pro."
   },
   "credits": {
     "label": "Interview credits",

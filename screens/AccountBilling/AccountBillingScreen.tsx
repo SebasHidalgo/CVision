@@ -58,7 +58,20 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
       ? t("planLine.canceled")
       : subscription?.status === "PAUSED"
         ? t("planLine.paused")
-        : t("planLine.free");
+        : t("planLine.free", { analyses: PLANS.FREE.analysesPerMonth, history: PLANS.FREE.historyLimit });
+
+  // Free has no period of interviews: it has the lifetime trial and, after a Pro that ended, pack credits.
+  const trial = summary.trial.available ? "available" : summary.trial.used ? "used" : "unavailable";
+  const trialNote =
+    trial === "available"
+      ? t("trial.availableNote", { minutes: TRIAL_MINUTES })
+      : credits.balance > 0
+        ? t("interviews.creditsCover", { perMonth: PLANS.PRO.interviewsPerMonth })
+        : trial === "used"
+          ? t("interviews.proOnly")
+          : t("trial.unavailableNote");
+  // Packs are sold to Pro only, so a Free account sees credits only when it holds some.
+  const showCredits = pro || credits.balance > 0 || credits.pending > 0;
 
   return (
     <div className="wrap py-12 lg:py-16">
@@ -73,38 +86,40 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
       )}
 
       <dl className="grid gap-8 py-10 sm:grid-cols-3 lg:py-14">
-        <div>
-          <dt className="eyebrow">{t("interviews.label")}</dt>
-          <dd className="figure mt-3 text-5xl text-ink">
-            {pro ? interviews.left : 0}
-            <span className="eyebrow ml-2">{t("interviews.of", { limit: pro ? interviews.limit : 0 })}</span>
-          </dd>
-          <p className="mt-2 text-sm text-ink-2">
-            {pro
-              ? t("interviews.resets", { date: periodEnd })
-              : summary.trial.available
-                ? t("interviews.trial", { minutes: TRIAL_MINUTES })
-                : credits.balance > 0
-                  ? t("interviews.creditsCover", { perMonth: PLANS.PRO.interviewsPerMonth })
-                  : t("interviews.proOnly")}
-          </p>
-        </div>
-        <div>
-          <dt className="eyebrow">{t("credits.label")}</dt>
-          <dd className="figure mt-3 text-5xl text-ink">{credits.balance}</dd>
-          <p className="mt-2 text-sm text-ink-2">
-            {credits.balance === 0
-              ? t("credits.none", { size: INTERVIEW_PACK_CREDITS })
-              : pro
-                ? t("credits.pro")
-                : t("credits.free", { minutes: FULL_MINUTES })}
-          </p>
-          {credits.pending > 0 && (
-            <p className="mt-2 text-sm text-ink-2" role="status">
-              {t("credits.pending", { count: credits.pending })}
+        {pro ? (
+          <div>
+            <dt className="eyebrow">{t("interviews.label")}</dt>
+            <dd className="figure mt-3 text-5xl text-ink">
+              {interviews.left}
+              <span className="eyebrow ml-2">{t("interviews.of", { limit: interviews.limit })}</span>
+            </dd>
+            <p className="mt-2 text-sm text-ink-2">{t("interviews.resets", { date: periodEnd })}</p>
+          </div>
+        ) : (
+          <div>
+            <dt className="eyebrow">{t("trial.label")}</dt>
+            <dd className="display-md mt-3 text-ink">{t(`trial.${trial}`)}</dd>
+            <p className="mt-2 text-sm text-ink-2">{trialNote}</p>
+          </div>
+        )}
+        {showCredits && (
+          <div>
+            <dt className="eyebrow">{t("credits.label")}</dt>
+            <dd className="figure mt-3 text-5xl text-ink">{credits.balance}</dd>
+            <p className="mt-2 text-sm text-ink-2">
+              {credits.balance === 0
+                ? t("credits.none", { size: INTERVIEW_PACK_CREDITS })
+                : pro
+                  ? t("credits.pro")
+                  : t("credits.free", { minutes: FULL_MINUTES })}
             </p>
-          )}
-        </div>
+            {credits.pending > 0 && (
+              <p className="mt-2 text-sm text-ink-2" role="status">
+                {t("credits.pending", { count: credits.pending })}
+              </p>
+            )}
+          </div>
+        )}
         <div>
           <dt className="eyebrow">{t("analyses.label")}</dt>
           <dd className="figure mt-3 text-5xl text-ink">

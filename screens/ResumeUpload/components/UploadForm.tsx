@@ -49,7 +49,8 @@ export function quotaLine(quota: AnalysisQuotaView, { t, errorCopy, resetDate }:
     return errorCopy("ANALYSIS_QUOTA_EXCEEDED", { plan: quota.plan, resetsAt: quota.resetsAt });
   }
   if (!quota.announce) return null;
-  return t("form.quota", { count: quota.left, limit: quota.limit, date: resetDate(quota.resetsAt) });
+  // The noun follows the allowance ("1 of 3 analyses left"), so the plural is the limit's, not what is left.
+  return t("form.quota", { count: quota.limit, left: quota.left, date: resetDate(quota.resetsAt) });
 }
 
 export default function UploadForm({ quota }: UploadFormProps) {

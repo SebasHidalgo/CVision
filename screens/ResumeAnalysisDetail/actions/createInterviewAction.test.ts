@@ -42,6 +42,7 @@ const attempt = (id: string, status: ResumeAnalysis["interviews"][number]["statu
   id,
   status,
   attemptNumber,
+  failureReason: null,
   totalScore: status === "COMPLETED" ? 60 : null,
   createdAt: "2026-10-01T00:00:00.000Z",
 });

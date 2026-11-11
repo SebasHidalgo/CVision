@@ -21,7 +21,7 @@
     },
     "plans": {
       "heading": "3. Planes, precios y facturación",
-      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye análisis de CV ilimitados (sujetos a un uso razonable), {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica para quienes tienen Pro; los créditos del paquete no vencen y se pueden usar mientras Pro esté activo.",
+      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos para una cuenta que nunca tuvo Pro ni una entrevista completa, y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye análisis de CV ilimitados (sujetos a un uso razonable), {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica de hasta {{fullMinutes}} minutos cada una y se pueden comprar mientras Pro esté activo. Los créditos del paquete no vencen y se pueden usar en cualquier plan, Gratis o Pro, incluso después de que termine Pro.",
       "p2": "Las compras se hacen a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} se encarga del pago, la factura, los impuestos que correspondan y los reembolsos, y es quien aparece en tu estado de cuenta. Los precios se muestran antes de pagar. Una suscripción se renueva en cada período hasta que la canceles; puedes cancelarla cuando quieras desde la página de tu cuenta, y Pro sigue activo hasta el final del período que pagaste.",
       "p3": "[PLACEHOLDER: cambios de precio y cómo se avisan.]"
     },
@@ -108,7 +108,7 @@
     },
     "problems": {
       "heading": "4. Si algo salió mal",
-      "p1": "Si una entrevista pagada falló por nuestra parte (el entrevistador nunca se conectó, o la llamada se cortó sin conexiones restantes), la entrevista vuelve a tu plan automáticamente; no tienes que pedirlo. Si algo más salió mal con un cobro, escríbenos y lo resolveremos con el comerciante registrado."
+      "p1": "Si una entrevista pagada falló antes de que respondieras algo (el entrevistador nunca se conectó, la llamada se cortó o no le llegó nada de lo que dijiste), la entrevista o el crédito que usó vuelve automáticamente; no tienes que pedirlo. Si algo más salió mal con un cobro, escríbenos y lo resolveremos con el comerciante registrado."
     },
     "contact": {
       "heading": "5. Contacto",
