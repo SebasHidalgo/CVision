@@ -8,8 +8,8 @@ import {
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview } from "@/lib/database/usage";
-import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
+import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/voice/elevenlabs/agentConfig";
+import { assertVoiceCapacity } from "@/lib/voice/health";
 import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
 import { POST } from "./route";
@@ -26,7 +26,7 @@ vi.mock("@/lib/database/usage", () => ({
   resolveInterviewEntitlement: vi.fn(async () => ({ maxDurationSeconds: 300 })),
 }));
 vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
-vi.mock("@/lib/elevenlabs/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
+vi.mock("@/lib/voice/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESUME_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";

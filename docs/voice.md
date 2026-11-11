@@ -7,9 +7,23 @@ demand in the room), and the transcript comes back to the server by
 webhook (`POST /api/webhooks/elevenlabs`), which is what triggers the
 feedback. The local tunnel recipe is in the README; this is the reference.
 
+## The provider interface
+
+Like billing: the app talks to `lib/voice/`, and only the adapter knows ElevenLabs.
+
+| Where | What |
+|---|---|
+| `lib/voice/index.ts` | The runtime facade (server-only): `startVoiceSession({ tier, variables })` (token, conversation id, the variables as issued), `verifyAndParseWebhook(rawBody, headers)` (a `call-ended` record, `ignored` or `unreadable`), `fetchConversation(id)` (reconcile), `deleteConversation(id)`, `readVoiceBalance()`. |
+| `lib/voice/admin.ts` | The operator facade, for scripts: `syncAgents`, `runVoiceDoctor`, `readConversationCost`, `listConversationIds`. |
+| `lib/voice/postCall.ts`, `reconcile.ts`, `balance.ts`, `health.ts` | Provider-neutral logic over a `CallRecord` (conversation id, turns, start, duration, failed, the variables the browser passed). |
+| `lib/voice/elevenlabs/` | The adapter: `client.ts` (the SDK calls), `wire.ts` (the webhook and API shapes and their translation into a `CallRecord`), `agentConfig.ts`, `sync.ts`, `doctor.ts`, `cost.ts`, `worklets.ts`, `webhookSignature.ts` (test helper). The only importer of `@elevenlabs/elevenlabs-js`. |
+| `screens/Interview/components/elevenlabs/VoiceCall.tsx` | The browser adapter: `useVoiceCall` (start, end, who speaks, how it ended). The only importer of `@elevenlabs/react`. |
+
+`lib/voice/providerIsolation.test.ts` enforces it: the two SDK imports, the adapter reached only through the facades, and the provider field and header names kept inside. Two things keep the provider name on purpose: the stored turn shape (`role`, `message`, `time_in_call_secs`, what every saved transcript already has) and `Interview.transcriptSource` (`elevenlabs` / `elevenlabs-api`). A second provider maps its turns into that shape.
+
 ## The agents are code
 
-`lib/elevenlabs/agentConfig.ts` is the source of truth for both agents:
+`lib/voice/elevenlabs/agentConfig.ts` is the source of truth for both agents:
 the full twelve-minute interviewer and the five-minute trial a Free account
 gets once. They differ only in name, hard duration, daily call cap and
 placeholders (a test pins that list). `npm run agent:sync` pushes both

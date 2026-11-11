@@ -4,7 +4,8 @@ import { createAccount, deleteAccount, signIn, type TestAccount } from "./suppor
 import { accountText, mainText, openRoom, runAnalysis, warmRoutes } from "./support/app";
 import { db } from "./support/db";
 import { copyFor } from "./support/copy";
-import { assertSandbox, required } from "./support/env";
+import { assertSandbox } from "./support/env";
+import { readConversationCost } from "@/lib/voice/admin";
 
 // The voice spec runs in English only: the interview's spoken language is not part of the interface switch.
 const t = copyFor("en");
@@ -119,14 +120,9 @@ test("one start on the trial: refused before any charge, failed by the platform 
   }
 
   if (row?.conversationId) {
-    const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${row.conversationId}`, {
-      headers: { "xi-api-key": required("ELEVENLABS_API_KEY") },
-      signal: AbortSignal.timeout(20_000),
-    });
-    const record = (await response.json().catch(() => null)) as { status?: string; metadata?: { call_duration_secs?: number; cost?: number; cost_fiat?: number; error?: { reason?: string } } } | null;
-    const cost = record?.metadata?.cost;
+    const cost = await readConversationCost(row.conversationId).catch(() => null);
     console.log(
-      `[e2e voice] platform: status=${record?.status} duration=${record?.metadata?.call_duration_secs ?? "?"} s cost=${typeof cost === "number" ? `${cost} credits (~$${record?.metadata?.cost_fiat?.toFixed(4) ?? "?"})` : "none recorded (a call that never ran is not charged)"}${record?.metadata?.error?.reason ? ` error="${record.metadata.error.reason.slice(0, 120)}"` : ""}`,
+      `[e2e voice] platform: status=${cost?.status ?? "?"} duration=${cost?.durationSeconds ?? "?"} s cost=${typeof cost?.credits === "number" ? `${cost.credits} credits (~$${cost.dollars?.toFixed(4) ?? "?"})` : "none recorded (a call that never ran is not charged)"}${cost?.failure ? ` error="${cost.failure}"` : ""}`,
     );
   }
 

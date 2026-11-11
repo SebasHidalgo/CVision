@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InterviewStatus } from "@prisma/client";
 import { FEEDBACK_FAILURE_REASONS } from "@/lib/ai/interviewFeedback";
-import { CALL_FAILED, SESSION_LOST } from "@/lib/elevenlabs/postCall";
+import { CALL_FAILED, SESSION_LOST } from "@/lib/voice/postCall";
 import { ABANDONED } from "@/lib/database/interviewExpiry";
 import { attemptRan, FAILED_AFTER_ANSWERS } from "./interviewStatus";
 

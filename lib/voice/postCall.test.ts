@@ -2,20 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   CALL_FAILED,
   decidePostCallOutcome,
-  fromConversationApi,
   hasCandidateTurns,
   initiationDataMatches,
-  interviewIdFromPayload,
+  interviewIdFromRecord,
   isStranded,
   NO_CANDIDATE_TURNS,
   platformFailure,
-  postCallEventSchema,
-  postCallTranscriptionSchema,
   RECONCILE_GRACE_SECONDS,
   type PostCallRow,
-  type PostCallTranscription,
   type StrandedCandidate,
 } from "./postCall";
+import { fromConversationApi, postCallEventSchema, postCallTranscriptionSchema, toCallRecord, type PostCallTranscription } from "./elevenlabs/wire";
 
 const ISSUED = { interview_id: "int_1", candidate_name: "Ana", role: "Frontend Engineer" };
 const START = 1_760_000_000;
@@ -43,7 +40,7 @@ const row = (overrides: Partial<PostCallRow> = {}): PostCallRow => ({
 });
 
 const decide = (r: PostCallRow, p: PostCallTranscription, maxStarts = 3) =>
-  decidePostCallOutcome({ row: r, data: p, eventTimestamp: START + 500, maxStarts });
+  decidePostCallOutcome({ row: r, data: toCallRecord(p), eventTimestamp: START + 500, maxStarts });
 
 describe("post-call payload schemas", () => {
   it("parses the documented envelope and keeps unknown turn fields verbatim", () => {
@@ -69,10 +66,10 @@ describe("post-call payload schemas", () => {
   });
 
   it("reads the interview_id dynamic variable, when there is one", () => {
-    expect(interviewIdFromPayload(payload())).toBe("int_1");
-    expect(interviewIdFromPayload(payload({ conversation_initiation_client_data: null }))).toBeNull();
+    expect(interviewIdFromRecord(toCallRecord(payload()))).toBe("int_1");
+    expect(interviewIdFromRecord(toCallRecord(payload({ conversation_initiation_client_data: null })))).toBeNull();
     expect(
-      interviewIdFromPayload(payload({ conversation_initiation_client_data: { dynamic_variables: { interview_id: 7 } } })),
+      interviewIdFromRecord(toCallRecord(payload({ conversation_initiation_client_data: { dynamic_variables: { interview_id: 7 } } }))),
     ).toBeNull();
   });
 });
@@ -149,9 +146,9 @@ describe("decidePostCallOutcome", () => {
     expect(decide(row(), payload({ status: "failed" }))).toMatchObject({ kind: "store", status: "FEEDBACK_PENDING", failureReason: null, startRefunded: false });
     // A silent call the platform did run keeps its start: that was the candidate's microphone.
     expect(decide(row({ startCount: 1 }), payload({ transcript: [{ role: "agent", message: "Hi" }] }))).toMatchObject({ status: "IN_PROGRESS", failureReason: NO_CANDIDATE_TURNS, startRefunded: false });
-    expect(platformFailure(failed)).toBe("code=3000 [quota_exceeded] You've run out of credits.");
-    expect(platformFailure(payload())).toBeNull();
-    expect(platformFailure(payload({ status: "failed", metadata: null }))).toBe("no reason given");
+    expect(platformFailure(toCallRecord(failed))).toBe("code=3000 [quota_exceeded] You've run out of credits.");
+    expect(platformFailure(toCallRecord(payload()))).toBeNull();
+    expect(platformFailure(toCallRecord(payload({ status: "failed", metadata: null })))).toBe("no reason given");
   });
 
   it("flags a session whose variables differ from what the server issued, and still stores it", () => {

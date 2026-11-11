@@ -3,7 +3,7 @@
  * prints each check as PASS, FAIL or SKIP with the exact fix: the key and
  * every permission the app uses (the one a refusal names is printed), the
  * balance against the floor the session endpoint enforces, both agents
- * against lib/elevenlabs/agentConfig.ts, and the post-call webhook each
+ * against lib/voice/elevenlabs/agentConfig.ts, and the post-call webhook each
  * agent points at: enabled, and at the URL given.
  *
  *   npm run voice:doctor
@@ -14,7 +14,7 @@
  * the webhook secret.
  */
 import { parseArgs } from "node:util";
-import { runVoiceDoctor } from "@/lib/elevenlabs/doctor";
+import { runVoiceDoctor } from "@/lib/voice/admin";
 
 const { values: args } = parseArgs({
   options: {

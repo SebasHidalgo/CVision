@@ -7,10 +7,10 @@ import {
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { refundUsage, reserveInterview, resolveInterviewEntitlement, type InterviewReservation } from "@/lib/database/usage";
-import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { issueConversationToken } from "@/lib/elevenlabs/client";
-import { assertVoiceCapacity } from "@/lib/elevenlabs/health";
-import { STARTABLE_STATUSES } from "@/lib/elevenlabs/postCall";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { startVoiceSession } from "@/lib/voice";
+import { assertVoiceCapacity } from "@/lib/voice/health";
+import { STARTABLE_STATUSES } from "@/lib/voice/postCall";
 import {
   InterviewContextMissingError,
   InterviewExpiredError,
@@ -118,12 +118,12 @@ export async function POST(
       gapsToCover,
     });
 
-    const session = await issueConversationToken(tier);
+    const session = await startVoiceSession({ tier, variables: dynamicVariables });
 
     const issuedAt = new Date();
     const reserved = await reserveInterviewSession({
       interviewId: interview.id,
-      issuedContext: dynamicVariables,
+      issuedContext: session.variables,
       conversationId: session.conversationId,
       startedAt: interview.startedAt ?? issuedAt,
       issuedAt,
@@ -142,7 +142,7 @@ export async function POST(
       connectionType: "webrtc",
       conversationToken: session.token,
       conversationId: session.conversationId,
-      dynamicVariables,
+      dynamicVariables: session.variables,
       language,
       expiresAt: session.expiresAt.toISOString(),
       maxDurationSeconds,

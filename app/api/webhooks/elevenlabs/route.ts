@@ -1,12 +1,7 @@
 import { after } from "next/server";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { storeConversationTranscript } from "@/lib/database/interviewTranscript";
-import { verifyWebhookEvent, WebhookRejectedError } from "@/lib/elevenlabs/client";
-import {
-  POST_CALL_TRANSCRIPTION,
-  postCallEventSchema,
-  postCallTranscriptionSchema,
-} from "@/lib/elevenlabs/postCall";
+import { verifyAndParseWebhook, WebhookRejectedError, type VoiceWebhookEvent } from "@/lib/voice";
 
 // The response goes out after the store; feedback generation runs in
 // after(), which the platform keeps alive up to this limit: a 45 s model
@@ -22,17 +17,16 @@ const LOG = "[CVision][webhook] elevenlabs:";
  *
  * Only a signature failure or a failed write answers with a non-200. A
  * payload that cannot be matched or read is acknowledged and logged with its
- * conversation id: ElevenLabs retries non-200s and disables the webhook after
+ * conversation id: the provider retries non-200s and disables the webhook after
  * repeated failures, and a transcript can be fetched by id from its API later.
  * Nothing in the payload is logged beyond ids, counts and outcomes.
  */
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  const signature = request.headers.get("elevenlabs-signature");
 
-  let event: unknown;
+  let event: VoiceWebhookEvent;
   try {
-    event = await verifyWebhookEvent(rawBody, signature);
+    event = await verifyAndParseWebhook(rawBody, request.headers);
   } catch (error) {
     if (error instanceof WebhookRejectedError) {
       console.warn(`${LOG} rejected a delivery with a bad or missing signature`);
@@ -43,37 +37,24 @@ export async function POST(request: Request) {
     return new Response(null, { status: 500 });
   }
 
-  const envelope = postCallEventSchema.safeParse(event);
-  if (!envelope.success) {
-    console.warn(`${LOG} unrecognized event shape, acknowledged`);
+  if (event.kind === "ignored") {
+    console.info(`${LOG} ignored event type=${event.type}`);
     return Response.json({ ok: true });
   }
-  if (envelope.data.type !== POST_CALL_TRANSCRIPTION) {
-    console.info(`${LOG} ignored event type=${envelope.data.type}`);
-    return Response.json({ ok: true });
-  }
-
-  const transcription = postCallTranscriptionSchema.safeParse(envelope.data.data);
-  if (!transcription.success) {
+  if (event.kind === "unreadable") {
     // Paths only: the values carry the transcript.
-    const paths = transcription.error.issues.map((issue) => issue.path.join(".") || "(root)");
-    console.error(
-      `${LOG} transcription payload outside the expected shape at ${paths.join(", ")}; acknowledged without storing`,
-    );
+    console.error(`${LOG} payload outside the expected shape at ${event.paths.join(", ")}; acknowledged without storing`);
     return Response.json({ ok: true });
   }
 
-  const data = transcription.data;
+  const record = event.record;
   try {
-    const result = await storeConversationTranscript({
-      data,
-      eventTimestamp: envelope.data.event_timestamp,
-    });
+    const result = await storeConversationTranscript({ data: record, eventTimestamp: event.deliveredAt });
 
     switch (result.outcome) {
       case "stored":
         console.info(
-          `${LOG} stored conversation=${data.conversation_id} interview=${result.interviewId} status=${result.status} turns=${data.transcript.length}`,
+          `${LOG} stored conversation=${record.conversationId} interview=${result.interviewId} status=${result.status} turns=${record.turns.length}`,
         );
         if (result.status === "FEEDBACK_PENDING") {
           // Respond first, generate after. No retry here: the feedback page
@@ -91,20 +72,16 @@ export async function POST(request: Request) {
         }
         break;
       case "duplicate":
-        console.info(
-          `${LOG} duplicate delivery for conversation=${data.conversation_id} interview=${result.interviewId}, ignored`,
-        );
+        console.info(`${LOG} duplicate delivery for conversation=${record.conversationId} interview=${result.interviewId}, ignored`);
         break;
       case "unmatched":
-        console.warn(
-          `${LOG} no interview for conversation=${data.conversation_id}, acknowledged without storing`,
-        );
+        console.warn(`${LOG} no interview for conversation=${record.conversationId}, acknowledged without storing`);
         break;
     }
     return Response.json({ ok: true });
   } catch (error) {
     // A failed write is worth a retry from the platform.
-    console.error(`${LOG} failed to store conversation=${data.conversation_id}:`, error);
+    console.error(`${LOG} failed to store conversation=${record.conversationId}:`, error);
     return new Response(null, { status: 500 });
   }
 }

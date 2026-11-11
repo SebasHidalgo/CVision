@@ -7,15 +7,15 @@ import {
   storeConversationTranscript,
   type StoreTranscriptResult,
 } from "@/lib/database/interviewTranscript";
-import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { fetchConversation } from "@/lib/elevenlabs/client";
+import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { fetchConversation } from "@/lib/voice";
 import {
   isStranded,
   platformFailure,
   RECONCILE_GRACE_SECONDS,
   RECONCILE_MIN_INTERVAL_MS,
   SESSION_LOST,
-} from "@/lib/elevenlabs/postCall";
+} from "@/lib/voice/postCall";
 
 /**
  * The fallback for a webhook that never arrived. The webhook stays primary;
@@ -96,13 +96,13 @@ export async function reconcileStrandedInterview(
   }
 
   const result = await storeConversationTranscript({
-    data: fetched.data,
+    data: fetched.record,
     eventTimestamp: null,
     source: "elevenlabs-api",
   });
-  const failure = platformFailure(fetched.data);
+  const failure = platformFailure(fetched.record);
   console.info(
-    `${LOG} interview=${interviewId} fetched conversation=${fetched.data.conversation_id} turns=${fetched.data.transcript.length}: ${result.outcome}${result.outcome === "stored" ? ` ${result.status}` : ""}${failure ? ` (platform failed: ${failure})` : ""}`,
+    `${LOG} interview=${interviewId} fetched conversation=${fetched.record.conversationId} turns=${fetched.record.turns.length}: ${result.outcome}${result.outcome === "stored" ? ` ${result.status}` : ""}${failure ? ` (platform failed: ${failure})` : ""}`,
   );
   return { kind: "stored", result };
 }

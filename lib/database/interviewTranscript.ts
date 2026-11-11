@@ -2,21 +2,21 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import {
   CALL_FAILED,
   decidePostCallOutcome,
-  interviewIdFromPayload,
+  interviewIdFromRecord,
   NO_CANDIDATE_TURNS,
   STARTABLE_STATUSES,
-  type PostCallTranscription,
-} from "@/lib/elevenlabs/postCall";
+  type CallRecord,
+} from "@/lib/voice/postCall";
 import { handleError } from "@/lib/error/handleError";
 import { refundUsageIn } from "./usage";
 
 /**
  * Data access for the post-call webhook, and nothing else. There is no
- * session: the caller is ElevenLabs, authenticated by the signature the route
+ * session: the caller is the voice provider, authenticated by the signature the route
  * verified before calling this. Rows are found by the conversation id the
  * server itself issued, never by anything that names a user, and the only
  * write is the one the payload describes, plus the refund of the usage unit
@@ -55,7 +55,7 @@ export async function storeConversationTranscript({
   eventTimestamp,
   source = "elevenlabs",
 }: {
-  data: PostCallTranscription;
+  data: CallRecord;
   eventTimestamp: number | null | undefined;
   /** "elevenlabs" for the signed webhook, "elevenlabs-api" for the reconcile fetch. */
   source?: TranscriptSource;
@@ -84,8 +84,8 @@ export async function storeConversationTranscript({
       where: { id: row.id, status: { in: [...STARTABLE_STATUSES] }, ...(outcome.startRefunded ? { startCount: { gt: 0 } } : {}) },
       data: {
         status: outcome.status,
-        conversationId: data.conversation_id,
-        transcript: data.transcript as Prisma.InputJsonValue,
+        conversationId: data.conversationId,
+        transcript: data.turns as Prisma.InputJsonValue,
         transcriptSource: source,
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
@@ -107,7 +107,7 @@ export async function storeConversationTranscript({
     // delivery from an earlier call must not release a live call's unit).
     // With no start left the interview is FAILED and the reservation stays
     // on the row, refunded, for support to read.
-    const latestSession = data.conversation_id === row.conversationId;
+    const latestSession = data.conversationId === row.conversationId;
     const reason = outcome.failureReason;
     if ((reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED) && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
       await releaseReservation(row.id, row.usageEventId, reason, { retryable: outcome.status !== "FAILED" });
@@ -118,14 +118,14 @@ export async function storeConversationTranscript({
   }
 }
 
-async function findRow(data: PostCallTranscription) {
+async function findRow(data: CallRecord) {
   const byConversation = await prisma.interview.findFirst({
-    where: { issuedConversationIds: { has: data.conversation_id } },
+    where: { issuedConversationIds: { has: data.conversationId } },
     select: postCallSelect,
   });
   if (byConversation) return byConversation;
 
-  const interviewId = interviewIdFromPayload(data);
+  const interviewId = interviewIdFromRecord(data);
   if (!interviewId) return null;
 
   return prisma.interview.findFirst({

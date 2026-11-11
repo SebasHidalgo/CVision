@@ -5,7 +5,7 @@ import {
   NO_CANDIDATE_TURNS,
   SESSION_LOST,
   type StrandedCandidate,
-} from "@/lib/elevenlabs/postCall";
+} from "@/lib/voice/postCall";
 import { interviewPhase } from "@/lib/interviewStatus";
 
 export type FeedbackView =

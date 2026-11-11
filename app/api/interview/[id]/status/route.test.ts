@@ -4,9 +4,9 @@ import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
-import { RECONCILE_GRACE_SECONDS } from "@/lib/elevenlabs/postCall";
-import { reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/voice/elevenlabs/agentConfig";
+import { RECONCILE_GRACE_SECONDS } from "@/lib/voice/postCall";
+import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { UnauthorizedError } from "@/lib/error/errors";
 import { GET } from "./route";
 
@@ -14,8 +14,8 @@ vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ fetchInterviewStatus: vi.fn() }));
 vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
-vi.mock("@/lib/elevenlabs/reconcile", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/elevenlabs/reconcile")>();
+vi.mock("@/lib/voice/reconcile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/voice/reconcile")>();
   return { ...actual, reconcileStrandedInterview: vi.fn() };
 });
 vi.mock("@/lib/ai/interviewFeedback", () => ({ generateInterviewFeedback: vi.fn() }));

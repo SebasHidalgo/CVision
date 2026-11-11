@@ -8,7 +8,7 @@ import {
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
 /**
- * The interview agents, as code. `scripts/elevenlabs/sync-agent.ts` pushes
+ * The interview agents, as code. `scripts/voice/sync-agent.ts` pushes
  * these definitions to ElevenLabs (create or update), so the dashboard is a
  * mirror and a reviewer diffs this file, not screenshots. Every value that
  * bounds cost or access is explicit here, including the ones that match the

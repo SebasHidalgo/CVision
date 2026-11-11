@@ -33,7 +33,7 @@ import {
   releaseInterviewFeedback,
   type ClaimedInterview,
 } from "@/lib/database/interviewFeedbackJob";
-import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
 import { AiBillingError, AppError, type ErrorCode } from "@/lib/error/errors";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS } from "@/lib/plans";

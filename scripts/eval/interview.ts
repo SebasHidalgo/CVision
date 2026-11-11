@@ -38,7 +38,7 @@ import {
   type InterviewFeedbackReport,
 } from "@/lib/ai/schemas";
 import { countGrounding, type GroundingKind } from "@/lib/ai/analysisChecks";
-import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 import {

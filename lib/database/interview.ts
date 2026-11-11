@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
-import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import { expireAbandonedInterviews } from "./interviewExpiry";

@@ -1,5 +1,5 @@
 import { FEEDBACK_FAILURE_REASONS } from "@/lib/ai/interviewFeedback";
-import { CALL_FAILED } from "@/lib/elevenlabs/postCall";
+import { CALL_FAILED } from "@/lib/voice/postCall";
 
 /** Which explanation a failed interview gets: its title and body live under `failure.<kind>` (feedback namespace). */
 export type FailureKind =

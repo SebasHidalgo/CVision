@@ -3,14 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
 import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
-import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
 import type { EntitlementSource } from "@/lib/interviewEntitlement";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
@@ -21,6 +19,7 @@ import {
   remainingSeconds,
 } from "../utils/countdown";
 import { reportInterviewEnded, requestInterviewSession } from "../utils/session";
+import { useVoiceCall, VoiceCallProvider } from "./elevenlabs/VoiceCall";
 import Transcript, { type TranscriptLine } from "./Transcript";
 
 export type InterviewAgentProps = {
@@ -55,9 +54,9 @@ export type InterviewAgentProps = {
  */
 export default function InterviewAgent(props: InterviewAgentProps) {
   return (
-    <ConversationProvider>
+    <VoiceCallProvider>
       <InterviewRoom {...props} />
-    </ConversationProvider>
+    </VoiceCallProvider>
   );
 }
 
@@ -93,7 +92,7 @@ async function requestMicrophone(): Promise<MicProblem | null> {
   }
 }
 
-/** The SDK always reaches onDisconnect after endSession; this is the belt for a hook that never fires. */
+/** The call always reports its end after endCall; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
 
 function InterviewRoom({
@@ -146,29 +145,22 @@ function InterviewRoom({
     setPhase({ kind: "idle" });
   }, []);
 
-  const { startSession, endSession, mode } = useConversation({
+  const { start: startCall, end: endCall, mode } = useVoiceCall({
     onConnect: () => {
       setConnectedAt(Date.now());
       setNow(Date.now());
       setNotice(null);
       setPhase({ kind: "live" });
     },
-    onDisconnect: (details) => {
+    onEnd: (end) => {
       const current = phaseRef.current.kind;
       if (current === "ended") return;
 
       // Whatever ended it, the server learns the call is over now rather
       // than when the transcript lands. Not awaited: nothing here depends on it.
-      void reportInterviewEnded(interviewId, details.reason);
+      void reportInterviewEnded(interviewId, end.reason);
 
-      // The platform's hard limit arrives as an error event; it is the agent
-      // ending the call, not a failure.
-      const endedByCall =
-        details.reason === "user" ||
-        details.reason === "agent" ||
-        (details.reason === "error" && details.context.type === "max_duration_exceeded");
-
-      if (current === "ending" || endedByCall) {
+      if (current === "ending" || end.finished) {
         goToFeedback();
         return;
       }
@@ -183,20 +175,18 @@ function InterviewRoom({
       console.error("[CVision][room] voice session error:", message);
       if (phaseRef.current.kind === "starting") failStart(errorCopy("VOICE_UNAVAILABLE"));
     },
-    onMessage: ({ role: speaker, message }) => {
-      if (!message.trim()) return;
-      setLines((prev) => [...prev, { role: speaker, text: message }]);
+    onLine: ({ role: speaker, text }) => {
+      if (!text.trim()) return;
+      setLines((prev) => [...prev, { role: speaker, text }]);
     },
     // An interrupted agent line is reported as what was planned, then
     // corrected to what was actually said.
-    onAgentResponseCorrection: ({ original_agent_response, corrected_agent_response }) => {
+    onLineCorrected: ({ original, corrected }) => {
       setLines((prev) => {
-        const index = prev.findLastIndex(
-          (line) => line.role === "agent" && line.text === original_agent_response,
-        );
+        const index = prev.findLastIndex((line) => line.role === "agent" && line.text === original);
         if (index < 0) return prev;
         const next = prev.slice();
-        next[index] = { role: "agent", text: corrected_agent_response };
+        next[index] = { role: "agent", text: corrected };
         return next;
       });
     },
@@ -226,20 +216,12 @@ function InterviewRoom({
     setStartsUsed((used) => used + 1);
     setSession(result.data);
     setPhase({ kind: "starting", step: "connecting" });
-    startSession({
-      connectionType: "webrtc",
-      conversationToken: result.data.conversationToken,
-      dynamicVariables: result.data.dynamicVariables,
-      overrides: { agent: { language: result.data.language } },
-      // The SDK's audio worklets from this origin, not from blob: URLs the
-      // Content-Security-Policy refuses.
-      workletPaths: WORKLET_PATHS,
-    });
+    startCall({ token: result.data.conversationToken, variables: result.data.dynamicVariables, language: result.data.language });
   };
 
   const handleEnd = () => {
     setPhase({ kind: "ending" });
-    endSession();
+    endCall();
     endFallback.current = window.setTimeout(() => {
       if (phaseRef.current.kind === "ending") goToFeedback();
     }, END_FALLBACK_MS);

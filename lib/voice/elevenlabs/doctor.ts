@@ -1,5 +1,5 @@
 import { ElevenLabsClient, ElevenLabsError } from "@elevenlabs/elevenlabs-js";
-import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor, type VoiceBalance } from "./balance";
+import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor, type VoiceBalance } from "@/lib/voice/balance";
 import { buildInterviewAgentDefinition, INTERVIEW_AGENT_ID_ENV } from "./agentConfig";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
@@ -143,7 +143,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
             : fail(
                 name,
                 `${capacity.available} credits reachable, floor ${floor}: the session endpoint refuses every ${tier === "FULL" ? "full interview" : "trial"} start as VOICE_UNAVAILABLE`,
-                "Add credits or raise the plan at ElevenLabs > Subscription. The floor is the agent's hard duration at the measured rate with a margin (lib/elevenlabs/balance.ts); ELEVENLABS_BALANCE_FLOOR_CREDITS overrides it for both.",
+                "Add credits or raise the plan at ElevenLabs > Subscription. The floor is the agent's hard duration at the measured rate with a margin (lib/voice/balance.ts); ELEVENLABS_BALANCE_FLOOR_CREDITS overrides it for both.",
               ),
       );
     }

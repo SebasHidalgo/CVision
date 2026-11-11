@@ -2,9 +2,9 @@ import type { InterviewStatus } from "@prisma/client";
 import { z } from "zod";
 
 /**
- * The post-call transcription event, and what to do with it. Pure: the route
- * verifies and parses, the data layer finds the row and writes, and the
- * decision between them lives here where a test can reach it.
+ * A finished call, and what to do with it. Pure: the adapter verifies and
+ * parses, the data layer finds the row and writes, and the decision between
+ * them lives here where a test can reach it.
  */
 
 /** One turn, kept loose on purpose: the row stores the array verbatim. */
@@ -16,88 +16,23 @@ export const transcriptTurnSchema = z.looseObject({
 
 export type TranscriptTurn = z.infer<typeof transcriptTurnSchema>;
 
-/** Any event: only the type is needed to route it. */
-export const postCallEventSchema = z.looseObject({
-  type: z.string(),
-  event_timestamp: z.number().nullish(),
-  data: z.unknown(),
-});
-
-export const POST_CALL_TRANSCRIPTION = "post_call_transcription";
-
-/** The `data` of a `post_call_transcription` event, the parts that matter. */
-export const postCallTranscriptionSchema = z.looseObject({
-  agent_id: z.string().nullish(),
-  conversation_id: z.string().min(1),
-  status: z.string().nullish(),
-  transcript: z.array(transcriptTurnSchema),
-  metadata: z
-    .looseObject({
-      start_time_unix_secs: z.number().nullish(),
-      call_duration_secs: z.number().nullish(),
-      termination_reason: z.string().nullish(),
-      /** Set when the platform could not run the call; `status` is then "failed". */
-      error: z.looseObject({ code: z.number().nullish(), reason: z.string().nullish() }).nullish(),
-    })
-    .nullish(),
-  conversation_initiation_client_data: z
-    .looseObject({
-      dynamic_variables: z.record(z.string(), z.unknown()).nullish(),
-    })
-    .nullish(),
-});
-
-export type PostCallTranscription = z.infer<typeof postCallTranscriptionSchema>;
-
 /**
- * What `GET /v1/convai/conversations/{id}` answers, structurally: the SDK's
- * camelCase model, reduced to the fields the webhook also carries.
+ * One finished call as the app reads it, whoever the provider is: the adapter
+ * builds it from a webhook delivery or from the provider API, the same way.
  */
-export type ConversationApiRecord = {
-  agentId: string;
+export type CallRecord = {
   conversationId: string;
-  status: string;
-  transcript: { role: string; message?: string | null; timeInCallSecs: number }[];
-  metadata: {
-    startTimeUnixSecs: number;
-    callDurationSecs: number;
-    terminationReason?: string | null;
-    error?: { code: number; reason?: string | null } | null;
-  };
-  conversationInitiationClientData?: { dynamicVariables?: Record<string, unknown> | null } | null;
+  agentId: string | null;
+  /** The platform could not run the call (the agent never joined). */
+  failed: boolean;
+  /** The platform account of that failure, for the server log. */
+  failure: { code: number | null; reason: string | null } | null;
+  turns: TranscriptTurn[];
+  startTimeSeconds: number | null;
+  durationSeconds: number | null;
+  /** The variables the browser handed the agent, when the record carries them. */
+  variables: Record<string, unknown> | null;
 };
-
-/** The platform's conversation statuses that mean the call is over. */
-export const CONVERSATION_ENDED_STATUSES: ReadonlySet<string> = new Set(["done", "failed"]);
-
-/**
- * The API record as the webhook would have delivered it, so one storage path
- * serves both. Field for field: role, message and time_in_call_secs per
- * turn; start, duration and termination reason in the metadata; the dynamic
- * variables the client sent. What the webhook has that the API lacks is only
- * the envelope's `event_timestamp`, which the store falls back from.
- */
-export function fromConversationApi(record: ConversationApiRecord): PostCallTranscription {
-  return {
-    agent_id: record.agentId,
-    conversation_id: record.conversationId,
-    status: record.status,
-    transcript: record.transcript.map((turn) => ({
-      role: turn.role,
-      message: turn.message ?? null,
-      time_in_call_secs: turn.timeInCallSecs,
-    })),
-    metadata: {
-      start_time_unix_secs: record.metadata.startTimeUnixSecs,
-      call_duration_secs: record.metadata.callDurationSecs,
-      termination_reason: record.metadata.terminationReason ?? null,
-      ...(record.metadata.error ? { error: { code: record.metadata.error.code, reason: record.metadata.error.reason ?? null } } : {}),
-    },
-    conversation_initiation_client_data: record.conversationInitiationClientData
-      ? { dynamic_variables: record.conversationInitiationClientData.dynamicVariables ?? null }
-      : null,
-  };
-}
 
 /** `failureReason` when the candidate never spoke. */
 export const NO_CANDIDATE_TURNS = "NO_CANDIDATE_TURNS";
@@ -118,9 +53,9 @@ export const CALL_FAILED = "CALL_FAILED";
  * the error code and reason it recorded (a quota, a misconfiguration, an
  * outage). Null unless the status is "failed".
  */
-export function platformFailure(data: PostCallTranscription): string | null {
-  if (data.status !== "failed") return null;
-  const error = data.metadata?.error;
+export function platformFailure(record: CallRecord): string | null {
+  if (!record.failed) return null;
+  const error = record.failure;
   if (!error) return "no reason given";
   const reason = (error.reason ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
   return `code=${error.code ?? "-"}${reason ? ` ${reason}` : ""}`;
@@ -198,8 +133,8 @@ export function hasCandidateTurns(turns: TranscriptTurn[]): boolean {
 }
 
 /** The `interview_id` the browser passed, if the payload carries initiation data. */
-export function interviewIdFromPayload(data: PostCallTranscription): string | null {
-  const value = data.conversation_initiation_client_data?.dynamic_variables?.[INTERVIEW_ID_VARIABLE];
+export function interviewIdFromRecord(record: CallRecord): string | null {
+  const value = record.variables?.[INTERVIEW_ID_VARIABLE];
   return typeof value === "string" && value !== "" ? value : null;
 }
 
@@ -274,23 +209,23 @@ export function decidePostCallOutcome({
   maxStarts,
 }: {
   row: PostCallRow;
-  data: PostCallTranscription;
+  data: CallRecord;
   eventTimestamp: number | null | undefined;
   maxStarts: number;
 }): PostCallOutcome {
-  const sameConversation = row.conversationId === data.conversation_id;
+  const sameConversation = row.conversationId === data.conversationId;
   if (sameConversation && row.transcript !== null) return { kind: "duplicate" };
   if (!STARTABLE_STATUSES.has(row.status)) return { kind: "duplicate" };
 
-  const spoke = hasCandidateTurns(data.transcript);
+  const spoke = hasCandidateTurns(data.turns);
   const attemptsLeft = row.startCount < maxStarts;
 
   const issued = isStringRecord(row.issuedContext) ? row.issuedContext : null;
-  const received = data.conversation_initiation_client_data?.dynamic_variables;
+  const received = data.variables;
   const matches = issued ? initiationDataMatches(issued, received) : null;
 
-  const startSecs = data.metadata?.start_time_unix_secs ?? null;
-  const durationSecs = data.metadata?.call_duration_secs ?? null;
+  const startSecs = data.startTimeSeconds;
+  const durationSecs = data.durationSeconds;
   const startedAt = startSecs !== null ? new Date(startSecs * 1000) : null;
   const endedAt =
     startedAt && durationSecs !== null
@@ -299,7 +234,7 @@ export function decidePostCallOutcome({
         ? new Date(eventTimestamp * 1000)
         : null;
 
-  const failed = data.status === "failed";
+  const failed = data.failed;
   const platformFailed = !spoke && failed;
 
   return {

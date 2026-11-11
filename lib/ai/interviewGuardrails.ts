@@ -11,7 +11,7 @@ import {
 import { spanFor } from "@/lib/ai/analysisGuardrails";
 import { isCandidateTurn } from "@/lib/ai/interviewStats";
 import type { AiFeedback, InterviewStats } from "@/lib/ai/schemas";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 
 /**

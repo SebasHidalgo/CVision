@@ -1,30 +1,8 @@
 /**
- * Pushes the two interview agents defined in lib/elevenlabs/agentConfig.ts
- * (the full twelve-minute interviewer and the five-minute trial) to
- * ElevenLabs, so the dashboard mirrors the code and not the other way round.
- *
- *   npm run agent:sync -- [--webhook-url https://host/api/webhooks/elevenlabs] [--replace-webhook] [--dry-run]
- *
- * Idempotent, per agent: with its env var (ELEVENLABS_AGENT_ID for the full
- * agent, ELEVENLABS_TRIAL_AGENT_ID for the trial) unset it creates the agent
- * and prints the id to put in .env; with it set it updates that agent in
- * place. Both attach the same post-call webhook, a workspace object found
- * by name; when it does not exist and --webhook-url is given, it is created
- * and its secret is printed once (it cannot be read back), to put in
- * ELEVENLABS_WEBHOOK_SECRET. A webhook's URL cannot be changed once created
- * (the platform's update call has no URL field), so a new URL, as with a
- * tunnel that changed, needs --replace-webhook: the old one is deleted and a
- * new one created, with a new secret. Without a webhook the agents are
- * pushed anyway, with a warning: sessions would run but no transcript would
- * come back.
- *
- * After the push it reads both agents back and prints, for each, the
- * settings that bound cost and access, then every field in which the two
- * differ, flagging any that is not one of the intended differences.
- *
- * Reads ELEVENLABS_API_KEY from .env. Never prints it.
+ * The agents as code, pushed to ElevenLabs: create or update both, attach the
+ * post-call webhook, read both back and list every field in which they differ.
+ * scripts/voice/sync-agent.ts is the command line for it.
  */
-import { parseArgs } from "node:util";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import {
   buildInterviewAgentDefinition,
@@ -32,16 +10,17 @@ import {
   EXPECTED_TIER_DIFFERENCES,
   INTERVIEW_AGENT_ID_ENV,
   INTERVIEW_WEBHOOK_NAME,
-} from "@/lib/elevenlabs/agentConfig";
+} from "./agentConfig";
 import type { InterviewTierId } from "@/lib/plans";
 
-const { values: args } = parseArgs({
-  options: {
-    "webhook-url": { type: "string" },
-    "replace-webhook": { type: "boolean", default: false },
-    "dry-run": { type: "boolean", default: false },
-  },
-});
+export type SyncAgentsOptions = {
+  /** Where the post-call webhook should deliver; null leaves the existing one. */
+  webhookUrl: string | null;
+  /** Delete and recreate the webhook when its URL changed (new secret). */
+  replaceWebhook: boolean;
+  /** Print the definitions and what would happen; call nothing. */
+  dryRun: boolean;
+};
 
 const TIERS: InterviewTierId[] = ["FULL", "TRIAL"];
 
@@ -60,13 +39,14 @@ const EXPECTED_READBACK_DIFFERENCES = [
   "phoneNumbers",
 ];
 
-async function main() {
+/** Pushes both agents, reads them back and prints what the platform holds. Resolves to the count of unintended differences. */
+export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAgentsOptions): Promise<number> {
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   const configuredIds = Object.fromEntries(
     TIERS.map((tier) => [tier, process.env[INTERVIEW_AGENT_ID_ENV[tier]]?.trim() || null]),
   ) as Record<InterviewTierId, string | null>;
 
-  if (args["dry-run"]) {
+  if (dryRun) {
     const full = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", tier: "FULL" });
     const trial = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", tier: "TRIAL" });
     console.log(JSON.stringify(full, null, 2));
@@ -78,7 +58,7 @@ async function main() {
       const id = configuredIds[tier];
       console.log(`(dry run) would ${id ? `update ${tier} agent ${id}` : `create the ${tier} agent`}`);
     }
-    return;
+    return 0;
   }
 
   if (!apiKey) {
@@ -87,7 +67,7 @@ async function main() {
 
   const client = new ElevenLabsClient({ apiKey, maxRetries: 0, timeoutInSeconds: 30 });
 
-  const postCallWebhookId = await ensureWebhook(client, args["webhook-url"] ?? null, args["replace-webhook"]);
+  const postCallWebhookId = await ensureWebhook(client, webhookUrl, replaceWebhook);
 
   const agentIds = {} as Record<InterviewTierId, string>;
   for (const tier of TIERS) {
@@ -110,7 +90,7 @@ async function main() {
     agents[tier] = await client.conversationalAi.agents.get(agentIds[tier]);
     printEffectiveSettings(tier, agents[tier]);
   }
-  reportDifferences(agents.FULL, agents.TRIAL);
+  return reportDifferences(agents.FULL, agents.TRIAL);
 }
 
 /**
@@ -211,7 +191,7 @@ function printEffectiveSettings(tier: InterviewTierId, agent: Agent) {
 }
 
 /** Every field in which the two agents differ on the platform, intended or not. */
-function reportDifferences(full: Agent, trial: Agent) {
+function reportDifferences(full: Agent, trial: Agent): number {
   const expected = [...EXPECTED_TIER_DIFFERENCES, ...EXPECTED_READBACK_DIFFERENCES];
   const isExpected = (path: string) => expected.some((prefix) => path === prefix || path.startsWith(`${prefix}.`));
 
@@ -227,10 +207,10 @@ function reportDifferences(full: Agent, trial: Agent) {
     console.warn(
       `\n${unexpected} difference(s) marked !! are not intended: the two agents should share everything but name, tags, duration, daily cap and placeholders. Check agentConfig.ts and the dashboard.`,
     );
-    process.exitCode = 1;
   } else {
     console.log("  Every difference is an intended one.");
   }
+  return unexpected;
 }
 
 function pick(value: unknown, path: string): unknown {
@@ -243,17 +223,4 @@ function pick(value: unknown, path: string): unknown {
 function describeValue(value: unknown): string {
   const text = JSON.stringify(value) ?? "undefined";
   return text.length > 70 ? `${text.slice(0, 69)}…` : text;
-}
-
-// The script smoke test (scripts/scripts.test.ts) loads this module under the
-// npm script's own flags to prove its import graph resolves; it must not run.
-if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
-  main().catch((error: unknown) => {
-    // The SDK error body can echo the request; the message and status are enough.
-    const status = (error as { statusCode?: unknown })?.statusCode;
-    console.error(
-      `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    process.exit(1);
-  });
 }

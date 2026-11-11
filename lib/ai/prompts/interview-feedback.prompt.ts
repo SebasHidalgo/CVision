@@ -1,6 +1,6 @@
 import type { InterviewStats } from "@/lib/ai/schemas";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import { CANDIDATE_ROLE, describeInterviewStats } from "@/lib/ai/interviewStats";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 

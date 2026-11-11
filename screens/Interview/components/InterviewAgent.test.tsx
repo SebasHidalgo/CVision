@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { WORKLET_PATHS } from "@/lib/elevenlabs/worklets";
+import { WORKLET_PATHS } from "@/lib/voice/elevenlabs/worklets";
 import { createI18n } from "@/lib/i18n/instance";
 import { RESOURCES } from "@/lib/i18n/resources";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";

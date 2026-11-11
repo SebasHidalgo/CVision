@@ -12,7 +12,7 @@ import type {
   InterviewFeedbackReport,
   InterviewStats,
 } from "@/lib/ai/schemas";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import { ordinal } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";

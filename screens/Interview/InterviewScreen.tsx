@@ -3,7 +3,7 @@ import ClientMessages from "@/components/i18n/ClientMessages";
 import { getAuthUser } from "@/lib/auth";
 import { fetchInterviewById } from "@/lib/database/interview";
 import { currentInterviewEntitlement } from "@/lib/database/usage";
-import { MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { sourceOfPaidBy } from "@/lib/interviewEntitlement";
 import { interviewPhase } from "@/lib/interviewStatus";
 import { INTERVIEW_TIERS } from "@/lib/plans";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { fromConversationApi, type PostCallTranscription } from "@/lib/elevenlabs/postCall";
+import { fromConversationApi, toCallRecord, type PostCallTranscription } from "@/lib/voice/elevenlabs/wire";
 import { claimReconcile, markSessionLost, storeConversationTranscript } from "./interviewTranscript";
 import { refundUsageIn } from "./usage";
 
@@ -53,7 +53,7 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
   it("matches on membership in the issued ids, so an earlier session's delivery still lands", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
 
-    const result = await storeConversationTranscript({ data: payload({ conversation_id: "conv_1" }), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null });
 
     expect(findFirst).toHaveBeenCalledTimes(1);
     expect(findFirst.mock.calls[0][0]).toMatchObject({
@@ -70,7 +70,7 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
   it("falls back to the interview_id variable only for a row that was never issued a session", async () => {
     findFirst.mockResolvedValueOnce(null as never).mockResolvedValueOnce(row({ issuedConversationIds: [], conversationId: null }) as never);
 
-    await storeConversationTranscript({ data: payload({ conversation_id: "conv_x" }), eventTimestamp: null });
+    await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_x" })), eventTimestamp: null });
 
     expect(findFirst).toHaveBeenCalledTimes(2);
     expect(findFirst.mock.calls[1][0]).toMatchObject({
@@ -82,7 +82,7 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
     findFirst.mockResolvedValueOnce(null as never);
 
     const result = await storeConversationTranscript({
-      data: payload({ conversation_id: "conv_x", conversation_initiation_client_data: null }),
+      data: toCallRecord(payload({ conversation_id: "conv_x", conversation_initiation_client_data: null })),
       eventTimestamp: null,
     });
 
@@ -93,14 +93,14 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
   it("the first delivery with candidate turns wins; a later one for another issued session is a duplicate", async () => {
     // First call: conv_1 delivers with candidate turns.
     findFirst.mockResolvedValueOnce(row() as never);
-    expect(await storeConversationTranscript({ data: payload({ conversation_id: "conv_1" }), eventTimestamp: null })).toMatchObject({
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null })).toMatchObject({
       outcome: "stored",
       status: "FEEDBACK_PENDING",
     });
 
     // Then conv_2 delivers: the row is past the startable states.
     findFirst.mockResolvedValueOnce(row({ status: "FEEDBACK_PENDING", conversationId: "conv_1", transcript: [{ role: "user", message: "Hello." }] }) as never);
-    expect(await storeConversationTranscript({ data: payload({ conversation_id: "conv_2" }), eventTimestamp: null })).toEqual({
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_2" })), eventTimestamp: null })).toEqual({
       outcome: "duplicate",
       interviewId: "int_1",
     });
@@ -110,21 +110,21 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
   it("marks the reconcile fetch as the API's source", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
 
-    await storeConversationTranscript({ data: payload(), eventTimestamp: null, source: "elevenlabs-api" });
+    await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null, source: "elevenlabs-api" });
 
     expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { transcriptSource: "elevenlabs-api" } });
   });
 
   it("writes the times the delivery carries, and leaves them alone when it carries none", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
-    await storeConversationTranscript({ data: payload(), eventTimestamp: null });
+    await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
     expect(updateMany.mock.calls[0][0]).toMatchObject({
       data: { startedAt: new Date(1_760_000_000 * 1000), endedAt: new Date((1_760_000_000 + 200) * 1000), durationSeconds: 200 },
     });
 
     // No metadata and no event timestamp: the room's endedAt must survive.
     findFirst.mockResolvedValueOnce(row() as never);
-    await storeConversationTranscript({ data: payload({ metadata: null }), eventTimestamp: null });
+    await storeConversationTranscript({ data: toCallRecord(payload({ metadata: null })), eventTimestamp: null });
     const { data } = updateMany.mock.calls[1][0] as { data: Record<string, unknown> };
     expect(data).not.toHaveProperty("endedAt");
     expect(data).not.toHaveProperty("durationSeconds");
@@ -139,7 +139,7 @@ describe("the usage unit when the interview ends with nothing to score", () => {
   it("refunds the unit when the last start ends silent and the interview fails", async () => {
     findFirst.mockResolvedValueOnce(row({ startCount: 3 }) as never);
 
-    const result = await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: toCallRecord(silent()), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FAILED" });
     expect(refundUsageIn).toHaveBeenCalledWith(tx, "evt_1", "NO_CANDIDATE_TURNS");
@@ -151,7 +151,7 @@ describe("the usage unit when the interview ends with nothing to score", () => {
 
   it("refunds a silent attempt with starts left at once, whatever paid for it, and forgets the reservation in the same transaction so the next start reserves again", async () => {
     findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
-    const result = await storeConversationTranscript({ data: silent(), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: toCallRecord(silent()), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -171,7 +171,7 @@ describe("the usage unit when the interview ends with nothing to score", () => {
       conversationInitiationClientData: { dynamicVariables: { interview_id: "int_1" } },
     });
 
-    const result = await storeConversationTranscript({ data, eventTimestamp: null, source: "elevenlabs-api" });
+    const result = await storeConversationTranscript({ data: toCallRecord(data), eventTimestamp: null, source: "elevenlabs-api" });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
     expect(updateMany.mock.calls[0][0]).toMatchObject({
@@ -184,12 +184,12 @@ describe("the usage unit when the interview ends with nothing to score", () => {
 
   it("keeps the unit when the candidate spoke, and when a silent delivery is from an earlier session than the row's", async () => {
     findFirst.mockResolvedValueOnce(row() as never);
-    await storeConversationTranscript({ data: payload(), eventTimestamp: null });
+    await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
     expect(refundUsageIn).not.toHaveBeenCalled();
 
     // conv_1 is an earlier session; conv_2, the latest, may be live and holds the unit.
     findFirst.mockResolvedValueOnce(row({ startCount: 1 }) as never);
-    await storeConversationTranscript({ data: silent().conversation_id === "conv_2" ? { ...silent(), conversation_id: "conv_1" } : silent(), eventTimestamp: null });
+    await storeConversationTranscript({ data: toCallRecord(silent().conversation_id === "conv_2" ? { ...silent(), conversation_id: "conv_1" } : silent()), eventTimestamp: null });
     expect(refundUsageIn).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });

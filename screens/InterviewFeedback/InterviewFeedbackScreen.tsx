@@ -9,9 +9,9 @@ import {
   fetchInterviewById,
   fetchInterviewTranscript,
 } from "@/lib/database/interview";
-import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/elevenlabs/agentConfig";
-import { isStranded } from "@/lib/elevenlabs/postCall";
-import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { isStranded } from "@/lib/voice/postCall";
+import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { fetchResumeById } from "@/lib/database/resume";
 import { formatLongDate } from "@/lib/format";
 import { getLocale } from "@/lib/i18n/server";

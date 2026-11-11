@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
 import {
   candidateText,

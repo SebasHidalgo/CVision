@@ -15,7 +15,7 @@ import { appUrl, BRAND } from "./brand";
  */
 
 const ROOT = path.resolve(__dirname, "..");
-const SCOPES = ["app", "screens", "components", "lib/ai/prompts", "lib/billing/catalog.ts", "lib/billing/paddle/catalog.ts", "lib/elevenlabs/agentConfig.ts", "lib/legal.ts", "lib/error/actionErrorCopy.ts", "locales"];
+const SCOPES = ["app", "screens", "components", "lib/ai/prompts", "lib/billing/catalog.ts", "lib/billing/paddle/catalog.ts", "lib/voice/elevenlabs/agentConfig.ts", "lib/legal.ts", "lib/error/actionErrorCopy.ts", "locales"];
 const LITERAL = /CVision/g;
 const LOG_TAG = /\[CVision\]/g;
 

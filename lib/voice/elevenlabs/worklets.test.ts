@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { LIBSAMPLERATE_WORKLET_URL, WORKLET_PATHS } from "./worklets";
 
-const ROOT = path.resolve(__dirname, "..", "..");
+const ROOT = path.resolve(__dirname, "..", "..", "..");
 const SDK_WORKLETS = path.join(ROOT, "node_modules", "@elevenlabs", "client", "worklets");
 
 /** Line endings aside: a checkout with core.autocrlf rewrites the copies to CRLF, the SDK ships LF, the browser does not care. */

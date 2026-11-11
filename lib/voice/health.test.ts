@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readVoiceBalance, type VoiceBalanceRead } from "./client";
+import { readVoiceBalance, type VoiceBalanceRead } from "@/lib/voice";
 import { assertVoiceCapacity, resetVoiceHealth, VOICE_BALANCE_CACHE_MS } from "./health";
 
-vi.mock("./client", () => ({ readVoiceBalance: vi.fn() }));
+vi.mock("@/lib/voice", () => ({ readVoiceBalance: vi.fn() }));
 
 const NOW = Date.parse("2026-10-23T12:00:00Z");
 

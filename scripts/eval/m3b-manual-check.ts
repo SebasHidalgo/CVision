@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient, type Prisma } from "@prisma/client";
-import { signWebhookPayload } from "@/lib/elevenlabs/webhookSignature";
+import { signWebhookPayload } from "@/lib/voice/elevenlabs/webhookSignature";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 
 const LABEL = "[M3-B check]";

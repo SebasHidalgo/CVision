@@ -75,17 +75,19 @@ describe("fetchConversation", () => {
     expect(calls[0].headers.get("xi-api-key")).toBe(API_KEY);
     expect(fetched).toEqual({
       kind: "ended",
-      data: {
-        agent_id: "agent_1",
-        conversation_id: "conv_1",
-        status: "done",
-        transcript: [
+      record: {
+        agentId: "agent_1",
+        conversationId: "conv_1",
+        failed: false,
+        failure: null,
+        turns: [
           { role: "agent", message: "Hi Ana.", time_in_call_secs: 0 },
           { role: "user", message: "Hello.", time_in_call_secs: 3 },
           { role: "agent", message: null, time_in_call_secs: 9 },
         ],
-        metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200.4, termination_reason: "end_call tool" },
-        conversation_initiation_client_data: { dynamic_variables: { interview_id: "int_1", system__time: "x" } },
+        startTimeSeconds: 1_760_000_000,
+        durationSeconds: 200.4,
+        variables: { interview_id: "int_1", system__time: "x" },
       },
     });
   });

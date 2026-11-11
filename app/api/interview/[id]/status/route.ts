@@ -4,13 +4,13 @@ import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
-import { isStranded } from "@/lib/elevenlabs/postCall";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { isStranded } from "@/lib/voice/postCall";
 import {
   reconcileChangedRow,
   reconcileNeedsFeedback,
   reconcileStrandedInterview,
-} from "@/lib/elevenlabs/reconcile";
+} from "@/lib/voice/reconcile";
 import { NotFoundError } from "@/lib/error/errors";
 import { routeOk, toRouteError } from "@/lib/error/toRouteResponse";
 import type { InterviewStatusSnapshot } from "@/lib/schemas/interviewSessionSchema";

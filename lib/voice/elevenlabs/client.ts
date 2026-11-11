@@ -5,12 +5,16 @@ import {
   ElevenLabsError,
   ElevenLabsTimeoutError,
 } from "@elevenlabs/elevenlabs-js";
-import type { VoiceBalance } from "@/lib/elevenlabs/balance";
+import type { VoiceBalance } from "@/lib/voice/balance";
+import type { CallRecord } from "@/lib/voice/postCall";
 import {
   CONVERSATION_ENDED_STATUSES,
   fromConversationApi,
-  type PostCallTranscription,
-} from "@/lib/elevenlabs/postCall";
+  POST_CALL_TRANSCRIPTION,
+  postCallEventSchema,
+  postCallTranscriptionSchema,
+  toCallRecord,
+} from "./wire";
 import {
   type AppError,
   VoiceMisconfiguredError,
@@ -19,12 +23,13 @@ import {
 import type { InterviewTierId } from "@/lib/plans";
 
 /**
- * The only module that talks to ElevenLabs at runtime. Five calls: issue a
+ * The only module that talks to ElevenLabs at runtime; the app reaches it
+ * through lib/voice (the facade). Five calls: issue a
  * conversation token (session endpoint), verify a webhook signature
  * (post-call route), fetch a conversation by id (the reconcile fallback for
  * a webhook that never arrived), delete one (when its analysis or account
  * is deleted) and read the workspace's balance (the health check before a
- * start). The agent itself is managed by scripts/elevenlabs.
+ * start). The agent itself is managed by ./sync.ts (npm run agent:sync).
  */
 
 /** A single fast call; the route's budget is on top of this. */
@@ -102,7 +107,7 @@ export type FetchedConversation =
   /** The platform still has the call open, or is still processing it. */
   | { kind: "in-progress"; platformStatus: string }
   /** Over, in the shape the webhook would have delivered. */
-  | { kind: "ended"; data: PostCallTranscription }
+  | { kind: "ended"; record: CallRecord }
   /** The platform has no such conversation. */
   | { kind: "not-found" };
 
@@ -126,7 +131,7 @@ export async function fetchConversation(conversationId: string): Promise<Fetched
     if (!CONVERSATION_ENDED_STATUSES.has(record.status)) {
       return { kind: "in-progress", platformStatus: record.status };
     }
-    return { kind: "ended", data: fromConversationApi(record) };
+    return { kind: "ended", record: toCallRecord(fromConversationApi(record)) };
   } catch (error) {
     if (error instanceof ElevenLabsError && error.statusCode === 404) return { kind: "not-found" };
     throw toVoiceError(error);
@@ -221,6 +226,31 @@ export class WebhookRejectedError extends Error {
     super(message);
     this.name = "WebhookRejectedError";
   }
+}
+
+export type VoiceWebhookEvent =
+  /** A call is over and its transcript is here. */
+  | { kind: "call-ended"; record: CallRecord; deliveredAt: number | null }
+  /** A verified event the app has no use for. */
+  | { kind: "ignored"; type: string }
+  /** Verified, but outside the shape the adapter reads; `paths` never carry values. */
+  | { kind: "unreadable"; conversationId: string | null; paths: string[] };
+
+/**
+ * Verifies the delivery and reads it. Throws `WebhookRejectedError` for a
+ * bad or missing signature and `VoiceMisconfiguredError` without a secret.
+ */
+export async function verifyAndParseWebhook(rawBody: string, headers: Headers): Promise<VoiceWebhookEvent> {
+  const event = await verifyWebhookEvent(rawBody, headers.get("elevenlabs-signature"));
+  const envelope = postCallEventSchema.safeParse(event);
+  if (!envelope.success) return { kind: "unreadable", conversationId: null, paths: ["(envelope)"] };
+  if (envelope.data.type !== POST_CALL_TRANSCRIPTION) return { kind: "ignored", type: envelope.data.type };
+  const transcription = postCallTranscriptionSchema.safeParse(envelope.data.data);
+  if (!transcription.success) {
+    const paths = transcription.error.issues.map((issue) => issue.path.join(".") || "(root)");
+    return { kind: "unreadable", conversationId: null, paths };
+  }
+  return { kind: "call-ended", record: toCallRecord(transcription.data), deliveredAt: envelope.data.event_timestamp ?? null };
 }
 
 /**

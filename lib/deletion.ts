@@ -7,7 +7,7 @@ import {
 } from "@/lib/database/deletion";
 import { deleteUserRows } from "@/lib/database/userById";
 import { cancelSubscriptionNow } from "@/lib/billing";
-import { deleteConversation } from "@/lib/elevenlabs/client";
+import { deleteConversation } from "@/lib/voice";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
 
 /**

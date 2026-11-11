@@ -41,7 +41,7 @@
 
 // Relative on purpose: next.config.ts loads this module at config time,
 // where the `@/` alias resolves one level deep and no further.
-import { LIBSAMPLERATE_WORKLET_URL } from "./elevenlabs/worklets";
+import { LIBSAMPLERATE_WORKLET_URL } from "./voice/elevenlabs/worklets";
 
 export type HeaderEntry = { key: string; value: string };
 export type HeaderRule = { source: string; headers: HeaderEntry[] };
@@ -97,7 +97,7 @@ export function contentSecurityPolicy(env: SecurityHeadersEnv): string {
     "form-action": ["'self'"],
     "frame-ancestors": ["'none'"],
     // AudioWorklet modules count as scripts: the SDK's two processors are
-    // served from this origin (lib/elevenlabs/worklets.ts), and its
+    // served from this origin (lib/voice/elevenlabs/worklets.ts), and its
     // resampler, loaded only where the microphone cannot open at the
     // requested rate, by its exact pinned URL.
     "script-src": [

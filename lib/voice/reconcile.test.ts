@@ -5,9 +5,10 @@ import {
   markSessionLost,
   storeConversationTranscript,
 } from "@/lib/database/interviewTranscript";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/elevenlabs/agentConfig";
-import { fetchConversation } from "@/lib/elevenlabs/client";
-import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/elevenlabs/postCall";
+import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { toCallRecord } from "@/lib/voice/elevenlabs/wire";
+import { fetchConversation } from "@/lib/voice";
+import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/voice/postCall";
 import { reconcileChangedRow, reconcileNeedsFeedback, reconcileStrandedInterview } from "./reconcile";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({
@@ -16,7 +17,7 @@ vi.mock("@/lib/database/interviewTranscript", () => ({
   markSessionLost: vi.fn(async () => true),
   storeConversationTranscript: vi.fn(),
 }));
-vi.mock("@/lib/elevenlabs/client", () => ({ fetchConversation: vi.fn() }));
+vi.mock("@/lib/voice", () => ({ fetchConversation: vi.fn() }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const NOW = new Date("2026-10-13T12:00:00Z");
@@ -36,7 +37,7 @@ const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForRecon
 
 const ended = () => ({
   kind: "ended" as const,
-  data: {
+  record: toCallRecord({
     agent_id: "agent_1",
     conversation_id: "conv_1",
     status: "done",
@@ -46,7 +47,7 @@ const ended = () => ({
     ],
     metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, termination_reason: null },
     conversation_initiation_client_data: null,
-  },
+  }),
 });
 
 beforeEach(() => {
@@ -115,7 +116,7 @@ describe("reconcileStrandedInterview", () => {
 
     expect(fetchConversation).toHaveBeenCalledWith("conv_1");
     expect(storeConversationTranscript).toHaveBeenCalledWith({
-      data: ended().data,
+      data: ended().record,
       eventTimestamp: null,
       source: "elevenlabs-api",
     });

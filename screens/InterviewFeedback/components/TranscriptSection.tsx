@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import { cn } from "@/lib/utils";
 
 type TranscriptSectionProps = {

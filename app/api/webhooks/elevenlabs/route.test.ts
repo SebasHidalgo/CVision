@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { storeConversationTranscript } from "@/lib/database/interviewTranscript";
-import { signWebhookPayload } from "@/lib/elevenlabs/webhookSignature";
+import { signWebhookPayload } from "@/lib/voice/elevenlabs/webhookSignature";
 import { POST } from "./route";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({ storeConversationTranscript: vi.fn() }));
@@ -70,8 +70,8 @@ describe("POST /api/webhooks/elevenlabs: verification", () => {
     expect(await deliver(raw, signature)).toBe(200);
     expect(storeConversationTranscript).toHaveBeenCalledTimes(1);
     const [{ data, eventTimestamp }] = vi.mocked(storeConversationTranscript).mock.calls[0];
-    expect(data.conversation_id).toBe("conv_1");
-    expect(data.transcript).toHaveLength(2);
+    expect(data.conversationId).toBe("conv_1");
+    expect(data.turns).toHaveLength(2);
     expect(eventTimestamp).toBe(NOW);
   });
 

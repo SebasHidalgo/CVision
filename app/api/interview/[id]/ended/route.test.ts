@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { markInterviewEnded } from "@/lib/database/interview";
-import { EARLY_END_WINDOW_MS } from "@/lib/elevenlabs/postCall";
-import { reconcileStrandedInterview } from "@/lib/elevenlabs/reconcile";
+import { EARLY_END_WINDOW_MS } from "@/lib/voice/postCall";
+import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { UnauthorizedError } from "@/lib/error/errors";
 import { POST } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ markInterviewEnded: vi.fn() }));
-vi.mock("@/lib/elevenlabs/reconcile", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/elevenlabs/reconcile")>();
+vi.mock("@/lib/voice/reconcile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/voice/reconcile")>();
   return { ...actual, reconcileStrandedInterview: vi.fn() };
 });
 vi.mock("@/lib/ai/interviewFeedback", () => ({ generateInterviewFeedback: vi.fn() }));

@@ -190,7 +190,7 @@ Docs: https://elevenlabs.io/docs/eleven-agents, https://elevenlabs.io/pricing/ag
    the post-call webhook, and prints `ELEVENLABS_AGENT_ID`,
    `ELEVENLABS_TRIAL_AGENT_ID` and, once, `ELEVENLABS_WEBHOOK_SECRET`:
    into `.env`. Re-run the same command after any change to
-   `lib/elevenlabs/agentConfig.ts` or the interviewer prompt; with a new
+   `lib/voice/elevenlabs/agentConfig.ts` or the interviewer prompt; with a new
    tunnel URL add `--replace-webhook`.
 4. Verify:
 

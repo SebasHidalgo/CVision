@@ -1,5 +1,5 @@
 import type { InterviewStats } from "@/lib/ai/schemas";
-import type { TranscriptTurn } from "@/lib/elevenlabs/postCall";
+import type { TranscriptTurn } from "@/lib/voice/postCall";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
 /**

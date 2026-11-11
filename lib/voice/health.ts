@@ -2,7 +2,7 @@ import "server-only";
 
 import { VoiceUnavailableError } from "@/lib/error/errors";
 import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor } from "./balance";
-import { readVoiceBalance, type VoiceBalanceRead } from "./client";
+import { readVoiceBalance, type VoiceBalanceRead } from "@/lib/voice";
 
 /**
  * The voice health check the session endpoint runs before it reserves
