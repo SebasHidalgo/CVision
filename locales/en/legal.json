@@ -60,16 +60,17 @@
     "collect": {
       "heading": "2. What we collect, and why",
       "p1": "Everything below exists to give you your own feedback. Nothing is sold, and nothing is used to evaluate you for anyone else.",
-      "account": "Your account: an identifier and your sign-in details, held by our authentication provider (Clerk). We store the identifier, not your email or name.",
+      "account": "Your account: an identifier and your sign-in details, held by our authentication provider (Clerk). We store the identifier and the interface language you choose, not your email or name.",
       "cv": "Your CV: the PDF you upload, kept in private storage so you can reopen it next to its analysis, and its text, which is sent to the AI model that writes the analysis.",
       "postings": "The job postings you paste: stored with each analysis and sent to the AI model with your CV's text.",
       "interviews": "Your practice interviews: the conversation runs with the AI voice provider (ElevenLabs), which processes your voice and returns a transcript. The transcript is stored with the interview and sent to the AI model that writes the feedback. [PLACEHOLDER: whether audio recordings are retained by the voice provider and for how long.]",
+      "translations": "Translations: if you use the product in Spanish, the parts of your analyses and interview feedback that the AI model wrote are sent to the AI model to be translated, and the translation is stored with them. Quotes from your CV and the posting, and suggested bullets, are not translated.",
       "usage": "Usage: how many analyses and interviews you ran, for your plan's limits.",
       "billing": "Billing: if you buy a plan, the payment is handled by the merchant of record ({{merchant}}), which collects your email, country and payment details. We store only its identifiers for your customer and subscription, never a card or an email."
     },
     "processors": {
       "heading": "3. Who processes it",
-      "google": "Google (Gemini) writes the CV analysis and the interview feedback from the text we send.",
+      "google": "Google (Gemini) writes the CV analysis and the interview feedback, and translates them, from the text we send.",
       "elevenlabs": "ElevenLabs runs the voice interview and produces the transcript.",
       "clerk": "Clerk signs you in.",
       "supabase": "Supabase hosts the database and the private file storage.",
@@ -87,7 +88,7 @@
     },
     "cookies": {
       "heading": "6. Cookies",
-      "p1": "[PLACEHOLDER: the cookies set by the authentication provider, the theme preference, and anything the merchant of record's checkout sets.]"
+      "p1": "The interface language is kept in a cookie (locale) for a year. [PLACEHOLDER: the cookies set by the authentication provider, the theme preference, and anything the merchant of record's checkout sets.]"
     }
   },
   "refunds": {

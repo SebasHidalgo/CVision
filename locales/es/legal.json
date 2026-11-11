@@ -60,16 +60,17 @@
     "collect": {
       "heading": "2. Qué recopilamos y por qué",
       "p1": "Todo lo que sigue existe para darte tu propio feedback. Nada se vende y nada se usa para que otra persona te evalúe.",
-      "account": "Tu cuenta: un identificador y tus datos de inicio de sesión, que guarda nuestro proveedor de autenticación (Clerk). Nosotros guardamos el identificador, no tu correo electrónico ni tu nombre.",
+      "account": "Tu cuenta: un identificador y tus datos de inicio de sesión, que guarda nuestro proveedor de autenticación (Clerk). Nosotros guardamos el identificador y el idioma de la interfaz que elijas, no tu correo electrónico ni tu nombre.",
       "cv": "Tu CV: el PDF que subes, guardado en un almacenamiento privado para que puedas volver a abrirlo junto a su análisis, y su texto, que se envía al modelo de IA que escribe el análisis.",
       "postings": "Las ofertas de empleo que pegas: se guardan con cada análisis y se envían al modelo de IA junto con el texto de tu CV.",
       "interviews": "Tus entrevistas de práctica: la conversación se hace con el proveedor de voz con IA (ElevenLabs), que procesa tu voz y devuelve una transcripción. La transcripción se guarda con la entrevista y se envía al modelo de IA que escribe el feedback. [PLACEHOLDER: si el proveedor de voz conserva las grabaciones de audio y por cuánto tiempo.]",
+      "translations": "Traducciones: si usas el producto en español, las partes de tus análisis y del feedback de tus entrevistas que escribió el modelo de IA se envían al modelo de IA para traducirlas, y la traducción se guarda con ellos. Las citas de tu CV y de la oferta, y las viñetas sugeridas, no se traducen.",
       "usage": "Uso: cuántos análisis y entrevistas hiciste, para los límites de tu plan.",
       "billing": "Facturación: si compras un plan, el pago lo gestiona el comerciante registrado ({{merchant}}), que recopila tu correo electrónico, tu país y tus datos de pago. Solo guardamos los identificadores de cliente y de suscripción que te asigna, nunca una tarjeta ni un correo electrónico."
     },
     "processors": {
       "heading": "3. Quién lo procesa",
-      "google": "Google (Gemini) escribe el análisis del CV y el feedback de la entrevista a partir del texto que enviamos.",
+      "google": "Google (Gemini) escribe el análisis del CV y el feedback de la entrevista, y los traduce, a partir del texto que enviamos.",
       "elevenlabs": "ElevenLabs lleva a cabo la entrevista por voz y genera la transcripción.",
       "clerk": "Clerk gestiona tu inicio de sesión.",
       "supabase": "Supabase aloja la base de datos y el almacenamiento privado de archivos.",
@@ -87,7 +88,7 @@
     },
     "cookies": {
       "heading": "6. Cookies",
-      "p1": "[PLACEHOLDER: las cookies del proveedor de autenticación, la preferencia de tema y lo que instale la página de pago del comerciante registrado.]"
+      "p1": "El idioma de la interfaz se guarda en una cookie (locale) durante un año. [PLACEHOLDER: las cookies del proveedor de autenticación, la preferencia de tema y lo que instale la página de pago del comerciante registrado.]"
     }
   },
   "refunds": {

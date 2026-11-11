@@ -8,13 +8,15 @@ A self-assessment and practice tool for job seekers, used by a person on
 their own application: nobody else sees the results, and the interviewer is
 software. Next.js 16 (App Router), TypeScript, Clerk, Prisma on Supabase
 Postgres, Gemini for the text analysis, ElevenLabs Agents for the voice
-interview, Paddle as merchant of record. The product's name lives in one
-file, `lib/brand.ts`.
+interview, Paddle as merchant of record. The interface is in English and
+Spanish (i18next; the browser's language by default, a switcher in the
+header); analyses stay English underneath and are shown translated. The
+product's name lives in one file, `lib/brand.ts`.
 
 Reference material, once you are running: [docs/database.md](docs/database.md),
 [docs/accounts.md](docs/accounts.md), [docs/billing.md](docs/billing.md),
 [docs/storage.md](docs/storage.md), [docs/voice.md](docs/voice.md),
-[docs/analysis.md](docs/analysis.md),
+[docs/analysis.md](docs/analysis.md), [docs/i18n.md](docs/i18n.md),
 [docs/data-inventory.md](docs/data-inventory.md).
 
 ## Getting started from zero
@@ -266,7 +268,11 @@ call's webhook round trip. Then:
    interview, free" → the room → Start. Speak; End. The feedback page
    shows "saving" while the transcript travels (about a minute), then the
    report.
-4. **A sandbox purchase**: `/pricing` → Get Pro → the overlay → the test
+4. **Spanish**: the EN / ES switcher in the header. The whole interface,
+   Clerk's forms and the checkout follow; the analysis shows "Traduciendo…"
+   once and then reads in Spanish, quotes and suggested bullets untouched
+   ([docs/i18n.md](docs/i18n.md)).
+5. **A sandbox purchase**: `/pricing` → Get Pro → the overlay → the test
    card → the account page says "Pro is active." once the webhook lands.
    Then a pack. Then cancel from "Manage subscription".
 
@@ -276,10 +282,10 @@ call's webhook round trip. Then:
 |---|---|
 | `npm test` | the unit suite (Vitest): contracts, schemas, routes, components in jsdom, the script smoke test (every `tsx` script loaded under its own flags with the network blocked), the brand and wording rules. No network. |
 | `npx tsc --noEmit` and `npm run build` | type-check and production build; run both before handing in a change |
-| `npm run e2e` | the browser suite (Playwright, Chromium; `npx playwright install chromium` once): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Needs the tunnel up and `E2E_PUBLIC_URL`; creates and deletes its own accounts; starts the dev server if none is running. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
+| `npm run e2e` | the browser suite (Playwright, Chromium; `npx playwright install chromium` once), once per interface language (`chromium` in English, `chromium-es` in Spanish): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Needs the tunnel up and `E2E_PUBLIC_URL`; creates and deletes its own accounts; starts the dev server if none is running. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
 | `npm run e2e:voice` | opt-in: one real Start on a trial with fake media devices, ended after three seconds, which spends seconds of platform time; it prints the outcome and the cost. |
 | `npm run e2e:cleanup` | deletes every `+clerk_test` account a dead run left behind (`-- --dry-run` lists them) |
-| `npm run eval` | the analysis over fixed fixtures, one model call per fixture, priced into `scripts/eval/runs/spend.jsonl` and capped by `EVAL_BUDGET_PER_RUN_USD` / `EVAL_BUDGET_PER_DAY_USD` (invented fixtures on `GOOGLE_GENERATIVE_AI_API_KEY_FREE` when set, real ones on paid Flex); `npm run eval -- quick <label>` runs six fixtures at seed 7, `full <label> --confirm-cost` all of them, `spend` prints what was spent; `npm run eval -- gold <label> …` scores stored runs against the requirement gold standard, the regression gate for the extraction ([docs/analysis.md](docs/analysis.md#measuring-a-change)); `npm run eval -- replay <label> <newLabel>` re-runs stored answers through the current code without a call, to measure a rule change; `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias (`npm run eval -- help`) |
+| `npm run eval` | the analysis over fixed fixtures, one model call per fixture, priced into `scripts/eval/runs/spend.jsonl` and capped by `EVAL_BUDGET_PER_RUN_USD` / `EVAL_BUDGET_PER_DAY_USD` (invented fixtures on `GOOGLE_GENERATIVE_AI_API_KEY_FREE` when set, real ones on paid Flex); `npm run eval -- quick <label>` runs six fixtures at seed 7, `full <label> --confirm-cost` all of them, `spend` prints what was spent; `npm run eval -- gold <label> …` scores stored runs against the requirement gold standard, the regression gate for the extraction ([docs/analysis.md](docs/analysis.md#measuring-a-change)); `npm run eval -- replay <label> <newLabel>` re-runs stored answers through the current code without a call, to measure a rule change; `npm run eval -- interview run <label>` for the feedback; `npm run eval -- canary <label>` compares one call byte for byte against a reference run, the drift detector for the model alias; `npm run eval -- translate <labels> --to <label>` translates stored analyses and interview feedback with the production call and guards (`npm run eval -- help`) |
 
 ### 11. Script reference
 

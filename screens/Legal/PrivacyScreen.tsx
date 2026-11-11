@@ -12,6 +12,7 @@ const SECTIONS = [
         "privacy.collect.cv",
         "privacy.collect.postings",
         "privacy.collect.interviews",
+        "privacy.collect.translations",
         "privacy.collect.usage",
         "privacy.collect.billing",
       ],
