@@ -7,7 +7,7 @@ import { copyFor } from "./support/copy";
 import { assertSandbox } from "./support/env";
 import { readConversationCost } from "@/lib/voice/admin";
 
-// The voice spec runs in English only: the interview's spoken language is not part of the interface switch.
+// The interface stays in English; the call is switched to Spanish in the room, to price the Spanish voice.
 const t = copyFor("en");
 const TRIAL_AVAILABLE = t("account:trial.availableNote", { minutes: 5 });
 
@@ -23,9 +23,10 @@ const TRIAL_AVAILABLE = t("account:trial.availableNote", { minutes: 5 });
  * - failed: the platform issued the token but could not run the call (no
  *   credits); the room goes to the feedback page, the early reconcile
  *   stores CALL_FAILED, the trial and the start are given back;
- * - live: the interviewer joined; the spec ends the call after three
- *   seconds, which leaves a silent attempt (the trial given back) and a
- *   conversation whose cost is read from the platform and printed.
+ * - live: the interviewer joined, speaking Spanish (chosen in the room);
+ *   the spec ends the call after three seconds, which leaves a silent
+ *   attempt (the trial given back) and a conversation whose cost, voice
+ *   surcharge included, is read from the platform and printed.
  */
 
 test.setTimeout(600_000);
@@ -61,6 +62,8 @@ test("one start on the trial: refused before any charge, failed by the platform 
   await signIn(page, account);
   await runAnalysis(page);
   await openRoom(page, t);
+  // An English posting, a Spanish call: the choice in the room decides, not the posting.
+  await page.getByLabel("Interview language").selectOption("es");
   const startedAt = Date.now();
   await page.getByRole("button", { name: /start the interview/i }).click();
 
@@ -92,6 +95,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
       .catch(() => console.log("[e2e voice] the call ended on its own before End was clicked"));
     await page.waitForURL(/\/feedback/, { timeout: 60_000 });
     outcome = "ended";
+    await printPlatformTimeline();
   }
 
   // The feedback page settles once the platform's record is in: within
@@ -109,7 +113,8 @@ test("one start on the trial: refused before any charge, failed by the platform 
     .then(async () => mainText(page));
 
   const row = await db.interview.findFirst({ where: { userId: account.id }, orderBy: { createdAt: "desc" } });
-  console.log(`[e2e voice] interview ${row?.id}: status=${row?.status} failureReason=${row?.failureReason} startCount=${row?.startCount} usageEventId=${row?.usageEventId} conversation=${row?.conversationId}`);
+  console.log(`[e2e voice] interview ${row?.id}: status=${row?.status} failureReason=${row?.failureReason} startCount=${row?.startCount} usageEventId=${row?.usageEventId} conversation=${row?.conversationId} language=${row?.language} record from=${row?.transcriptSource}`);
+  expect(row?.language).toBe("es");
 
   if (/couldn't join the call/.test(settled)) {
     expect(settled).toContain("Nothing was charged, and this didn't use one of your starts.");
@@ -123,7 +128,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
   if (row?.conversationId) {
     const cost = await readConversationCost(row.conversationId).catch(() => null);
     console.log(
-      `[e2e voice] platform: status=${cost?.status ?? "?"} duration=${cost?.durationSeconds ?? "?"} s cost=${typeof cost?.credits === "number" ? `${cost.credits} credits (~$${cost.dollars?.toFixed(4) ?? "?"})` : "none recorded (a call that never ran is not charged)"}${cost?.failure ? ` error="${cost.failure}"` : ""}`,
+      `[e2e voice] platform: status=${cost?.status ?? "?"} duration=${cost?.durationSeconds ?? "?"} s cost=${typeof cost?.credits === "number" ? `${cost.credits} credits (~${cost.dollars?.toFixed(4) ?? "?"}), voice surcharge ${cost.voiceSurchargeCredits ?? 0}, spoken ${cost.language ?? "?"}` : "none recorded (a call that never ran is not charged)"}${cost?.failure ? ` error="${cost.failure}"` : ""}`,
     );
   }
 
@@ -132,6 +137,22 @@ test("one start on the trial: refused before any charge, failed by the platform 
   expect(text).toContain(TRIAL_AVAILABLE);
   expect(text).not.toContain("pending return");
 });
+
+/** How the platform's record of the call settles after it ends: what a fast reconnect would find. */
+async function printPlatformTimeline(): Promise<void> {
+  const row = await db.interview.findFirst({ where: { userId: account.id }, orderBy: { createdAt: "desc" }, select: { conversationId: true } });
+  if (!row?.conversationId) return;
+  const seen: string[] = [];
+  const began = Date.now();
+  for (let tick = 0; tick < 20; tick += 1) {
+    const cost = await readConversationCost(row.conversationId).catch(() => null);
+    const state = cost ? `${cost.status} turns=${cost.turns} duration=${cost.durationSeconds}` : "unreadable";
+    if (seen[seen.length - 1]?.split(" @")[0] !== state) seen.push(`${state} @${Math.round((Date.now() - began) / 1000)}s`);
+    if (cost?.status === "done" || cost?.status === "failed") break;
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  console.log(`[e2e voice] platform record after End: ${seen.join(" -> ")}`);
+}
 
 async function waitForAccountTrial(page: Parameters<typeof signIn>[0]): Promise<string> {
   const until = Date.now() + 150_000;
