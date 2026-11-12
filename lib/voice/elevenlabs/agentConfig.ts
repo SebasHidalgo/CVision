@@ -119,9 +119,9 @@ export const INTERVIEW_AGENT_EXTRA_LANGUAGES = ["es"] as const;
 
 /** Said by the platform when the hard cap cuts the call; each language preset carries its own. */
 const MAX_DURATION_MESSAGE =
-  "We're at time, so we'll stop here. Thank you for your answers. Your feedback will be ready shortly.";
+  "We're at time, so we'll stop here. Thank you for practicing. Your feedback will appear on your screen in a moment.";
 const MAX_DURATION_MESSAGES: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[number], string> = {
-  es: "Se nos acabó el tiempo, así que lo dejamos aquí. Gracias por tus respuestas. Tu feedback estará listo en un momento.",
+  es: "Se nos acabó el tiempo, así que lo dejamos aquí. Gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.",
 };
 
 /** The voice of each extra language. Spanish is Norah, a library voice the owner chose; voice:doctor checks it still exists. */

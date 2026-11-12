@@ -32,6 +32,24 @@ describe("spokenTitle", () => {
     expect(spokenTitle(title)).toBe(title);
   });
 
+  it.each([
+    ["Programador SR", "Programador Senior"],
+    ["Sr. Software Engineer", "Senior Software Engineer"],
+    ["Analista Sr Contable", "Analista Senior Contable"],
+    ["Desarrollador JR", "Desarrollador Junior"],
+    ["Jr. Data Analyst", "Junior Data Analyst"],
+    ["Desarrollador .NET SSR", "Desarrollador .NET Semi Senior"],
+    ["Analista Ssr.", "Analista Semi Senior"],
+    ["Diseñador Semi-Sr", "Diseñador Semi Senior"],
+    ["Desarrollador/a SR (m/f)", "Desarrollador Senior"],
+  ])("says the seniority in %s in full", (written, spoken) => {
+    expect(spokenTitle(written)).toBe(spoken);
+  });
+
+  it.each(["Srinivasan Labs Engineer", "Jrnl Editor", "QA Analyst SQL", "Ingeniero de Datos AWS", "Ssrs Report Developer"])("leaves %s alone", (title) => {
+    expect(spokenTitle(title)).toBe(title);
+  });
+
   it("never answers with nothing", () => {
     expect(spokenTitle("(m/f)")).toBe("(m/f)");
     expect(spokenTitle("  Product   Manager ")).toBe("Product Manager");

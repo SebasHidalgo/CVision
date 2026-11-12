@@ -1,4 +1,4 @@
-/** A job title as it is said aloud: inclusive written forms ("Desarrollador/a", "(m/f)") keep their first form. */
+/** A job title as it is said aloud: inclusive written forms ("Desarrollador/a", "(m/f)") keep their first form, and seniority abbreviations ("SR", "Jr.") are said in full. */
 
 /** Endings a posting adds after a slash or in a parenthesis to cover both genders. */
 const GENDER_ENDING = "(?:oras|ora|ras|ra|nas|na|as|a|os|o|es|e|x|innen|in)";
@@ -8,6 +8,12 @@ const AFTER_SLASH = new RegExp(`(\\p{L}{2,})/${GENDER_ENDING}(?![\\p{L}\\p{N}])`
 /** "(m/f)", "(h/m/x)", "[m/w/d]": a tag, not a word. */
 const GENDER_TAG = /\s*[([]\s*\p{L}(?:\s*[/|]\s*\p{L}){1,3}\s*[)\]]/gu;
 const WORD_PAIR = /(\p{L}{4,})\/(\p{L}{4,})/gu;
+/** Seniority abbreviations as whole words: the voice spells "SR" out. Acronyms said letter by letter (QA, SQL, AWS) stay. */
+const SENIORITY: Array<[RegExp, string]> = [
+  [/(?<![\p{L}\p{N}])(?:semi[\s-]?s{1,2}r|ssr)\.?(?![\p{L}\p{N}])/giu, "Semi Senior"],
+  [/(?<![\p{L}\p{N}])sr\.?(?![\p{L}\p{N}])/giu, "Senior"],
+  [/(?<![\p{L}\p{N}])jr\.?(?![\p{L}\p{N}])/giu, "Junior"],
+];
 
 function sharedPrefix(a: string, b: string): number {
   let length = 0;
@@ -22,7 +28,7 @@ function sameWord(first: string, second: string): boolean {
 }
 
 export function spokenTitle(title: string): string {
-  const spoken = title
+  const spoken = SENIORITY.reduce((text, [pattern, word]) => text.replace(pattern, word), title)
     .replace(GENDER_TAG, "")
     .replace(IN_PARENTHESIS, "$1")
     .replace(AFTER_SLASH, "$1")
