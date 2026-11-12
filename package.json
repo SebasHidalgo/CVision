@@ -20,6 +20,7 @@
     "voice:doctor": "tsx --env-file-if-exists=.env scripts/voice/doctor.ts",
     "voice:cost": "tsx --env-file-if-exists=.env scripts/voice/cost.ts",
     "voice:samples": "tsx --env-file-if-exists=.env scripts/voice/samples.ts",
+    "voice:simulate": "tsx --env-file-if-exists=.env scripts/voice/simulate.ts",
     "ai:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/ai/doctor.ts",
     "billing:sync": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/sync.ts",
     "billing:reconcile": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/reconcile.ts",

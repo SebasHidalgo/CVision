@@ -182,6 +182,8 @@ export type ReserveInterviewSessionData = {
   maxStarts: number;
   /** The language of the call, as chosen in the room. */
   language: InterviewLanguage;
+  /** Seconds this call may run: the tier's length, or what is left of it. */
+  allowedSeconds: number;
   /**
    * A reconnect after a dropped call that counted: the calls so far, the
    * stored one included, and the conversation they were read under. The
@@ -216,8 +218,8 @@ export async function reserveInterviewSession(
         userId,
         status: { in: [...STARTABLE_STATUSES] },
         startCount: { lt: data.maxStarts },
-        // The first token sets the unit and the tier; a later one must not.
-        ...(data.reservation ? { usageEventId: null } : {}),
+        // The first token sets the unit and the tier; a later one rides on it, so it must still be there.
+        usageEventId: data.reservation ? null : { not: null },
         ...(data.carry ? { conversationId: data.carry.fromConversationId } : {}),
       },
       data: {
@@ -225,6 +227,7 @@ export async function reserveInterviewSession(
         ...(data.reservation ? { usageEventId: data.reservation.usageEventId, tier: data.reservation.tier, paidBy: data.reservation.paidBy } : {}),
         issuedContext: data.issuedContext,
         language: data.language,
+        callAllowedSeconds: data.allowedSeconds,
         ...(data.carry ? { segments: data.carry.segments as Prisma.InputJsonValue } : {}),
         resumableUntil: null,
         finishRequestedAt: null,

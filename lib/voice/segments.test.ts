@@ -3,11 +3,13 @@ import { computeInterviewStats } from "@/lib/ai/interviewStats";
 import { formatTranscript, interviewFeedbackPrompt } from "@/lib/ai/prompts/interview-feedback.prompt";
 import {
   addSegment,
+  continuityRecord,
+  MAX_CONTINUITY_ANSWER_CHARS,
+  MAX_CONTINUITY_QUESTION_CHARS,
   CALL_RESUMED_MARKER,
   isResumeMarker,
   mergeSegments,
   MIN_RESUME_SECONDS,
-  questionsAsked,
   readSegments,
   resumeState,
   usedSeconds,
@@ -81,9 +83,82 @@ describe("segments: one transcript from several calls", () => {
 });
 
 describe("segments: the continuity record", () => {
-  it("lists the interviewer's questions, verbatim, oldest first", () => {
-    expect(questionsAsked(mergeSegments([first, second]))).toEqual(["Tell me about a migration you led?", "How did you test the cutover?"]);
-    expect(questionsAsked([{ role: "user", message: "Why do you ask that?" }])).toEqual([]);
+  const turn = (role: string, message: string | null, at = 0) => ({ role, message, time_in_call_secs: at });
+
+  it("pairs each thing the interviewer asked with the gist of the answer, oldest first", () => {
+    expect(continuityRecord(first.turns)).toEqual({
+      exchanges: [{ question: "Hi Ana. Tell me about a migration you led?", answer: "I moved our billing to Postgres." }],
+      pending: null,
+    });
+  });
+
+  it("keeps the last question apart when the call dropped before any answer to it", () => {
+    const record = continuityRecord([...first.turns, turn("agent", "Good. How did you plan the cutover, and who signed it off?", 30)]);
+    expect(record.exchanges).toHaveLength(1);
+    expect(record.pending).toBe("Good. How did you plan the cutover, and who signed it off?");
+  });
+
+  it("does not call a last line pending when it asks nothing, or when only a hesitation followed it", () => {
+    expect(continuityRecord([...first.turns, turn("agent", "Understood, thank you.", 30)]).pending).toBeNull();
+    const cutShort = continuityRecord([...first.turns, turn("agent", "And how did you test it?", 30), turn("user", "Ehh, mmm...", 36)]);
+    expect(cutShort.pending).toBe("And how did you test it?");
+    expect(cutShort.exchanges).toHaveLength(1);
+  });
+
+  it("cuts the hesitations out of an answer and keeps its start on one line", () => {
+    const record = continuityRecord([
+      turn("agent", "¿Cuánto tiempo llevas con Kotlin?"),
+      turn("user", "Mmm, a ver. Eh, llevo dos años con Kotlin,\n eh, sobre todo en apps internas. Ah, y uno con Swift."),
+    ]);
+    expect(record.exchanges[0]).toEqual({
+      question: "¿Cuánto tiempo llevas con Kotlin?",
+      answer: "a ver. llevo dos años con Kotlin, sobre todo en apps internas. y uno con Swift.",
+    });
+    const long = continuityRecord([turn("agent", "Tell me more?"), turn("user", "word ".repeat(200))]).exchanges[0].answer;
+    expect(long.length).toBe(MAX_CONTINUITY_ANSWER_CHARS);
+    expect(long.endsWith("…")).toBe(true);
+  });
+
+  it("keeps the end of a long interviewer turn, from a sentence start: the question is what it closes with", () => {
+    const lead = "The role is demanding. ".repeat(30);
+    const { question } = continuityRecord([turn("agent", `${lead}We need three years of SQL. Where have you run SQL in production?`), turn("user", "At Northwind.")]).exchanges[0];
+    expect(question.length).toBeLessThanOrEqual(MAX_CONTINUITY_QUESTION_CHARS);
+    expect(question.endsWith("We need three years of SQL. Where have you run SQL in production?")).toBe(true);
+    expect(question.startsWith("The role is demanding.")).toBe(true);
+  });
+
+  it("joins a speaker's consecutive turns and skips the silent ones (a tool call)", () => {
+    const record = continuityRecord([
+      turn("agent", "First part."),
+      turn("agent", null),
+      turn("agent", "What did you ship?"),
+      turn("user", "A cart."),
+      turn("user", "And a checkout."),
+    ]);
+    expect(record.exchanges).toEqual([{ question: "First part. What did you ship?", answer: "A cart. And a checkout." }]);
+  });
+
+  it("across calls: the line that says the call is picking up is no exchange, and a pending question asked again is one", () => {
+    const dropped: CallSegment = { ...first, turns: [...first.turns, turn("agent", "How did you plan the cutover?", 30)] };
+    const resumed: CallSegment = {
+      ...second,
+      turns: [
+        turn("agent", "Welcome back, Ana. The call dropped, so we will pick up where we left off.", 0),
+        turn("user", "Sure, sorry about that.", 5),
+        turn("agent", "Before we were cut off I had asked: how did you plan the cutover?", 8),
+        turn("user", "With a runbook and a rollback rehearsal.", 15),
+        turn("agent", "And what went wrong on the day?", 30),
+      ],
+    };
+    const record = continuityRecord(mergeSegments([dropped, resumed]));
+    expect(record.exchanges.map((exchange) => exchange.question)).toEqual(["Hi Ana. Tell me about a migration you led?", "Before we were cut off I had asked: how did you plan the cutover?"]);
+    expect(record.exchanges[1].answer).toBe("With a runbook and a rollback rehearsal.");
+    // Only where the interview stopped: the first call's unanswered question was asked again, the second's is pending.
+    expect(record.pending).toBe("And what went wrong on the day?");
+  });
+
+  it("has nothing to say about a call in which only the candidate is on record", () => {
+    expect(continuityRecord([turn("user", "Why do you ask that?")])).toEqual({ exchanges: [], pending: null });
   });
 });
 

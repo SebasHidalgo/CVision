@@ -1,0 +1,90 @@
+{
+  "about": "Invented. A Spanish interview whose first call dropped right after the interviewer asked a question: one question answered, one pending. Used by the continuity tests and by npm run voice:simulate.",
+  "candidateFirstName": "Lucía",
+  "role": "Ingeniero/a de Datos Senior",
+  "company": "Northwind",
+  "language": "es",
+  "plannedSeconds": 720,
+  "droppedAfterSeconds": 100,
+  "jobDescription": "Buscamos una persona para nuestro equipo de datos.\n\nRequisitos:\n- Al menos 3 años escribiendo SQL que corre en producción. Se valoran 5 años o más.\n- Manejo avanzado de Python y Airflow.\n- Pruebas de datos automatizadas y trabajo con Git en equipo.\n\nDeseable:\n- Experiencia con un almacén de datos en la nube (BigQuery o Snowflake).",
+  "analysisSummary": "2 of 3 required qualifications are only partly met or not shown.",
+  "requirements": [
+    {
+      "requirement": "Al menos 3 años escribiendo SQL que corre en producción",
+      "kind": "required",
+      "status": "missing",
+      "evidence": "",
+      "note": "The posting asks for 3+ years; your CV shows about 1."
+    },
+    {
+      "requirement": "Se valoran 5 años o más",
+      "kind": "preferred",
+      "status": "missing",
+      "evidence": "",
+      "note": "The posting asks for 5+ years; your CV shows about 1."
+    },
+    {
+      "requirement": "Manejo avanzado de Python y Airflow",
+      "kind": "required",
+      "status": "partial",
+      "evidence": "Skills: SQL, Python, Airflow, Metabase",
+      "note": "Airflow appears in your skills list only."
+    },
+    {
+      "requirement": "Pruebas de datos automatizadas y trabajo con Git en equipo",
+      "kind": "required",
+      "status": "partial",
+      "evidence": "Tools: Git, GitHub",
+      "note": "Your CV shows Git but no data testing."
+    },
+    {
+      "requirement": "Experiencia con un almacén de datos en la nube (BigQuery o Snowflake)",
+      "kind": "preferred",
+      "status": "missing",
+      "evidence": "",
+      "note": "Nothing in your CV names a cloud warehouse."
+    },
+    {
+      "requirement": "Reportes para equipos de negocio",
+      "kind": "required",
+      "status": "met",
+      "evidence": "Built weekly sales dashboards in Metabase for the commercial team",
+      "note": "Shown."
+    }
+  ],
+  "answeredQuestion": "¿Podrías contarme en qué proyectos has escrito SQL que corre en producción y cómo fue esa experiencia?",
+  "pendingQuestion": "¿cómo comprobabas que los datos estaban bien antes de que llegaran a los tableros, y qué hacías cuando una prueba fallaba?",
+  "turns": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 0,
+      "message": "Hola Lucía, gracias por conectarte. Voy a entrevistarte para el puesto de Ingeniero/a de Datos Senior en Northwind. Tenemos unos 12 minutos. Para empezar, cuéntame brevemente sobre tu trayectoria y qué te atrajo de este puesto."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 15,
+      "message": "Claro. Llevo cerca de un año y medio como analista, sobre todo armando reportes en Metabase y consultas en SQL para el equipo comercial. Me atrae el puesto porque quiero pasar a construir los pipelines y no solo consumirlos."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 40,
+      "message": "Gracias, Lucía. El puesto pide al menos tres años escribiendo SQL en producción, y valora cinco o más. ¿Podrías contarme en qué proyectos has escrito SQL que corre en producción y cómo fue esa experiencia?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 66,
+      "message": "Siendo honesta, en producción llevo más o menos un año. Mantenía unas veinte consultas programadas que alimentaban los tableros de ventas, y yo respondía cuando alguna fallaba en la madrugada."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 90,
+      "message": "Entiendo. Pensando en esas consultas programadas, ¿cómo comprobabas que los datos estaban bien antes de que llegaran a los tableros, y qué hacías cuando una prueba fallaba?"
+    }
+  ],
+  "check": {
+    "candidateReply": "Dale, sí, una disculpa.",
+    "condition": "The interviewer's reply asks again, briefly, the question that was pending when the call dropped: how the candidate checked that the data was right before it reached the dashboards and what she did when a test failed. It does not ask in which projects she wrote SQL that runs in production, or for how many years, which she already answered.",
+    "passExample": "No te preocupes. Antes de que se cortara te había preguntado cómo comprobabas que los datos estaban bien antes de llegar a los tableros. ¿Me cuentas?",
+    "failExample": "No te preocupes. ¿Cuántos años de experiencia tienes con SQL en producción?"
+  }
+}

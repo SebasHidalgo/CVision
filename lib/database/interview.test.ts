@@ -106,7 +106,8 @@ describe("reserveInterviewSession", () => {
     startedAt: new Date("2026-10-16T12:00:00Z"),
     issuedAt: new Date("2026-10-16T12:05:00Z"),
     maxStarts: 3,
-  language: "en" as const,
+    language: "en" as const,
+    allowedSeconds: 528,
   };
 
   it("clears every leftover of the previous session, the reconcile throttle included, and dates this session", async () => {
@@ -131,11 +132,14 @@ describe("reserveInterviewSession", () => {
         }),
       }),
     );
-    // A reconnect touches neither the unit nor the tier.
+    // A reconnect touches neither the unit nor the tier, and rides on a unit that is still there:
+    // one released in between (the dropped call turned out silent) refuses the write.
     const { data, where } = vi.mocked(prisma.interview.updateMany).mock.calls[0][0] as { data: Record<string, unknown>; where: Record<string, unknown> };
     expect(data).not.toHaveProperty("usageEventId");
     expect(data).not.toHaveProperty("tier");
-    expect(where).not.toHaveProperty("usageEventId");
+    expect(where.usageEventId).toEqual({ not: null });
+    // What this call may run, for the overrun check when its record arrives.
+    expect(data.callAllowedSeconds).toBe(528);
   });
 
   it("on the first token, sets the unit and the tier only on a row that has none", async () => {

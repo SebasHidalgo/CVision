@@ -13,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireUserId).mockResolvedValue("user_1");
-  vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "user_1", compPlan: null, locale: null, createdAt: new Date(), updatedAt: new Date() });
+  vi.mocked(prisma.user.upsert).mockResolvedValue({ id: "user_1", compPlan: null, locale: null, callOverruns: 0, createdAt: new Date(), updatedAt: new Date() });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

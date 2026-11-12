@@ -14,6 +14,7 @@ import { finalizeResumableInterview } from "@/lib/database/interviewResume";
 import { assertVoiceCapacity } from "@/lib/voice/health";
 import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
+import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { POST } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(), getUserProfile: vi.fn() }));
@@ -27,7 +28,7 @@ vi.mock("@/lib/database/interviewResume", () => ({
   storedCallCounts: (transcript: unknown) =>
     Array.isArray(transcript) && transcript.some((turn: { role?: string; message?: string }) => turn.role === "user" && Boolean(turn.message)),
 }));
-vi.mock("@/lib/voice/reconcile", () => ({ reconcileStrandedInterview: vi.fn(async () => ({ kind: "not-stranded" })) }));
+vi.mock("@/lib/voice/reconcile", () => ({ settlePreviousCall: vi.fn(async () => false) }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({
   reserveInterview: vi.fn(),
@@ -86,6 +87,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     language: null,
     resumableUntil: null,
     finishRequestedAt: null,
+    callAllowedSeconds: null,
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {
@@ -312,6 +314,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
       issuedAt: expect.any(Date),
       maxStarts: MAX_INTERVIEW_STARTS,
       language: "en",
+      allowedSeconds: 720,
       reservation: { usageEventId: "evt_1", tier: "FULL", paidBy: "PERIOD" },
     });
     // The abandoned-interview sweep ran for this user before the row was read.
@@ -496,13 +499,66 @@ describe("POST /api/interview/[id]/session: a reconnect continues the interview"
     expect(reserveInterview).not.toHaveBeenCalled();
     expect(data.resumed).toBe(true);
     expect(data.maxDurationSeconds).toBe(720 - 192);
-    expect(data.dynamicVariables.interview_minutes).toBe("9");
-    expect(data.dynamicVariables.opening_line).toContain("Welcome back, Ana");
-    expect(data.dynamicVariables.call_context).toContain("Tell me about a checkout flow you owned?");
+    // 8:48 left is planned as 8 minutes and said as "about 8 and a half": rounded down, never up.
+    expect(data.dynamicVariables.interview_minutes).toBe("8");
+    expect(data.dynamicVariables.opening_line).toBe("Welcome back, Ana. The call dropped, so we will pick up where we left off. We have about 8 and a half minutes left.");
+    expect(data.dynamicVariables.call_context).toContain("1. You asked: Hi Ana. Tell me about a checkout flow you owned?\n   The candidate answered: I rebuilt the cart at Northwind.");
+    expect(data.dynamicVariables.call_context).not.toContain("PENDING QUESTION");
     const write = vi.mocked(reserveInterviewSession).mock.calls[0][0];
+    // What the resumed call may run, for the overrun check.
+    expect(write.allowedSeconds).toBe(720 - 192);
     expect(write.carry?.fromConversationId).toBe("conv_0");
     expect(write.carry?.segments).toHaveLength(1);
     expect(write.carry?.segments[0]).toMatchObject({ conversationId: "conv_0", durationSeconds: 192 });
+  });
+
+  it("asks first the question the drop left without an answer", async () => {
+    stubElevenLabs(tokenResponse);
+    vi.mocked(fetchInterviewCallState).mockResolvedValue(
+      dropped({
+        transcript: [
+          { role: "agent", message: "Hi Ana. Tell me about a checkout flow you owned?", time_in_call_secs: 0 },
+          { role: "user", message: "I rebuilt the cart at Northwind.", time_in_call_secs: 9 },
+          { role: "agent", message: "Thanks. How did you test it before it shipped?", time_in_call_secs: 30 },
+        ],
+      }),
+    );
+
+    const { body } = await post();
+    const context = (body as { data: InterviewSessionResponse }).data.dynamicVariables.call_context;
+    expect(context).toContain("Your first question is the one under PENDING QUESTION below");
+    expect(context).toContain("PENDING QUESTION (asked just before the drop, never answered)\nThanks. How did you test it before it shipped?");
+    expect(context.split("PENDING QUESTION (asked")[0]).not.toContain("How did you test it");
+  });
+
+  it("fetches the record of a previous call that has not arrived before it reads the interview or reserves", async () => {
+    stubElevenLabs(tokenResponse);
+    const unrecorded = dropped({ transcript: null, transcriptSource: null, durationSeconds: null, endedAt: null });
+    vi.mocked(fetchInterviewCallState).mockResolvedValueOnce(unrecorded).mockResolvedValue(dropped());
+
+    const { body } = await post();
+
+    expect(settlePreviousCall).toHaveBeenCalledWith(INTERVIEW_ID, unrecorded, { unthrottled: true, patient: true });
+    expect(vi.mocked(settlePreviousCall).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(fetchInterviewById).mock.invocationCallOrder[0]);
+    // The time left comes from the record the fetch stored, not from the server's clock.
+    expect((body as { data: InterviewSessionResponse }).data.maxDurationSeconds).toBe(720 - 192);
+  });
+
+  it("reserves again when the fetched record shows nobody spoke: the dropped call released its unit", async () => {
+    stubElevenLabs(tokenResponse);
+    // Before the fetch the row still holds the unit; the read after it sees the unit released.
+    vi.mocked(fetchInterviewById).mockResolvedValue(interview({ status: "IN_PROGRESS", startCount: 1, usageEventId: null, tier: "FULL", paidBy: "PERIOD" }));
+    vi.mocked(fetchInterviewCallState)
+      .mockResolvedValueOnce(dropped({ transcript: null, transcriptSource: null, durationSeconds: null }))
+      .mockResolvedValue(dropped({ transcript: [{ role: "agent", message: "Hi Ana.", time_in_call_secs: 0 }], durationSeconds: 40, resumableUntil: null }));
+    vi.mocked(settlePreviousCall).mockResolvedValueOnce(true);
+
+    const { body } = await post();
+    const data = (body as { data: InterviewSessionResponse }).data;
+    expect(reserveInterview).toHaveBeenCalledTimes(1);
+    expect(data.resumed).toBe(false);
+    expect(data.maxDurationSeconds).toBe(720);
+    expect(vi.mocked(reserveInterviewSession).mock.calls[0][0]).toMatchObject({ allowedSeconds: 720, reservation: { usageEventId: "evt_1" } });
   });
 
   it("adds the stored call to the earlier ones on a second reconnect", async () => {

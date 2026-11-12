@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CALL_FAILED,
+  CALL_OVERRUN_TOLERANCE_SECONDS,
+  callOverrunSeconds,
   decidePostCallOutcome,
   hasCandidateTurns,
   initiationDataMatches,
@@ -168,6 +170,24 @@ describe("decidePostCallOutcome", () => {
     const outcome = decide(row(), payload({ metadata: { call_duration_secs: 30 } }));
 
     expect(outcome).toMatchObject({ startedAt: null, endedAt: new Date((START + 500) * 1000), durationSeconds: 30 });
+  });
+});
+
+describe("callOverrunSeconds: a call that ran past what its session allowed", () => {
+  it("reports only what passes the tolerance", () => {
+    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(15);
+    // A resumed call allowed 284 s that the room hung up three seconds late.
+    expect(callOverrunSeconds(284, 287)).toBe(0);
+    expect(callOverrunSeconds(284, 299)).toBe(0);
+    expect(callOverrunSeconds(284, 299.6)).toBe(16);
+    // A browser that never hung up: the agent's own limit ended it.
+    expect(callOverrunSeconds(284, 720)).toBe(436);
+  });
+
+  it("says nothing when the allowance or the length is unknown (a row from before, a record without metadata)", () => {
+    expect(callOverrunSeconds(null, 720)).toBe(0);
+    expect(callOverrunSeconds(undefined, 720)).toBe(0);
+    expect(callOverrunSeconds(284, null)).toBe(0);
   });
 });
 

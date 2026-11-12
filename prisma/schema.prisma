@@ -31,6 +31,9 @@ model User {
   /// (lib/i18n/config.ts). Null until they choose: the cookie, then the
   /// browser's Accept-Language decide.
   locale    String?   @db.VarChar(8)
+  /// Calls of this user whose recorded length ran past the time they were
+  /// allowed (a resumed call the browser did not hang up). Counted, not blocked.
+  callOverruns Int     @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -323,6 +326,9 @@ model Interview {
   /// The candidate asked to finish: End in the room, or "Finish and get
   /// feedback" after a drop. Cleared when a new session is issued.
   finishRequestedAt DateTime?
+  /// Seconds the latest call was allowed when its session was issued: the
+  /// tier's length, or what was left of it for a resumed call.
+  callAllowedSeconds Int?
   /// Feedback generation claims so far; the generator gives up after two.
   feedbackAttempts  Int       @default(0)
   /// When the current GENERATING claim was taken, to detect a dead worker.

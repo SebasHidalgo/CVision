@@ -14,8 +14,8 @@ import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { startVoiceSession } from "@/lib/voice";
 import { assertVoiceCapacity } from "@/lib/voice/health";
 import { STARTABLE_STATUSES, toSegment } from "@/lib/voice/postCall";
-import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
-import { addSegment, mergeSegments, MIN_RESUME_SECONDS, questionsAsked, readSegments, usedSeconds } from "@/lib/voice/segments";
+import { settlePreviousCall } from "@/lib/voice/reconcile";
+import { addSegment, continuityRecord, mergeSegments, MIN_RESUME_SECONDS, readSegments, usedSeconds } from "@/lib/voice/segments";
 import { transcriptTurnSchema } from "@/lib/voice/transcript";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { z } from "zod";
@@ -56,7 +56,7 @@ const LOG = "[CVision][session]";
  *
  * A start after a dropped call that counted continues the same interview:
  * no new unit, the time left instead of the full length, and a record of
- * the questions already asked for the interviewer. The call speaks the
+ * what was asked and answered for the interviewer. The call speaks the
  * language the room chose, stored on the interview.
  */
 export async function POST(
@@ -76,6 +76,10 @@ export async function POST(
     // A read of an interview is also the sweep for abandoned ones; one
     // expired here answers INTERVIEW_NOT_STARTABLE below.
     await expireAbandonedInterviews(userId);
+
+    // The previous call's record, fetched first when it has not arrived: it decides what this start is.
+    const previous = await fetchInterviewCallState(id);
+    if (previous) await settlePreviousCall(id, previous, { unthrottled: true, patient: true });
 
     // Owner-scoped: a foreign id is indistinguishable from a missing one.
     const interview = await fetchInterviewById(id);
@@ -122,15 +126,8 @@ export async function POST(
     }
     const { seconds: tierSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
 
-    // The calls so far. A dropped call whose record has not arrived is fetched now
-    // (throttled, best effort) so the time used and the continuity record are exact.
-    let state = await fetchInterviewCallState(interview.id);
-    if (state?.conversationId && !state.transcriptSource && state.endedAt) {
-      await reconcileStrandedInterview(interview.id, new Date(), { graceSeconds: 0 }).catch((error) => {
-        console.warn(`${LOG} interview=${interview.id} could not fetch the dropped call:`, error instanceof Error ? error.message : error);
-      });
-      state = await fetchInterviewCallState(interview.id);
-    }
+    // The calls so far.
+    const state = await fetchInterviewCallState(interview.id);
     if (!state || !STARTABLE_STATUSES.has(state.status)) {
       throw new InterviewNotStartableError("Interview is no longer startable");
     }
@@ -185,7 +182,7 @@ export async function POST(
       maxDurationSeconds: tierSeconds,
       gapsToCover,
       language: chosen,
-      ...(resuming ? { resume: { remainingSeconds: maxDurationSeconds, questionsAsked: questionsAsked(mergeSegments(calls)) } } : {}),
+      ...(resuming ? { resume: { remainingSeconds: maxDurationSeconds, record: continuityRecord(mergeSegments(calls)) } } : {}),
     });
 
     const session = await startVoiceSession({ tier, variables: dynamicVariables });
@@ -199,6 +196,7 @@ export async function POST(
       issuedAt,
       maxStarts: MAX_INTERVIEW_STARTS,
       language,
+      allowedSeconds: maxDurationSeconds,
       ...(latestCounts && state.conversationId ? { carry: { segments: calls, fromConversationId: state.conversationId } } : {}),
       ...(reservation ? { reservation: { usageEventId: reservation.eventId, tier, paidBy: PAID_BY_SOURCE[reservation.source] } } : {}),
     });

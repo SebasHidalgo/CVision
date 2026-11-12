@@ -8,6 +8,7 @@ import { readSegments, RESUME_WINDOW_MS } from "@/lib/voice/segments";
 import {
   AT_CAPACITY,
   CALL_FAILED,
+  callOverrunSeconds,
   decidePostCallOutcome,
   interviewIdFromRecord,
   NO_CANDIDATE_TURNS,
@@ -28,6 +29,8 @@ import { refundUsageIn } from "./usage";
 
 const postCallSelect = {
   id: true,
+  userId: true,
+  callAllowedSeconds: true,
   status: true,
   conversationId: true,
   issuedConversationIds: true,
@@ -95,16 +98,15 @@ export async function storeConversationTranscript({
       return kept.count === 1 ? { outcome: "stored", interviewId: row.id, status: "IN_PROGRESS" } : { outcome: "duplicate", interviewId: row.id };
     }
 
-    // The state guard makes two concurrent deliveries of the same event
-    // idempotent: the second finds the row already past the startable states
-    // and writes nothing.
+    // Two concurrent deliveries of the same call (the webhook and the API fetch) write once:
+    // the second finds the row past the startable states, or its transcript already stored.
     // Times only when the delivery carries them: a payload without metadata
     // must not blank what the room reported.
     // A start the platform could not run is given back in the same write,
     // and only once: the second delivery of the same failed call is a
     // duplicate by the transcript check above.
     const updated = await prisma.interview.updateMany({
-      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] }, ...(outcome.startRefunded ? { startCount: { gt: 0 } } : {}) },
+      where: { id: row.id, status: { in: [...STARTABLE_STATUSES] }, transcriptSource: null, ...(outcome.startRefunded ? { startCount: { gt: 0 } } : {}) },
       data: {
         status: outcome.status,
         conversationId: data.conversationId,
@@ -134,6 +136,9 @@ export async function storeConversationTranscript({
     // reservation stays on the row, refunded, for support to read. An
     // interview in which the candidate spoke keeps its unit: it is scored.
     const latestSession = data.conversationId === row.conversationId;
+    // Only the latest call's allowance is on the row; an earlier call's late record is not judged.
+    const overrun = latestSession ? callOverrunSeconds(row.callAllowedSeconds, data.durationSeconds) : 0;
+    if (overrun > 0) await recordCallOverrun({ userId: row.userId, interviewId: row.id, conversationId: data.conversationId, allowedSeconds: row.callAllowedSeconds, recordedSeconds: data.durationSeconds, overrun });
     const reason = outcome.failureReason;
     const unheard = reason === NO_CANDIDATE_TURNS || reason === CALL_FAILED || reason === AT_CAPACITY;
     if (!outcome.counted && unheard && row.usageEventId && (outcome.status === "FAILED" || latestSession)) {
@@ -142,6 +147,19 @@ export async function storeConversationTranscript({
     return { outcome: "stored", interviewId: row.id, status: outcome.status };
   } catch (error) {
     handleError(error, "Failed to store conversation transcript");
+  }
+}
+
+/** One error line and one more on the user's count for a call that ran past its allowance. Never throws. */
+async function recordCallOverrun(params: { userId: string; interviewId: string; conversationId: string; allowedSeconds: number | null; recordedSeconds: number | null; overrun: number }): Promise<void> {
+  try {
+    const counted = await prisma.user.updateMany({ where: { id: params.userId }, data: { callOverruns: { increment: 1 } } });
+    const total = counted.count === 1 ? ((await prisma.user.findUnique({ where: { id: params.userId }, select: { callOverruns: true } }))?.callOverruns ?? "?") : "?";
+    console.error(
+      `[CVision][voice] CALL OVERRUN user=${params.userId} interview=${params.interviewId} conversation=${params.conversationId} allowed=${params.allowedSeconds}s recorded=${params.recordedSeconds}s over=${params.overrun}s; overruns by this user: ${total}`,
+    );
+  } catch (error) {
+    console.error(`[CVision][voice] CALL OVERRUN user=${params.userId} interview=${params.interviewId} over=${params.overrun}s (not counted):`, error);
   }
 }
 

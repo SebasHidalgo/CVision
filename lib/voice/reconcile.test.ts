@@ -9,7 +9,7 @@ import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import { toCallRecord } from "@/lib/voice/elevenlabs/wire";
 import { fetchConversation } from "@/lib/voice";
 import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/voice/postCall";
-import { reconcileChangedRow, reconcileNeedsFeedback, reconcileStrandedInterview } from "./reconcile";
+import { previousCallUnrecorded, reconcileChangedRow, reconcileNeedsFeedback, reconcileStrandedInterview, settlePreviousCall, SETTLE_PATIENCE_MS, SETTLE_RETRY_MS, UNREPORTED_CALL_MIN_AGE_MS, type PreviousCallFacts } from "./reconcile";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({
   claimReconcile: vi.fn(async () => true),
@@ -213,5 +213,105 @@ describe("reconcileStrandedInterview", () => {
 
     vi.mocked(storeConversationTranscript).mockResolvedValue({ outcome: "duplicate", interviewId: INTERVIEW_ID });
     expect(reconcileNeedsFeedback(await reconcileStrandedInterview(INTERVIEW_ID, NOW))).toBe(false);
+  });
+});
+
+describe("settlePreviousCall: the record of the previous call, before a new start or the room", () => {
+  const facts = (overrides: Partial<PreviousCallFacts> = {}): PreviousCallFacts => ({
+    status: "IN_PROGRESS",
+    conversationId: "conv_1",
+    transcriptSource: null,
+    endedAt: null,
+    lastSessionAt: new Date(NOW.getTime() - 60_000),
+    ...overrides,
+  });
+  // A call that began a minute ago: far inside the window the poll waits out.
+  const recent = () => row({ startedAt: new Date(NOW.getTime() - 60_000), lastSessionAt: new Date(NOW.getTime() - 60_000) });
+
+  it.each([
+    ["the room reported the end", facts({ endedAt: new Date(NOW.getTime() - 2_000), lastSessionAt: new Date(NOW.getTime() - 5_000) }), true],
+    ["the page-leave report was lost, and the session is not fresh", facts(), true],
+    ["the session was issued seconds ago and may still be connecting", facts({ lastSessionAt: new Date(NOW.getTime() - UNREPORTED_CALL_MIN_AGE_MS + 1_000) }), false],
+    ["the record is already stored", facts({ transcriptSource: "elevenlabs" }), false],
+    ["no call was ever issued", facts({ conversationId: null }), false],
+    ["the interview is no longer in progress", facts({ status: "FEEDBACK_PENDING" }), false],
+  ])("asks when %s", (_name, given, asks) => {
+    expect(previousCallUnrecorded(given, NOW)).toBe(asks);
+  });
+
+  it("fetches a call with no end report, inside the window the poll waits out, and stores it", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(recent());
+    vi.mocked(storeConversationTranscript).mockResolvedValue({ outcome: "stored", interviewId: INTERVIEW_ID, status: "IN_PROGRESS" });
+
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { now: NOW })).toBe(true);
+
+    expect(fetchConversation).toHaveBeenCalledWith("conv_1");
+    expect(storeConversationTranscript).toHaveBeenCalledWith(expect.objectContaining({ source: "elevenlabs-api" }));
+    // The page is throttled like any poll.
+    expect(claimReconcile).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, now: NOW, minIntervalMs: RECONCILE_MIN_INTERVAL_MS });
+  });
+
+  it("a start is not held back by a poll a few seconds earlier", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(recent());
+    await settlePreviousCall(INTERVIEW_ID, facts(), { unthrottled: true, now: NOW });
+    expect(claimReconcile).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, now: NOW, minIntervalMs: 0 });
+  });
+
+  it("leaves the estimate in place when the platform still has the call open, or does not answer", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(recent());
+    vi.mocked(fetchConversation).mockResolvedValue({ kind: "in-progress", platformStatus: "in-progress" });
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { now: NOW })).toBe(false);
+    expect(storeConversationTranscript).not.toHaveBeenCalled();
+
+    vi.mocked(fetchConversation).mockRejectedValue(new Error("timeout"));
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { now: NOW })).toBe(false);
+  });
+
+  it("a patient start asks again while the platform is still closing the record of a call that is over", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(recent());
+    vi.mocked(fetchConversation)
+      .mockResolvedValueOnce({ kind: "in-progress", platformStatus: "processing" })
+      .mockResolvedValueOnce({ kind: "in-progress", platformStatus: "processing" })
+      .mockResolvedValue(ended());
+    const waits: number[] = [];
+
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { unthrottled: true, patient: true, now: NOW, wait: async (ms) => void waits.push(ms) })).toBe(true);
+
+    expect(fetchConversation).toHaveBeenCalledTimes(3);
+    expect(waits).toEqual([SETTLE_RETRY_MS, SETTLE_RETRY_MS]);
+    expect(storeConversationTranscript).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after its patience, and never waits for a call still live in another tab", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(recent());
+    vi.mocked(fetchConversation).mockResolvedValue({ kind: "in-progress", platformStatus: "processing" });
+    const waits: number[] = [];
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { unthrottled: true, patient: true, now: NOW, wait: async (ms) => void waits.push(ms) })).toBe(false);
+    expect(waits.length).toBe(Math.floor(SETTLE_PATIENCE_MS / SETTLE_RETRY_MS));
+
+    // No end report and the platform says the call is running: a second tab, not a drop.
+    vi.mocked(fetchConversation).mockClear();
+    vi.mocked(fetchConversation).mockResolvedValue({ kind: "in-progress", platformStatus: "in-progress" });
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { unthrottled: true, patient: true, now: NOW, wait: async () => {} })).toBe(false);
+    expect(fetchConversation).toHaveBeenCalledTimes(1);
+
+    // The room reported the drop: the platform has not noticed yet, so it is asked again.
+    vi.mocked(fetchConversation).mockClear();
+    vi.mocked(fetchConversation).mockResolvedValueOnce({ kind: "in-progress", platformStatus: "in-progress" }).mockResolvedValue(ended());
+    expect(await settlePreviousCall(INTERVIEW_ID, facts({ endedAt: new Date(NOW.getTime() - 1_000) }), { unthrottled: true, patient: true, now: NOW, wait: async () => {} })).toBe(true);
+    expect(fetchConversation).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks nothing for a call that has its record, or whose session is seconds old", async () => {
+    expect(await settlePreviousCall(INTERVIEW_ID, facts({ transcriptSource: "elevenlabs" }), { now: NOW })).toBe(false);
+    expect(await settlePreviousCall(INTERVIEW_ID, facts({ lastSessionAt: new Date(NOW.getTime() - 3_000) }), { now: NOW })).toBe(false);
+    expect(fetchInterviewForReconcile).not.toHaveBeenCalled();
+    expect(fetchConversation).not.toHaveBeenCalled();
+  });
+
+  it("a row that got its record between the read and the fetch is left alone", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(row({ transcriptSource: "elevenlabs" }));
+    expect(await settlePreviousCall(INTERVIEW_ID, facts(), { unthrottled: true, now: NOW })).toBe(false);
+    expect(fetchConversation).not.toHaveBeenCalled();
   });
 });

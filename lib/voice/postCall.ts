@@ -129,6 +129,16 @@ export function isStranded(
   return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
 }
 
+/** A call may run this far past the time it was allowed before it is reported. */
+export const CALL_OVERRUN_TOLERANCE_SECONDS = 15;
+
+/** Seconds a recorded call ran past its allowance; 0 inside the tolerance or when either is unknown. */
+export function callOverrunSeconds(allowedSeconds: number | null | undefined, recordedSeconds: number | null | undefined): number {
+  if (typeof allowedSeconds !== "number" || typeof recordedSeconds !== "number") return 0;
+  const over = recordedSeconds - allowedSeconds;
+  return over > CALL_OVERRUN_TOLERANCE_SECONDS ? Math.round(over) : 0;
+}
+
 /** The dynamic variable the session endpoint issues so a payload can be matched without a conversation id. */
 export const INTERVIEW_ID_VARIABLE = "interview_id";
 

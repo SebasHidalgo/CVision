@@ -61,13 +61,89 @@ export function mergeSegments(segments: CallSegment[]): TranscriptTurn[] {
   return merged;
 }
 
-/** The interviewer's questions in these turns, verbatim, oldest first: the continuity record of a resumed call. */
-export function questionsAsked(turns: TranscriptTurn[]): string[] {
-  return turns
-    .filter((turn) => turn.role === "agent" && typeof turn.message === "string")
-    .flatMap((turn) => (turn.message ?? "").match(/[^.!?¿¡]*\?/g) ?? [])
-    .map((question) => question.replace(/\s+/g, " ").trim())
-    .filter((question) => question.length > 8);
+/** One thing the interviewer asked and the gist of what the candidate said to it. */
+export type ContinuityExchange = { question: string; answer: string };
+
+/** What a resumed call is told about the calls before it. */
+export type ContinuityRecord = {
+  /** Oldest first. */
+  exchanges: ContinuityExchange[];
+  /** The interviewer's last question, when the call dropped before any answer to it. */
+  pending: string | null;
+};
+
+export const MAX_CONTINUITY_QUESTION_CHARS = 320;
+export const MAX_CONTINUITY_ANSWER_CHARS = 240;
+
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/** Hesitation sounds a transcript is full of; they carry nothing. */
+const FILLER = /(?<![\p{L}\p{N}])(?:e+h+|a+h+|m{2,}|u+h+|u+m+|h+m+)(?![\p{L}\p{N}])[,.…]*\s*/giu;
+
+/** The start of an answer on one line, without the hesitations. */
+function gist(text: string): string {
+  const said = oneLine(text.replace(FILLER, " ")).replace(/^[,.;:\s-]+/, "");
+  return said.length > MAX_CONTINUITY_ANSWER_CHARS ? `${said.slice(0, MAX_CONTINUITY_ANSWER_CHARS - 1)}…` : said;
+}
+
+/** The end of a turn, from a sentence start: what a turn closes with is its question. */
+function closing(text: string): string {
+  const said = oneLine(text);
+  if (said.length <= MAX_CONTINUITY_QUESTION_CHARS) return said;
+  let kept = "";
+  for (const sentence of said.split(/(?<=[.!?…])\s+/).reverse()) {
+    const next = kept ? `${sentence} ${kept}` : sentence;
+    if (next.length > MAX_CONTINUITY_QUESTION_CHARS) break;
+    kept = next;
+  }
+  return kept || `…${said.slice(said.length - MAX_CONTINUITY_QUESTION_CHARS + 1)}`;
+}
+
+type Said = { role: "agent" | "user"; text: string };
+
+/** Who spoke, in order, with one speaker's consecutive turns joined. Silent turns (a tool call) are left out. */
+function speakerBlocks(turns: TranscriptTurn[]): Said[] {
+  const blocks: Said[] = [];
+  for (const turn of turns) {
+    const text = oneLine(turn.message ?? "");
+    if (!text || (turn.role !== "agent" && turn.role !== "user")) continue;
+    const last = blocks[blocks.length - 1];
+    if (last && last.role === turn.role) last.text = `${last.text} ${text}`;
+    else blocks.push({ role: turn.role, text });
+  }
+  return blocks;
+}
+
+/** The continuity record, cut from the turns in code: exchanges with their gist, and the question a drop left pending. */
+export function continuityRecord(turns: TranscriptTurn[]): ContinuityRecord {
+  const calls: TranscriptTurn[][] = [[]];
+  for (const turn of turns) {
+    if (isResumeMarker(turn)) calls.push([]);
+    else calls[calls.length - 1].push(turn);
+  }
+
+  const exchanges: ContinuityExchange[] = [];
+  let pending: string | null = null;
+  calls.forEach((call, index) => {
+    let spoken = call.filter((turn) => oneLine(turn.message ?? "") !== "");
+    if (index > 0 && spoken[0]?.role === "agent") {
+      const afterReply = spoken.findIndex((turn, at) => at > 0 && turn.role !== "user");
+      spoken = afterReply < 0 ? [] : spoken.slice(afterReply);
+    }
+    const blocks = speakerBlocks(spoken);
+    blocks.forEach((block, at) => {
+      if (block.role !== "agent") return;
+      const reply = blocks[at + 1]?.role === "user" ? gist(blocks[at + 1].text) : "";
+      if (reply) {
+        exchanges.push({ question: closing(block.text), answer: reply });
+        return;
+      }
+      // Pending only where the interview stopped: the last thing said in the latest call, and a question.
+      const lastWord = index === calls.length - 1 && !blocks.slice(at + 1).some((later) => later.role === "agent");
+      if (lastWord && block.text.includes("?")) pending = closing(block.text);
+    });
+  });
+  return { exchanges, pending };
 }
 
 export type TimeFacts = {

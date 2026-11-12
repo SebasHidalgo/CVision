@@ -1,6 +1,7 @@
 /**
  * The operator side of the voice provider, for scripts: the agents as code,
- * the read-only doctor, what conversations cost and the voice samples. No server-only import, so tsx can load it.
+ * the read-only doctor, what conversations cost, the voice samples and the
+ * text-only check of the interviewer's next turn. No server-only import, so tsx can load it.
  */
 export { runVoiceDoctor, type VoiceDoctorCheck, type VoiceDoctorOptions } from "./elevenlabs/doctor";
 export { syncAgents, type SyncAgentsOptions } from "./elevenlabs/sync";
@@ -9,6 +10,7 @@ import { synthesizeSample } from "./elevenlabs/cost";
 
 export { listConversationIds, readConversationCost, readPlanPrice, summarizeCosts, type ConversationCost, type CostSummary, type PlanPrice } from "./elevenlabs/cost";
 export { SPANISH_VOICE_CANDIDATES, SPANISH_VOICE_SAMPLE_TEXT } from "./elevenlabs/agentConfig";
+export { checkNextTurn, type NextTurnCheck, type NextTurnRun } from "./elevenlabs/simulate";
 
 /** The agent ids the environment holds: the conversations voice:cost reads are theirs. */
 export const INTERVIEW_AGENT_IDS_FROM_ENV = interviewAgentIdsFromEnv;

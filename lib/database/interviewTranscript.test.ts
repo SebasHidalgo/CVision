@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     $transaction: vi.fn(),
     interview: { findFirst: vi.fn(), updateMany: vi.fn() },
+    user: { updateMany: vi.fn(async () => ({ count: 1 })), findUnique: vi.fn(async () => ({ callOverruns: 2 })) },
   },
 }));
 vi.mock("./usage", () => ({ refundUsageIn: vi.fn(async () => true) }));
@@ -34,6 +35,8 @@ const DROPPED = { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200, 
 
 const row = (overrides: Record<string, unknown> = {}) => ({
   id: "int_1",
+  userId: "user_1",
+  callAllowedSeconds: null,
   status: "IN_PROGRESS",
   conversationId: "conv_2",
   issuedConversationIds: ["conv_1", "conv_2"],
@@ -156,6 +159,66 @@ describe("storeConversationTranscript: one interview, several calls", () => {
 
     expect(updateMany.mock.calls[0][0]).toMatchObject({ data: { status: "IN_PROGRESS", failureReason: "AT_CAPACITY", startCount: { decrement: 1 } } });
     expect(tx.interview.updateMany).toHaveBeenCalledWith({ where: { id: "int_1", usageEventId: "evt_1" }, data: { usageEventId: null } });
+  });
+});
+
+describe("storeConversationTranscript: one call, two deliveries at once", () => {
+  it("writes only on a row that has no transcript yet, so the webhook and the API fetch racing store the call once", async () => {
+    // Both read the row before either wrote; the call left the interview in progress (nobody spoke).
+    findFirst.mockResolvedValue(row({ startCount: 1 }) as never);
+    updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    const silent = payload({ transcript: [{ role: "agent", message: "Hi.", time_in_call_secs: 0 }], metadata: DROPPED });
+
+    const [first, second] = await Promise.all([
+      storeConversationTranscript({ data: toCallRecord(silent), eventTimestamp: null, source: "elevenlabs-api" }),
+      storeConversationTranscript({ data: toCallRecord(silent), eventTimestamp: null }),
+    ]);
+
+    expect([first.outcome, second.outcome].sort()).toEqual(["duplicate", "stored"]);
+    for (const call of updateMany.mock.calls) expect((call[0] as { where: Record<string, unknown> }).where.transcriptSource).toBeNull();
+    // The unit goes back once.
+    expect(refundUsageIn).toHaveBeenCalledTimes(1);
+    findFirst.mockReset();
+  });
+});
+
+describe("storeConversationTranscript: a call that ran past the time it was allowed", () => {
+  const overrunLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("CALL OVERRUN"));
+
+  it("logs an error with the user and interview ids and counts it on the user, and still stores the call", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    // A resumed call allowed 120 s whose record says 200 s.
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 120 }) as never);
+
+    expect(await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null })).toMatchObject({ outcome: "stored" });
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({ where: { id: "user_1" }, data: { callOverruns: { increment: 1 } } });
+    expect(overrunLines(error)).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=120s recorded=200s over=80s; overruns by this user: 2"]);
+    error.mockRestore();
+  });
+
+  it("says nothing inside the tolerance, for a row with no allowance, or for an earlier call's late record", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 190 }) as never);
+    await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
+    findFirst.mockResolvedValueOnce(row() as never);
+    await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
+    // conv_1's record arrives after conv_2 was issued: the allowance on the row is conv_2's.
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 60 }) as never);
+    await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1" })), eventTimestamp: null });
+
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(overrunLines(error)).toEqual([]);
+    error.mockRestore();
+  });
+
+  it("a count that cannot be written does not lose the transcript", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(prisma.user.updateMany).mockRejectedValueOnce(new Error("db down"));
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 120 }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null })).toMatchObject({ outcome: "stored" });
+    expect(overrunLines(error)).toHaveLength(1);
+    error.mockRestore();
   });
 });
 
