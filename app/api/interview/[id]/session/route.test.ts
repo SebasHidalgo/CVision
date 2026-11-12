@@ -289,7 +289,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
     expect(result.data.dynamicVariables.interview_id).toBe(INTERVIEW_ID);
     expect(result.data.dynamicVariables.candidate_name).toBe("Ana");
     expect(result.data.dynamicVariables.interview_minutes).toBe("12");
-    expect(result.data.dynamicVariables.gaps_to_cover).toBe("1");
+    expect(result.data.dynamicVariables).not.toHaveProperty("gaps_to_cover");
     expect(result.data.dynamicVariables.requirements_gaps).toContain("Payments");
     expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(Date.now());
 
@@ -365,8 +365,7 @@ describe("POST /api/interview/[id]/session: happy path", () => {
     expect(calls[0].url.searchParams.get("agent_id")).toBe(TRIAL_AGENT_ID);
     expect(data.maxDurationSeconds).toBe(300);
     expect(data.dynamicVariables.interview_minutes).toBe("5");
-    // The analysis has one gap; the trial's budget of two holds it plus one strength.
-    expect(data.dynamicVariables.gaps_to_cover).toBe("1");
+    // The trial gets the same pool as the full interview: the gap and the strength.
     expect(data.dynamicVariables.requirements_gaps).toContain("Payments");
     expect(data.dynamicVariables.requirements_met).toContain("React");
     expect(reserveInterviewSession).toHaveBeenCalledWith(expect.objectContaining({ reservation: { usageEventId: "evt_t", tier: "TRIAL", paidBy: "TRIAL" } }));
@@ -501,7 +500,7 @@ describe("POST /api/interview/[id]/session: a reconnect continues the interview"
     expect(data.maxDurationSeconds).toBe(720 - 192);
     // 8:48 left is planned as 8 minutes and said as "about 8 and a half": rounded down, never up.
     expect(data.dynamicVariables.interview_minutes).toBe("8");
-    expect(data.dynamicVariables.opening_line).toBe("Welcome back, Ana. The call dropped, so we will pick up where we left off. We have about 8 and a half minutes left.");
+    expect(data.dynamicVariables.opening_line).toBe("Welcome back, Ana. Let's pick up where we left off. We have about 8 and a half minutes left.");
     expect(data.dynamicVariables.call_context).toContain("1. You asked: Hi Ana. Tell me about a checkout flow you owned?\n   The candidate answered: I rebuilt the cart at Northwind.");
     expect(data.dynamicVariables.call_context).not.toContain("PENDING QUESTION");
     const write = vi.mocked(reserveInterviewSession).mock.calls[0][0];

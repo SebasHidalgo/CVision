@@ -124,7 +124,7 @@ export async function POST(
       tier = reservation.tier;
       source = reservation.source;
     }
-    const { seconds: tierSeconds, gapsToCover } = INTERVIEW_TIERS[tier];
+    const { seconds: tierSeconds } = INTERVIEW_TIERS[tier];
 
     // The calls so far.
     const state = await fetchInterviewCallState(interview.id);
@@ -180,7 +180,6 @@ export async function POST(
       analysisSummary: context.data.overall.summaryText,
       requirements: context.data.jobFit.requirements,
       maxDurationSeconds: tierSeconds,
-      gapsToCover,
       language: chosen,
       ...(resuming ? { resume: { remainingSeconds: maxDurationSeconds, record: continuityRecord(mergeSegments(calls)) } } : {}),
     });

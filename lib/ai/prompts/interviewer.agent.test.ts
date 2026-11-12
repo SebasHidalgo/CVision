@@ -83,16 +83,24 @@ describe("buildInterviewerContext: what the resume cannot show", () => {
     expect(requirementGaps([...MIXED, notShown]).map((r) => r.requirement)).not.toContain("Pass a background check");
     expect(dynamicVariables.requirements_not_evident).toBe("- [required, not_evident] Pass a background check");
     expect(dynamicVariables.requirements_gaps).not.toContain("background check");
-    expect(dynamicVariables.gaps_to_cover).toBe("2");
   });
 
-  it("takes the slots the gaps leave, before strengths, so a two-question trial with two gaps carries none", () => {
-    const trial = buildInterviewerContext(input([...MIXED, notShown], { gapsToCover: 2 })).dynamicVariables;
-    const three = buildInterviewerContext(input([...MIXED, notShown], { gapsToCover: 3 })).dynamicVariables;
+  it("gives every tier the whole pool: gaps, met and not-shown, so a trial never runs out of topics", () => {
+    const trial = buildInterviewerContext(input([...MIXED, notShown], { maxDurationSeconds: 300 })).dynamicVariables;
+    const full = buildInterviewerContext(input([...MIXED, notShown])).dynamicVariables;
 
-    expect(trial.requirements_not_evident).toBe("(none)");
-    expect(three.requirements_not_evident).toContain("background check");
-    expect(three.requirements_met).toBe("(none)");
+    expect(trial.requirements_gaps.split("\n")).toHaveLength(2);
+    expect(trial.requirements_met).toContain("React and TypeScript");
+    expect(trial.requirements_not_evident).toContain("background check");
+    expect({ ...trial, interview_minutes: "", opening_line: "" }).toEqual({ ...full, interview_minutes: "", opening_line: "" });
+  });
+
+  it("caps the pool at the context limit, gaps first, then met, then not-shown", () => {
+    const many = Array.from({ length: 40 }, (_, i) => requirement({ requirement: `Skill ${i}`, status: i < 25 ? "missing" : "met" }));
+    const { dynamicVariables } = buildInterviewerContext(input([...many, notShown]));
+    expect(dynamicVariables.requirements_gaps.split("\n")).toHaveLength(25);
+    expect(dynamicVariables.requirements_met.split("\n")).toHaveLength(MAX_CONTEXT_REQUIREMENTS - 25);
+    expect(dynamicVariables.requirements_not_evident).toBe("(none)");
   });
 });
 
@@ -113,31 +121,21 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
     }
     expect(dynamicVariables.interview_id).toBe("3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c");
     expect(dynamicVariables.interview_minutes).toBe("12");
-    expect(dynamicVariables.gaps_to_cover).toBe("2");
   });
 
-  it("briefs a five-minute trial on two gaps and no strengths, and on one gap plus one strength", () => {
-    const trial = buildInterviewerContext(input(MIXED, { maxDurationSeconds: 300, gapsToCover: 2 })).dynamicVariables;
-
+  it("tells a five-minute trial its length and never a question count", () => {
+    const trial = buildInterviewerContext(input(MIXED, { maxDurationSeconds: 300 })).dynamicVariables;
     expect(trial.interview_minutes).toBe("5");
-    expect(trial.gaps_to_cover).toBe("2");
-    expect(trial.requirements_gaps.split("\n")).toHaveLength(2);
-    expect(trial.requirements_met).toBe("(none)");
     expect(trial.opening_line).toContain("We have about 5 minutes.");
-
-    const oneGap = buildInterviewerContext(
-      input(MIXED.filter((r) => r.requirement !== "Payments experience"), { maxDurationSeconds: 300, gapsToCover: 2 }),
-    ).dynamicVariables;
-
-    expect(oneGap.gaps_to_cover).toBe("1");
-    expect(oneGap.requirements_gaps).toContain("Node.js services");
-    expect(oneGap.requirements_met.split("\n")).toHaveLength(1);
-    expect(oneGap.requirements_met).toContain("React and TypeScript");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The interview is about {{interview_minutes}} minutes long, and you fill all of it.");
+    expect(INTERVIEWER_AGENT_PROMPT).not.toContain("gaps_to_cover");
   });
 
-  it("states the gap count the prompt will see in the prompt itself", () => {
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("There are {{gaps_to_cover}} of them.");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("The call is {{interview_minutes}} minutes long");
+  it("ends the call only on the room's signal or the candidate's request, never because topics are covered", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("You end the call in only two cases");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("In every other case you never close and never call end_call");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never say that you have covered everything");
+    expect(INTERVIEWER_AGENT_PROMPT).not.toContain("hiring-side");
   });
 
   it("speaks English by default: opening line, language name", () => {

@@ -50,6 +50,14 @@ describe("spokenTitle", () => {
     expect(spokenTitle(title)).toBe(title);
   });
 
+  it("says the AI acronym as IA in Spanish only, as a whole word", () => {
+    expect(spokenTitle("Ingeniero de AI Senior", "es")).toBe("Ingeniero de IA Senior");
+    expect(spokenTitle("AI Engineer", "en")).toBe("AI Engineer");
+    expect(spokenTitle("AI Engineer")).toBe("AI Engineer");
+    expect(spokenTitle("Analista de AIRFLOW", "es")).toBe("Analista de AIRFLOW");
+    expect(spokenTitle("Especialista en Mail", "es")).toBe("Especialista en Mail");
+  });
+
   it("never answers with nothing", () => {
     expect(spokenTitle("(m/f)")).toBe("(m/f)");
     expect(spokenTitle("  Product   Manager ")).toBe("Product Manager");

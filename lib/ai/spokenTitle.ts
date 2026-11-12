@@ -27,8 +27,12 @@ function sameWord(first: string, second: string): boolean {
   return Math.abs(first.length - second.length) <= 2 && sharedPrefix(first, second) >= Math.max(3, shorter - 2);
 }
 
-export function spokenTitle(title: string): string {
-  const spoken = SENIORITY.reduce((text, [pattern, word]) => text.replace(pattern, word), title)
+/** "AI" said in Spanish is "IA"; only the capitalised acronym, as a whole word. */
+const AI_ACRONYM = /(?<![\p{L}\p{N}])AI(?![\p{L}\p{N}])/gu;
+
+export function spokenTitle(title: string, language: "en" | "es" = "en"): string {
+  const expanded = SENIORITY.reduce((text, [pattern, word]) => text.replace(pattern, word), title);
+  const spoken = (language === "es" ? expanded.replace(AI_ACRONYM, "IA") : expanded)
     .replace(GENDER_TAG, "")
     .replace(IN_PARENTHESIS, "$1")
     .replace(AFTER_SLASH, "$1")

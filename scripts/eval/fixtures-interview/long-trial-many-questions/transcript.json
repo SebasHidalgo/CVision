@@ -1,0 +1,97 @@
+[
+  {
+    "role": "agent",
+    "message": "Hi Elena, thanks for joining. I'll be interviewing you for the Backend Developer role at Harborview Freight. We have about 5 minutes. To start, tell me briefly about your background and what drew you to this role.",
+    "time_in_call_secs": 0
+  },
+  {
+    "role": "user",
+    "message": "I'm a backend developer, about four years, mostly Node and TypeScript. Tracking is close to what I do now.",
+    "time_in_call_secs": 33
+  },
+  {
+    "role": "agent",
+    "message": "Have you run Kubernetes in production?",
+    "time_in_call_secs": 53
+  },
+  {
+    "role": "user",
+    "message": "Mostly a staging cluster. I moved one service to production with a teammate last spring.",
+    "time_in_call_secs": 63
+  },
+  {
+    "role": "agent",
+    "message": "What was your part in that move?",
+    "time_in_call_secs": 80
+  },
+  {
+    "role": "user",
+    "message": "I wrote the deployment files and the health checks. My teammate handled the cluster.",
+    "time_in_call_secs": 91
+  },
+  {
+    "role": "agent",
+    "message": "Have you designed a GraphQL API?",
+    "time_in_call_secs": 107
+  },
+  {
+    "role": "user",
+    "message": "No. I've read about it, but our APIs are REST.",
+    "time_in_call_secs": 117
+  },
+  {
+    "role": "agent",
+    "message": "If you had to expose shipment events over GraphQL, where would you start?",
+    "time_in_call_secs": 130
+  },
+  {
+    "role": "user",
+    "message": "Probably with the schema for a shipment and its events. I'm not sure beyond that.",
+    "time_in_call_secs": 146
+  },
+  {
+    "role": "agent",
+    "message": "Tell me about a time you built something in the parcel status service you're proud of.",
+    "time_in_call_secs": 163
+  },
+  {
+    "role": "user",
+    "message": "I added a retry queue for carrier updates. Fewer updates got lost after that.",
+    "time_in_call_secs": 181
+  },
+  {
+    "role": "agent",
+    "message": "How did you know fewer updates were lost?",
+    "time_in_call_secs": 197
+  },
+  {
+    "role": "user",
+    "message": "We had a dashboard of missing updates, and the count went down.",
+    "time_in_call_secs": 209
+  },
+  {
+    "role": "agent",
+    "message": "Suppose in this role an alert fires at night because tracking events stop arriving. How would you go about it?",
+    "time_in_call_secs": 224
+  },
+  {
+    "role": "user",
+    "message": "I'd check if the carriers are sending, then our queue, then the service logs.",
+    "time_in_call_secs": 245
+  },
+  {
+    "role": "agent",
+    "message": "How do you review a teammate's pull request?",
+    "time_in_call_secs": 261
+  },
+  {
+    "role": "user",
+    "message": "I run it locally and check the tests. I leave comments on anything unclear.",
+    "time_in_call_secs": 273
+  },
+  {
+    "role": "agent",
+    "message": "Thank you for practicing with me, Elena. Your feedback will appear on your screen in a moment.",
+    "time_in_call_secs": 289
+  }
+]

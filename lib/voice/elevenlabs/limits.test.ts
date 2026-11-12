@@ -75,7 +75,7 @@ describe("the agents in Spanish", () => {
   it("tell the interviewer what kind of call this is, the clock line, and to name requirements naturally", () => {
     expect(INTERVIEWER_VARIABLE_NAMES).toContain("call_context");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("{{call_context}}");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("starts with [time]");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The room sends lines that start with [time]");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("keep the names of technologies, products, companies and certifications exactly as written");
     const variables = buildInterviewAgentDefinition({ postCallWebhookId: "wh_1" }).conversationConfig.agent?.dynamicVariables as { dynamicVariablePlaceholders?: Record<string, string> } | undefined;
     expect(variables?.dynamicVariablePlaceholders?.call_context).toBe(FIRST_CALL_CONTEXT);

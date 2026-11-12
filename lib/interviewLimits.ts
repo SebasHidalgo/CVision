@@ -23,3 +23,6 @@ export const MAX_INTERVIEW_STARTS = 3;
  * (the agents hang up at twelve minutes) and past the reconcile window.
  */
 export const INTERVIEW_ABANDON_MS = 2 * 60 * 60_000;
+
+/** Call time left at the wrap-up line; an agent hang-up with more left is early and not final. */
+export const INTERVIEW_WRAP_UP_SECONDS = 75;

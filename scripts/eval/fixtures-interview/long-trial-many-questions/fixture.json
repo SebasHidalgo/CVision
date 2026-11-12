@@ -1,0 +1,87 @@
+{
+  "purpose": "A five-minute trial run by the M10-D interviewer, which fills the time from its question pool instead of closing after the listed gaps: nine questions answered briefly, the last ones situational questions from the posting, closed after the wrap-up line. The debrief must not call it short (it ran its planned length), must give both gaps an outcome that matches what was said (the GraphQL one dodged: no example, only 'I've read about it'), invent nothing, and keep the scores below the upper band (brief answers, few results).",
+  "candidateName": "Elena",
+  "language": "en",
+  "plannedSeconds": 300,
+  "durationSeconds": 300,
+  "context": {
+    "role": "Backend Developer",
+    "company": "Harborview Freight",
+    "jobDescription": "Harborview Freight is hiring a Backend Developer for its shipment tracking platform. You will build services in Node.js and TypeScript, design the GraphQL API our customers integrate with, keep the tracking pipeline healthy on Kubernetes, and join the on-call rotation. Required: Node.js and TypeScript services; GraphQL API design; Kubernetes in production. Responsibilities: design APIs for shipment events, review code, improve alerting and incident response.",
+    "analysisSummary": "Node.js and TypeScript are met with a tracking service the resume describes. Kubernetes is partial: only a staging cluster appears. GraphQL API design is missing.",
+    "requirements": [
+      {
+        "requirement": "Node.js and TypeScript services",
+        "kind": "required",
+        "status": "met",
+        "evidence": "Built the parcel status service in Node.js and TypeScript",
+        "note": ""
+      },
+      {
+        "requirement": "Kubernetes in production",
+        "kind": "required",
+        "status": "partial",
+        "evidence": "Deployed services to a staging cluster",
+        "note": "Only staging appears."
+      },
+      {
+        "requirement": "GraphQL API design",
+        "kind": "required",
+        "status": "missing",
+        "evidence": "",
+        "note": "Not in the resume."
+      }
+    ]
+  },
+  "expect": {
+    "gapOutcomes": [
+      {
+        "matching": "kubernetes",
+        "outcome": [
+          "addressed",
+          "partially"
+        ],
+        "why": "Ran a staging cluster and moved one service to production with a teammate: some real experience, small."
+      },
+      {
+        "matching": "graphql",
+        "outcome": [
+          "dodged",
+          "partially"
+        ],
+        "why": "Only 'I've read about it' and REST work; no design example."
+      }
+    ],
+    "mustNotMatch": [
+      {
+        "in": "finalAssessment",
+        "pattern": "\\bshort\\b|cut short|too brief|not enough time|limited time",
+        "why": "A trial that ran its five minutes is not short, however many questions it held."
+      }
+    ],
+    "maxViolations": [
+      {
+        "check": "evidence-grounding",
+        "max": 0,
+        "why": "Every quote must be a verbatim span of a candidate turn."
+      },
+      {
+        "check": "fabricated-number",
+        "max": 0,
+        "why": "No number the candidate or the posting did not say."
+      },
+      {
+        "check": "fabricated-term",
+        "max": 0,
+        "why": "No technology the candidate or the posting did not name."
+      }
+    ],
+    "scores": [
+      {
+        "category": "total",
+        "max": 74,
+        "why": "Brief answers with few results sit below the upper band by the anchors."
+      }
+    ]
+  }
+}

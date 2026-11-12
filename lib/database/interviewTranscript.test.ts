@@ -91,17 +91,33 @@ describe("storeConversationTranscript: one interview, several calls", () => {
   });
 
   it("the resumed call's end_call closes it: every call merged in order, with the marker between them, and the time summed", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 540) * 1000));
     findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
+    // 180 + 480 s of a 720-s interview: the end_call came inside the wrap-up window.
+    const closing = { start_time_unix_secs: 1_760_000_000, call_duration_secs: 480, termination_reason: "end_call tool was called." };
 
-    const result = await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: toCallRecord(payload({ metadata: closing })), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
     const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Array<{ role: string; message: string; time_in_call_secs: number }>; durationSeconds: number; segments: unknown[]; resumableUntil: unknown } };
     expect(data.transcript.map((turn) => `${turn.role}@${turn.time_in_call_secs}`)).toEqual(["agent@0", "user@5", "system@180", "agent@180", "user@183"]);
     expect(data.transcript[2].message).toBe("[call resumed]");
-    expect(data.durationSeconds).toBe(380);
+    expect(data.durationSeconds).toBe(660);
     expect(data.segments).toHaveLength(2);
     expect(data.resumableUntil).toBeNull();
+  });
+
+  it("an end_call with minutes left keeps the interview resumable and gives its start back", async () => {
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
+
+    // 180 + 200 s of 720: the interviewer closed with 340 s left, before the wrap-up line.
+    const result = await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
+
+    expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+    const { where, data } = updateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(data).toMatchObject({ status: "IN_PROGRESS", startCount: { decrement: 1 } });
+    expect(where).toMatchObject({ startCount: { gt: 0 } });
+    expect(data.resumableUntil).toEqual(new Date((1_760_000_000 + 200 + 600) * 1000));
   });
 
   it("a second delivery of a call already kept as a segment is a duplicate", async () => {

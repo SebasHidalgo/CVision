@@ -1,6 +1,7 @@
 import type { InterviewStatus } from "@prisma/client";
 import { addSegment, mergeSegments, MIN_RESUME_SECONDS, RESUME_WINDOW_MS, segmentsSeconds, type CallSegment } from "./segments";
 import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
+import { INTERVIEW_WRAP_UP_SECONDS } from "@/lib/interviewLimits";
 
 /**
  * A finished call, and what to do with it. Pure: the adapter verifies and
@@ -245,7 +246,7 @@ export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | 
  *   the platform reports the call failed (the agent never joined, or every
  *   interviewer was busy), the start is given back too.
  * - The candidate has spoken, in this call or an earlier one. How the call
- *   ended decides: the interviewer's end_call, the time limit, the
+ *   ended decides: an end_call after the wrap-up line, the time limit, the
  *   candidate's request to finish, the interview length used up, the last
  *   start, or a resume window already over make it final, and every call
  *   is merged for the feedback. Anything else (a lost connection, a closed
@@ -325,13 +326,16 @@ export function decidePostCallOutcome({
   const used = segmentsSeconds(all);
   const callEnd = endedAt ?? now;
   const windowOver = callEnd.getTime() + RESUME_WINDOW_MS <= now.getTime();
+  // An end_call before the wrap-up line is the agent's mistake: the time left is the candidate's.
+  const agentEndedEarly = data.endedBy === "agent" && Number.isFinite(plannedSeconds) && plannedSeconds - used > INTERVIEW_WRAP_UP_SECONDS;
   const final =
     !platformFailed &&
-    (data.endedBy === "agent" ||
+    ((data.endedBy === "agent" && !agentEndedEarly) ||
       data.endedBy === "limit" ||
       Boolean(row.finishRequestedAt) ||
       used >= plannedSeconds - MIN_RESUME_SECONDS ||
-      !attemptsLeft ||
+      // An early end gives its start back (below), so even the last start can be continued.
+      (!attemptsLeft && !agentEndedEarly) ||
       windowOver);
 
   if (final) {
@@ -351,6 +355,8 @@ export function decidePostCallOutcome({
 
   return {
     ...base,
+    // The interviewer's early hang-up is not the candidate's: the connection it used comes back.
+    startRefunded: base.startRefunded || agentEndedEarly,
     status: "IN_PROGRESS",
     failureReason: null,
     startedAt: earlier.length === 0 ? startedAt : null,

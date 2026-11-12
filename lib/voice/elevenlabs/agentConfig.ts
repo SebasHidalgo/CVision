@@ -166,7 +166,6 @@ function placeholders(tier: InterviewTierId): InterviewerVariables {
     company: "Northwind",
     language_name: "English",
     interview_minutes: minutes,
-    gaps_to_cover: "1",
     call_context: FIRST_CALL_CONTEXT,
     opening_line: `Hi Alex, thanks for joining. I'll be interviewing you for the Frontend Engineer role at Northwind. We have about ${minutes} minutes. To start, tell me briefly about your background.`,
     job_description: "Build and ship the checkout flow in React and TypeScript.",

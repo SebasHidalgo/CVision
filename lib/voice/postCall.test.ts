@@ -113,6 +113,44 @@ describe("decidePostCallOutcome", () => {
     });
   });
 
+  it("keeps an interview resumable when the interviewer hangs up before the room's wrap-up line, and scores it after", () => {
+    const early = (seconds: number) =>
+      decidePostCallOutcome({
+        row: row(),
+        data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: seconds, termination_reason: "end_call tool was called." } })),
+        eventTimestamp: START + 500,
+        maxStarts: 3,
+        plannedSeconds: 300,
+        now: new Date((START + seconds + 5) * 1000),
+      });
+    // 178 s of 300: 122 s left, so the interviewer closed before the wrap-up line.
+    expect(early(178)).toMatchObject({ status: "IN_PROGRESS", counted: true, startRefunded: true });
+    expect((early(178) as { resumableUntil: Date | null }).resumableUntil).not.toBeNull();
+    // 240 s of 300: 60 s left, after the line: the interview is over.
+    expect(early(240)).toMatchObject({ status: "FEEDBACK_PENDING", resumableUntil: null });
+    // The platform's own limit always ends it.
+    const limit = decidePostCallOutcome({
+      row: row(),
+      data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: 120, termination_reason: "Maximum duration exceeded" } })),
+      eventTimestamp: START + 500,
+      maxStarts: 3,
+      plannedSeconds: 300,
+    });
+    expect(limit).toMatchObject({ status: "FEEDBACK_PENDING" });
+  });
+
+  it("gives the start back on an early interviewer end, so even the last start can be continued", () => {
+    const outcome = decidePostCallOutcome({
+      row: row({ startCount: 3 }),
+      data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: 100, termination_reason: "end_call tool was called." } })),
+      eventTimestamp: START + 500,
+      maxStarts: 3,
+      plannedSeconds: 300,
+      now: new Date((START + 105) * 1000),
+    });
+    expect(outcome).toMatchObject({ status: "IN_PROGRESS", startRefunded: true });
+  });
+
   it("ignores a replay: same conversation, transcript already stored", () => {
     expect(decide(row({ transcript: [] }), payload())).toEqual({ kind: "duplicate" });
   });

@@ -1,0 +1,59 @@
+{
+  "about": "Invented Spanish first call for the closing checks: every listed topic answered briefly. Cases: covered (no signal: the next turn must be a question), signal (after the wrap-up line: close), stop (the candidate asks to stop: close), contact (asked when they will hear back, after the signal).",
+  "candidateFirstName": "Tomás",
+  "role": "Desarrollador/a Backend SR",
+  "company": "Northwind Labs",
+  "language": "es",
+  "jobDescription": "Northwind Labs busca un Desarrollador Backend Senior para su equipo de pagos.\n\nResponsabilidades:\n- Diseñar y mantener APIs para el checkout y los reembolsos.\n- Revisar código y acompañar a desarrolladores junior.\n- Participar en la guardia rotativa del servicio de pagos.\n- Mejorar el monitoreo y la respuesta a incidentes.\n\nRequisitos:\n- Experiencia construyendo servicios en Node.js y TypeScript.\n- Kubernetes en producción.\n- Diseño de APIs GraphQL.\n- Deseable: experiencia con Kafka.\n- Disponibilidad para guardias.",
+  "analysisSummary": "El CV muestra servicios en Node.js y TypeScript; Kubernetes aparece en parte y no muestra GraphQL ni Kafka.",
+  "requirements": [
+    { "requirement": "Experiencia construyendo servicios en Node.js y TypeScript", "kind": "required", "status": "met", "evidence": "Construí el servicio de pedidos en Node.js y TypeScript", "note": "Se ve en el CV." },
+    { "requirement": "Kubernetes en producción", "kind": "required", "status": "partial", "evidence": "Desplegué servicios en un clúster de pruebas", "note": "Solo un entorno de pruebas." },
+    { "requirement": "Diseño de APIs GraphQL", "kind": "required", "status": "missing", "evidence": "", "note": "No aparece en el CV." },
+    { "requirement": "Experiencia con Kafka", "kind": "preferred", "status": "missing", "evidence": "", "note": "No aparece en el CV." },
+    { "requirement": "Disponibilidad para guardias", "kind": "required", "status": "not_evident", "evidence": "", "note": "" }
+  ],
+  "history": [
+    { "role": "user", "message": "Hola. Soy desarrollador backend, cinco años, sobre todo Node." },
+    { "role": "agent", "message": "Gracias, Tomás. ¿Has trabajado con Kubernetes en producción?" },
+    { "role": "user", "message": "Solo en un clúster de pruebas." },
+    { "role": "agent", "message": "Entiendo. ¿Y has diseñado alguna API en GraphQL?" },
+    { "role": "user", "message": "No, solo REST." },
+    { "role": "agent", "message": "¿Has usado Kafka o algún sistema de mensajería parecido?" },
+    { "role": "user", "message": "No." },
+    { "role": "agent", "message": "Cuéntame del servicio de pedidos que construiste en Node.js y TypeScript. ¿Qué parte hiciste tú?" },
+    { "role": "user", "message": "Lo hice casi todo yo. Funcionó bien." },
+    { "role": "agent", "message": "¿Tendrías disponibilidad para participar en guardias?" },
+    { "role": "user", "message": "Sí, sin problema." }
+  ],
+  "cases": {
+    "covered": {
+      "extra": [],
+      "condition": "The interviewer's reply asks the candidate a new interview question: about their experience, a situation they might face in this role, or a follow-up on an earlier answer. It does not close the interview, does not say goodbye, does not say the questions are done or that the interview is over, and does not mention the feedback appearing.",
+      "passExample": "Perfecto. Imagina que en este puesto se cae el servicio de reembolsos un viernes en la noche. ¿Cómo lo abordarías?",
+      "failExample": "Muchas gracias, Tomás. Hemos completado las preguntas planificadas. Tu feedback aparecerá en tu pantalla en un momento."
+    },
+    "signal": {
+      "extra": [{ "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." }],
+      "condition": "The interviewer's reply closes the interview: it thanks the candidate and says their feedback will appear on their screen, and it calls that feedback by the word 'feedback' (not 'retroalimentación' or 'comentarios'). It does not ask a new question and does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "Muchas gracias por practicar conmigo, Tomás. Tu feedback aparecerá en tu pantalla en un momento.",
+      "failExample": "Gracias, Tomás. ¿Me cuentas cómo harías el monitoreo del servicio de pagos?"
+    },
+    "stop": {
+      "extra": [{ "role": "user", "message": "Disculpa, prefiero terminar aquí. ¿Podemos cortar la entrevista?" }],
+      "condition": "The interviewer's reply accepts the candidate's request to stop and closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask another question and does not try to keep the interview going.",
+      "passExample": "Claro, Tomás, lo dejamos aquí. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento.",
+      "failExample": "Entiendo, pero antes cuéntame cómo abordarías una caída del servicio de pagos."
+    },
+    "contact": {
+      "extra": [
+        { "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." },
+        { "role": "agent", "message": "Muy bien, gracias por el detalle." },
+        { "role": "user", "message": "Gracias a ti. ¿Y cuándo me avisan si paso a la siguiente etapa?" }
+      ],
+      "condition": "The interviewer's reply answers honestly for a practice interview: it never says or implies that a company, a team or anyone will contact the candidate, review their answers, or decide on a next stage; it may say this is practice and that their feedback appears on their screen after the call. It does not ask a new interview question.",
+      "passExample": "Esta es una entrevista de práctica, así que no hay otra etapa: tu feedback aparecerá en tu pantalla en un momento. ¡Gracias por practicar, Tomás!",
+      "failExample": "El equipo se pondrá en contacto contigo pronto para contarte los siguientes pasos."
+    }
+  }
+}

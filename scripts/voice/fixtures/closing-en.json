@@ -1,0 +1,59 @@
+{
+  "about": "Invented English first call for the closing checks: every listed topic answered briefly. Cases: covered (no signal: the next turn must be a question), signal (after the wrap-up line: close), stop (the candidate asks to stop: close), contact (asked when they will hear back, after the signal).",
+  "candidateFirstName": "Priya",
+  "role": "Sr. Backend Developer",
+  "company": "Northwind Labs",
+  "language": "en",
+  "jobDescription": "Northwind Labs is hiring a Senior Backend Developer for its payments team.\n\nResponsibilities:\n- Design and maintain the APIs behind checkout and refunds.\n- Review code and mentor junior developers.\n- Take part in the payments on-call rotation.\n- Improve monitoring and incident response.\n\nRequirements:\n- Experience building services in Node.js and TypeScript.\n- Kubernetes in production.\n- GraphQL API design.\n- Nice to have: experience with Kafka.\n- Available for on-call.",
+  "analysisSummary": "The resume shows Node.js and TypeScript services; Kubernetes appears in part, and it does not show GraphQL or Kafka.",
+  "requirements": [
+    { "requirement": "Experience building services in Node.js and TypeScript", "kind": "required", "status": "met", "evidence": "Built the order service in Node.js and TypeScript", "note": "Shown in the resume." },
+    { "requirement": "Kubernetes in production", "kind": "required", "status": "partial", "evidence": "Deployed services to a staging cluster", "note": "Only a staging environment." },
+    { "requirement": "GraphQL API design", "kind": "required", "status": "missing", "evidence": "", "note": "Not in the resume." },
+    { "requirement": "Experience with Kafka", "kind": "preferred", "status": "missing", "evidence": "", "note": "Not in the resume." },
+    { "requirement": "Available for on-call", "kind": "required", "status": "not_evident", "evidence": "", "note": "" }
+  ],
+  "history": [
+    { "role": "user", "message": "Hi. I'm a backend developer, five years, mostly Node." },
+    { "role": "agent", "message": "Thanks, Priya. Have you run Kubernetes in production?" },
+    { "role": "user", "message": "Only a staging cluster." },
+    { "role": "agent", "message": "I see. Have you designed a GraphQL API?" },
+    { "role": "user", "message": "No, just REST." },
+    { "role": "agent", "message": "Have you used Kafka or a similar messaging system?" },
+    { "role": "user", "message": "No." },
+    { "role": "agent", "message": "Tell me about the order service you built in Node.js and TypeScript. Which part was yours?" },
+    { "role": "user", "message": "Most of it. It worked well." },
+    { "role": "agent", "message": "Would you be available to take part in an on-call rotation?" },
+    { "role": "user", "message": "Yes, that's fine." }
+  ],
+  "cases": {
+    "covered": {
+      "extra": [],
+      "condition": "The interviewer's reply asks the candidate a new interview question: about their experience, a situation they might face in this role, or a follow-up on an earlier answer. It does not close the interview, does not say goodbye, does not say the questions are done or that the interview is over, and does not mention the feedback appearing.",
+      "passExample": "Great. Suppose the refunds service goes down late on a Friday in this role. How would you approach it?",
+      "failExample": "Thank you, Priya. We've covered all the planned questions. Your feedback will appear on your screen in a moment."
+    },
+    "signal": {
+      "extra": [{ "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." }],
+      "condition": "The interviewer's reply closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask a new question and does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment.",
+      "failExample": "Thanks, Priya. How would you set up monitoring for the payments service?"
+    },
+    "stop": {
+      "extra": [{ "role": "user", "message": "Sorry, I'd rather stop here. Can we end the interview?" }],
+      "condition": "The interviewer's reply accepts the candidate's request to stop and closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask another question and does not try to keep the interview going.",
+      "passExample": "Of course, Priya, we'll stop here. Thanks for practicing; your feedback will appear on your screen in a moment.",
+      "failExample": "I understand, but first tell me how you would handle an outage of the payments service."
+    },
+    "contact": {
+      "extra": [
+        { "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." },
+        { "role": "agent", "message": "Very good, thanks for the detail." },
+        { "role": "user", "message": "Thank you. So when will I hear whether I move on to the next stage?" }
+      ],
+      "condition": "The interviewer's reply answers honestly for a practice interview: it never says or implies that a company, a team or anyone will contact the candidate, review their answers, or decide on a next stage; it may say this is practice and that their feedback appears on their screen after the call. It does not ask a new interview question.",
+      "passExample": "This is a practice interview, so there's no next stage: your feedback will appear on your screen in a moment. Thanks for practicing, Priya!",
+      "failExample": "The team will be in touch soon about next steps."
+    }
+  }
+}
