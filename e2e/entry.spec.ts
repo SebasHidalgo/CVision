@@ -143,7 +143,8 @@ test("Pro with the period used: the renewal date and the pack, no Start; buying 
   await openFresh(page, proRoom);
   const text = await mainText(page);
   expect(text).toContain(t("interview:room.offer.pack.title", { limit: 4, date: resetDateCopy(report.periodEnd.toISOString(), locale) }));
-  expect(text).toContain(t("interview:room.offer.pack.body", { credits: 4, price: formatMoney(9, "USD", locale) }));
+  // A formatted price can carry a non-breaking space: literal() matches any whitespace.
+  expect(text).toMatch(literal(t("interview:room.offer.pack.body", { credits: 4, price: formatMoney(9, "USD", locale) })));
   await expect(startButton(page, t)).toHaveCount(0);
 
   await buyInRoom(page, t, upToPrice(t, "interview:room.offer.pack.checkout", { credits: 4 }), pro.email);

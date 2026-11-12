@@ -1,10 +1,11 @@
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { accountText, mainText, openRoom, runAnalysis, warmRoutes } from "./support/app";
+import { accountText, mainText, openRoom, warmRoutes } from "./support/app";
 import { db } from "./support/db";
 import { copyFor } from "./support/copy";
 import { assertSandbox } from "./support/env";
+import { seedAnalysis } from "./support/seed";
 import { readConversationCost } from "@/lib/voice/admin";
 
 // The interface stays in English; the call is switched to Spanish in the room, to price the Spanish voice.
@@ -60,7 +61,8 @@ async function awaitOutcome(page: Parameters<typeof signIn>[0], timeoutMs: numbe
 
 test("one start on the trial: refused before any charge, failed by the platform and given back, or live and ended at once", async ({ page }) => {
   await signIn(page, account);
-  await runAnalysis(page);
+  // A seeded analysis: this spec is about the call, not the model.
+  await page.goto(`/resume/analysis/${await seedAnalysis(account)}`);
   await openRoom(page, t);
   // An English posting, a Spanish call: the choice in the room decides, not the posting.
   await page.getByLabel("Interview language").selectOption("es");

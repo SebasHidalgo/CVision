@@ -12,6 +12,8 @@ const LEDGER = (process.env.EVAL_SPEND_LEDGER && process.env.EVAL_SPEND_LEDGER.t
 const CAP = Number(process.env.EVAL_BUDGET_PER_DAY_USD || "1");
 const RUN_ID = `e2e-${randomUUID()}`;
 const LABEL = `${process.env.EVAL_PHASE || "e2e"}-browser-suite`;
+const MAX_ATTEMPTS = 3;
+const RETRY_WAIT_MS = 3_000;
 
 if (!FREE_KEY) throw new Error("[e2e] GOOGLE_GENERATIVE_AI_API_KEY_FREE is not set: the browser suite runs on the free key only");
 
@@ -39,8 +41,23 @@ globalThis.fetch = async (input, init) => {
   }
   const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
   headers.set("x-goog-api-key", FREE_KEY);
-  const response = await realFetch(input, { ...(init || {}), headers });
+  // The free tier answers 503 or 429 now and then; the eval harness retries those, and so does the suite.
+  // The app itself keeps its single attempt: production never sees this.
+  let response;
+  for (let attempt = 1; ; attempt++) {
+    response = await realFetch(input, { ...(init || {}), headers });
+    if (response.ok || ![429, 503].includes(response.status) || attempt === MAX_ATTEMPTS) break;
+    record(url, response, null);
+    console.warn(`[e2e][gemini] free key answered HTTP ${response.status}; retrying (${attempt}/${MAX_ATTEMPTS - 1})`);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_WAIT_MS * attempt));
+  }
   const body = await response.clone().json().catch(() => null);
+  record(url, response, body);
+  if (!response.ok) console.warn(`[e2e][gemini] free key answered HTTP ${response.status}`);
+  return response;
+};
+
+function record(url, response, body) {
   const usage = body && body.usageMetadata;
   const n = (value) => (typeof value === "number" ? value : 0);
   const now = new Date();
@@ -62,6 +79,4 @@ globalThis.fetch = async (input, init) => {
       source: "live",
     }) + "\n",
   );
-  if (!response.ok) console.warn(`[e2e][gemini] free key answered HTTP ${response.status}`);
-  return response;
-};
+}
