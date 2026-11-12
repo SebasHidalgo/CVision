@@ -53,6 +53,7 @@ if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
     console.error(
       `sync-agent failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
-    process.exit(1);
+    // Not process.exit: a forced exit with a request still open trips a Node assertion on Windows.
+    process.exitCode = 1;
   });
 }

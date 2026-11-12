@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import {
+  burstInterviewCredits,
   decideVoiceCapacity,
   describeVoiceBalance,
+  interviewCredits,
+  interviewsCovered,
   readBalanceFloor,
+  readCreditsPerMinute,
   voiceBalanceFloor,
   VOICE_BALANCE_FLOOR_CREDITS,
   VOICE_BALANCE_MARGIN,
@@ -23,27 +27,54 @@ const balance = (overrides: Partial<VoiceBalance> = {}): VoiceBalance => ({
 });
 
 describe("the balance floor", () => {
-  it("is one full interview at the measured rate plus the margin: 12,000 credits", () => {
-    expect(VOICE_CREDITS_PER_MINUTE).toBe(800);
-    expect(VOICE_BALANCE_FLOOR_CREDITS).toBe(Math.ceil((MAX_INTERVIEW_DURATION_SECONDS / 60) * 800 * VOICE_BALANCE_MARGIN));
-    expect(VOICE_BALANCE_FLOOR_CREDITS).toBe(12_000);
+  it("is one full interview at the measured rate plus the margin: 6,765 credits on Starter", () => {
+    // Measured with voice:cost on 2026-11-12: 398 for the call and 53 for the LLM.
+    expect(VOICE_CREDITS_PER_MINUTE).toBe(451);
+    expect(VOICE_BALANCE_MARGIN).toBe(1.25);
+    expect(VOICE_BALANCE_FLOOR_CREDITS).toBe(Math.ceil((MAX_INTERVIEW_DURATION_SECONDS / 60) * 451 * 1.25));
+    expect(VOICE_BALANCE_FLOOR_CREDITS).toBe(6_765);
+    // The floor leaves room for more than one interview's cost, and less than two.
+    expect(VOICE_BALANCE_FLOOR_CREDITS).toBeGreaterThan(interviewCredits(MAX_INTERVIEW_DURATION_SECONDS, {}));
+    expect(VOICE_BALANCE_FLOOR_CREDITS).toBeLessThan(2 * interviewCredits(MAX_INTERVIEW_DURATION_SECONDS, {}));
+  });
+
+  it("takes the rate of another plan from the environment, when it is a positive whole number", () => {
+    expect(readCreditsPerMinute({})).toBe(451);
+    expect(readCreditsPerMinute({ ELEVENLABS_CREDITS_PER_MINUTE: " 790 " })).toBe(790);
+    for (const bad of ["", "0", "-3", "4.5", "cheap"]) expect(readCreditsPerMinute({ ELEVENLABS_CREDITS_PER_MINUTE: bad })).toBe(451);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_CREDITS_PER_MINUTE: "790" })).toBe(11_850);
+    // The explicit floor still wins over the rate.
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_CREDITS_PER_MINUTE: "790", ELEVENLABS_BALANCE_FLOOR_CREDITS: "3000" })).toBe(3_000);
+  });
+
+  it("says what an interview costs, what it costs at the burst rate, and how many a balance pays for", () => {
+    expect(interviewCredits(12 * 60, {})).toBe(5_412);
+    expect(interviewCredits(5 * 60, {})).toBe(2_255);
+    // Bursting doubles the rate; the floor is not sized on it.
+    expect(burstInterviewCredits(12 * 60, {})).toBe(10_824);
+    expect(VOICE_BALANCE_FLOOR_CREDITS).toBeLessThan(burstInterviewCredits(12 * 60, {}));
+    // Starter's 30,000 credits: five full interviews, or thirteen trials.
+    expect(interviewsCovered(30_000, 12 * 60, {})).toBe(5);
+    expect(interviewsCovered(30_000, 5 * 60, {})).toBe(13);
+    expect(interviewsCovered(5_411, 12 * 60, {})).toBe(0);
+    expect(interviewsCovered(Number.POSITIVE_INFINITY, 12 * 60, {})).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("can be overridden by a whole number in the environment, 0 included; anything else keeps the default", () => {
-    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, {})).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, {})).toBe(6_765);
     expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "5000" })).toBe(5_000);
     expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "0" })).toBe(0);
     expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: " 7000 " })).toBe(7_000);
-    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "lots" })).toBe(12_000);
-    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "-1" })).toBe(12_000);
-    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "1.5" })).toBe(12_000);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "lots" })).toBe(6_765);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "-1" })).toBe(6_765);
+    expect(readBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "1.5" })).toBe(6_765);
   });
 });
 
 describe("the floor per agent", () => {
-  it("is the agent's hard duration at the measured rate plus the margin: 5,000 for the trial", () => {
-    expect(voiceBalanceFloor(5 * 60)).toBe(5_000);
-    expect(readBalanceFloor(5 * 60, {})).toBe(5_000);
+  it("is the agent's hard duration at the measured rate plus the margin: 2,819 for the trial", () => {
+    expect(voiceBalanceFloor(5 * 60, {})).toBe(2_819);
+    expect(readBalanceFloor(5 * 60, {})).toBe(2_819);
     expect(readBalanceFloor(5 * 60, { ELEVENLABS_BALANCE_FLOOR_CREDITS: "7000" })).toBe(7_000);
   });
 });

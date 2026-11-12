@@ -7,6 +7,7 @@ import {
   INTERVIEW_AGENT_PRESET_VOICE_IDS,
   INTERVIEW_QUEUE_WAIT_SECONDS,
   interviewAgentIdsFromEnv,
+  interviewAgentVoices,
   readDailyCallLimit,
   SPANISH_VOICE_CANDIDATES,
   SPANISH_VOICE_SAMPLE_TEXT,
@@ -52,9 +53,20 @@ describe("the agents in Spanish", () => {
     expect(preset?.overrides.tts?.modelId).toBe("eleven_flash_v2_5");
   });
 
-  it("keep the current voice until the owner picks one from the samples", () => {
-    expect(INTERVIEW_AGENT_PRESET_VOICE_IDS.es).toBeNull();
-    expect(preset?.overrides.tts).not.toHaveProperty("voiceId");
+  it("speak Spanish as Norah, the voice the owner chose from the samples; English keeps Sarah", () => {
+    expect(INTERVIEW_AGENT_PRESET_VOICE_IDS.es).toBe("kcQkGnn0HAT2JRDQ4Ljp");
+    for (const tier of ["FULL", "TRIAL"] as const) {
+      const config = buildInterviewAgentDefinition({ postCallWebhookId: "wh_1", tier }).conversationConfig;
+      expect(config.languagePresets?.es.overrides.tts).toEqual({ modelId: "eleven_flash_v2_5", voiceId: "kcQkGnn0HAT2JRDQ4Ljp" });
+      expect(config.tts).toEqual({ modelId: "eleven_flash_v2", voiceId: "EXAVITQu4vr4xnSDxMaL" });
+    }
+    // The chosen voice is one of the three that were sampled.
+    expect(SPANISH_VOICE_CANDIDATES.map((voice) => voice.id)).toContain(INTERVIEW_AGENT_PRESET_VOICE_IDS.es);
+    // What the doctor checks: each voice with the model its language runs on.
+    expect(interviewAgentVoices()).toEqual([
+      { language: "en", voiceId: "EXAVITQu4vr4xnSDxMaL", modelId: "eleven_flash_v2" },
+      { language: "es", voiceId: "kcQkGnn0HAT2JRDQ4Ljp", modelId: "eleven_flash_v2_5" },
+    ]);
     expect(SPANISH_VOICE_CANDIDATES).toHaveLength(3);
     // Three samples of this line stay under the thousand characters the owner allowed.
     expect(SPANISH_VOICE_SAMPLE_TEXT.length * SPANISH_VOICE_CANDIDATES.length).toBeLessThan(1000);
@@ -131,6 +143,7 @@ describe("what calls cost", () => {
       status: "done",
       startedAt: new Date(1_794_437_368_000),
       durationSeconds: 16,
+      turns: 0,
       credits: 124,
       callCredits: 103,
       llmCredits: 21,
@@ -163,7 +176,7 @@ describe("what calls cost", () => {
 
   it("adds up only the calls that were charged, and says what a minute costs", () => {
     const cost = (overrides: Partial<ConversationCost>): ConversationCost => ({
-      conversationId: "c", agentId: "a", status: "done", startedAt: null, durationSeconds: 60, credits: 470, callCredits: 400, llmCredits: 70,
+      conversationId: "c", agentId: "a", status: "done", startedAt: null, durationSeconds: 60, turns: 4, credits: 470, callCredits: 400, llmCredits: 70,
       voiceSurchargeCredits: null, dollars: null, tier: "starter", burst: false, queueSeconds: null, language: "en", failure: null, ...overrides,
     });
     const summary = summarizeCosts([cost({}), cost({ durationSeconds: 120, credits: 950, callCredits: 800, llmCredits: 150 }), cost({ status: "failed", durationSeconds: 0, credits: null, callCredits: null, llmCredits: null })]);

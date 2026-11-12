@@ -73,3 +73,7 @@ CLAUDE.md
 
 # the deploy guide, written for the owner, with his accounts in mind: never pushed
 /docs.local/
+
+# voice samples written by npm run voice:samples (MP3 files)
+/voice-samples/
+/muestras/

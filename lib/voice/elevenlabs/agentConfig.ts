@@ -124,22 +124,30 @@ const MAX_DURATION_MESSAGES: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[num
   es: "Se nos acabó el tiempo, así que lo dejamos aquí. Gracias por tus respuestas. Tu feedback estará listo en un momento.",
 };
 
-/**
- * The voice of each extra language. Null keeps the default voice on the
- * multilingual model; the owner picks one from the samples (docs/voice.md).
- */
+/** The voice of each extra language. Spanish is Norah, a library voice the owner chose; voice:doctor checks it still exists. */
 export const INTERVIEW_AGENT_PRESET_VOICE_IDS: Record<(typeof INTERVIEW_AGENT_EXTRA_LANGUAGES)[number], string | null> = {
-  es: null,
+  es: "kcQkGnn0HAT2JRDQ4Ljp",
 };
 
+/** Every voice the agents speak with, and the model each is used on: what voice:doctor verifies. */
+export function interviewAgentVoices(): { language: string; voiceId: string; modelId: string }[] {
+  return [
+    { language: INTERVIEW_AGENT_DEFAULT_LANGUAGE, voiceId: INTERVIEW_AGENT_VOICE_ID, modelId: INTERVIEW_AGENT_TTS_MODEL },
+    ...INTERVIEW_AGENT_EXTRA_LANGUAGES.flatMap((language) => {
+      const voiceId = INTERVIEW_AGENT_PRESET_VOICE_IDS[language];
+      return voiceId && voiceId !== INTERVIEW_AGENT_VOICE_ID ? [{ language, voiceId, modelId: INTERVIEW_AGENT_TTS_MODEL_MULTILINGUAL }] : [];
+    }),
+  ];
+}
+
 /**
- * The voices the owner chooses the Spanish one from (npm run voice:samples):
- * the current voice, and two native Latin American voices of the ElevenLabs
+ * The voices the owner chose the Spanish one from (npm run voice:samples):
+ * the English voice, and two native Latin American voices of the ElevenLabs
  * library tagged conversational. A library voice is added to the workspace
  * before an agent can use it, and may carry a surcharge voice:cost shows.
  */
 export const SPANISH_VOICE_CANDIDATES = [
-  { slug: "actual-sarah", name: "Sarah, the current voice (American English, on the multilingual model)", id: INTERVIEW_AGENT_VOICE_ID },
+  { slug: "actual-sarah", name: "Sarah, the English voice (American English, on the multilingual model)", id: INTERVIEW_AGENT_VOICE_ID },
   { slug: "norah-latinoamericana", name: "Norah, Latin American Spanish, warm and clear", id: "kcQkGnn0HAT2JRDQ4Ljp" },
   { slug: "ana-maria-mexicana", name: "Ana María, Mexican Spanish, calm and natural", id: "m7yTemJqdIqrcNleANfX" },
 ] as const;

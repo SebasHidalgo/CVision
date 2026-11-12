@@ -13,6 +13,8 @@ export type ConversationCost = {
   status: string;
   startedAt: Date | null;
   durationSeconds: number;
+  /** Turns the platform's record holds so far. */
+  turns: number;
   /** Credits charged in total; null when the platform recorded none (a call that never ran). */
   credits: number | null;
   /** The split the platform reports, in credits, when it reports one. */
@@ -75,6 +77,7 @@ export async function readConversationCost(conversationId: string, env: Record<s
     status: text(record.status) ?? "unknown",
     startedAt: started ? new Date(started * 1000) : null,
     durationSeconds: number(metadata.call_duration_secs) ?? 0,
+    turns: Array.isArray(record.transcript) ? record.transcript.length : 0,
     credits: number(metadata.cost),
     callCredits: number(charging.call_charge),
     llmCredits: number(charging.llm_charge),

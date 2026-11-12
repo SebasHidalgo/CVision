@@ -47,6 +47,7 @@ async function main() {
 if (process.env.CVISION_SCRIPT_SMOKE !== "1") {
   main().catch((error: unknown) => {
     console.error(`voice:doctor failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
-    process.exit(1);
+    // Not process.exit: a forced exit with a request still open trips a Node assertion on Windows.
+    process.exitCode = 1;
   });
 }

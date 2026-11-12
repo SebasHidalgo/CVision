@@ -9,39 +9,65 @@ import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
  * charge plus the LLM pass-through); a workspace with no credits left
  * still issues the token, the agent fails to join a second later, and
  * the start was spent for nothing (seen live on 2026-10-23). The floor is
- * what a full interview costs with a margin, so a start is refused before
- * anything is reserved rather than after the candidate has heard silence.
+ * what the interview about to start costs, with a margin, so a start is
+ * refused before anything is reserved rather than after the candidate has
+ * heard silence.
+ *
+ *   floor = minutes of the agent's hard limit x credits a minute x margin
  */
 
-/**
- * Credits one minute of a full interview costs, measured on the owner's
- * five real calls of 2026-10-13 (free tier, no developer discount): 777 to
- * 844 credits per minute in total, of which about 660 was the platform's
- * per-minute charge and the rest the LLM. Rounded up to a round number;
- * the floor below multiplies it by the hard duration and a margin.
- */
-export const VOICE_CREDITS_PER_MINUTE = 800;
+/** Credits a call minute costs: 451 on Starter (398 call + 53 LLM), measured with voice:cost on 2026-11-12. */
+export const VOICE_CREDITS_PER_MINUTE = 451;
 
-/** Headroom over one full interview: the LLM share varies with how much is said. */
+export const VOICE_CREDITS_PER_MINUTE_ENV = "ELEVENLABS_CREDITS_PER_MINUTE";
+
+/** Headroom for the LLM share, the part that moves (47 to 74 a minute measured): covers three times it. */
 export const VOICE_BALANCE_MARGIN = 1.25;
 
-/** The floor for an agent: its hard duration at the measured rate, plus the margin. 12 min: 12,000 credits; the 5-minute trial: 5,000. */
-export function voiceBalanceFloor(maxDurationSeconds: number): number {
-  return Math.ceil((maxDurationSeconds / 60) * VOICE_CREDITS_PER_MINUTE * VOICE_BALANCE_MARGIN);
+/** What a call past the plan's concurrency limit costs: bursting charges twice the rate. */
+export const VOICE_BURST_RATE = 2;
+
+/** The rate in force: the env override when it is a positive whole number, else the measured one. */
+export function readCreditsPerMinute(env: Record<string, string | undefined> = process.env): number {
+  const raw = env[VOICE_CREDITS_PER_MINUTE_ENV]?.trim();
+  const value = raw && /^\d+$/.test(raw) ? Number(raw) : 0;
+  return value > 0 ? value : VOICE_CREDITS_PER_MINUTE;
 }
 
-/** The full interview's floor, the largest any start needs. */
-export const VOICE_BALANCE_FLOOR_CREDITS = voiceBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS);
+/** What an interview of this length costs at the rate in force, without the margin. */
+export function interviewCredits(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
+  return Math.ceil((maxDurationSeconds / 60) * readCreditsPerMinute(env));
+}
+
+/** The same interview at the burst rate. Not in the floor: bursting means many calls at once, which no single floor holds. */
+export function burstInterviewCredits(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
+  return interviewCredits(maxDurationSeconds, env) * VOICE_BURST_RATE;
+}
+
+/** The floor for an agent: its hard duration at the rate in force, plus the margin. On Starter, 12 min: 6,765 credits; the 5-minute trial: 2,819. */
+export function voiceBalanceFloor(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
+  return Math.ceil((maxDurationSeconds / 60) * readCreditsPerMinute(env) * VOICE_BALANCE_MARGIN);
+}
+
+/** The full interview's floor at the measured rate, the largest any start needs. */
+export const VOICE_BALANCE_FLOOR_CREDITS = voiceBalanceFloor(MAX_INTERVIEW_DURATION_SECONDS, {});
 
 export const VOICE_BALANCE_FLOOR_ENV = "ELEVENLABS_BALANCE_FLOOR_CREDITS";
 
 /** The floor in force for an agent: the env override when it is a whole number (0 turns the check off), else the agent's own. */
 export function readBalanceFloor(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
-  const own = voiceBalanceFloor(maxDurationSeconds);
+  const own = voiceBalanceFloor(maxDurationSeconds, env);
   const raw = env[VOICE_BALANCE_FLOOR_ENV]?.trim();
   if (!raw) return own;
   const value = Number(raw);
   return Number.isInteger(value) && value >= 0 ? value : own;
+}
+
+/** How many interviews of this length the reachable balance pays for at the rate in force. */
+export function interviewsCovered(availableCredits: number, maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
+  const each = interviewCredits(maxDurationSeconds, env);
+  if (!Number.isFinite(availableCredits)) return Number.POSITIVE_INFINITY;
+  return each > 0 ? Math.floor(Math.max(0, availableCredits) / each) : 0;
 }
 
 /** What `GET /v1/user/subscription` says, reduced to what a start needs. */

@@ -80,8 +80,22 @@ const webhook = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const SARAH = "EXAVITQu4vr4xnSDxMaL";
+const NORAH = "kcQkGnn0HAT2JRDQ4Ljp";
+
+/** A library voice as the platform returns it: someone else's, copied into the workspace. */
+const libraryVoice = (sharing: Record<string, unknown> = {}, state: Record<string, string> = { eleven_flash_v2_5: "fine_tuned" }) => ({
+  voice_id: NORAH,
+  name: "Norah",
+  category: "professional",
+  fine_tuning: { state },
+  sharing: { status: "copied", original_voice_id: NORAH, public_owner_id: "owner_1", rate: 1, fiat_rate: null, notice_period: 730, disable_at_unix: null, ...sharing },
+});
+
 function healthy(): Table {
   return {
+    [`GET /v1/voices/${SARAH}`]: { body: { voice_id: SARAH, name: "Sarah", category: "premade", fine_tuning: { state: {} }, sharing: null } },
+    [`GET /v1/voices/${NORAH}`]: { body: libraryVoice() },
     "GET /v1/user/subscription": { body: subscription() },
     [`GET /v1/convai/agents/${FULL_ID}`]: { body: agentReadback("FULL") },
     [`GET /v1/convai/agents/${TRIAL_ID}`]: { body: agentReadback("TRIAL") },
@@ -133,11 +147,11 @@ describe("voice:doctor", () => {
 
     expect(checks.filter((check) => check.outcome === "fail")).toEqual([]);
     expect(byName(checks, "permission user_read")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("71000 of 121000 credits left") });
-    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 12000: starts are allowed" });
+    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 6765 (12 min x 451 credits a minute x 1.25): starts are allowed" });
     expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 720 s, daily cap 100") });
     expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 300 s, daily cap 25") });
     expect(byName(checks, "permission conversations read").outcome).toBe("pass");
-    expect(byName(checks, "webhook")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${WEBHOOK_ID} "${INTERVIEW_WEBHOOK_NAME}" -> ${WEBHOOK_URL} (hmac, used by 2 agent setting(s))`) });
+    expect(byName(checks, "webhook")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${WEBHOOK_ID} "${INTERVIEW_WEBHOOK_NAME}" -> ${WEBHOOK_URL} (hmac; 2 of the 2 agent(s) read point at it)`) });
     expect(byName(checks, "webhook secret")).toMatchObject({ outcome: "skip", detail: expect.stringContaining("cannot be compared here") });
     expect(byName(checks, "permission token issue (ConvAI write)").outcome).toBe("skip");
 
@@ -146,6 +160,8 @@ describe("voice:doctor", () => {
       "GET /v1/user/subscription",
       `GET /v1/convai/agents/${FULL_ID}`,
       `GET /v1/convai/agents/${TRIAL_ID}`,
+      `GET /v1/voices/${SARAH}`,
+      `GET /v1/voices/${NORAH}`,
       "GET /v1/convai/conversations",
       "GET /v1/workspace/webhooks",
     ]);
@@ -176,14 +192,14 @@ describe("voice:doctor", () => {
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000 }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({
       outcome: "fail",
-      detail: "1000 credits reachable, floor 12000: the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
+      detail: "1000 credits reachable, floor 6765 (12 min x 451 credits a minute x 1.25): the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
     });
 
-    // The free plan's 10,000 carry the 5-minute trial, never a full interview.
+    // Enough for the 5-minute trial, not for a full interview.
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 115_000 }) } });
     const trialOnly = await runVoiceDoctor({ webhookUrl: null, env: env() });
     expect(byName(trialOnly, "balance floor").outcome).toBe("fail");
-    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 5000: starts are allowed" });
+    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 2819 (5 min x 451 credits a minute x 1.25): starts are allowed" });
 
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000, max_credit_limit_extension: "unlimited" }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("unlimited credits reachable") });
@@ -250,5 +266,60 @@ describe("definitionDifferences", () => {
   it("accepts a key the read-back carries in the API's casing, as the SDK leaves dynamic_variables", () => {
     expect(definitionDifferences({ dynamicVariables: { dynamicVariablePlaceholders: { role: "x" } } }, { dynamicVariables: { dynamic_variable_placeholders: { role: "x" } } })).toEqual([]);
     expect(definitionDifferences({ dynamicVariables: { dynamicVariablePlaceholders: { role: "x" } } }, { dynamicVariables: { dynamic_variable_placeholders: { role: "y" } } })).toEqual(["dynamicVariables.dynamicVariablePlaceholders.role"]);
+  });
+it("says how many interviews the balance pays for, and what the burst rate would charge", async () => {
+    serve(healthy());
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "interviews covered")).toMatchObject({
+      outcome: "pass",
+      detail:
+        "at 451 credits a minute (measured, lib/voice/balance.ts) the balance pays for 13 full interview(s) of 12 min (5412 credits each) or 31 trial(s) of 5 min (2255 each). A call past the plan's concurrency limit is charged at the burst rate: 10824 credits for a full interview; the floor does not include it",
+    });
+
+    // Another plan's rate, from the environment: the floors and the count follow it.
+    const other = await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_CREDITS_PER_MINUTE: "790" }) });
+    expect(byName(other, "balance floor").detail).toBe("71000 credits reachable, floor 11850 (12 min x 790 credits a minute x 1.25): starts are allowed");
+    expect(byName(other, "interviews covered").detail).toContain("at 790 credits a minute (ELEVENLABS_CREDITS_PER_MINUTE) the balance pays for 7 full interview(s)");
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "9000" }) }), "balance floor").detail).toBe("71000 credits reachable, floor 9000 (ELEVENLABS_BALANCE_FLOOR_CREDITS): starts are allowed");
+  });
+
+  it("checks every voice the agents speak with: the default one, and the library voice with its terms", async () => {
+    serve(healthy());
+    const checks = await runVoiceDoctor({ webhookUrl: null, env: env() });
+    expect(byName(checks, "voice en")).toMatchObject({ outcome: "pass", detail: `${SARAH} "Sarah" (premade) on eleven_flash_v2, a default voice of the platform` });
+    expect(byName(checks, "voice es")).toMatchObject({
+      outcome: "pass",
+      detail: `${NORAH} "Norah" (professional) on eleven_flash_v2_5, a library voice: rate x1 (no surcharge), notice period 730 days if its owner withdraws it`,
+    });
+
+    serve({ ...healthy(), [`GET /v1/voices/${NORAH}`]: { body: libraryVoice({ rate: 2, fiat_rate: 0.3 }) } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice es").detail).toContain("rate x2, USD 0.3 per 1,000 credits (a SURCHARGE: voice:cost shows it per call)");
+  });
+
+  it("fails a voice that is gone, one its owner withdraws within a month, and one not ready on its model", async () => {
+    serve({ ...healthy(), [`GET /v1/voices/${NORAH}`]: { status: 400, body: { detail: { status: "voice_not_found", message: "A voice with ID 'x' was not found." } } } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice es")).toMatchObject({
+      outcome: "fail",
+      detail: expect.stringContaining(`${NORAH} is not a voice of this workspace`),
+      fix: expect.stringContaining("INTERVIEW_AGENT_PRESET_VOICE_IDS"),
+    });
+
+    const inTenDays = Math.floor(Date.now() / 1000) + 10 * 86_400;
+    serve({ ...healthy(), [`GET /v1/voices/${NORAH}`]: { body: libraryVoice({ disable_at_unix: inTenDays }) } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice es")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("is being withdrawn by its owner: it stops working on") });
+
+    // Withdrawn, but a year away: still usable, and the date is printed.
+    serve({ ...healthy(), [`GET /v1/voices/${NORAH}`]: { body: libraryVoice({ disable_at_unix: inTenDays + 365 * 86_400 }) } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice es")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("its owner is withdrawing it: usable until") });
+
+    serve({ ...healthy(), [`GET /v1/voices/${NORAH}`]: { body: libraryVoice({}, { eleven_flash_v2_5: "queued" }) } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice es")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("is not ready on eleven_flash_v2_5 (queued)") });
+
+    serve({ ...healthy(), [`GET /v1/voices/${SARAH}`]: missing("voices_read") });
+    expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "voice en")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("voices_read") });
+  });
+
+  it("says how many of the agents it read point at the webhook, not how many kinds of object use it", async () => {
+    serve(healthy());
+    expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "webhook").detail).toContain("(hmac; 2 of the 2 agent(s) read point at it)");
   });
 });

@@ -1,16 +1,30 @@
 import { ElevenLabsClient, ElevenLabsError } from "@elevenlabs/elevenlabs-js";
-import { decideVoiceCapacity, describeVoiceBalance, readBalanceFloor, type VoiceBalance } from "@/lib/voice/balance";
-import { buildInterviewAgentDefinition, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV } from "./agentConfig";
+import {
+  burstInterviewCredits,
+  decideVoiceCapacity,
+  describeVoiceBalance,
+  interviewCredits,
+  interviewsCovered,
+  readBalanceFloor,
+  readCreditsPerMinute,
+  VOICE_BALANCE_FLOOR_ENV,
+  VOICE_BALANCE_MARGIN,
+  VOICE_CREDITS_PER_MINUTE_ENV,
+  type VoiceBalance,
+} from "@/lib/voice/balance";
+import { buildInterviewAgentDefinition, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV, interviewAgentVoices } from "./agentConfig";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
 /**
  * `npm run voice:doctor`: every check of the ElevenLabs workspace that the
  * voice interview depends on, read-only, each with the exact fix. The key
  * and its permissions (by the smallest harmless call each allows; the
- * permission a refusal names is printed), the balance against the floor,
- * both agents against `agentConfig.ts`, and the post-call webhook: where
- * each agent points, whether it is enabled, and whether it is the URL
- * asked for.
+ * permission a refusal names is printed), the balance against the floor
+ * and how many interviews it pays for, both agents against
+ * `agentConfig.ts`, every voice they speak with (it exists, it runs on
+ * its model, its owner is not withdrawing it), and the post-call webhook:
+ * where each agent points, whether it is enabled, and whether it is the
+ * URL asked for.
  *
  * On the webhook model, from the API itself: post-call webhooks are
  * **workspace objects** (`GET /v1/workspace/webhooks` lists them, several
@@ -57,6 +71,18 @@ function describeLimits(tier: InterviewTierId, settings: { callLimits?: { dailyL
   const burst = `bursting ${settings?.callLimits?.burstingEnabled ? "on" : "OFF"}`;
   const queue = settings?.queueingConfig?.enabled ? `queue on (wait ${settings.queueingConfig.waitTimeoutSeconds ?? "?"} s)` : "queue OFF";
   return `${daily}, ${burst}, ${queue}`;
+}
+
+/** A library voice whose owner withdraws it stays usable for its notice period; inside this many days the doctor fails. */
+export const VOICE_REMOVAL_WARNING_DAYS = 30;
+
+const DAY_SECONDS = 24 * 60 * 60;
+
+/** The platform's "no such voice": HTTP 400 with its own status word (seen live), or a 404. */
+function voiceNotFound(error: unknown): boolean {
+  if (!(error instanceof ElevenLabsError)) return false;
+  const status = (error.body as { detail?: { status?: unknown } } | undefined)?.detail?.status;
+  return error.statusCode === 404 || status === "voice_not_found";
 }
 
 /** The platform refused the key itself, not one permission of it. */
@@ -152,22 +178,41 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       ),
     );
     // One floor per agent: the full interview's, and the 5-minute trial's.
+    const rate = readCreditsPerMinute(env);
+    const rateSource = env[VOICE_CREDITS_PER_MINUTE_ENV]?.trim() && rate === Number(env[VOICE_CREDITS_PER_MINUTE_ENV]) ? VOICE_CREDITS_PER_MINUTE_ENV : "measured, lib/voice/balance.ts";
+    const overridden = Boolean(env[VOICE_BALANCE_FLOOR_ENV]?.trim());
+    let reachable = 0;
     for (const tier of ["FULL", "TRIAL"] as const) {
       const name = tier === "FULL" ? "balance floor" : "balance floor (trial)";
-      const floor = readBalanceFloor(INTERVIEW_TIERS[tier].seconds, env);
+      const seconds = INTERVIEW_TIERS[tier].seconds;
+      const floor = readBalanceFloor(seconds, env);
       const capacity = decideVoiceCapacity(balance, floor);
+      reachable = capacity.available;
+      const formula = overridden && floor !== Math.ceil((seconds / 60) * rate * VOICE_BALANCE_MARGIN) ? VOICE_BALANCE_FLOOR_ENV : `${seconds / 60} min x ${rate} credits a minute x ${VOICE_BALANCE_MARGIN}`;
       checks.push(
         floor === 0
           ? skip(name, "the check is off (ELEVENLABS_BALANCE_FLOOR_CREDITS=0): every start is attempted", "Unset ELEVENLABS_BALANCE_FLOOR_CREDITS to guard starts with the default floor.")
           : capacity.ok
-            ? pass(name, `${capacity.available === Number.POSITIVE_INFINITY ? "unlimited" : capacity.available} credits reachable, floor ${floor}: starts are allowed`)
+            ? pass(name, `${capacity.available === Number.POSITIVE_INFINITY ? "unlimited" : capacity.available} credits reachable, floor ${floor} (${formula}): starts are allowed`)
             : fail(
                 name,
-                `${capacity.available} credits reachable, floor ${floor}: the session endpoint refuses every ${tier === "FULL" ? "full interview" : "trial"} start as VOICE_UNAVAILABLE`,
-                "Add credits or raise the plan at ElevenLabs > Subscription. The floor is the agent's hard duration at the measured rate with a margin (lib/voice/balance.ts); ELEVENLABS_BALANCE_FLOOR_CREDITS overrides it for both.",
+                `${capacity.available} credits reachable, floor ${floor} (${formula}): the session endpoint refuses every ${tier === "FULL" ? "full interview" : "trial"} start as VOICE_UNAVAILABLE`,
+                "Add credits or raise the plan at ElevenLabs > Subscription. The floor is the agent's hard duration at the measured rate with a margin (lib/voice/balance.ts); ELEVENLABS_CREDITS_PER_MINUTE sets the rate of another plan, ELEVENLABS_BALANCE_FLOOR_CREDITS overrides the floor for both agents.",
               ),
       );
     }
+    // What the balance pays for, at the rate in force and without the margin.
+    const each = { FULL: interviewCredits(INTERVIEW_TIERS.FULL.seconds, env), TRIAL: interviewCredits(INTERVIEW_TIERS.TRIAL.seconds, env) };
+    const covered = (tier: "FULL" | "TRIAL") => {
+      const count = interviewsCovered(reachable, INTERVIEW_TIERS[tier].seconds, env);
+      return count === Number.POSITIVE_INFINITY ? "any number of" : String(count);
+    };
+    checks.push(
+      pass(
+        "interviews covered",
+        `at ${rate} credits a minute (${rateSource}) the balance pays for ${covered("FULL")} full interview(s) of ${INTERVIEW_TIERS.FULL.seconds / 60} min (${each.FULL} credits each) or ${covered("TRIAL")} trial(s) of ${INTERVIEW_TIERS.TRIAL.seconds / 60} min (${each.TRIAL} each). A call past the plan's concurrency limit is charged at the burst rate: ${burstInterviewCredits(INTERVIEW_TIERS.FULL.seconds, env)} credits for a full interview; the floor does not include it`,
+      ),
+    );
   } catch (error) {
     // A refused key fails every check the same way: say it once and stop.
     if (keyRejected(error)) {
@@ -175,13 +220,14 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       return checks;
     }
     checks.push(failFrom("permission user_read", error, "user_read"));
-    for (const name of ["balance floor", "balance floor (trial)"]) {
+    for (const name of ["balance floor", "balance floor (trial)", "interviews covered"]) {
       checks.push(skip(name, "not checked: the balance could not be read (see permission user_read)", "Without user_read the session endpoint logs a warning once and guards nothing."));
     }
   }
 
   // The agents, against the definition that `agent:sync` pushes.
   const webhookIdsSeen = new Set<string | null>();
+  const webhookIdByAgent: (string | null)[] = [];
   for (const tier of TIERS) {
     const name = `agent ${tier}`;
     const id = agentIds[tier];
@@ -193,6 +239,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const agent = await client.conversationalAi.agents.get(id);
       const postCallWebhookId = agent.platformSettings?.workspaceOverrides?.webhooks?.postCallWebhookId ?? null;
       webhookIdsSeen.add(postCallWebhookId);
+      webhookIdByAgent.push(postCallWebhookId);
       const expected = buildInterviewAgentDefinition({ postCallWebhookId, tier, env });
       // The dashboard's test-call placeholders are left out: the platform
       // answers `dynamic_variable_placeholders: {}` on read whatever the
@@ -209,6 +256,38 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       );
     } catch (error) {
       checks.push(error instanceof ElevenLabsError && error.statusCode === 404 ? fail(name, `${id} does not exist on this workspace`, `Clear ${INTERVIEW_AGENT_ID_ENV[tier]} and run npm run agent:sync to create it, or point the variable at the right agent.`) : failFrom(name, error, "agents read (ConvAI)"));
+    }
+  }
+
+  // The voices: each must be in the workspace, ready on its model, and not being withdrawn by its owner.
+  for (const voice of interviewAgentVoices()) {
+    const name = `voice ${voice.language}`;
+    try {
+      const found = await client.voices.get(voice.voiceId);
+      const label = `${voice.voiceId} "${found.name ?? "?"}" (${found.category ?? "unknown category"})`;
+      const state = found.fineTuning?.state?.[voice.modelId];
+      const sharing = found.sharing;
+      const library = Boolean(sharing?.originalVoiceId ?? sharing?.publicOwnerId);
+      const surcharge = (sharing?.rate ?? 1) > 1 || typeof sharing?.fiatRate === "number";
+      const terms = library
+        ? `, a library voice: rate x${sharing?.rate ?? 1}${typeof sharing?.fiatRate === "number" ? `, USD ${sharing.fiatRate} per 1,000 credits` : ""}${surcharge ? " (a SURCHARGE: voice:cost shows it per call)" : " (no surcharge)"}, notice period ${sharing?.noticePeriod ?? "?"} days if its owner withdraws it`
+        : ", a default voice of the platform";
+      const removal = sharing?.disableAtUnix ? new Date(sharing.disableAtUnix * 1000) : null;
+      const daysLeft = removal ? Math.floor((removal.getTime() - Date.now()) / (DAY_SECONDS * 1000)) : null;
+      const chooseAnother = `Choose another voice (npm run voice:samples), set it in INTERVIEW_AGENT_PRESET_VOICE_IDS (lib/voice/elevenlabs/agentConfig.ts) and run npm run agent:sync.`;
+      if (state !== undefined && state !== "fine_tuned") {
+        checks.push(fail(name, `${label} is not ready on ${voice.modelId} (${state}): calls in this language have no voice`, chooseAnother));
+      } else if (daysLeft !== null && daysLeft <= VOICE_REMOVAL_WARNING_DAYS) {
+        checks.push(fail(name, `${label} is being withdrawn by its owner: ${daysLeft < 0 ? "it stopped working" : `it stops working`} on ${removal!.toISOString().slice(0, 10)}`, chooseAnother));
+      } else {
+        checks.push(pass(name, `${label} on ${voice.modelId}${terms}${removal ? `; its owner is withdrawing it: usable until ${removal.toISOString().slice(0, 10)}` : ""}`));
+      }
+    } catch (error) {
+      checks.push(
+        voiceNotFound(error)
+          ? fail(name, `${voice.voiceId} is not a voice of this workspace: it was removed, or never added from the library. Calls in this language fail or fall back`, "Add it again at ElevenLabs > Voices > Library, or choose another (npm run voice:samples), set it in INTERVIEW_AGENT_PRESET_VOICE_IDS and run npm run agent:sync.")
+          : failFrom(name, error, "voices read"),
+      );
     }
   }
 
@@ -243,7 +322,8 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       if (found.isDisabled) problems.push("it is disabled");
       if (found.isAutoDisabled) problems.push("the platform auto-disabled it after repeated failures");
       const lastFailure = found.mostRecentFailureErrorCode ? `; last delivery failure HTTP ${found.mostRecentFailureErrorCode}${found.mostRecentFailureTimestamp ? ` at ${new Date(found.mostRecentFailureTimestamp * 1000).toISOString()}` : ""}` : "";
-      const where = `${found.webhookId} "${found.name}" -> ${found.webhookUrl} (${found.authType}, used by ${found.usage?.length ?? 0} agent setting(s))${lastFailure}`;
+      // `usage` lists the kinds of object that use the webhook, not how many: both agents are one kind.
+      const where = `${found.webhookId} "${found.name}" -> ${found.webhookUrl} (${found.authType}; ${webhookIdByAgent.filter((id) => id === found.webhookId).length} of the ${webhookIdByAgent.length} agent(s) read point at it)${lastFailure}`;
       checks.push(
         problems.length
           ? fail("webhook", `${where}: ${problems.join("; ")}`, found.isDisabled || found.isAutoDisabled ? "Re-enable it at ElevenLabs > Developer > Webhooks, then check the route answers 200." : syncFix)

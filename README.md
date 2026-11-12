@@ -75,7 +75,8 @@ which step fills it:
 | `ELEVENLABS_API_KEY` | an API key with the permissions in step 6 | ElevenLabs → Developers → API keys | 6 |
 | `ELEVENLABS_AGENT_ID`, `ELEVENLABS_TRIAL_AGENT_ID` | the two agents `agent:sync` creates | printed by `npm run agent:sync` | 6 |
 | `ELEVENLABS_WEBHOOK_SECRET` | the post-call webhook's secret | printed once by `npm run agent:sync` | 6 |
-| `ELEVENLABS_BALANCE_FLOOR_CREDITS` | optional: credits below which starts are refused (default: the agent's floor, 12,000 full / 5,000 trial; 0 disables) | you | 6 |
+| `ELEVENLABS_BALANCE_FLOOR_CREDITS` | optional: credits below which starts are refused (default: the agent's floor, its length at the measured rate times 1.25: 6,765 full / 2,819 trial on Starter; 0 disables) | you | 6 |
+| `ELEVENLABS_CREDITS_PER_MINUTE` | optional: what a call minute costs on your ElevenLabs plan, as `npm run voice:cost` prints it (default 451, measured on Starter); the floor is built on it | you | 6 |
 | `AI_PROVIDER`, `AI_MODEL` | `google`, `gemini-3.5-flash-lite` | the template | 7 |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | a Google AI Studio key | https://aistudio.google.com | 7 |
 | `AI_TEMPERATURE`, `AI_SEED` | eval harness only; leave unset | — | 10 |
