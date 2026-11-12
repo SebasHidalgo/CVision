@@ -9,6 +9,7 @@ import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { sourceOfPaidBy } from "@/lib/interviewEntitlement";
 import { interviewPhase } from "@/lib/interviewStatus";
 import { INTERVIEW_TIERS } from "@/lib/plans";
+import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { readSegments, resumeState } from "@/lib/voice/segments";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
 
@@ -26,6 +27,13 @@ export default async function InterviewScreen({
   // A dropped interview whose resume window is over is scored, not reopened.
   if (interview.status === "IN_PROGRESS" && interview.resumableUntil && interview.resumableUntil.getTime() <= Date.now()) {
     await finalizeLapsedInterviews(interview.userId);
+    interview = await fetchInterviewById(interviewId);
+    if (!interview) redirect("/interviews");
+  }
+
+  // A call whose record has not arrived: ask the platform first, so the room shows what the next start gets.
+  const changed = await settlePreviousCall(interview.id, interview);
+  if (changed) {
     interview = await fetchInterviewById(interviewId);
     if (!interview) redirect("/interviews");
   }

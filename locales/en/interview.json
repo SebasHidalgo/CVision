@@ -20,7 +20,8 @@
       "connecting": "Connecting",
       "start": "Start the interview",
       "queued": "Waiting for an interviewer",
-      "reconnect": "Reconnect"
+      "reconnect": "Reconnect",
+      "startAgain": "Start again"
     },
     "clock": {
       "timeLeft": "Time left",
@@ -45,7 +46,9 @@
       "at": "Your call dropped at {{at}}. You have {{left}} left.",
       "resume": "Reconnect and the interviewer picks up where you left off. If you don't come back within 10 minutes, the interview is scored with what you said.",
       "noTime": "There is too little time left to reconnect. The interview is scored with what you said.",
-      "finish": "Finish and get feedback"
+      "finish": "Finish and get feedback",
+      "silent_one": "Your call dropped before you answered. You can start again with the full {{count}} minute.",
+      "silent_other": "Your call dropped before you answered. You can start again with the full {{count}} minutes."
     },
     "reconnect_one": "Reconnect — {{count}} start left",
     "reconnect_other": "Reconnect — {{count}} starts left",

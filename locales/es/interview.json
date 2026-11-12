@@ -20,7 +20,8 @@
       "connecting": "Conectando",
       "start": "Empezar la entrevista",
       "queued": "Esperando a un entrevistador",
-      "reconnect": "Reconectar"
+      "reconnect": "Reconectar",
+      "startAgain": "Empezar de nuevo"
     },
     "clock": {
       "timeLeft": "Tiempo restante",
@@ -47,7 +48,10 @@
       "at": "Tu llamada se cortó a los {{at}}. Te quedan {{left}}.",
       "resume": "Reconecta y el entrevistador retoma donde quedaron. Si no vuelves en 10 minutos, la entrevista se evalúa con lo que dijiste.",
       "noTime": "Queda muy poco tiempo para reconectar. La entrevista se evalúa con lo que dijiste.",
-      "finish": "Terminar y ver el feedback"
+      "finish": "Terminar y ver el feedback",
+      "silent_one": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con el minuto completo.",
+      "silent_many": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con los {{count}} minutos completos.",
+      "silent_other": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con los {{count}} minutos completos."
     },
     "reconnect_one": "Reconectar — te queda {{count}} conexión",
     "reconnect_many": "Reconectar — te quedan {{count}} conexiones",

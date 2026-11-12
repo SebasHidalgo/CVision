@@ -127,6 +127,13 @@ async function connect() {
   });
 }
 
+/** The candidate says something: from then on a drop uses up interview time. */
+async function answer() {
+  await act(async () => {
+    callbacks().onMessage?.({ role: "user", message: "I led the checkout rewrite." });
+  });
+}
+
 beforeAll(() => {
   // jsdom has neither; framer-motion reads the first, the transcript log calls the second.
   window.matchMedia = ((query: string) => ({
@@ -523,6 +530,7 @@ describe("InterviewAgent: ending", () => {
     vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
     render(<InterviewAgent {...props} startCount={1} />);
     await connect();
+    await answer();
     act(() => {
       vi.advanceTimersByTime(192_000);
     });
@@ -565,6 +573,7 @@ describe("InterviewAgent: ending", () => {
   it("Finish and get feedback closes the interview and opens its feedback", async () => {
     render(<InterviewAgent {...props} startCount={1} />);
     await connect();
+    await answer();
     await act(async () => {
       callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
     });
@@ -598,6 +607,7 @@ describe("InterviewAgent: ending", () => {
   it("after the last start drops, offers no reconnect, says so, and still lets the candidate finish", async () => {
     render(<InterviewAgent {...props} startCount={2} />);
     await connect();
+    await answer();
 
     await act(async () => {
       callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
@@ -712,5 +722,52 @@ describe("InterviewAgent: a full house", () => {
 
     expect(screen.getByRole("status").textContent).toBe("All interviewers are busy right now. Try again in a minute. Nothing was charged.");
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("InterviewAgent: a call that drops before the candidate said anything", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("starts again with the full length: no time used, no Finish", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    render(<InterviewAgent {...props} />);
+    await connect();
+    // The interviewer spoke; the candidate did not.
+    await act(async () => {
+      callbacks().onMessage?.({ role: "agent", message: "Hi Ana, thanks for joining." });
+    });
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
+    });
+
+    expect(screen.getByText("Your call dropped before you answered. You can start again with the full 12 minutes.")).toBeTruthy();
+    expect(screen.queryByText(/Your call dropped at/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /finish and get feedback/i })).toBeNull();
+    // What the server will give the next start: the whole interview.
+    expect(screen.getByLabelText("Interview length").textContent).toBe("12:00");
+    expect(push).not.toHaveBeenCalled();
+    expect(endedReports().map(([, init]) => init?.body)).toEqual([JSON.stringify({ reason: "error", outcome: "drop" })]);
+
+    respond({ ok: true, data: { ...SESSION, resumed: false } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Start again" }));
+    });
+    // No "reconnect" report first: there is no dropped interview to continue.
+    expect(requests().map(([url]) => url.split("/").pop())).toEqual(["session"]);
+  });
+
+  it("a silent drop on the last start has nothing to start again: the feedback page explains it", async () => {
+    render(<InterviewAgent {...props} startCount={2} />);
+    await connect();
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
+    });
+    expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
   });
 });

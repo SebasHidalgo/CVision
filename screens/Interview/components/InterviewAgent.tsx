@@ -71,7 +71,8 @@ type Phase =
   | { kind: "live" }
   | { kind: "ending" }
   | { kind: "ended" }
-  | { kind: "dropped" };
+  // silent: the call dropped before the candidate said anything, so the next start is a fresh one.
+  | { kind: "dropped"; silent?: boolean };
 
 /** Why the microphone could not be opened; each has its copy under room.microphone. */
 type MicProblem = "insecure" | "denied" | "missing" | "failed";
@@ -149,6 +150,9 @@ function InterviewRoom({
   // What the end-of-call callback needs from the latest render.
   const callRef = useRef<{ connectedAt: number | null; callSeconds: number }>({ connectedAt: null, callSeconds: maxDurationSeconds });
   const timeNoted = useRef(false);
+  // The candidate has spoken in some call of this interview: only then does a drop use up time.
+  const spoke = useRef(resume !== null);
+  const startsUsedRef = useRef(startCount);
 
   const endFallback = useRef<number | null>(null);
   useEffect(() => {
@@ -201,6 +205,13 @@ function InterviewRoom({
         goToFeedback();
         return;
       }
+      // Dropped before the candidate said anything: the server starts the next call fresh, and so does the room.
+      if (!spoke.current) {
+        // With no start left there is nothing to start again: the feedback page says nothing was charged.
+        if (startsUsedRef.current >= maxStarts) goToFeedback();
+        else setPhase({ kind: "dropped", silent: true });
+        return;
+      }
       // A drop: what this call used comes off the interview's length.
       const { connectedAt: began, callSeconds } = callRef.current;
       const elapsed = began === null ? 0 : Math.max(0, Math.floor((Date.now() - began) / 1000));
@@ -225,6 +236,7 @@ function InterviewRoom({
     },
     onLine: ({ role: speaker, text }) => {
       if (!text.trim()) return;
+      if (speaker === "user") spoke.current = true;
       setLines((prev) => [...prev, { role: speaker, text }]);
     },
     // An interrupted agent line is reported as what was planned, then
@@ -262,13 +274,17 @@ function InterviewRoom({
         goToFeedback();
         return;
       }
-      if (result.code === "INTERVIEW_START_LIMIT") setStartsUsed(maxStarts);
+      if (result.code === "INTERVIEW_START_LIMIT") {
+        setStartsUsed(maxStarts);
+        startsUsedRef.current = maxStarts;
+      }
       failStart(errorCopy(result.code));
       return;
     }
 
     // The server recorded the start when it answered; from here on it counts.
     setStartsUsed((used) => used + 1);
+    startsUsedRef.current += 1;
     setSession(result.data);
     setPhase({ kind: "starting", step: "connecting" });
     startCall({ token: result.data.conversationToken, variables: result.data.dynamicVariables, language: result.data.language });
@@ -309,6 +325,7 @@ function InterviewRoom({
   const atCap = startsUsed >= maxStarts;
   const startsLeft = Math.max(0, maxStarts - startsUsed);
   const dropped = phase.kind === "dropped";
+  const silentDrop = phase.kind === "dropped" && phase.silent === true;
 
   // Before Start the length comes from the entitlement the page read; after
   // it, from the session the server issued. They differ only when the facts
@@ -388,8 +405,10 @@ function InterviewRoom({
           : phase.step === "queued"
             ? "room.startButton.queued"
             : "room.startButton.connecting"
-      : dropped
-        ? "room.startButton.reconnect"
+      : silentDrop
+        ? "room.startButton.startAgain"
+        : dropped
+          ? "room.startButton.reconnect"
         : "room.startButton.start";
 
   const hintKey = live ? "room.hint.live" : phase.kind === "ended" ? "room.hint.ended" : "room.hint.idle";
@@ -498,7 +517,13 @@ function InterviewRoom({
               </p>
             )}
 
-            {dropped && (
+            {silentDrop && (
+              <p role="note" className="mt-12 w-full max-w-sm text-sm leading-relaxed text-ink">
+                {t("room.dropped.silent", { count: Math.round(leftAfterDrop / 60) })}
+              </p>
+            )}
+
+            {dropped && !silentDrop && (
               <div className="mt-12 w-full max-w-sm">
                 <p className="text-sm leading-relaxed text-ink">
                   {t("room.dropped.at", { at: formatClock(usedBefore), left: formatClock(leftAfterDrop) })}
