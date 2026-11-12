@@ -182,13 +182,36 @@ A library voice belongs to someone else. What that means, read from the API on 2
 
 ### What the interviewer says
 
-The prompt speaks `{{language_name}}` for everything it says and names requirements written in another language naturally, keeping technologies, products, companies and certifications as written. The interviewer has no clock, so the room sends it one line the candidate never hears (`[time] About one minute remains…`, a contextual update) with 75 seconds left; the prompt tells it to close and call `end_call`.
+The prompt speaks `{{language_name}}` for everything it says and names requirements written in another language naturally, keeping technologies, products, companies and certifications as written. The interviewer has no clock, so the room sends it one line the candidate never hears (`[time] About one minute remains…`, a contextual update) with 75 seconds left; the prompt tells it to close and call `end_call`. 75 seconds was checked against the owner's Spanish trial (M10-C): answers ran 15–43 s and interviewer turns 15–25 s, so the worst observed exchange after the line (43 + 25 s) still fits; a longer answer is cut by the platform's own line, which is honest too.
+
+**Closing honestly.** It is practice: no company, team or person reviews the call or contacts the candidate, and there is no next stage. The prompt says so and forbids implying otherwise (no "we'll be in touch", no "we'll analyze the information", no stages or next steps); the goodbye thanks the candidate and says the feedback appears on their screen in a moment, and a candidate who asks when they will hear back gets that answer. The platform's cutoff line says the same in both languages. Checked with agent tests on an end-of-interview history (M10-C): the agent before the change said "El equipo de selección se pondrá en contacto contigo" (0/1); after it, 9/9 runs closed honestly.
 
 The feedback is still generated in English (the canonical version), quotes stay verbatim in the language spoken, and the M9 translation shows it in the interface language.
 
-The role is said aloud, so the interviewer gets a spoken title (`lib/ai/spokenTitle.ts`): inclusive written forms keep the form before the slash or the parenthesis ("Desarrollador/a" → "Desarrollador", "Ingeniero(a)" → "Ingeniero", "Analista de datos (m/f)" → "Analista de datos"). The pages keep showing the posting's title. The time left is said in half minutes, rounded down (`spokenTimeLeft`): 4:44 is "unos 4 minutos y medio", never "unos 5 minutos".
+The role is said aloud, so the interviewer gets a spoken title (`lib/ai/spokenTitle.ts`): inclusive written forms keep the form before the slash or the parenthesis ("Desarrollador/a" → "Desarrollador", "Ingeniero(a)" → "Ingeniero", "Analista de datos (m/f)" → "Analista de datos"), and seniority abbreviations are said in full, as whole words only: "SR"/"Sr."/"Sr" → "Senior", "JR"/"Jr." → "Junior", "SSR"/"Ssr"/"Semi-Sr" → "Semi Senior" (the voice spells an all-caps "SR" out, "ese erre"). Acronyms said letter by letter (QA, TI, SQL, AWS, UX) stay as written; the stored titles held only "SR" and "AI". The pages keep showing the posting's title. The time left is said in half minutes, rounded down (`spokenTimeLeft`): 4:44 is "unos 4 minutos y medio", never "unos 5 minutos".
 
 `npm run voice:samples -- --out <folder>` writes the same Spanish greeting in three voices (Sarah and two native Latin American ones) to choose from. It needs `text_to_speech` on the key.
+
+## The room on entry
+
+The room decides what it offers before any button is pressed (`lib/interviewEntry.ts`, `decideRoomEntry`), from the same entitlement the session endpoint runs and the voice health check (`voiceEntryStatus`, the balance read and a refused key both cached for a minute). Start stays the authority: the endpoint still refuses at Start, so a stale page or a second tab cannot get around it.
+
+| entry | when | the room shows |
+|---|---|---|
+| `start-cap` | every start of the interview used | the start-limit copy and the way back to the analysis |
+| `voice-down` | rejected key, or balance under the floor | "temporarily unavailable" and Check again; never a purchase |
+| `continue` | the interview holds its unit, or a dropped call can be resumed | Start or Reconnect, whatever the counts |
+| `start` | a fresh start the entitlement pays | what it uses: "This interview uses your free 5-minute trial", "3 of 4 interviews left this period. This one uses one of them.", "This interview uses 1 pack credit. You have 2." |
+| `needs-pro` | Free with the trial used (or never offered) and no credits | no Start; what Pro gives (from `lib/plans.ts`) and a Pro checkout |
+| `needs-pack` | Pro with the period used and no credits | no Start; the renewal date and the pack (count and price from the catalog) |
+
+A purchase from the room stays in the room: the checkout button takes `onPaid`, the room polls the billing status for that transaction (`useTransactionLanding`, shared with the account page) and, once applied, re-reads itself with `router.refresh()`; Start appears without a reload. Past two minutes it says Paddle confirmed the payment and links to the account page, which can check again. The analysis page's CTA and both interview lists read a waiting interview through the same function (`waitingInterviewEntry`): a waiting interview the plan cannot start says "Needs Pro to start" or "No interviews left this period", never "Ready".
+
+`npm run dev:usage -- --email <e> [--interviews-used <n>] [--trial-used] [--credits <n>] [--plan free|pro]` puts an account in any of these states without a call (rows tagged `dev-usage:`, removed on the next run; the app's own rows are never touched). It refuses unless `ALLOW_DEV_TOOLS=1` and `PADDLE_ENV=sandbox`, against a Clerk development instance.
+
+### The live transcript
+
+The transcript scrolls inside its own box (about half the screen on a phone, beside the controls on a desktop): the page does not grow with the conversation. It follows the newest line while the reader is at the bottom; scrolled up, it stays put and shows "New messages ↓", which jumps back and follows again. Smooth scrolling, instant with reduced motion; `role="log"` with polite announcements. Speaker labels are never cut: the label column is as wide as the longest label in the language (CSS subgrid), and the feedback page's transcript uses the same layout with the time under the label.
 
 ## One interview, several calls
 
