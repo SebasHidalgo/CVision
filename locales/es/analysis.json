@@ -30,12 +30,24 @@
     "preferred": "Deseable"
   },
   "dimensions": {
-    "fit": { "label": "Requisitos" },
-    "experience": { "label": "Experiencia e impacto" },
-    "skills": { "label": "Habilidades" },
-    "education": { "label": "Formación y certificaciones" },
-    "tone": { "label": "Tono y claridad" },
-    "ats": { "label": "Lo que lee un ATS" }
+    "fit": {
+      "label": "Requisitos"
+    },
+    "experience": {
+      "label": "Experiencia e impacto"
+    },
+    "skills": {
+      "label": "Habilidades"
+    },
+    "education": {
+      "label": "Formación y certificaciones"
+    },
+    "tone": {
+      "label": "Tono y claridad"
+    },
+    "ats": {
+      "label": "Lo que lee un ATS"
+    }
   },
   "nav": {
     "label": "Dimensiones"
@@ -97,7 +109,10 @@
       "ready": "Sin terminar",
       "pending": "Preparando el feedback",
       "failed": "No se completó",
-      "expired": "Venció"
+      "expired": "Venció",
+      "needsPro": "Necesita Pro para empezar",
+      "needsPack": "Sin entrevistas en este período",
+      "noStarts": "No te quedan conexiones"
     }
   },
   "cta": {
@@ -140,7 +155,8 @@
       "proExhausted": "Cada ensayo se califica según la misma oferta y las mismas brechas. Las próximas vuelven el {{date}}.",
       "again": "Cada intento se califica por separado según la misma oferta y las mismas brechas, para que veas qué cambió.",
       "first": "Un entrevistador de IA por voz, armado a partir de esta misma oferta, hace las preguntas, tú respondes en voz alta y, cuando terminas la llamada, recibes un puntaje en cinco aspectos, con la transcripción."
-    }
+    },
+    "seePro": "Ver lo que incluye Pro"
   },
   "drawer": {
     "view": "Ver CV",

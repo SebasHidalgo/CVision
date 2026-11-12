@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { useLocale } from "@/hooks/useLocale";
-import { activationHref } from "@/lib/billing/activation";
+import { activationHref, type Activation } from "@/lib/billing/activation";
 import type { CheckoutItem } from "@/lib/billing/types";
 import { cn } from "@/lib/utils";
 import { createCheckoutAction } from "./actions/createCheckoutAction";
@@ -22,6 +22,8 @@ export type CheckoutButtonProps = {
   className?: string;
   size?: "default" | "sm" | "lg";
   variant?: "default" | "outline";
+  /** Set by a page that waits for the purchase itself (the interview room): no navigation to the account page. */
+  onPaid?: (activation: Activation) => void;
 };
 
 /**
@@ -50,7 +52,7 @@ export const PAID_RESET_MS = 8_000;
  * instance going away, drops the pending overlay's outcome. Rendered through
  * CheckoutButton, which sends it the billing namespace.
  */
-export default function CheckoutButtonClient({ item, label, className, size = "lg", variant = "default" }: CheckoutButtonProps) {
+export default function CheckoutButtonClient({ item, label, className, size = "lg", variant = "default", onPaid }: CheckoutButtonProps) {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const { t } = useTranslation("billing");
@@ -107,7 +109,8 @@ export default function CheckoutButtonClient({ item, label, className, size = "l
       if (controller.signal.aborted || !mounted.current) return;
       if (outcome === "completed") {
         setPhase("paid");
-        router.push(activationHref({ item, transactionId }));
+        if (onPaid) onPaid({ item, transactionId });
+        else router.push(activationHref({ item, transactionId }));
         return;
       }
       if (outcome === "error" || outcome === "timeout") {

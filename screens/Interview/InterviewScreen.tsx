@@ -6,9 +6,14 @@ import { fetchInterviewById, fetchInterviewCallState } from "@/lib/database/inte
 import { finalizeLapsedInterviews, storedCallCounts } from "@/lib/database/interviewResume";
 import { currentInterviewEntitlement } from "@/lib/database/usage";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
-import { sourceOfPaidBy } from "@/lib/interviewEntitlement";
+import { AGENT_SECONDS, sourceOfPaidBy } from "@/lib/interviewEntitlement";
+import { decideRoomEntry } from "@/lib/interviewEntry";
+import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
+import { formatMoney } from "@/lib/format";
+import { getLocale } from "@/lib/i18n/server";
 import { interviewPhase } from "@/lib/interviewStatus";
-import { INTERVIEW_TIERS } from "@/lib/plans";
+import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
+import { voiceEntryStatus } from "@/lib/voice/health";
 import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { readSegments, resumeState } from "@/lib/voice/segments";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
@@ -57,7 +62,6 @@ export default async function InterviewScreen({
   const paid = interview.tier && interview.usageEventId ? { tier: interview.tier, source: sourceOfPaidBy(interview.paidBy) } : null;
   const entitlement = paid ? null : await currentInterviewEntitlement();
   const maxDurationSeconds = paid ? INTERVIEW_TIERS[paid.tier].seconds : (entitlement?.maxDurationSeconds ?? 0);
-  const source = paid ? paid.source : (entitlement?.source ?? "none");
 
   // An earlier call of this interview dropped: the room opens on what is left of it.
   const calls = paid && interview.startCount > 0 ? await fetchInterviewCallState(interview.id) : null;
@@ -81,13 +85,37 @@ export default async function InterviewScreen({
     : null;
   const resume = resumed && calls?.resumableUntil ? { usedSeconds: resumed.usedSeconds, resumable: resumed.resumable } : null;
 
+  // What the room offers on entry, from the same entitlement the session endpoint runs; Start stays its authority.
+  // Voice health is asked for the agent a start (or a purchase) would use, from the minute-long cache.
+  const atCap = interview.startCount >= MAX_INTERVIEW_STARTS;
+  const voiceSeconds = paid ? maxDurationSeconds : entitlement && entitlement.source !== "none" ? entitlement.maxDurationSeconds : AGENT_SECONDS.main;
+  const voiceUp = atCap ? true : (await voiceEntryStatus(voiceSeconds)) === "up";
+  const entry = decideRoomEntry({
+    startCount: interview.startCount,
+    maxStarts: MAX_INTERVIEW_STARTS,
+    held: paid !== null,
+    resumable: resume?.resumable === true,
+    entitlement,
+    voiceUp,
+  });
+  const locale = await getLocale();
+  const price = (key: keyof typeof CATALOG) => formatMoney(Number(CATALOG[key].amountMinor) / 100, CATALOG_CURRENCY, locale);
+  const offer = {
+    prices: { pro: price("pro_monthly"), pack: price("interview_pack") },
+    proInterviewsPerMonth: PLANS.PRO.interviewsPerMonth,
+    fullMinutes: Math.round(AGENT_SECONDS.main / 60),
+    packCredits: INTERVIEW_PACK_CREDITS,
+    periodLimit: entitlement?.remaining.periodLimit ?? PLANS.PRO.interviewsPerMonth,
+  };
+  const counts = entitlement ? { period: entitlement.remaining.period, periodLimit: entitlement.remaining.periodLimit, credits: entitlement.remaining.credits } : null;
+
   // The room proposes the language already chosen for this interview, or the posting's.
   const language: InterviewLanguage =
     interview.language === "en" || interview.language === "es" ? interview.language : detectPostingLanguage(interview.resumeAnalysis.jobDescription);
 
-  // The room and its on-demand chunk read the interview namespace from the provider.
+  // The room and its on-demand chunk read the interview namespace (and billing, for its checkout) from the provider.
   return (
-    <ClientMessages ns={["interview"]}>
+    <ClientMessages ns={["interview", "billing"]}>
       <InterviewRoomLoader
         interviewId={interview.id}
         role={interview.role}
@@ -98,9 +126,11 @@ export default async function InterviewScreen({
         startCount={interview.startCount}
         maxStarts={MAX_INTERVIEW_STARTS}
         maxDurationSeconds={maxDurationSeconds}
-        source={source}
         language={language}
         resume={resume}
+        entry={entry}
+        counts={counts}
+        offer={offer}
       />
     </ClientMessages>
   );

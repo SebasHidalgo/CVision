@@ -22,6 +22,10 @@ export type Interview = {
   durationSeconds: number | null;
   /** Why the latest step produced nothing; see `FEEDBACK_FAILURE_REASONS`. */
   failureReason: string | null;
+  /** Holds a reserved unit: a reconnect reuses it. */
+  held: boolean;
+  /** Until when a dropped call can be resumed. */
+  resumableUntil: Date | null;
 };
 
 export type InterviewFeedback = {

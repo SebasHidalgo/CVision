@@ -38,11 +38,12 @@ export default function TranscriptSection({ turns, t }: TranscriptSectionProps) 
         </span>
       </summary>
 
-      <ol className="mt-8 space-y-5">
+      {/* The label column is as wide as the longest label in this language; the time sits under the label, never over the text. */}
+      <ol className="mt-8 grid grid-cols-1 gap-y-5 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
         {spoken.map((turn, i) => {
           if (isResumeMarker(turn)) {
             return (
-              <li key={i} className="eyebrow flex items-center gap-4 text-ink-3">
+              <li key={i} className="eyebrow flex items-center gap-4 text-ink-3 sm:col-span-2">
                 <span aria-hidden className="h-px flex-1 bg-line" />
                 {t("transcript.resumed")}
                 <span aria-hidden className="h-px flex-1 bg-line" />
@@ -52,15 +53,12 @@ export default function TranscriptSection({ turns, t }: TranscriptSectionProps) 
           const mine = turn.role === "user";
           const time = stamp(turn.time_in_call_secs);
           return (
-            <li
-              key={i}
-              className="grid grid-cols-[5.5rem_1fr] gap-4 sm:grid-cols-[7.5rem_1fr]"
-            >
-              <span className={cn("eyebrow pt-1", mine ? "text-ink" : "text-signal")}>
-                {mine ? t("transcript.you") : t("transcript.interviewer")}
-                {time && <span className="ml-2 text-ink-3 tabular">{time}</span>}
+            <li key={i} className="grid gap-1 sm:col-span-2 sm:grid-cols-subgrid sm:gap-x-6">
+              <span className="eyebrow flex items-baseline gap-3 pt-1 whitespace-nowrap sm:flex-col sm:gap-1">
+                <span className={mine ? "text-ink" : "text-signal"}>{mine ? t("transcript.you") : t("transcript.interviewer")}</span>
+                {time && <span className="text-ink-3 tabular">{time}</span>}
               </span>
-              <p className={cn("text-[15px] leading-relaxed", mine ? "text-ink-2" : "text-ink")}>
+              <p className={cn("min-w-0 text-[15px] leading-relaxed break-words", mine ? "text-ink-2" : "text-ink")}>
                 {turn.message}
               </p>
             </li>

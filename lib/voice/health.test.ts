@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readVoiceBalance, type VoiceBalanceRead } from "@/lib/voice";
 import { VoiceKeyRejectedError } from "@/lib/error/errors";
-import { assertVoiceCapacity, resetVoiceHealth, VOICE_BALANCE_CACHE_MS } from "./health";
+import { assertVoiceCapacity, resetVoiceHealth, VOICE_BALANCE_CACHE_MS, voiceEntryStatus } from "./health";
 
 vi.mock("@/lib/voice", () => ({ readVoiceBalance: vi.fn() }));
 
@@ -102,5 +102,28 @@ describe("assertVoiceCapacity", () => {
   it("refuses the start outright when the key is rejected, before anything is reserved", async () => {
     vi.mocked(readVoiceBalance).mockRejectedValue(new VoiceKeyRejectedError());
     await expect(assertVoiceCapacity(720, NOW)).rejects.toMatchObject({ code: "VOICE_KEY_REJECTED" });
+  });
+});
+
+describe("voiceEntryStatus", () => {
+  it("reads down under the floor and on a refused key, up otherwise, from the minute-long cache", async () => {
+    vi.mocked(readVoiceBalance).mockResolvedValue(read(900));
+    await expect(voiceEntryStatus(FULL, NOW)).resolves.toBe("down");
+    resetVoiceHealth();
+    vi.mocked(readVoiceBalance).mockResolvedValue(read(50_000));
+    await expect(voiceEntryStatus(FULL, NOW)).resolves.toBe("up");
+    resetVoiceHealth();
+    vi.mocked(readVoiceBalance).mockRejectedValue(new Error("network down"));
+    await expect(voiceEntryStatus(FULL, NOW)).resolves.toBe("up");
+  });
+
+  it("remembers a refused key for a minute instead of asking on every page", async () => {
+    vi.mocked(readVoiceBalance).mockRejectedValue(new VoiceKeyRejectedError());
+    await expect(voiceEntryStatus(FULL, NOW)).resolves.toBe("down");
+    await expect(voiceEntryStatus(FULL, NOW + 30_000)).resolves.toBe("down");
+    expect(readVoiceBalance).toHaveBeenCalledTimes(1);
+    vi.mocked(readVoiceBalance).mockResolvedValue(read(50_000));
+    await expect(voiceEntryStatus(FULL, NOW + VOICE_BALANCE_CACHE_MS + 1)).resolves.toBe("up");
+    expect(readVoiceBalance).toHaveBeenCalledTimes(2);
   });
 });

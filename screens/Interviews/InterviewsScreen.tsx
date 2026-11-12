@@ -3,6 +3,9 @@ import EmptyState from "@/components/layout/EmptyState";
 import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
 import { fetchVisibleInterviews } from "@/lib/database/interview";
+import { currentInterviewEntitlement } from "@/lib/database/usage";
+import { waitingInterviewEntry, waitingReading } from "@/lib/interviewEntry";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { formatDate, ordinal } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
@@ -22,6 +25,9 @@ const READING: Record<InterviewPhase, { key: `list.reading.${InterviewPhase}`; d
 export default async function InterviewsScreen() {
   // An interview follows its analysis: hidden analyses hide their rehearsals too.
   const [{ interviews, hidden }, t, locale] = await Promise.all([fetchVisibleInterviews(), getT("interview"), getLocale()]);
+  // A waiting interview reads as its room does: ready only when the plan can start it.
+  const waiting = interviews.some((interview) => interviewDestination(interview).phase === "ready");
+  const entitlement = waiting ? await currentInterviewEntitlement() : null;
   const completed = interviews.filter((interview) => interview.status === "COMPLETED").length;
 
   return (
@@ -59,6 +65,7 @@ export default async function InterviewsScreen() {
             const hidden = interview.techstack.length - VISIBLE_TECH;
             const destination = interviewDestination(interview);
             const reading = READING[destination.phase];
+            const lacks = destination.phase === "ready" && entitlement ? waitingReading(waitingInterviewEntry(interview, entitlement, MAX_INTERVIEW_STARTS)) : "ready";
 
             return (
               <IndexRow
@@ -93,8 +100,8 @@ export default async function InterviewsScreen() {
                 meta={formatDate(interview.createdAt, locale)}
                 reading={
                   <p className="flex items-center gap-3 text-sm font-medium text-ink">
-                    <span aria-hidden className={cn("size-2 rounded-full", reading.dot)} />
-                    {t(reading.key)}
+                    <span aria-hidden className={cn("size-2 rounded-full", lacks === "ready" ? reading.dot : "bg-ink-3")} />
+                    {lacks === "ready" ? t(reading.key) : t(`list.reading.${lacks}`)}
                   </p>
                 }
               />

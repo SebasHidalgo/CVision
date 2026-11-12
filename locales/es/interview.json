@@ -12,7 +12,9 @@
       "dropped": "Se perdió la conexión",
       "noStarts": "No te quedan conexiones",
       "ready": "Cuando quieras",
-      "queued": "En espera"
+      "queued": "En espera",
+      "voiceDown": "Voz no disponible",
+      "noInterviews": "Sin entrevistas disponibles"
     },
     "startButton": {
       "microphone": "Revisando el micrófono",
@@ -35,9 +37,14 @@
     "upTo_many": "Hasta {{count}} minutos",
     "upTo_other": "Hasta {{count}} minutos",
     "source": {
-      "period": "Usa una de las entrevistas de este período.",
-      "credit": "Usa un crédito.",
-      "trial": "Tu prueba gratis, por nuestra cuenta."
+      "period_one": "Te queda {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
+      "period_many": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
+      "period_other": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
+      "credit_one": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
+      "credit_many": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
+      "credit_other": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
+      "trial": "Esta entrevista usa tu prueba gratis de {{minutes}} minutos.",
+      "held": "Ya está pagada: volver a conectarte no usa otra entrevista."
     },
     "lengthChanged_one": "Esta llamada dura {{count}} minuto, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
     "lengthChanged_many": "Esta llamada dura {{count}} minutos, no {{promised}}: cambió con qué se paga desde que abriste la página (se usó un crédito o una entrevista en otra parte).",
@@ -83,7 +90,8 @@
       "lines_many": "{{count}} líneas",
       "lines_other": "{{count}} líneas",
       "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
-      "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre."
+      "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre.",
+      "newMessages": "Mensajes nuevos"
     },
     "language": {
       "label": "Idioma de la entrevista",
@@ -94,6 +102,25 @@
     "queue": {
       "waiting": "Todos los entrevistadores están ocupados en este momento. Estás en la fila y la llamada empieza sola. La espera no se cobra ni gasta el tiempo de tu entrevista.",
       "short": "En la fila para un entrevistador. No se cobra nada mientras esperas."
+    },
+    "offer": {
+      "checkAgain": "Volver a comprobar",
+      "waiting": "Pago recibido. Preparando tu entrevista…",
+      "landed": "Listo. Abriendo tu entrevista…",
+      "stalled": "Paddle confirmó tu pago, pero todavía no nos llegó. Desde tu cuenta puedes volver a comprobarlo.",
+      "openAccount": "Abrir tu cuenta",
+      "pro": {
+        "title": "Ya usaste tu prueba gratis.",
+        "titleHadVoice": "Las entrevistas por voz son parte de Pro.",
+        "body": "Pásate a Pro para hacer esta entrevista: {{perMonth}} entrevistas al mes, de hasta {{minutes}} minutos cada una, todas evaluadas contra su oferta.",
+        "checkout": "Hazte Pro · {{price}} al mes",
+        "seePricing": "Ver todo lo que incluye Pro"
+      },
+      "pack": {
+        "title": "Tus {{limit}} entrevistas se renuevan el {{date}}.",
+        "body": "¿La quieres antes? Un pack suma {{credits}} entrevistas completas por {{price}}. Los créditos no vencen y sirven en cualquier plan.",
+        "checkout": "Comprar {{credits}} entrevistas · {{price}}"
+      }
     }
   },
   "list": {
@@ -110,7 +137,10 @@
       "pending": "Preparando el feedback",
       "done": "Completada · ver feedback",
       "failed": "No se completó · ver por qué",
-      "expired": "Vencida"
+      "expired": "Vencida",
+      "needsPro": "Necesita Pro para empezar",
+      "needsPack": "Sin entrevistas en este período",
+      "noStarts": "No te quedan conexiones"
     }
   },
   "destination": {

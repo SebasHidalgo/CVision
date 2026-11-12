@@ -95,7 +95,7 @@ export default async function ResumeAnalysisDetailScreen({
             attempts={analysis.interviews}
             quota={quota}
           >
-            <InterviewAttempts attempts={analysis.interviews} t={t} locale={locale} />
+            <InterviewAttempts attempts={analysis.interviews} t={t} locale={locale} entitlement={quota.entitlement} />
           </InterviewCta>
           <DeleteAnalysis
             resumeId={analysis.id}

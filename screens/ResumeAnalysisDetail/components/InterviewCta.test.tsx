@@ -25,7 +25,12 @@ const attempt = (id: string, status: InterviewAttempt["status"], attemptNumber: 
   failureReason,
   totalScore: status === "COMPLETED" ? 60 : null,
   createdAt: "2026-10-01T00:00:00.000Z",
+  startCount: 0,
+  held: false,
+  resumableUntil: null,
 });
+const held = { startCount: 1, held: true, resumableUntil: null };
+const waiting = { startCount: 0, held: false, resumableUntil: null };
 
 /** A view with the entitlement the ledger would have decided from the same numbers. */
 const free = (trialAvailable: boolean, credits = 0): InterviewQuotaView => ({
@@ -57,15 +62,20 @@ afterEach(cleanup);
 
 describe("interviewOffer", () => {
   it("is decided by the plan and the ledger, the live attempt first", () => {
-    expect(interviewOffer(free(true), true)).toEqual({ kind: "live" });
-    expect(interviewOffer(free(true), false)).toEqual({ kind: "trial" });
-    expect(interviewOffer(free(false), false)).toEqual({ kind: "needs-pro" });
-    expect(interviewOffer(pro(3), false)).toEqual({ kind: "pro", left: 3, limit: 4, credits: 0 });
-    expect(interviewOffer(pro(0), false)).toEqual({ kind: "pro-exhausted", resetsAt: RESETS });
+    expect(interviewOffer(free(true), waiting)).toEqual({ kind: "live" });
+    expect(interviewOffer(free(false), held)).toEqual({ kind: "live" });
+    // A waiting attempt the plan cannot start offers what to buy, as the room does.
+    expect(interviewOffer(free(false), waiting)).toEqual({ kind: "needs-pro" });
+    expect(interviewOffer(pro(0), waiting)).toEqual({ kind: "pro-exhausted", resetsAt: RESETS });
+    expect(interviewOffer(free(false), { ...waiting, resumableUntil: "2999-01-01T00:00:00.000Z" })).toEqual({ kind: "live" });
+    expect(interviewOffer(free(true), null)).toEqual({ kind: "trial" });
+    expect(interviewOffer(free(false), null)).toEqual({ kind: "needs-pro" });
+    expect(interviewOffer(pro(3), null)).toEqual({ kind: "pro", left: 3, limit: 4, credits: 0 });
+    expect(interviewOffer(pro(0), null)).toEqual({ kind: "pro-exhausted", resetsAt: RESETS });
     // Credits keep the button after the period's interviews are used, and give a Free account one too, before its trial.
-    expect(interviewOffer(pro(0, 5), false)).toEqual({ kind: "pro", left: 0, limit: 4, credits: 5 });
-    expect(interviewOffer(free(false, 5), false)).toEqual({ kind: "credits", credits: 5 });
-    expect(interviewOffer(free(true, 1), false)).toEqual({ kind: "credits", credits: 1 });
+    expect(interviewOffer(pro(0, 5), null)).toEqual({ kind: "pro", left: 0, limit: 4, credits: 5 });
+    expect(interviewOffer(free(false, 5), null)).toEqual({ kind: "credits", credits: 5 });
+    expect(interviewOffer(free(true, 1), null)).toEqual({ kind: "credits", credits: 1 });
   });
 });
 
@@ -120,11 +130,19 @@ describe("InterviewCta by plan", () => {
     expect(screen.getAllByText(/You've used this period's interviews\. They reset Nov 1\./).length).toBeGreaterThan(0);
   });
 
-  it("links to the live attempt before anything else, whatever the plan says", () => {
-    mount(free(false), [attempt("i3", "IN_PROGRESS", 3), attempt("i2", "COMPLETED", 2)]);
+  it("links to a live attempt that holds its unit, whatever the plan says", () => {
+    mount(free(false), [{ ...attempt("i3", "IN_PROGRESS", 3), startCount: 1, held: true }, attempt("i2", "COMPLETED", 2)]);
 
     expect(screen.getByRole("link", { name: /open the interview room/i }).getAttribute("href")).toBe("/interview/i3");
     expect(screen.queryByText("Voice interviews are part of Pro.")).toBeNull();
+  });
+
+  it("offers Pro, not the room, for a waiting attempt the plan cannot start", () => {
+    mount(free(false), [attempt("i3", "SCHEDULED", 3)]);
+
+    expect(screen.queryByRole("link", { name: /open the interview room/i })).toBeNull();
+    expect(screen.getByText("Voice interviews are part of Pro.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /see what pro includes/i }).getAttribute("href")).toBe("/pricing");
   });
 
   it("says \"again\" only after a rehearsal that ran, not after expired or never-answered attempts", () => {

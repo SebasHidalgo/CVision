@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { INTERVIEW_LANGUAGES, type InterviewLanguage } from "@/lib/ai/postingLanguage";
-import type { EntitlementSource } from "@/lib/interviewEntitlement";
+import type { RoomEntry } from "@/lib/interviewEntry";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ import {
 } from "../utils/countdown";
 import { reportInterviewEnded, requestInterviewSession } from "../utils/session";
 import { useVoiceCall, VoiceCallProvider } from "./elevenlabs/VoiceCall";
+import RoomOffer, { type RoomOfferFacts } from "./RoomOffer";
 import Transcript, { type TranscriptLine } from "./Transcript";
 
 export type InterviewAgentProps = {
@@ -41,13 +42,22 @@ export type InterviewAgentProps = {
   maxStarts: number;
   /** The agent's hard limit; the session response repeats it. */
   maxDurationSeconds: number;
-  /** What pays for the next start (or paid for this interview), from the entitlement; "none" when nothing can. */
-  source: EntitlementSource | null;
   /** The language the room proposes: the interview's when one was chosen, the posting's otherwise. */
   language: InterviewLanguage;
   /** Set when an earlier call of this interview dropped: how much of its length is used, and whether a reconnect continues it. */
   resume: { usedSeconds: number; resumable: boolean } | null;
+  /** What the room offers on entry (the server's reading of the entitlement and voice health); Start stays the authority. */
+  entry: RoomEntry;
+  /** The entitlement's counts, for the line that says what a start uses; null when the interview already holds its unit. */
+  counts: { period: number; periodLimit: number; credits: number } | null;
+  /** The plans and prices an offer names, from config. */
+  offer: RoomOfferFacts;
+  /** Dev-only layout harness (/dev/room-preview): opens live with these lines, never calls the platform or the server. */
+  preview?: { lines: TranscriptLine[] };
 };
+
+type BlockedEntry = Extract<RoomEntry, { kind: "needs-pro" | "needs-pack" | "voice-down" }>;
+const isBlocked = (entry: RoomEntry): entry is BlockedEntry => entry.kind === "needs-pro" || entry.kind === "needs-pack" || entry.kind === "voice-down";
 
 /**
  * The interview room. The browser never holds a key: Start asks the server
@@ -120,14 +130,17 @@ function InterviewRoom({
   startCount,
   maxStarts,
   maxDurationSeconds,
-  source,
   language: proposedLanguage,
   resume,
+  entry,
+  counts,
+  offer,
+  preview,
 }: InterviewAgentProps) {
   const router = useRouter();
   const { t } = useTranslation("interview");
   const errorCopy = useErrorCopy();
-  const [phase, setPhase] = useState<Phase>(resume ? { kind: "dropped" } : { kind: "idle" });
+  const [phase, setPhase] = useState<Phase>(preview ? { kind: "live" } : resume ? { kind: "dropped" } : { kind: "idle" });
   const [language, setLanguage] = useState<InterviewLanguage>(proposedLanguage);
   // Seconds of the interview used by earlier calls; the clock after a drop starts from what is left.
   const [usedBefore, setUsedBefore] = useState(resume?.usedSeconds ?? 0);
@@ -135,9 +148,9 @@ function InterviewRoom({
   const [notice, setNotice] = useState<string | null>(null);
   const [startsUsed, setStartsUsed] = useState(startCount);
   const [session, setSession] = useState<InterviewSessionResponse | null>(null);
-  const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [connectedAt, setConnectedAt] = useState<number | null>(() => (preview ? Date.now() : null));
   const [now, setNow] = useState(() => Date.now());
-  const [lines, setLines] = useState<TranscriptLine[]>([]);
+  const [lines, setLines] = useState<TranscriptLine[]>(() => preview?.lines ?? []);
 
   // The SDK's callbacks fire outside React's render; they read the phase
   // through a ref so a callback registered on an earlier render sees the
@@ -307,11 +320,11 @@ function InterviewRoom({
 
   // A tab closed mid-call: tell the server on the way out, so the interview is resumable at once.
   useEffect(() => {
-    if (phase.kind !== "live") return;
+    if (phase.kind !== "live" || preview) return;
     const leave = () => void reportInterviewEnded(interviewId, "pagehide", fetch, "drop");
     window.addEventListener("pagehide", leave);
     return () => window.removeEventListener("pagehide", leave);
-  }, [phase.kind, interviewId]);
+  }, [phase.kind, interviewId, preview]);
 
   // The clock ticks only while the call is live.
   useEffect(() => {
@@ -335,8 +348,19 @@ function InterviewRoom({
   const callSeconds = session?.maxDurationSeconds ?? (usedBefore > 0 ? leftAfterDrop : maxDurationSeconds);
   const maxSeconds = dropped ? leftAfterDrop : callSeconds;
   const canResume = dropped && startsLeft > 0 && leftAfterDrop >= MIN_RESUME_SECONDS;
-  const shownSource = session?.source ?? source;
-  const sourceKey = shownSource && shownSource !== "none" ? (`room.source.${shownSource}` as const) : null;
+  const blocked = isBlocked(entry);
+  // What the next start uses, said before it: after a session the server's answer is the truth.
+  const sourceLine = session
+    ? null
+    : entry.kind === "continue"
+      ? t("room.source.held")
+      : entry.kind !== "start"
+        ? null
+        : entry.source === "trial"
+          ? t("room.source.trial", { minutes: Math.round(maxDurationSeconds / 60) })
+          : entry.source === "period"
+            ? t("room.source.period", { count: counts?.period ?? 0, limit: counts?.periodLimit ?? 0 })
+            : t("room.source.credit", { count: counts?.credits ?? 0 });
   const lengthChanged = session !== null && !session.resumed && maxDurationSeconds > 0 && session.maxDurationSeconds !== maxDurationSeconds;
   const remaining =
     live && connectedAt !== null ? remainingSeconds(maxSeconds, connectedAt, now) : maxSeconds;
@@ -355,7 +379,7 @@ function InterviewRoom({
   // left, and hangs up itself when a call runs past its length.
   const elapsedLive = live && connectedAt !== null ? Math.floor((now - connectedAt) / 1000) : 0;
   useEffect(() => {
-    if (!live) return;
+    if (!live || preview) return;
     if (!timeNoted.current && callSeconds - elapsedLive <= TIME_NOTE_SECONDS) {
       timeNoted.current = true;
       notify(TIME_NOTE);
@@ -364,7 +388,7 @@ function InterviewRoom({
       setPhase({ kind: "ending" });
       endCall();
     }
-  }, [live, elapsedLive, callSeconds, notify, endCall]);
+  }, [live, preview, elapsedLive, callSeconds, notify, endCall]);
 
   const orbState: VoiceOrbState =
     phase.kind === "ending" || phase.kind === "ended"
@@ -394,7 +418,11 @@ function InterviewRoom({
               ? "room.status.dropped"
               : atCap
                 ? "room.status.noStarts"
-                : "room.status.ready";
+                : entry.kind === "voice-down"
+                  ? "room.status.voiceDown"
+                  : blocked
+                    ? "room.status.noInterviews"
+                    : "room.status.ready";
 
   const startKey =
     phase.kind === "starting"
@@ -435,7 +463,7 @@ function InterviewRoom({
               )}
             />
             <span className="eyebrow text-ink">{t(statusKey)}</span>
-            <span
+            {!(blocked && phase.kind === "idle") && <span
               className={cn(
                 "eyebrow tabular border-l border-line pl-4",
                 clockPhase === "final" && "text-signal",
@@ -444,7 +472,7 @@ function InterviewRoom({
               aria-label={live ? t("room.clock.timeLeft") : t("room.clock.length")}
             >
               {formatClock(remaining)}
-            </span>
+            </span>}
           </div>
         </header>
 
@@ -457,12 +485,12 @@ function InterviewRoom({
               <p className="eyebrow mt-1">{t("room.candidate")}</p>
             </div>
 
-            {phase.kind === "idle" && !atCap && (
+            {phase.kind === "idle" && !atCap && !blocked && (
               <dl className="mt-12 w-full max-w-sm text-sm">
                 <div>
                   <dt className="eyebrow">{t("room.length")}</dt>
                   <dd className="mt-1 text-ink">{t("room.upTo", { count: Math.round(maxSeconds / 60) })}</dd>
-                  {sourceKey && <dd className="mt-1 text-ink-2">{t(sourceKey)}</dd>}
+                  {sourceLine && <dd className="mt-1 text-ink-2">{sourceLine}</dd>}
                 </div>
                 <div className="mt-6">
                   <dt className="eyebrow">
@@ -511,6 +539,8 @@ function InterviewRoom({
               </div>
             )}
 
+            {blocked && !atCap && (phase.kind === "idle" || (dropped && entry.kind === "voice-down")) && <RoomOffer entry={entry} facts={offer} />}
+
             {queued && (
               <p role="note" className="mt-12 w-full max-w-sm text-sm leading-relaxed text-ink-2">
                 {t("room.queue.waiting")}
@@ -547,7 +577,7 @@ function InterviewRoom({
           <Transcript
             lines={lines}
             live={live}
-            className="max-h-[60dvh] lg:col-span-7 lg:max-h-none"
+            className="h-[clamp(16rem,45dvh,26rem)] lg:col-span-7 lg:h-[clamp(24rem,calc(100dvh-17rem),42rem)]"
           />
         </div>
 
@@ -587,7 +617,7 @@ function InterviewRoom({
                 <Loader2 className="size-5 animate-spin" />
                 {phase.kind === "ending" ? t("room.ending") : t("room.openingFeedback")}
               </Button>
-            ) : atCap || (dropped && !canResume) ? null : (
+            ) : atCap || blocked || (dropped && !canResume) ? null : (
               <Button
                 size="lg"
                 onClick={handleStart}

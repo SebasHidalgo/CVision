@@ -12,7 +12,9 @@
       "dropped": "Connection lost",
       "noStarts": "No starts left",
       "ready": "Ready when you are",
-      "queued": "Waiting in line"
+      "queued": "Waiting in line",
+      "voiceDown": "Voice unavailable",
+      "noInterviews": "No interview available"
     },
     "startButton": {
       "microphone": "Checking the microphone",
@@ -34,9 +36,12 @@
     "upTo_one": "Up to {{count}} minute",
     "upTo_other": "Up to {{count}} minutes",
     "source": {
-      "period": "Uses one of this period's interviews.",
-      "credit": "Uses one credit.",
-      "trial": "Your free trial, on us."
+      "period_one": "{{count}} of {{limit}} interviews left this period. This one uses one of them.",
+      "period_other": "{{count}} of {{limit}} interviews left this period. This one uses one of them.",
+      "credit_one": "This interview uses 1 pack credit. You have {{count}}.",
+      "credit_other": "This interview uses 1 pack credit. You have {{count}}.",
+      "trial": "This interview uses your free {{minutes}}-minute trial.",
+      "held": "Already paid for: reconnecting does not use another interview."
     },
     "lengthChanged_one": "This call runs {{count}} minute, not {{promised}}: what pays for it changed since the page opened (a credit or an interview was used elsewhere).",
     "lengthChanged_other": "This call runs {{count}} minutes, not {{promised}}: what pays for it changed since the page opened (a credit or an interview was used elsewhere).",
@@ -78,7 +83,8 @@
       "lines_one": "{{count}} line",
       "lines_other": "{{count}} lines",
       "emptyLive": "Every finished sentence lands here as it is said.",
-      "emptyIdle": "Once the call starts, the conversation is written down here as it happens."
+      "emptyIdle": "Once the call starts, the conversation is written down here as it happens.",
+      "newMessages": "New messages"
     },
     "language": {
       "label": "Interview language",
@@ -89,6 +95,25 @@
     "queue": {
       "waiting": "All interviewers are busy right now. You are in line and the call starts by itself. Waiting is not charged and does not use your interview time.",
       "short": "In line for an interviewer. Nothing is charged while you wait."
+    },
+    "offer": {
+      "checkAgain": "Check again",
+      "waiting": "Payment received. Getting your interview ready…",
+      "landed": "Done. Opening your interview…",
+      "stalled": "Paddle confirmed your payment, but it hasn't reached us yet. Your account page can check it again.",
+      "openAccount": "Open your account",
+      "pro": {
+        "title": "You've used your free trial.",
+        "titleHadVoice": "Voice interviews are part of Pro.",
+        "body": "Go Pro to do this interview: {{perMonth}} interviews a month, up to {{minutes}} minutes each, every one scored against its posting.",
+        "checkout": "Get Pro · {{price}} a month",
+        "seePricing": "See everything in Pro"
+      },
+      "pack": {
+        "title": "Your {{limit}} interviews renew on {{date}}.",
+        "body": "Want this one sooner? A pack adds {{credits}} full interviews for {{price}}. Credits never expire and work on any plan.",
+        "checkout": "Buy {{credits}} interviews · {{price}}"
+      }
     }
   },
   "list": {
@@ -105,7 +130,10 @@
       "pending": "Preparing feedback",
       "done": "Completed · view feedback",
       "failed": "Didn't complete · see why",
-      "expired": "Expired"
+      "expired": "Expired",
+      "needsPro": "Needs Pro to start",
+      "needsPack": "No interviews left this period",
+      "noStarts": "No starts left"
     }
   },
   "destination": {

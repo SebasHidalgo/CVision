@@ -23,17 +23,22 @@ type Cached = { at: number; read: VoiceBalanceRead };
 
 let cached: Cached | null = null;
 let warnedNoPermission = false;
+// A refused key is remembered as long as a good read: a page per second must not ask the platform each time.
+let keyRejectedAt: number | null = null;
 
 /** Forgets the cached read and the one-time warning; for tests. */
 export function resetVoiceHealth(): void {
   cached = null;
   warnedNoPermission = false;
+  keyRejectedAt = null;
 }
 
 /** `maxDurationSeconds`: the hard limit of the agent the start would use; the floor is sized on it. */
 export async function assertVoiceCapacity(maxDurationSeconds: number, now = Date.now()): Promise<void> {
   const floor = readBalanceFloor(maxDurationSeconds);
   if (floor === 0) return;
+
+  if (keyRejectedAt !== null && now - keyRejectedAt < VOICE_BALANCE_CACHE_MS) throw new VoiceKeyRejectedError("ElevenLabs refused the API key (cached)");
 
   let read: VoiceBalanceRead;
   let fresh = false;
@@ -44,13 +49,17 @@ export async function assertVoiceCapacity(maxDurationSeconds: number, now = Date
       read = await readVoiceBalance();
     } catch (error) {
       // A refused key fails the token call too: say so now, before anything is reserved.
-      if (error instanceof VoiceKeyRejectedError) throw error;
+      if (error instanceof VoiceKeyRejectedError) {
+        keyRejectedAt = now;
+        throw error;
+      }
       // The platform did not answer: the token call that follows will say
       // so itself if it is really down. The guard does not add an outage.
       console.warn(`${LOG} balance not read, start not guarded:`, error instanceof Error ? `${error.name}: ${error.message}` : error);
       return;
     }
     cached = { at: now, read };
+    keyRejectedAt = null;
     fresh = true;
   }
 
@@ -75,4 +84,21 @@ export async function assertVoiceCapacity(maxDurationSeconds: number, now = Date
     );
   }
   throw new VoiceUnavailableError(`ElevenLabs balance ${capacity.available} is below the floor of ${floor} credits`);
+}
+
+/**
+ * The same check for a page that only shows what a start would get: "down"
+ * when a start would be refused (rejected key, balance under the floor),
+ * from the same minute-long cache. Anything else reads as "up": the
+ * session endpoint is the authority and says so at Start.
+ */
+export async function voiceEntryStatus(maxDurationSeconds: number, now = Date.now()): Promise<"up" | "down"> {
+  try {
+    await assertVoiceCapacity(maxDurationSeconds, now);
+    return "up";
+  } catch (error) {
+    if (error instanceof VoiceKeyRejectedError || error instanceof VoiceUnavailableError) return "down";
+    console.warn(`${LOG} voice status not read for the room:`, error instanceof Error ? `${error.name}: ${error.message}` : error);
+    return "up";
+  }
 }

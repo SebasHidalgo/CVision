@@ -30,12 +30,24 @@
     "preferred": "Preferred"
   },
   "dimensions": {
-    "fit": { "label": "Requirements" },
-    "experience": { "label": "Experience & impact" },
-    "skills": { "label": "Skills" },
-    "education": { "label": "Education & certifications" },
-    "tone": { "label": "Tone & clarity" },
-    "ats": { "label": "What an ATS reads" }
+    "fit": {
+      "label": "Requirements"
+    },
+    "experience": {
+      "label": "Experience & impact"
+    },
+    "skills": {
+      "label": "Skills"
+    },
+    "education": {
+      "label": "Education & certifications"
+    },
+    "tone": {
+      "label": "Tone & clarity"
+    },
+    "ats": {
+      "label": "What an ATS reads"
+    }
   },
   "nav": {
     "label": "Dimensions"
@@ -97,7 +109,10 @@
       "ready": "Not finished",
       "pending": "Preparing feedback",
       "failed": "Didn't complete",
-      "expired": "Expired"
+      "expired": "Expired",
+      "needsPro": "Needs Pro to start",
+      "needsPack": "No interviews left this period",
+      "noStarts": "No starts left"
     }
   },
   "cta": {
@@ -136,7 +151,8 @@
       "proExhausted": "Every rehearsal is scored against the same posting and the same gaps. The next ones come back {{date}}.",
       "again": "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed.",
       "first": "A voice interviewer built from this exact posting asks the questions, you answer out loud, and when you end the call you get scored on five things, with the transcript."
-    }
+    },
+    "seePro": "See what Pro includes"
   },
   "drawer": {
     "view": "View CV",

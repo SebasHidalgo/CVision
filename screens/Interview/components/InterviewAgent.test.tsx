@@ -96,9 +96,11 @@ const props: InterviewAgentProps = {
   startCount: 0,
   maxStarts: 3,
   maxDurationSeconds: 720,
-  source: "period",
   language: "es",
   resume: null,
+  entry: { kind: "start", source: "period" },
+  counts: { period: 3, periodLimit: 4, credits: 0 },
+  offer: { prices: { pro: "US$15.00", pack: "US$9.00" }, proInterviewsPerMonth: 4, fullMinutes: 12, packCredits: 4, periodLimit: 4 },
 };
 
 const getUserMedia = vi.fn();
@@ -172,7 +174,7 @@ describe("InterviewAgent: before the call", () => {
     expect(screen.getByText("Northwind")).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
-    expect(screen.getByText("Uses one of this period's interviews.")).toBeTruthy();
+    expect(screen.getByText("3 of 4 interviews left this period. This one uses one of them.")).toBeTruthy();
     expect(screen.getByText(/Attempt 2$/)).toBeTruthy();
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(startButton().hasAttribute("disabled")).toBe(false);
@@ -180,15 +182,45 @@ describe("InterviewAgent: before the call", () => {
   });
 
   it("labels the attempt from the analysis's numbering, never from the start counter, and shows the entitlement's length and source", () => {
-    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} source="trial" />);
+    render(<InterviewAgent {...props} attemptNumber={1} startCount={2} maxDurationSeconds={300} entry={{ kind: "start", source: "trial" }} />);
 
     expect(screen.getByText(/Attempt 1$/)).toBeTruthy();
     expect(screen.getByText("Up to 5 minutes")).toBeTruthy();
-    expect(screen.getByText("Your free trial, on us.")).toBeTruthy();
+    expect(screen.getByText("This interview uses your free 5-minute trial.")).toBeTruthy();
     expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByText(/starts? left/)).toBeNull();
     // The old cell that showed the start counter as "3 of 3" is gone.
     expect(screen.queryByText("3 of 3")).toBeNull();
+  });
+
+  it("says what a period start uses before Start", () => {
+    render(<InterviewAgent {...props} />);
+    expect(screen.getByText("3 of 4 interviews left this period. This one uses one of them.")).toBeTruthy();
+  });
+
+  it("on a Free account with the trial used, offers Pro on entry and no Start", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "needs-pro", reason: "trial-used" }} counts={{ period: 0, periodLimit: 0, credits: 0 }} maxDurationSeconds={0} />);
+    expect(screen.queryByRole("button", { name: /start the interview/i })).toBeNull();
+    expect(screen.getByText("You've used your free trial.")).toBeTruthy();
+    expect(screen.getByText(/Go Pro to do this interview: 4 interviews a month, up to 12 minutes each/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Get Pro · US$15.00 a month" })).toBeTruthy();
+    expect(screen.getByText("No interview available")).toBeTruthy();
+    expect(screen.queryByLabelText("Interview length")).toBeNull();
+  });
+
+  it("on a Pro account with the period used, gives the renewal date and offers the pack, no Start", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "needs-pack", resetsAt: "2026-12-01T00:00:00.000Z" }} counts={{ period: 0, periodLimit: 4, credits: 0 }} maxDurationSeconds={0} />);
+    expect(screen.queryByRole("button", { name: /start the interview/i })).toBeNull();
+    expect(screen.getByText("Your 4 interviews renew on Dec 1.")).toBeTruthy();
+    expect(screen.getByText(/A pack adds 4 full interviews for US\$9\.00/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Buy 4 interviews · US$9.00" })).toBeTruthy();
+  });
+
+  it("with voice down, says so and sells nothing", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "voice-down" }} />);
+    expect(screen.queryByRole("button", { name: /start the interview|get pro|buy/i })).toBeNull();
+    expect(screen.getByText(/Voice interviews are temporarily unavailable/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Check again" })).toBeTruthy();
   });
 
   it("at the start cap, explains that connections are what ran out and links to the analysis instead of Start", () => {
@@ -341,9 +373,9 @@ describe("InterviewAgent: during the call", () => {
   it("shows the session's length after Start and says so when it differs from what the page promised, never jumping silently", async () => {
     // The page promised a credit's twelve minutes; a credit spent elsewhere left the trial's five.
     respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300, source: "trial" } });
-    render(<InterviewAgent {...props} maxDurationSeconds={720} source="credit" />);
+    render(<InterviewAgent {...props} maxDurationSeconds={720} entry={{ kind: "start", source: "credit" }} counts={{ period: 0, periodLimit: 0, credits: 2 }} />);
     expect(screen.getByText("Up to 12 minutes")).toBeTruthy();
-    expect(screen.getByText("Uses one credit.")).toBeTruthy();
+    expect(screen.getByText("This interview uses 1 pack credit. You have 2.")).toBeTruthy();
     await clickStart();
     await act(async () => {
       callbacks().onConnect?.({ conversationId: "conv_1" });

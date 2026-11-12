@@ -15,6 +15,9 @@ export const resumeInclude = {
       attemptNumber: true,
       failureReason: true,
       createdAt: true,
+      startCount: true,
+      usageEventId: true,
+      resumableUntil: true,
       InterviewFeedback: { select: { totalScore: true } },
     },
     orderBy: { attemptNumber: "desc" },
@@ -76,6 +79,9 @@ export function mapDbResume(db: DbResumeWithFeedback): ResumeAnalysis {
       failureReason: interview.failureReason,
       totalScore: interview.InterviewFeedback?.totalScore ?? null,
       createdAt: interview.createdAt.toISOString(),
+      startCount: interview.startCount,
+      held: interview.usageEventId !== null,
+      resumableUntil: interview.resumableUntil?.toISOString() ?? null,
     })),
     createdAt: db.createdAt.toISOString(),
   };
@@ -97,6 +103,8 @@ export function mapDbInterview(db: DbInterview): Interview {
     endedAt: db.endedAt,
     durationSeconds: db.durationSeconds,
     failureReason: db.failureReason,
+    held: db.usageEventId !== null,
+    resumableUntil: db.resumableUntil,
   };
 }
 

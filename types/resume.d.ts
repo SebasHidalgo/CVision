@@ -31,4 +31,9 @@ export type InterviewAttempt = {
   /** The feedback's total, once there is one. */
   totalScore: number | null;
   createdAt: string;
+  /** What decides whether a waiting attempt can start (lib/interviewEntry.ts). */
+  startCount: number;
+  /** Holds a reserved unit: a reconnect reuses it. */
+  held: boolean;
+  resumableUntil: string | null;
 };

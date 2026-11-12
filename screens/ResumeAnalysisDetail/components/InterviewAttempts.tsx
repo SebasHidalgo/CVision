@@ -3,6 +3,9 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/config";
+import type { InterviewEntitlement } from "@/lib/interviewEntitlement";
+import { waitingInterviewEntry, waitingReading } from "@/lib/interviewEntry";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
 import { cn } from "@/lib/utils";
 import type { InterviewAttempt } from "@/types/resume";
@@ -12,6 +15,8 @@ type InterviewAttemptsProps = {
   /** The screen's: this renders on the server, inside a client component's children. */
   t: TFunction<"analysis">;
   locale: Locale;
+  /** What a fresh start would get: a waiting attempt the plan cannot start says so, as its room does. */
+  entitlement: InterviewEntitlement;
 };
 
 /** The dot beside an attempt's state, by phase; done attempts show their score. */
@@ -23,7 +28,7 @@ const DOT: Record<Exclude<InterviewPhase, "done">, string> = {
 };
 
 /** The rehearsals of one analysis, newest first, each a link to where it stands. */
-export default function InterviewAttempts({ attempts, t, locale }: InterviewAttemptsProps) {
+export default function InterviewAttempts({ attempts, t, locale, entitlement }: InterviewAttemptsProps) {
   if (attempts.length === 0) return null;
 
   return (
@@ -31,6 +36,7 @@ export default function InterviewAttempts({ attempts, t, locale }: InterviewAtte
       {attempts.map((attempt) => {
         const destination = interviewDestination(attempt);
         const phase = destination.phase;
+        const reading = phase === "ready" ? waitingReading(waitingInterviewEntry(attempt, entitlement, MAX_INTERVIEW_STARTS)) : null;
         return (
           <li key={attempt.id}>
             <Link
@@ -51,8 +57,8 @@ export default function InterviewAttempts({ attempts, t, locale }: InterviewAtte
                   </>
                 ) : (
                   <>
-                    <span aria-hidden className={cn("size-2 rounded-full", DOT[phase])} />
-                    {t(`attempts.reading.${phase}`)}
+                    <span aria-hidden className={cn("size-2 rounded-full", reading && reading !== "ready" ? "bg-ink-3" : DOT[phase])} />
+                    {t(`attempts.reading.${reading ?? phase}`)}
                   </>
                 )}
               </span>

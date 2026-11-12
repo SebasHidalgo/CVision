@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { useErrorCopy, useResetDate } from "@/hooks/useErrorCopy";
 import { attemptRan, interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
+import { entryCanStart, waitingInterviewEntry, type WaitingInterview } from "@/lib/interviewEntry";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { INTERVIEW_PACK_CREDITS, PLANS, type InterviewQuotaView } from "@/lib/plans";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -47,8 +49,12 @@ export type InterviewOffer =
   | { kind: "credits"; credits: number }
   | { kind: "needs-pro" };
 
-export function interviewOffer(quota: InterviewQuotaView, hasLive: boolean): InterviewOffer {
-  if (hasLive) return { kind: "live" };
+/** A waiting attempt is offered only when it can start (or its room has something to say): one the plan cannot start falls through to what to buy, as in the room. */
+export function interviewOffer(quota: InterviewQuotaView, live: WaitingInterview | null, now = new Date()): InterviewOffer {
+  if (live) {
+    const entry = waitingInterviewEntry(live, quota.entitlement, MAX_INTERVIEW_STARTS, now);
+    if (entryCanStart(entry) || entry.kind === "start-cap") return { kind: "live" };
+  }
   const { entitlement } = quota;
   const { remaining } = entitlement;
   switch (entitlement.source) {
@@ -107,7 +113,7 @@ export default function InterviewCta({
   const live = liveAttempt(attempts);
   // "Again" only after a rehearsal that ran: an expired or never-answered attempt was not one.
   const rehearsed = attempts.some(attemptRan);
-  const offer = interviewOffer(quota, live !== null);
+  const offer = interviewOffer(quota, live);
 
   // Labels wrap inside the button instead of overflowing it: a nowrap label is a min-content width
   // that pushes the button over the text beside it (the Spanish trial label did).
@@ -132,8 +138,8 @@ export default function InterviewCta({
     </Button>
   );
 
-  // A live attempt is always in the "ready" phase: its link goes to the room.
-  const control = live ? (
+  // A live attempt that can start is in the "ready" phase: its link goes to the room.
+  const control = offer.kind === "live" && live ? (
     <Button asChild className={buttonClasses}>
       <Link href={interviewDestination(live).href}>
         {t("cta.openRoom")}
@@ -157,9 +163,12 @@ export default function InterviewCta({
       </Link>
     </div>
   ) : (
-    <p className="flex min-h-11 min-w-0 items-center text-sm font-medium text-ink">
-      {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}
-    </p>
+    <div className="flex min-w-0 flex-col items-start gap-2">
+      <p className="text-sm font-medium text-ink">{errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}</p>
+      <Link href="/pricing" className="link-rule text-sm text-ink-2">
+        {t("cta.seePro")}
+      </Link>
+    </div>
   );
 
   // The line under the control: what the plan allows, never Pro's analyses. Facts joined by " · ".
