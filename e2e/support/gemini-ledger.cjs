@@ -1,21 +1,17 @@
-// Preloaded into the e2e app server (node --require, see e2e/server.mjs); never part of the app or a deployment.
-// The suite sends invented data only, so every Gemini call goes out on the free key and is written to the eval
-// spend ledger (scripts/eval/runs/spend.jsonl, or EVAL_SPEND_LEDGER), where `npm run eval -- spend` reports it
-// and the day's cap counts it. A call made over the day's cap is refused here with a 429, before it leaves.
+// Preloaded into the e2e server only: prices each Gemini call into the eval ledger; 429 over the day cap.
 const { appendFileSync, existsSync, readFileSync } = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
 const GENERATE = /generativelanguage\.googleapis\.com\/.*:(generateContent|streamGenerateContent)/;
-const FREE_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY_FREE && process.env.GOOGLE_GENERATIVE_AI_API_KEY_FREE.trim();
 const LEDGER = (process.env.EVAL_SPEND_LEDGER && process.env.EVAL_SPEND_LEDGER.trim()) || path.join(process.cwd(), "scripts", "eval", "runs", "spend.jsonl");
 const CAP = Number(process.env.EVAL_BUDGET_PER_DAY_USD || "1");
+const TIER = process.env.E2E_GEMINI_TIER === "flex" ? "flex" : "standard";
+const PRICES = JSON.parse(readFileSync(path.join(process.cwd(), "scripts", "eval", "prices.json"), "utf8"));
 const RUN_ID = `e2e-${randomUUID()}`;
 const LABEL = `${process.env.EVAL_PHASE || "e2e"}-browser-suite`;
 const MAX_ATTEMPTS = 3;
 const RETRY_WAIT_MS = 3_000;
-
-if (!FREE_KEY) throw new Error("[e2e] GOOGLE_GENERATIVE_AI_API_KEY_FREE is not set: the browser suite runs on the free key only");
 
 const utcDay = (date) => date.toISOString().slice(0, 10);
 function spentToday() {
@@ -29,6 +25,13 @@ function spentToday() {
     .reduce((sum, row) => sum + (row.costUsd || 0), 0);
 }
 
+/** The eval's price; an unknown model at the dearest standard rate. */
+function priceOf(model, tier) {
+  const known = model && PRICES[model];
+  if (known) return known[tier];
+  const all = Object.entries(PRICES).filter(([name]) => name !== "about").map(([, prices]) => prices.standard);
+  return all.reduce((worst, price) => (price.outputPerMillion > worst.outputPerMillion ? price : worst));
+}
 
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
@@ -39,27 +42,31 @@ globalThis.fetch = async (input, init) => {
     console.error(`[e2e][gemini] refused: USD ${spent.toFixed(4)} spent today (UTC) >= EVAL_BUDGET_PER_DAY_USD ${CAP}`);
     return new Response(JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "e2e day cap reached" } }), { status: 429, headers: { "content-type": "application/json" } });
   }
-  const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
-  headers.set("x-goog-api-key", FREE_KEY);
-  // The free tier answers 503 or 429 now and then; the eval harness retries those, and so does the suite.
-  // The app itself keeps its single attempt: production never sees this.
+  let request = init || {};
+  if (TIER === "flex" && typeof request.body === "string") request = { ...request, body: JSON.stringify({ ...JSON.parse(request.body), serviceTier: "flex" }) };
   let response;
   for (let attempt = 1; ; attempt++) {
-    response = await realFetch(input, { ...(init || {}), headers });
+    const startedAt = Date.now();
+    response = await realFetch(input, request);
+    const body = await response.clone().json().catch(() => null);
+    record(url, response, body, Date.now() - startedAt);
     if (response.ok || ![429, 503].includes(response.status) || attempt === MAX_ATTEMPTS) break;
-    record(url, response, null);
-    console.warn(`[e2e][gemini] free key answered HTTP ${response.status}; retrying (${attempt}/${MAX_ATTEMPTS - 1})`);
+    console.warn(`[e2e][gemini] answered HTTP ${response.status}; retrying (${attempt}/${MAX_ATTEMPTS - 1})`);
     await new Promise((resolve) => setTimeout(resolve, RETRY_WAIT_MS * attempt));
   }
-  const body = await response.clone().json().catch(() => null);
-  record(url, response, body);
-  if (!response.ok) console.warn(`[e2e][gemini] free key answered HTTP ${response.status}`);
+  if (!response.ok) console.warn(`[e2e][gemini] answered HTTP ${response.status}`);
   return response;
 };
 
-function record(url, response, body) {
+function record(url, response, body, ms) {
   const usage = body && body.usageMetadata;
   const n = (value) => (typeof value === "number" ? value : 0);
+  const model = (/models\/([^:]+):/.exec(url) || [])[1] || null;
+  // A failed call has no usage: record the tier it asked for.
+  const served = !usage ? TIER : usage.serviceTier === "flex" ? "flex" : "standard";
+  const input = usage ? n(usage.promptTokenCount) : 0;
+  const output = usage ? n(usage.candidatesTokenCount) + n(usage.thoughtsTokenCount) : 0;
+  const price = priceOf(model, served);
   const now = new Date();
   appendFileSync(
     LEDGER,
@@ -70,12 +77,12 @@ function record(url, response, body) {
       label: LABEL,
       phase: process.env.EVAL_PHASE || "e2e",
       runId: RUN_ID,
-      fixture: response.ok ? "browser-suite" : `browser-suite:http-${response.status}`,
-      tier: "free",
-      model: (/models\/([^:]+):/.exec(url) || [])[1] || null,
-      input: usage ? n(usage.promptTokenCount) : 0,
-      output: usage ? n(usage.candidatesTokenCount) + n(usage.thoughtsTokenCount) : 0,
-      costUsd: 0,
+      fixture: response.ok ? `browser-suite (${ms} ms)` : `browser-suite:http-${response.status}`,
+      tier: served,
+      model,
+      input,
+      output,
+      costUsd: (input * price.inputPerMillion + output * price.outputPerMillion) / 1_000_000,
       source: "live",
     }) + "\n",
   );

@@ -5,11 +5,10 @@ import type { Page } from "@playwright/test";
  * over or under something it does not belong to (a button, a card, an image, an illustration, other
  * text), no text leaves its own block sideways, and no button clips or spills its label. Boxes come
  * from the rendered glyphs (text ranges), not from block boxes, so a paragraph beside a card only
- * counts when the words themselves touch it. Hidden, aria-hidden and clipped-away text is skipped, and a
- * sticky bar is compared with its own contents only (content scrolls under it by design).
+ * counts when the words themselves touch it. Hidden, aria-hidden and clipped-away text is skipped.
  */
 
-export type LayoutKind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated";
+export type LayoutKind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated" | "covered";
 export type LayoutViolation = { page: string; width: number; kind: LayoutKind; detail: string };
 
 /**
@@ -27,7 +26,7 @@ export const TRUNCATION_ALLOWED: Record<string, string> = {
 export async function layoutViolations(page: Page, label: string): Promise<LayoutViolation[]> {
   const width = page.viewportSize()?.width ?? 0;
   const found = await page.evaluate((allowed: string[]) => {
-    type Kind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated";
+    type Kind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated" | "covered";
     const out: Array<{ kind: Kind; detail: string }> = [];
     const TOLERANCE = 2;
     const BUTTON = 'button, [role="button"], [data-slot="button"]';
@@ -238,6 +237,94 @@ export async function layoutViolations(page: Page, label: string): Promise<Layou
       if (key && allowed.includes(key)) continue;
       report("truncated", `${describe(el)} is cut short (${ellipsis ? "ellipsis" : "line clamp"}): it needs ${ellipsis ? el.scrollWidth : el.scrollHeight}px, has ${ellipsis ? el.clientWidth : el.clientHeight}px`);
     }
+
+    // 7. Text under a sticky/fixed bar that scrolling cannot uncover (no page scroll, or at its end).
+    // The dev server's badge is not the app's.
+    const devOnly = (el: Element) => !!el.closest("nextjs-portal");
+    const bars = obstacles.filter((obstacle) => obstacle.layer !== null && obstacle.layer === obstacle.el && !devOnly(obstacle.el));
+    const atBottom = (bar: (typeof bars)[number]) => bar.el.getBoundingClientRect().bottom >= window.innerHeight - 1;
+    const coveredText = (where: string, which: typeof bars) => {
+      for (const text of texts) {
+        const textLayer = layer(text.owner);
+        for (const bar of which) {
+          if (bar.layer === textLayer || bar.el.contains(text.owner)) continue;
+          const box = bar.el.getBoundingClientRect();
+          const hidden = text.rects.find((rect) => meets(rect, box) && onTop(rect, bar.el, text.owner));
+          if (hidden) {
+            report("covered", `${describe(text.owner)} is under ${describe(bar.el)} ${where}`);
+            break;
+          }
+        }
+      }
+    };
+    const root = document.documentElement;
+    const maxPageScroll = () => root.scrollHeight - window.innerHeight;
+    const restY = window.scrollY;
+    if (maxPageScroll() <= 1) coveredText("at rest (the page does not scroll)", bars);
+    else {
+      window.scrollTo({ top: maxPageScroll(), behavior: "instant" });
+      const settled = [...texts];
+      texts.length = 0;
+      const again = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let node = again.nextNode(); node; node = again.nextNode()) {
+        const owner = node.parentElement;
+        if (!owner || !(node.textContent ?? "").trim() || !shown(owner)) continue;
+        const rects = clipped(textRects(node), owner);
+        if (rects.length) texts.push({ owner, rects, block: block(owner), flow: flow(owner) });
+      }
+      // At the page end only a bottom bar can still hide text.
+      coveredText("with the page scrolled to its end", bars.filter(atBottom));
+      texts.length = 0;
+      texts.push(...settled);
+      window.scrollTo({ top: restY, behavior: "instant" });
+    }
+
+    // 8. Each scroll box at its end: its last line on screen and uncovered.
+    const lastLine = (container: Element): Element | null => {
+      const walk = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let last: Element | null = null;
+      for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+        const owner = node.parentElement;
+        if (owner && (node.textContent ?? "").trim() && shown(owner) && !owner.closest(BUTTON)) last = owner;
+      }
+      return last;
+    };
+    const scrollers = [...document.body.querySelectorAll("*")].filter((el): el is HTMLElement => {
+      if (!(el instanceof HTMLElement) || !shown(el)) return false;
+      const style = styleOf(el);
+      return (style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight + 1;
+    });
+    for (const scroller of scrollers) {
+      const before = scroller.scrollTop;
+      scroller.scrollTop = scroller.scrollHeight;
+      const line = lastLine(scroller);
+      if (line) {
+        let box = scroller.getBoundingClientRect();
+        if (box.top < 0 || box.bottom > window.innerHeight) {
+          const bottomBar = Math.max(0, ...bars.map((bar) => bar.el.getBoundingClientRect()).filter((rect) => rect.bottom >= window.innerHeight - 1).map((rect) => window.innerHeight - rect.top));
+          const target = window.scrollY + box.bottom - (window.innerHeight - bottomBar);
+          window.scrollTo({ top: Math.max(0, Math.min(maxPageScroll(), target)), behavior: "instant" });
+          box = scroller.getBoundingClientRect();
+        }
+        const rect = textRects(line.firstChild ?? line).pop() ?? line.getBoundingClientRect();
+        const corners = [
+          [rect.left + 2, rect.top + 2],
+          [rect.right - 2, rect.top + 2],
+          [rect.left + 2, rect.bottom - 2],
+          [rect.right - 2, rect.bottom - 2],
+        ];
+        const blocked = corners
+          .map(([x, y]) => {
+            if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return "off screen";
+            const hit = document.elementFromPoint(x, y);
+            return hit && (hit === line || line.contains(hit) || devOnly(hit)) ? null : hit ? describe(hit) : "nothing";
+          })
+          .filter((value): value is string => value !== null);
+        if (blocked.length > 0) report("covered", `the last line of ${describe(scroller)}, scrolled to its end, is not readable: ${describe(line)} behind ${[...new Set(blocked)].join(", ")}`);
+        window.scrollTo({ top: restY, behavior: "instant" });
+      }
+      scroller.scrollTop = before;
+    }
     return out;
   }, Object.keys(TRUNCATION_ALLOWED));
   return found.map((violation) => ({ page: label, width, ...violation }));
@@ -253,5 +340,5 @@ export async function settle(page: Page, { skeletonTimeoutMs = 60_000 } = {}): P
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(() => document.fonts.ready.then(() => true));
   await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: skeletonTimeoutMs });
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
 }

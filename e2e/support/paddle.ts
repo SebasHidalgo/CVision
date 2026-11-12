@@ -16,11 +16,20 @@ export const PADDLE_FRAME = 'iframe[name="paddle_frame"]';
 /** Clicks the checkout button and waits for the overlay; returns both for the spec to assert on. */
 export async function openCheckout(page: Page, label: RegExp): Promise<{ button: Locator; frame: FrameLocator }> {
   const button = page.getByRole("button", { name: label }).first();
-  await button.waitFor({ timeout: 30_000 });
-  await button.click();
   const frame = page.frameLocator(PADDLE_FRAME);
-  await frame.locator("body").waitFor({ timeout: 60_000 });
-  return { button, frame };
+  // The sandbox overlay sometimes never loads (the app closes it at 20 s): one logged retry.
+  for (let attempt = 1; ; attempt++) {
+    await expect(button).toBeEnabled({ timeout: 30_000 });
+    await button.click();
+    const shown = await frame
+      .locator("body")
+      .waitFor({ timeout: 25_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (shown) return { button, frame };
+    if (attempt === 2) throw new Error("The Paddle overlay never loaded, twice");
+    console.warn("[e2e][paddle] the overlay never loaded; the app closed it, retrying once");
+  }
 }
 
 /** The first visible match of `selector` in any frame of the page, within `timeoutMs`. */

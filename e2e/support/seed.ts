@@ -4,7 +4,7 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import type { TestAccount } from "./accounts";
-import { FEEDBACK_CATEGORIES, interviewFeedbackReportSchema } from "@/lib/ai/schemas";
+import { seededReport } from "./fixtureReport";
 import { standingFrom } from "@/lib/billing/access";
 import { applyDevUsage, type DevUsageTarget } from "../../scripts/dev/usageState";
 
@@ -13,8 +13,9 @@ import { applyDevUsage, type DevUsageTarget } from "../../scripts/dev/usageState
  * tech-frontend-match fixture as production stores it (e2e/fixtures/analysis.json, rebuilt from the
  * eval's run when the analysis shape changes). For specs that need an analysis page, not a model call.
  * Its CV object does not exist; nothing here opens the drawer. The account's deletion removes it.
+ * Its Spanish translation is stored too, unless `translated: false`.
  */
-export async function seedAnalysis(account: Pick<TestAccount, "id">): Promise<string> {
+export async function seedAnalysis(account: Pick<TestAccount, "id">, { translated = true } = {}): Promise<string> {
   const fixture = JSON.parse(readFileSync(path.resolve(process.cwd(), "e2e", "fixtures", "analysis.json"), "utf8"));
   const json = (value: unknown) => value as Prisma.InputJsonValue;
   const { feedback } = fixture;
@@ -41,7 +42,18 @@ export async function seedAnalysis(account: Pick<TestAccount, "id">): Promise<st
       },
     },
   });
+  if (translated) await storeTranslation({ analysisId: id }, TRANSLATIONS.analysis);
   return id;
+}
+
+type StoredTranslation = { sourceHash: string; payload: unknown; model: string; modelVersion: string | null };
+const TRANSLATIONS = JSON.parse(readFileSync(path.resolve(process.cwd(), "e2e", "fixtures", "translations.es.json"), "utf8")) as Record<"analysis" | "feedback", StoredTranslation>;
+
+/** A ready Spanish translation, as the app stores one after translating. */
+async function storeTranslation(parent: { analysisId: string } | { interviewFeedbackId: string }, stored: StoredTranslation) {
+  await db.contentTranslation.create({
+    data: { ...parent, locale: "es", status: "READY", sourceHash: stored.sourceHash, payload: stored.payload as Prisma.InputJsonValue, model: stored.model, modelVersion: stored.modelVersion },
+  });
 }
 
 /**
@@ -51,13 +63,10 @@ export async function seedAnalysis(account: Pick<TestAccount, "id">): Promise<st
  */
 export async function seedCompletedInterview(account: Pick<TestAccount, "id">, analysisId: string): Promise<string> {
   const fixture = JSON.parse(readFileSync(path.resolve(process.cwd(), "e2e", "fixtures", "interview-es.json"), "utf8"));
-  const report = interviewFeedbackReportSchema.parse({
-    ...fixture.report,
-    categoryScores: FEEDBACK_CATEGORIES.map((name, i) => ({ name, score: 60 + i * 4, comment: `Steady on ${name.toLowerCase()}, with one concrete example.` })),
-  });
+  const report = seededReport(fixture);
   const last = await db.interview.findFirst({ where: { resumeAnalysisId: analysisId }, orderBy: { attemptNumber: "desc" }, select: { attemptNumber: true } });
   const id = randomUUID();
-  await db.interview.create({
+  const created = await db.interview.create({
     data: {
       id,
       userId: account.id,
@@ -74,7 +83,9 @@ export async function seedCompletedInterview(account: Pick<TestAccount, "id">, a
       durationSeconds: 300,
       InterviewFeedback: { create: { totalScore: report.totalScore, report: report as unknown as Prisma.InputJsonValue } },
     },
+    select: { InterviewFeedback: { select: { id: true } } },
   });
+  if (created.InterviewFeedback) await storeTranslation({ interviewFeedbackId: created.InterviewFeedback.id }, TRANSLATIONS.feedback);
   return id;
 }
 

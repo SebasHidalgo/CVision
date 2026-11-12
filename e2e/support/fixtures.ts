@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test as base } from "@playwright/test";
 
@@ -14,7 +14,32 @@ import { test as base } from "@playwright/test";
 const CSP_LOG = path.resolve(process.cwd(), "e2e", ".artifacts", "csp.log");
 const CSP_MESSAGE = /Content Security Policy|Refused to (load|frame|connect|execute|apply|create a worker)/;
 
-export const test = base.extend<{ cspWatch: void }>({
+const LEDGER = () => process.env.EVAL_SPEND_LEDGER?.trim() || path.resolve(process.cwd(), "scripts", "eval", "runs", "spend.jsonl");
+/** The suite's model calls so far: the e2e rows in the ledger. */
+function suiteModelCalls(): number {
+  const file = LEDGER();
+  if (!existsSync(file)) return 0;
+  return readFileSync(file, "utf8").split(/\r?\n/).filter((line) => line.includes('"command":"e2e"')).length;
+}
+
+/** Only these specs may call the model; everything else runs on seeded analyses and translations. */
+const MODEL_SPECS = /smoke\.spec\.ts$/;
+
+export const test = base.extend<{ cspWatch: void; modelCallGuard: void }>({
+  // A test outside the smoke specs that calls Gemini fails.
+  modelCallGuard: [
+    async ({}, use, testInfo) => {
+      const before = suiteModelCalls();
+      await use();
+      const made = suiteModelCalls() - before;
+      if (made > 0 && !MODEL_SPECS.test(testInfo.file)) {
+        throw new Error(
+          `this test made ${made} Gemini call(s), but only the smoke specs may: a Spanish view of a seeded analysis or feedback needs its stored translation (rerun e2e/fixtures/capture-translations.ts if a fixture or TRANSLATION_PROMPT_VERSION changed)`,
+        );
+      }
+    },
+    { auto: true },
+  ],
   cspWatch: [
     async ({ page }, use, testInfo) => {
       const lines: string[] = [];

@@ -1,10 +1,11 @@
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { accountText, interviewCta, mainText, openRoom, roomLength, runAnalysis, waitForAccount, warmRoutes } from "./support/app";
+import { accountText, interviewCta, mainText, openRoom, roomLength, waitForAccount, warmRoutes } from "./support/app";
 import { copyFor, literal, localeOf, prefix, type Copy } from "./support/copy";
 import { assertSandbox, webhooksReachable } from "./support/env";
 import { cancelSubscriptionNow, closeOverlay, openCheckout, payInOverlay } from "./support/paddle";
+import { seedAnalysis } from "./support/seed";
 
 /**
  * Billing end to end against the Paddle sandbox: Pro from the account
@@ -71,7 +72,8 @@ test("a pack from the account page lands four credits", async ({ page }, testInf
 test("the analysis page and the room say the period pays first, for twelve minutes", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
   await signIn(page, buyer);
-  analysisUrl = await runAnalysis(page);
+  analysisUrl = `/resume/analysis/${await seedAnalysis(buyer)}`;
+  await page.goto(analysisUrl);
   const cta = (await interviewCta(page).innerText()).replace(/\s+/g, " ");
   expect(cta).toMatch(literal(t("analysis:cta.rehearse"), "i"));
   expect(cta).toMatch(literal(`${t("analysis:cta.note.period", { count: 4, limit: 4 })} · ${t("analysis:cta.note.credits", { count: 4 })}`, "i"));

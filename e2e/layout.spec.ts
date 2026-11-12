@@ -65,6 +65,25 @@ test("the checks catch what they look for", async ({ page }) => {
   expect(seen.find((violation) => violation.kind === "truncated")?.detail).toContain("Entrevistador");
 });
 
+test("the checks catch a scroll box whose last line ends under a sticky footer, and pass one that ends above it", async ({ page }) => {
+  // The M10-C room: a transcript box taller than the room left it, its end behind the sticky control bar.
+  const room = (boxHeight: number) => `<body style="margin:0;font:16px sans-serif">
+    <div style="display:flex;flex-direction:column;min-height:100vh">
+      <h1 style="margin:16px">Interview room</h1>
+      <div role="log" style="height:${boxHeight}px;overflow-y:auto;margin:0 16px">
+        ${Array.from({ length: 30 }, (_, i) => `<p style="margin:0 0 12px">Line ${i + 1} of the conversation, said in the call.</p>`).join("")}
+      </div>
+      <footer style="position:sticky;bottom:0;margin-top:auto;height:80px;background:#eee"><button>End the interview</button></footer>
+    </div>
+  </body>`;
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.setContent(room(650));
+  const broken = await layoutViolations(page, "room");
+  expect(broken.filter((violation) => violation.kind === "covered").map((violation) => violation.detail).join(" | ")).toContain("Line 30");
+  await page.setContent(room(500));
+  expect((await layoutViolations(page, "room")).filter((violation) => violation.kind === "covered")).toEqual([]);
+});
+
 test("the checks catch a heading that runs behind the illustration beside it", async ({ page }) => {
   // The M9-B hero: a nowrap phrase wider than its column, sliding under the card in the next one.
   const hero = (phrase: string) => `<body style="margin:0;font:16px sans-serif">

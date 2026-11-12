@@ -8,17 +8,15 @@
  * synchronous, 50% of standard, no free tier). The free tier costs nothing
  * but Google may use what it is sent: only invented data goes there.
  */
+import pricesFile from "./prices.json";
+
 export type Tier = "standard" | "flex" | "free";
 
 export type Price = { inputPerMillion: number; outputPerMillion: number };
 
-export const PRICES: Record<string, Record<Tier, Price>> = {
-  "gemini-3.5-flash-lite": {
-    standard: { inputPerMillion: 0.3, outputPerMillion: 2.5 },
-    flex: { inputPerMillion: 0.15, outputPerMillion: 1.25 },
-    free: { inputPerMillion: 0, outputPerMillion: 0 },
-  },
-};
+// One file, so the browser suite's ledger preload (plain JavaScript) prices calls the same way.
+const { about: _about, ...table } = pricesFile;
+export const PRICES = table as Record<string, Record<Tier, Price>>;
 
 // Batch is priced like Flex but asynchronous (hours); the harness does not use it.
 export const BATCH_PRICE_NOTE = "batch: same as flex, asynchronous, unused";

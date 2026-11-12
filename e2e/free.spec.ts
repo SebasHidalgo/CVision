@@ -1,9 +1,10 @@
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { accountText, interviewCta, mainText, openRoom, roomLength, runAnalysis, warmRoutes } from "./support/app";
+import { accountText, interviewCta, mainText, openRoom, roomLength, warmRoutes } from "./support/app";
 import { copyFor, literal, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
+import { seedAnalysis } from "./support/seed";
 
 /**
  * A fresh Free account: what it is told it has, and what its one trial
@@ -42,13 +43,14 @@ test("a new account is on Free, with the trial available and no credits", async 
 test("an analysis offers the 5-minute trial, and the room promises five minutes on the trial", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
   await signIn(page, account);
-  await runAnalysis(page);
-  // The analysis page in the interface language: translated when it was created, so no "Translating…" state.
+  // A seeded analysis (the real one is the smoke spec's); in Spanish its stored translation shows at once.
+  await page.goto(`/resume/analysis/${await seedAnalysis(account)}`);
   expect(await page.locator("html").getAttribute("lang")).toBe(localeOf(testInfo));
+  // <main> exists while the route's loading state shows: wait for the analysis itself.
+  await page.getByText(t("analysis:dimensions.fit.label")).first().waitFor({ timeout: 60_000 });
   const analysis = await mainText(page);
   expect(analysis).toContain(t("analysis:dimensions.fit.label"));
   expect(analysis).not.toContain(t("common:translation.pending"));
-  expect(analysis).not.toContain(t("common:translation.unavailable"));
   expect((await interviewCta(page).innerText()).replace(/\s+/g, " ")).toMatch(literal(t("analysis:cta.tryTrial", { minutes: 5 }), "i"));
 
   await openRoom(page, t);

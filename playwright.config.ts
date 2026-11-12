@@ -21,6 +21,8 @@ import { BASE_URL, loadEnv } from "./e2e/support/env";
 loadEnv();
 
 const chrome = devices["Desktop Chrome"];
+// Scratch files under e2e/.artifacts (ignored by git) are never part of the suite.
+const ARTIFACTS = /[\\/]\.artifacts[\\/]/;
 
 export default defineConfig({
   testDir: "e2e",
@@ -43,14 +45,14 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...chrome },
-      testIgnore: /voice\.spec\.ts/,
+      testIgnore: [/voice\.spec\.ts/, ARTIFACTS],
     },
     {
       // The same flows with a Spanish browser: the interface, Clerk and the checkout in Spanish,
       // and an analysis translated at creation. The specs read their copy from locales/.
       name: "chromium-es",
       use: { ...chrome, locale: "es-ES" },
-      testIgnore: /voice\.spec\.ts/,
+      testIgnore: [/voice\.spec\.ts/, ARTIFACTS],
     },
     {
       // Fake media devices: the browser grants the microphone and feeds a
@@ -63,6 +65,7 @@ export default defineConfig({
         launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] },
       },
       testMatch: /voice\.spec\.ts/,
+      testIgnore: ARTIFACTS,
     },
   ],
   webServer: process.env.E2E_NO_SERVER

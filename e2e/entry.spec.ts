@@ -9,6 +9,8 @@ import { openCheckout, payInOverlay } from "./support/paddle";
 import { seedAnalysis, setUsage } from "./support/seed";
 import { formatMoney } from "@/lib/format";
 import { resetDateCopy } from "@/lib/error/actionErrorCopy";
+import { DEV_VOICE_DOWN_COOKIE } from "@/lib/devTools";
+import { BASE_URL } from "./support/env";
 
 /**
  * What the interview room shows on entry, before any button: the start's source when one can start, the Pro offer
@@ -116,6 +118,55 @@ test("the start cap is shown on entry, with its own copy and no Start", async ({
   expect(text).toContain(t("errors:codes.INTERVIEW_START_LIMIT"));
   await expect(startButton(page, t)).toHaveCount(0);
   await db.interview.update({ where: { id }, data: { startCount: 0 } });
+});
+
+test("with voice down, the room says so and sells nothing (the server's dev-only outage switch)", async ({ page, context }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
+  await signIn(page, free);
+  await context.addCookies([{ name: DEV_VOICE_DOWN_COOKIE, value: "1", url: BASE_URL }]);
+  await openFresh(page, freeRoom);
+  const text = await mainText(page);
+  expect(text).toContain(t("errors:codes.VOICE_UNAVAILABLE"));
+  expect(text).not.toContain(t("interview:room.offer.pro.title"));
+  await expect(startButton(page, t)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: upToPrice(t, "interview:room.offer.pro.checkout") })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: literal(t("interview:room.offer.checkAgain"), "i") })).toBeVisible();
+  await context.clearCookies({ name: DEV_VOICE_DOWN_COOKIE });
+});
+
+test("an interview that already holds its unit continues, whatever the counts", async ({ page }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
+  const id = freeRoom.split("/").pop()!;
+  // The trial is used and nothing is left, but this interview reserved its unit at its first start.
+  const event = await db.usageEvent.create({ data: { userId: free.id, kind: "INTERVIEW_TRIAL", refId: `e2e-held:${id}` } });
+  await db.interview.update({ where: { id }, data: { usageEventId: event.id, tier: "TRIAL", paidBy: "TRIAL", startCount: 1, status: "IN_PROGRESS", lastSessionAt: new Date() } });
+  try {
+    await signIn(page, free);
+    await openFresh(page, freeRoom);
+    expect(await mainText(page)).toContain(t("interview:room.source.held"));
+    await expect(startButton(page, t)).toBeVisible();
+  } finally {
+    await db.interview.update({ where: { id }, data: { usageEventId: null, tier: null, paidBy: null, startCount: 0, status: "SCHEDULED", lastSessionAt: null } });
+    await db.usageEvent.delete({ where: { id: event.id } });
+  }
+});
+
+test("a paused subscription shows its state and the billing portal, not a Pro checkout that would refuse", async ({ page }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
+  const row = await db.subscription.create({
+    data: { userId: free.id, providerSubscriptionId: `sub_e2e_paused_${localeOf(testInfo)}_${Date.now()}`, status: "PAUSED", priceKey: "pro_monthly", providerUpdatedAt: new Date() },
+  });
+  try {
+    await signIn(page, free);
+    await openFresh(page, freeRoom);
+    const text = await mainText(page);
+    expect(text).toContain(t("interview:room.offer.subscription.paused"));
+    await expect(page.getByRole("button", { name: literal(t("billing:portal.manage"), "i") })).toBeVisible();
+    await expect(page.getByRole("button", { name: upToPrice(t, "interview:room.offer.pro.checkout") })).toHaveCount(0);
+    await expect(startButton(page, t)).toHaveCount(0);
+  } finally {
+    await db.subscription.delete({ where: { id: row.id } });
+  }
 });
 
 test("buying Pro from the room turns the offer into Start without a reload", async ({ page }, testInfo) => {

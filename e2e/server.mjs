@@ -1,5 +1,4 @@
-// The browser suite's app server: `next dev` with the Gemini ledger preloaded (free key only, every call in the
-// eval spend ledger) and dev tools on (the room preview the layout check measures). Started by playwright.config.ts.
+// The suite's app server: `next dev` with the Gemini ledger preloaded and dev tools on.
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -14,8 +13,8 @@ try {
   // No .env: the guards below say what is missing.
 }
 
-if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY_FREE?.trim()) {
-  console.error("[e2e] GOOGLE_GENERATIVE_AI_API_KEY_FREE is not set: the browser suite runs its app on the free key only.");
+if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) {
+  console.error("[e2e] GOOGLE_GENERATIVE_AI_API_KEY is not set: the smoke specs run a real analysis on it.");
   process.exit(1);
 }
 if (process.env.PADDLE_ENV !== "sandbox") {
@@ -26,7 +25,8 @@ if (process.env.PADDLE_ENV !== "sandbox") {
 const preload = path.resolve("e2e/support/gemini-ledger.cjs").replace(/\\/g, "/");
 const child = spawn(process.execPath, [path.resolve("node_modules/next/dist/bin/next"), "dev"], {
   stdio: "inherit",
-  env: { ...process.env, ALLOW_DEV_TOOLS: "1", NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require "${preload}"`.trim() },
+  // Flex: same measured latency as standard, half the price.
+  env: { ...process.env, E2E_GEMINI_TIER: process.env.E2E_GEMINI_TIER ?? "flex", ALLOW_DEV_TOOLS: "1", NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require "${preload}"`.trim() },
 });
 // The specs check this marker: this launcher's pid lives exactly as long as the server it started.
 const marker = path.resolve("e2e/.artifacts/gemini-ledger.json");

@@ -1,0 +1,70 @@
+{
+  "about": "Spanish translations of e2e/fixtures/analysis.json and interview-es.json, as the app stores them. Rebuilt by capture-translations.ts.",
+  "analysis": {
+    "sourceHash": "142d079568dcab327968fb76124a69e82b08923e5be0000e203f2cced21e27ef",
+    "payload": {
+      "strings": {
+        "overall.summaryText": "Tu CV está excepcionalmente bien estructurado, es claro y está repleto de logros cuantificables que demuestran claramente tu impacto en ingeniería. Pequeñas adiciones para incorporar elementos faltantes del stack deseable o experiencia en regulación harían que fuera totalmente completo.",
+        "overall.prioritizedFixes.0.title": "Agrega contexto sobre el pipeline de CI/CD",
+        "overall.prioritizedFixes.0.action": "Si tienes experiencia práctica con GitHub Actions, agrega una viñeta que describa cómo lo usaste en un pipeline de despliegue o pruebas.",
+        "overall.prioritizedFixes.1.title": "Destaca la experiencia en salud/industria regulada",
+        "overall.prioritizedFixes.1.action": "Si has trabajado en el sector de salud u otro sector regulado, integra ese contexto de dominio en tu resumen o en las descripciones de tus proyectos.",
+        "atsCompatibility.description": "La capa de texto extraído de tu CV se analiza de forma limpia y lógica, utilizando encabezados de sección estándar que los sistemas de ATS pueden indexar fácilmente. No hay artefactos de codificación inusuales, caracteres especiales o flujos de texto rotos que impidan el análisis.",
+        "experienceAndImpact.description": "Tu sección de Experiencia está excepcionalmente bien escrita, encabezada consistentemente con verbos de acción sólidos y respaldada por cambios técnicos con métricas cuantitativas impresionantes (como mejoras de rendimiento, reducción de incidentes y crecimiento de tráfico). La estructura es clara, concisa y se centra en gran medida en resultados de alto valor.",
+        "experienceAndImpact.strengths.0": "Combina consistentemente las implementaciones técnicas con resultados medibles de negocio y rendimiento.",
+        "experienceAndImpact.strengths.1": "Separación clara de puestos, empresas y fechas con viñetas concisas y directas.",
+        "experienceAndImpact.strengths.2": "Gran énfasis en la calidad del código, el rigor en las pruebas y el cumplimiento de la accesibilidad.",
+        "experienceAndImpact.weaknesses.0": "Algunos puestos anteriores (como Junior Web Developer) tienen un poco menos de métricas en comparación con el puesto más reciente, aunque siguen siendo claros.",
+        "skills.description": "Tu sección de Habilidades está extremadamente bien categorizada y es fácil de escanear, dividiendo las competencias limpiamente en las categorías Lenguajes, Frameworks, estilos, pruebas, herramientas y otro. Se alinea directamente con la terminología técnica esperada para puestos senior de ingeniería frontend.",
+        "skills.actionPlan.0": "Mantén la estructura categorizada para cualquier futura herramienta o framework que agregues.",
+        "skills.actionPlan.1": "Si usas plataformas adicionales de nube o CI/CD como GitHub Actions en tu trabajo diario, asegúrate de que también aparezcan de manera destacada en las viñetas de tu experiencia.",
+        "educationAndCertifications.description": "La sección de Formación es concisa, tiene el formato correcto y establece claramente tu título afín y año de graduación sin añadir desorden innecesario.",
+        "educationAndCertifications.highlights.0": "B.S. en computación proporciona una sólida base académica de respaldo para un puesto de ingeniería.",
+        "educationAndCertifications.highlights.1": "Presentación limpia y directa que no distrae de tu experiencia profesional.",
+        "educationAndCertifications.improvements.0": "Si obtuviste algún honor académico o cursaste materias relevantes durante tu B.S., considera agregar una breve subviñeta.",
+        "toneAndClarity.description": "El tono de redacción en todo el CV es profesional, seguro y directo. Las oraciones y viñetas comienzan con verbos de acción fuertes, evitan rodeos y mantienen un tono activo y orientado a resultados de principio a fin.",
+        "toneAndClarity.suggestions.0": "Mantén tu estilo actual de viñetas concisas y orientadas a resultados para cualquier actualización futura.",
+        "toneAndClarity.suggestions.1": "Asegúrate de que todos los verbos permanezcan en pasado para los puestos concluidos y en presente para tu puesto actual.",
+        "jobFit.description": "Tu CV destaca métricas y resultados específicos de migraciones de componentes modernos e implementaciones de pruebas que guardan un estrecho paralelismo con las responsabilidades enumeradas en la oferta.",
+        "jobFit.strategicRecommendations.0": "Agrega una breve viñeta bajo tu experiencia reciente que destaque tu familiaridad con GitHub Actions si lo has usado en un pipeline.",
+        "jobFit.strategicRecommendations.1": "Si tienes alguna exposición al sector de salud o industrias reguladas, menciónalo explícitamente en tu resumen o en las viñetas de experiencia.",
+        "jobFit.strategicRecommendations.2": "Mantén los logros principales de React, TypeScript y accesibilidad en un lugar destacado en la parte superior de tu sección de experiencia profesional.",
+        "jobFit.requirements.1.note": "Tu CV demuestra experiencia directa con Next.js para renderizado del lado del servidor.",
+        "jobFit.requirements.2.note": "Tu CV muestra experiencia tanto con Tailwind CSS como con sistemas de diseño compartidos.",
+        "jobFit.requirements.3.note": "Tu CV enumera Vitest, Jest y Playwright bajo tus herramientas de pruebas y experiencia.",
+        "jobFit.requirements.4.note": "Tu CV muestra conocimiento práctico de los estándares de accesibilidad a través de la implementación práctica.",
+        "jobFit.requirements.5.note": "Tu CV incluye experiencia práctica en la capa de cliente de GraphQL utilizando Apollo.",
+        "jobFit.requirements.6.note": "Tu CV no menciona explícitamente experiencia en salud u otra industria regulada.",
+        "jobFit.requirements.7.note": "Tu CV enumera GitHub Actions bajo tus habilidades en herramientas."
+      },
+      "terms": {
+        "healthcare": "salud",
+        "regulated industry": "industria regulada"
+      }
+    },
+    "model": "gemini-3.5-flash-lite",
+    "modelVersion": "gemini-3.5-flash-lite"
+  },
+  "feedback": {
+    "sourceHash": "32fe011e921f38f5c7a0ef010f078902082629feeef502c28155fd895ebf4d5a",
+    "payload": {
+      "strings": {
+        "gapFollowThrough.0.note": "Todavía no usas ningún orquestador, pero planteas un plan de migración sensato con una ejecución en paralelo.",
+        "gapFollowThrough.1.note": "Honesto, pero sin un plan para cerrar la brecha.",
+        "notableAnswers.0.why": "Una solución concreta vinculada al incidente, con su resultado.",
+        "notableAnswers.1.why": "Asumes el error en lugar de ocultarlo.",
+        "categoryScores.0.comment": "Estable en habilidades de comunicación, con un ejemplo concreto.",
+        "categoryScores.1.comment": "Estable en conocimientos técnicos, con un ejemplo concreto.",
+        "categoryScores.2.comment": "Estable en resolución de problemas, con un ejemplo concreto.",
+        "categoryScores.3.comment": "Estable en afinidad cultural, con un ejemplo concreto.",
+        "categoryScores.4.comment": "Estable en seguridad y claridad, con un ejemplo concreto.",
+        "strengths.0.point": "Conviertes los incidentes en verificaciones",
+        "areasForImprovement.0.point": "Aporta un plan para grandes volúmenes",
+        "finalAssessment": "Respuestas claras y específicas sobre cargas diarias y calidad de datos; la orquestación y la escala aún están por mostrarse."
+      },
+      "terms": {}
+    },
+    "model": "gemini-3.5-flash-lite",
+    "modelVersion": "gemini-3.5-flash-lite"
+  }
+}

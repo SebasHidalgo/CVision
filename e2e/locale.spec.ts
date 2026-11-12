@@ -4,13 +4,12 @@ import { createAccount, deleteAccount, signIn, type TestAccount } from "./suppor
 import { switchLanguage } from "./support/app";
 import { copyFor, literal, localeOf, type SpecLocale } from "./support/copy";
 import { assertSandbox } from "./support/env";
-import { seedAnalysis } from "./support/seed";
 
 /**
  * The language itself: the browser's by default, the switcher's choice in a cookie, a signed-in
  * choice that follows the account into another browser, and a switch in place (no reload: what was
- * typed stays, and an analysis without a stored translation shows skeletons in its prose only). No
- * payment; in the analysis test, at most one translation call.
+ * typed stays). No payment and no model call; the switch over an analysis being translated is in
+ * smoke.spec.ts, which may call the model.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -99,46 +98,5 @@ test("a switch keeps what was typed in the upload form, with no reload", async (
   await expect(page.locator("#job-title")).toHaveValue("Data Analyst");
   await expect(page.locator("#job-description")).toHaveValue("A posting typed before the switch, which must survive it.");
   console.log(`[timing] upload ${locale}→${target}: client strings ${clientMs} ms, fully switched ${fullMs} ms`);
-  await switchLanguage(page, locale);
-});
-
-test("an analysis switches in place: skeletons in its prose only while a translation is made, instant once stored", async ({ page }, testInfo) => {
-  test.setTimeout(240_000);
-  const locale = localeOf(testInfo);
-  await signIn(page, account);
-  const id = await seedAnalysis(account);
-  await page.goto(`/resume/analysis/${id}`);
-  // The Spanish project translates on this first view; wait until the prose is in.
-  await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: 90_000 });
-  const verdict = await page.getByText(copyFor(locale)("analysis:dimensions.fit.label")).first().isVisible();
-  expect(verdict).toBe(true);
-  const mark = await markDocument(page);
-
-  const timeSwitch = async (target: SpecLocale) => {
-    const started = Date.now();
-    await switchLanguage(page, target);
-    const clientMs = Date.now() - started;
-    const t = copyFor(target);
-    // The fixes' heading is rendered by the server: once it reads in the new language, the re-render is in.
-    await expect(page.getByRole("heading", { name: literal(t("analysis:fixes.title")) })).toBeVisible();
-    // Skeletons appear only where prose waits; statuses and the verdict are already there.
-    const skeletons = await page.locator("[data-prose-pending]").count();
-    await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: 90_000 });
-    await expect(page.getByText(t("common:translation.pending"))).toHaveCount(0);
-    return { clientMs, fullMs: Date.now() - started, skeletons };
-  };
-
-  // en project: Spanish without a stored translation, then with one. es project: English, then Spanish with one.
-  const first = await timeSwitch(other(locale));
-  const back = await timeSwitch(locale);
-  const again = await timeSwitch(other(locale));
-  expect(await documentMark(page)).toBe(mark);
-  console.log(`[timing] analysis ${locale}→${other(locale)} (first): client ${first.clientMs} ms, full ${first.fullMs} ms, skeleton blocks ${first.skeletons}`);
-  console.log(`[timing] analysis →${locale}: client ${back.clientMs} ms, full ${back.fullMs} ms, skeleton blocks ${back.skeletons}`);
-  console.log(`[timing] analysis →${other(locale)} (stored): client ${again.clientMs} ms, full ${again.fullMs} ms, skeleton blocks ${again.skeletons}`);
-  // Without a stored translation the prose waits behind skeletons; a stored one needs none; English never does.
-  if (locale === "en") expect(first.skeletons).toBeGreaterThan(0);
-  expect(again.skeletons).toBe(0);
-  expect(back.skeletons).toBe(0);
   await switchLanguage(page, locale);
 });
