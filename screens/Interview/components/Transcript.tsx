@@ -21,35 +21,31 @@ type TranscriptProps = {
 
 /** Within this many pixels of the end, the reader is at the newest line. */
 const BOTTOM_SLACK_PX = 24;
-/** A smooth scroll that never reports its end still hands control back after this. */
-const AUTO_SCROLL_MS = 1_200;
+/** A scroll this soon after the reader's own input is theirs. */
+const USER_INPUT_MS = 1_000;
 
-/**
- * The conversation as a script, for the candidate's benefit during the call.
- * It scrolls inside its own box and follows the newest line while the
- * reader is at the bottom; scrolled up to read, it stays put and offers a
- * jump back. A convenience only: the scored transcript arrives by webhook,
- * and nothing shown here is ever sent anywhere.
- */
+/** The call as a script: follows the newest line; only the reader's own scroll leaves it. Display only. */
 export default function Transcript({ lines, live, className }: TranscriptProps) {
   const logRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
   const { t } = useTranslation("interview");
-  const [following, setFollowing] = useState(true);
+  const [following, setFollowingState] = useState(true);
   const [unseen, setUnseen] = useState(false);
-  // Read by the line effect, which must run on new lines only, not when the reader scrolls.
+  // The last wheel, touch or key on the box: a scroll right after one is the reader's.
+  const userInputAt = useRef(0);
+  const markUserInput = () => {
+    userInputAt.current = Date.now();
+  };
+  // A ref set with the state, so a line arriving before the re-render sees it.
   const followingRef = useRef(true);
-  useEffect(() => {
-    followingRef.current = following;
-  }, [following]);
-  // A scroll the room started: its intermediate positions are not the reader leaving the bottom.
-  const autoUntil = useRef(0);
-
+  const setFollowing = useCallback((value: boolean) => {
+    followingRef.current = value;
+    setFollowingState(value);
+  }, []);
   const toBottom = useCallback(
     (smooth: boolean) => {
       const log = logRef.current;
       if (!log) return;
-      autoUntil.current = Date.now() + AUTO_SCROLL_MS;
       log.scrollTo({ top: log.scrollHeight, behavior: smooth && !reduce ? "smooth" : "auto" });
     },
     [reduce],
@@ -78,13 +74,11 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
     if (!log) return;
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight <= BOTTOM_SLACK_PX;
     if (atBottom) {
-      autoUntil.current = 0;
       setFollowing(true);
       setUnseen(false);
       return;
     }
-    if (Date.now() < autoUntil.current) return;
-    setFollowing(false);
+    if (Date.now() - userInputAt.current < USER_INPUT_MS) setFollowing(false);
   };
 
   const jump = () => {
@@ -114,7 +108,12 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
         tabIndex={0}
         aria-label={t("room.transcript.label")}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-5 pr-2 focus-visible:outline-none [scrollbar-width:thin]"
+        onWheel={markUserInput}
+        onTouchStart={markUserInput}
+        onTouchMove={markUserInput}
+        onKeyDown={markUserInput}
+        onPointerDown={markUserInput}
+        className="min-h-0 flex-1 overflow-y-auto py-5 pr-2 focus-visible:outline-none [scrollbar-width:thin] lg:overscroll-contain"
       >
         {lines.length === 0 ? (
           <p className="max-w-xs text-sm leading-relaxed text-ink-3">
@@ -143,9 +142,16 @@ export default function Transcript({ lines, live, className }: TranscriptProps) 
         )}
       </div>
 
-      {unseen && (
-        <Button type="button" variant="outline" size="sm" onClick={jump} className="absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 bg-paper shadow-sm">
-          {t("room.transcript.newMessages")}
+      {!following && lines.length > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={jump}
+          aria-label={unseen ? undefined : t("room.transcript.backToNewest")}
+          className="absolute bottom-3 left-1/2 h-11 min-w-11 -translate-x-1/2 gap-2 bg-paper shadow-sm sm:h-9 sm:min-w-9"
+        >
+          {unseen && t("room.transcript.newMessages")}
           <ArrowDown aria-hidden className="size-4" />
         </Button>
       )}

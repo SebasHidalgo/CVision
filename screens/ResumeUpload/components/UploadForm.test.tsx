@@ -39,13 +39,13 @@ describe("quotaLine", () => {
     const en = copy("en");
     const single = { ...free(1), limit: 1 };
     expect(quotaLine(single, en)).toBe("1 of 1 analysis left this month · resets Nov 1");
-    expect(quotaLine(single, copy("es"))).toBe("Tienes 1 de 1 análisis disponible este mes · se reinicia el 1 nov");
+    expect(quotaLine(single, copy("es"))).toBe("Tienes 1 de 1 análisis disponible este mes · se reinicia el 1 de noviembre");
   });
 
   it("says the same in Spanish, whatever is left", () => {
     const es = copy("es");
-    expect(quotaLine(free(2), es)).toBe("Tienes 2 de 3 análisis disponibles este mes · se reinician el 1 nov");
-    expect(quotaLine(free(1), es)).toBe("Tienes 1 de 3 análisis disponibles este mes · se reinician el 1 nov");
+    expect(quotaLine(free(2), es)).toBe("Tienes 2 de 3 análisis disponibles este mes · se reinician el 1 de noviembre");
+    expect(quotaLine(free(1), es)).toBe("Tienes 1 de 3 análisis disponibles este mes · se reinician el 1 de noviembre");
   });
 });
 

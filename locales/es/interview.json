@@ -23,7 +23,8 @@
       "start": "Empezar la entrevista",
       "queued": "Esperando a un entrevistador",
       "reconnect": "Reconectar",
-      "startAgain": "Empezar de nuevo"
+      "startAgain": "Empezar de nuevo",
+      "continue": "Continuar"
     },
     "clock": {
       "timeLeft": "Tiempo restante",
@@ -40,9 +41,9 @@
       "period_one": "Te queda {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
       "period_many": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
       "period_other": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
-      "credit_one": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
-      "credit_many": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
-      "credit_other": "Esta entrevista usa 1 crédito de tu pack. Tienes {{count}}.",
+      "credit_one": "Esta entrevista usa 1 crédito de tu paquete. Tienes {{count}}.",
+      "credit_many": "Esta entrevista usa 1 crédito de tu paquete. Tienes {{count}}.",
+      "credit_other": "Esta entrevista usa 1 crédito de tu paquete. Tienes {{count}}.",
       "trial": "Esta entrevista usa tu prueba gratis de {{minutes}} minutos.",
       "held": "Ya está pagada: volver a conectarte no usa otra entrevista."
     },
@@ -58,7 +59,9 @@
       "finish": "Terminar y ver el feedback",
       "silent_one": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con el minuto completo.",
       "silent_many": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con los {{count}} minutos completos.",
-      "silent_other": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con los {{count}} minutos completos."
+      "silent_other": "Tu llamada se cortó antes de que respondieras. Puedes empezar de nuevo con los {{count}} minutos completos.",
+      "early": "La entrevista terminó antes de tiempo. Todavía te quedan {{left}}.",
+      "earlyResume": "Continúa y el entrevistador retoma donde quedaron, o termina ahora y recibe tu feedback."
     },
     "reconnect_one": "Reconectar — te queda {{count}} conexión",
     "reconnect_many": "Reconectar — te quedan {{count}} conexiones",
@@ -91,7 +94,8 @@
       "lines_other": "{{count}} líneas",
       "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
       "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre.",
-      "newMessages": "Mensajes nuevos"
+      "newMessages": "Mensajes nuevos",
+      "backToNewest": "Volver al último mensaje"
     },
     "language": {
       "label": "Idioma de la entrevista",
@@ -118,10 +122,22 @@
       },
       "pack": {
         "title": "Tus {{limit}} entrevistas se renuevan el {{date}}.",
-        "body": "¿La quieres antes? Un pack suma {{credits}} entrevistas completas por {{price}}. Los créditos no vencen y sirven en cualquier plan.",
+        "body": "¿La quieres antes? Un paquete suma {{credits}} entrevistas completas por {{price}}. Los créditos no vencen y sirven en cualquier plan.",
         "checkout": "Comprar {{credits}} entrevistas · {{price}}"
+      },
+      "confirming": "Estamos confirmando tu compra. Suele tardar unos segundos; vuelve a comprobar si tarda más.",
+      "notYet": "Todavía no se confirmó. Espera un momento y vuelve a comprobar.",
+      "subscription": {
+        "paused": "Tu suscripción Pro está en pausa.",
+        "pausedBody": "Reactívala en el portal de pagos para hacer esta entrevista. No se puede empezar una suscripción nueva mientras esta siga abierta.",
+        "pending": "Tu suscripción Pro se está actualizando.",
+        "pendingBody": "Revísala en el portal de pagos. Un cambio puede tardar unos minutos en llegarnos.",
+        "pastDue": "Tu último pago no se pudo cobrar. Actualiza tu medio de pago en el portal de pagos para mantener Pro."
       }
-    }
+    },
+    "continueStarts_one": "Continuar — te queda {{count}} conexión",
+    "continueStarts_many": "Continuar — te quedan {{count}} conexiones",
+    "continueStarts_other": "Continuar — te quedan {{count}} conexiones"
   },
   "list": {
     "eyebrow": "Tus entrevistas",

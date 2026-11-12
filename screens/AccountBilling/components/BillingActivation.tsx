@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { BILLING_POLL_CEILING_MS, useTransactionLanding } from "@/components/billing/useTransactionLanding";
 import { ACCOUNT_BILLING_PATH, type Activation } from "@/lib/billing/activation";
-import { checkBillingAction } from "../actions/checkBillingAction";
+import { checkBillingAction } from "@/components/billing/actions/checkBillingAction";
 
 type BillingActivationProps = {
   activation: Activation;

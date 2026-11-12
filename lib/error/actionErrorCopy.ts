@@ -5,9 +5,11 @@ import type { ErrorCode, ErrorMeta } from "./errors";
 
 // User-facing copy per error code, from locales/<locale>/errors.json. Backend messages are never rendered.
 
-/** "Nov 1" / "1 nov", from the ISO date the server put in `meta.resetsAt`. */
+/** "Nov 1" / "1 de noviembre", from the ISO date the server put in `meta.resetsAt`. */
 export function resetDateCopy(resetsAt: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(resetsAt));
+  // Spanish sentences say "el 1 de diciembre": the month in full, never "1 dic".
+  const month = locale === "es" ? "long" : "short";
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { month, day: "numeric", timeZone: "UTC" }).format(new Date(resetsAt));
 }
 
 /**

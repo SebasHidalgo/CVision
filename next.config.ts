@@ -17,6 +17,8 @@ function devOrigins(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  // Dev-only pages are page.dev.tsx: a production build doesn't know the extension.
+  pageExtensions: process.env.NODE_ENV === "production" ? ["tsx", "ts", "jsx", "js"] : ["dev.tsx", "tsx", "ts", "jsx", "js"],
   experimental: {
     serverActions: {
       // No action carries a file: the CV goes to storage over a signed URL

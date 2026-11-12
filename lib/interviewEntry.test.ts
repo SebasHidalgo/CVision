@@ -20,6 +20,15 @@ describe("decideRoomEntry", () => {
     expect(decideRoomEntry({ ...base, entitlement: entitlement({ plan: "PRO", periodUsed: 4, hadVoice: true }) })).toEqual({ kind: "needs-pack", resetsAt: periodEnd.toISOString() });
   });
 
+  it("shows an open subscription that grants nothing instead of the Pro offer, and flags a failed payment on the pack offer", () => {
+    const used = entitlement({ trialsUsed: 1 });
+    expect(decideRoomEntry({ ...base, entitlement: used, openSubscription: "PAUSED" })).toEqual({ kind: "needs-pro", reason: "trial-used", subscription: "paused" });
+    expect(decideRoomEntry({ ...base, entitlement: used, openSubscription: "ACTIVE" })).toEqual({ kind: "needs-pro", reason: "trial-used", subscription: "pending" });
+    expect(decideRoomEntry({ ...base, entitlement: used, openSubscription: null })).toEqual({ kind: "needs-pro", reason: "trial-used" });
+    const proUsed = entitlement({ plan: "PRO", periodUsed: 4, hadVoice: true });
+    expect(decideRoomEntry({ ...base, entitlement: proUsed, openSubscription: "PAST_DUE" })).toEqual({ kind: "needs-pack", resetsAt: periodEnd.toISOString(), pastDue: true });
+  });
+
   it("lets a resumable or already paid interview continue whatever the counts", () => {
     const none = entitlement({ trialsUsed: 1 });
     expect(decideRoomEntry({ ...base, entitlement: none, resumable: true })).toEqual({ kind: "continue" });

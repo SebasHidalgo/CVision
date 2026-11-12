@@ -6,3 +6,6 @@
 export function devToolsAllowed(env: Record<string, string | undefined> = process.env): boolean {
   return env.ALLOW_DEV_TOOLS === "1" && env.PADDLE_ENV === "sandbox" && env.VERCEL_ENV !== "production";
 }
+
+/** Dev tools only: "1" makes the room read voice as down (its e2e). */
+export const DEV_VOICE_DOWN_COOKIE = "cvision-dev-voice-down";

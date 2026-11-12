@@ -16,10 +16,10 @@ export type RoomEntry =
   | { kind: "continue" }
   /** A fresh start, paid by this source. */
   | { kind: "start"; source: Exclude<EntitlementSource, "none"> }
-  /** Free with the trial used (or never offered) and no credits. */
-  | { kind: "needs-pro"; reason: "trial-used" | "had-voice" }
-  /** Pro with the period's interviews used and no credits. */
-  | { kind: "needs-pack"; resetsAt: string };
+  /** Free, trial used, no credits; `subscription`: an open one granting nothing (show the portal). */
+  | { kind: "needs-pro"; reason: "trial-used" | "had-voice"; subscription?: "paused" | "pending" }
+  /** Pro with the period's interviews used and no credits; `pastDue` when the last payment failed. */
+  | { kind: "needs-pack"; resetsAt: string; pastDue?: boolean };
 
 export type RoomEntryFacts = {
   startCount: number;
@@ -32,6 +32,8 @@ export type RoomEntryFacts = {
   entitlement: InterviewEntitlement | null;
   /** Null when not checked (the lists): only the room asks the platform. */
   voiceUp: boolean | null;
+  /** The status of a subscription still open (not canceled), when the room read it. */
+  openSubscription?: string | null;
 };
 
 export function decideRoomEntry(facts: RoomEntryFacts): RoomEntry {
@@ -40,8 +42,12 @@ export function decideRoomEntry(facts: RoomEntryFacts): RoomEntry {
   if (facts.held || facts.resumable) return { kind: "continue" };
   const entitlement = facts.entitlement;
   if (entitlement && entitlement.source !== "none") return { kind: "start", source: entitlement.source };
-  if (entitlement?.plan === "PRO" && entitlement.resetsAt) return { kind: "needs-pack", resetsAt: entitlement.resetsAt };
-  return { kind: "needs-pro", reason: entitlement?.reason === "had-voice" ? "had-voice" : "trial-used" };
+  const open = facts.openSubscription ?? null;
+  if (entitlement?.plan === "PRO" && entitlement.resetsAt) {
+    return { kind: "needs-pack", resetsAt: entitlement.resetsAt, ...(open === "PAST_DUE" ? { pastDue: true } : {}) };
+  }
+  const reason = entitlement?.reason === "had-voice" ? "had-voice" : "trial-used";
+  return open ? { kind: "needs-pro", reason, subscription: open === "PAUSED" ? "paused" : "pending" } : { kind: "needs-pro", reason };
 }
 
 /** Whether a start is on offer: what the lists and the analysis page show for a waiting interview. */

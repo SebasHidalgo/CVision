@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { checkBillingAction } from "@/components/billing/actions/checkBillingAction";
 import CheckoutButtonClient from "@/components/billing/CheckoutButtonClient";
+import ManageSubscriptionButtonClient from "@/components/billing/ManageSubscriptionButtonClient";
 import { useTransactionLanding } from "@/components/billing/useTransactionLanding";
 import { Button } from "@/components/ui/button";
 import { useErrorCopy, useResetDate } from "@/hooks/useErrorCopy";
@@ -21,17 +24,15 @@ export type RoomOfferFacts = {
   periodLimit: number;
 };
 
+/** Still blocked this long after a paid checkout: "being confirmed" and Check again. */
+export const PURCHASE_CONFIRM_MS = 20_000;
+
 type RoomOfferProps = {
   entry: Extract<RoomEntry, { kind: "needs-pro" | "needs-pack" | "voice-down" }>;
   facts: RoomOfferFacts;
 };
 
-/**
- * What the room says instead of Start when nothing can start: the plan
- * that would, with its checkout, or that voice is down (and then nothing
- * is sold). A purchase here stays here: the room waits for the payment to
- * land, then re-reads itself, and Start appears without a reload.
- */
+/** The room without Start: what would unlock it, voice down, or the blocking subscription's portal. */
 export default function RoomOffer({ entry, facts }: RoomOfferProps) {
   const router = useRouter();
   const { t } = useTranslation("interview");
@@ -41,11 +42,35 @@ export default function RoomOffer({ entry, facts }: RoomOfferProps) {
   const [checking, setChecking] = useState(false);
   const { phase } = useTransactionLanding(bought);
   const landed = bought !== null && phase === "landed";
+  // Still here (so still blocked) this long after the checkout completed.
+  const [slow, setSlow] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Landed: the server reads the new entitlement and the room swaps this panel for Start.
   useEffect(() => {
     if (landed) router.refresh();
   }, [landed, router]);
+
+  useEffect(() => {
+    if (!bought) return;
+    const timer = window.setTimeout(() => setSlow(true), PURCHASE_CONFIRM_MS);
+    return () => window.clearTimeout(timer);
+  }, [bought]);
+
+  // Asks the provider for this transaction (the webhook may be lost), then re-reads the room.
+  const checkPurchase = async () => {
+    if (!bought) return;
+    setConfirming(true);
+    try {
+      const result = await checkBillingAction({ transactionId: bought.transactionId });
+      if (!result.ok) toast.error(errorCopy(result.code, result.meta));
+      else if (result.data.applied) router.refresh();
+      else toast.message(t("room.offer.notYet"));
+    } catch {
+      toast.error(errorCopy("REQUEST_FAILED"));
+    }
+    setConfirming(false);
+  };
 
   if (entry.kind === "voice-down") {
     return (
@@ -71,7 +96,21 @@ export default function RoomOffer({ entry, facts }: RoomOfferProps) {
   if (bought) {
     return (
       <div role="status" className="mt-12 w-full max-w-sm text-sm leading-relaxed">
-        {phase === "stalled" ? (
+        {slow ? (
+          <>
+            <p className="text-ink">{t("room.offer.confirming")}</p>
+            <Button variant="outline" onClick={checkPurchase} disabled={confirming} className="mt-5 h-11 gap-2 px-5">
+              {confirming ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+              {t("room.offer.checkAgain")}
+            </Button>
+            {phase === "stalled" && (
+              <Link href={activationHref(bought)} className="link-rule mt-4 flex items-center gap-2 font-medium text-ink">
+                {t("room.offer.openAccount")}
+                <ArrowRight className="size-4" />
+              </Link>
+            )}
+          </>
+        ) : phase === "stalled" ? (
           <>
             <p className="text-ink">{t("room.offer.stalled")}</p>
             <Link href={activationHref(bought)} className="link-rule mt-4 inline-flex items-center gap-2 font-medium text-ink">
@@ -89,9 +128,20 @@ export default function RoomOffer({ entry, facts }: RoomOfferProps) {
     );
   }
 
+  // An open subscription granting nothing: a Pro checkout would refuse, so the portal.
+  if (entry.kind === "needs-pro" && entry.subscription) {
+    return (
+      <div className="mt-12 flex w-full max-w-sm flex-col">
+        <p className="font-medium leading-relaxed text-ink">{t(entry.subscription === "paused" ? "room.offer.subscription.paused" : "room.offer.subscription.pending")}</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">{t(entry.subscription === "paused" ? "room.offer.subscription.pausedBody" : "room.offer.subscription.pendingBody")}</p>
+        <ManageSubscriptionButtonClient className="mt-5 h-11 px-5" />
+      </div>
+    );
+  }
+
   const pro = entry.kind === "needs-pro";
   return (
-    <div className="mt-12 w-full max-w-sm">
+    <div className="mt-12 w-full max-w-sm flex flex-col">
       <p className="font-medium leading-relaxed text-ink">
         {pro
           ? t(entry.reason === "had-voice" ? "room.offer.pro.titleHadVoice" : "room.offer.pro.title")
@@ -110,10 +160,16 @@ export default function RoomOffer({ entry, facts }: RoomOfferProps) {
         className="mt-5 h-auto min-h-11 max-w-full whitespace-normal px-5 py-2 text-center"
       />
       {pro && (
-        <Link href="/pricing" className="link-rule mt-4 inline-flex items-center gap-2 text-sm text-ink-2">
+        <Link href="/pricing" className="mx-auto link-rule mt-4 inline-flex items-center gap-2 text-sm text-ink-2">
           {t("room.offer.pro.seePricing")}
           <ArrowRight className="size-4" />
         </Link>
+      )}
+      {entry.kind === "needs-pack" && entry.pastDue && (
+        <div className="mt-6 border-t border-line pt-5">
+          <p className="text-sm leading-relaxed text-ink">{t("room.offer.subscription.pastDue")}</p>
+          <ManageSubscriptionButtonClient className="mt-3 h-11 px-5" />
+        </div>
       )}
     </div>
   );

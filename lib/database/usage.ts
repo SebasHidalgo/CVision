@@ -4,7 +4,7 @@ import { Prisma, type UsageKind } from "@prisma/client";
 import { cache } from "react";
 import prisma from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
-import { quotaPeriodFor, type PlanStanding } from "@/lib/billing/access";
+import { quotaPeriodFor, type PlanStanding, type SubscriptionStanding } from "@/lib/billing/access";
 import { reconcileIfStale } from "@/lib/billing/reconcile";
 import type { CheckoutItem } from "@/lib/billing/types";
 import {
@@ -29,7 +29,7 @@ import {
   type PlanId,
   type QuotaPeriod,
 } from "@/lib/plans";
-import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn, transactionApplied } from "./billing";
+import { findBillingCustomer, listSubscriptionRows, resolvePlanStanding, resolvePlanStandingIn, transactionApplied } from "./billing";
 import { creditBalanceIn } from "./credits";
 import { expireAbandonedInterviews } from "./interviewExpiry";
 
@@ -394,6 +394,11 @@ export const currentUsageSummary: () => Promise<UsageSummary> = cache(async () =
 
 /** What the caller's next interview start would get, once per request. */
 export const currentInterviewEntitlement: () => Promise<InterviewEntitlement> = cache(async () => resolveInterviewEntitlement(await requireUserId()));
+
+/** The caller's subscription still open (not canceled), if any: a new Pro checkout would refuse. */
+export const currentOpenSubscriptionStatus: () => Promise<SubscriptionStanding["status"] | null> = cache(
+  async () => (await listSubscriptionRows(await requireUserId())).find((row) => row.status !== "CANCELED")?.status ?? null,
+);
 
 /** Whether a checkout the caller paid has landed, for the account page's first render. */
 export const currentTransactionApplied: (transactionId: string) => Promise<boolean> = cache(async (transactionId: string) =>

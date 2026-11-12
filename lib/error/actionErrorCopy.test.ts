@@ -35,7 +35,7 @@ describe("actionErrorCopy for the limits", () => {
 
   it("formats reset dates in UTC", () => {
     expect(resetDateCopy("2026-12-01T00:00:00.000Z", "en")).toBe("Dec 1");
-    expect(resetDateCopy("2026-12-01T00:00:00.000Z", "es")).toBe("1 dic");
+    expect(resetDateCopy("2026-12-01T00:00:00.000Z", "es")).toBe("1 de diciembre");
   });
 });
 
@@ -55,7 +55,7 @@ describe("actionErrorCopy for the file refusals", () => {
 describe("actionErrorCopy in Spanish", () => {
   it("fills the same blanks, with dates formatted in Spanish", () => {
     expect(spanish("ANALYSIS_QUOTA_EXCEEDED", { plan: "FREE", resetsAt: "2026-11-01T00:00:00.000Z" })).toBe(
-      "Ya usaste los análisis de este mes. Se reinician el 1 nov.",
+      "Ya usaste los análisis de este mes. Se reinician el 1 de noviembre.",
     );
     expect(spanish("RATE_LIMITED", { retryAfter: 1 })).toBe("Demasiadas solicitudes en poco tiempo. Inténtalo de nuevo en 1 segundo.");
     expect(spanish("RATE_LIMITED", { retryAfter: 1500 })).toBe("Demasiadas solicitudes en poco tiempo. Inténtalo de nuevo en 25 minutos.");

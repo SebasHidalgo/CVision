@@ -3,13 +3,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { POLL_FAST_MS, pollsDuring } from "@/lib/pollDelay";
-import { checkBillingAction } from "../actions/checkBillingAction";
+import { checkBillingAction } from "@/components/billing/actions/checkBillingAction";
 import BillingActivation, { BILLING_POLL_CEILING_MS, SUCCESS_LINGER_MS } from "./BillingActivation";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), message: vi.fn() } }));
-vi.mock("../actions/checkBillingAction", () => ({ checkBillingAction: vi.fn() }));
+vi.mock("@/components/billing/actions/checkBillingAction", () => ({ checkBillingAction: vi.fn() }));
 
 const TXN = "txn_01m5jdjv22mnssacjx9vbys9cv";
 const pack = { item: "interview_pack" as const, transactionId: TXN };

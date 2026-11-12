@@ -216,6 +216,20 @@ describe("InterviewAgent: before the call", () => {
     expect(screen.getByRole("button", { name: "Buy 4 interviews · US$9.00" })).toBeTruthy();
   });
 
+  it("with a paused subscription, shows its state and the billing portal instead of the Pro offer", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "needs-pro", reason: "had-voice", subscription: "paused" }} maxDurationSeconds={0} />);
+    expect(screen.getByText("Your Pro subscription is paused.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Manage subscription" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /get pro/i })).toBeNull();
+  });
+
+  it("with a failed payment, keeps the pack offer and points to the billing portal", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "needs-pack", resetsAt: "2026-12-01T00:00:00.000Z", pastDue: true }} maxDurationSeconds={0} />);
+    expect(screen.getByRole("button", { name: /buy 4 interviews/i })).toBeTruthy();
+    expect(screen.getByText(/Your last payment didn't go through/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Manage subscription" })).toBeTruthy();
+  });
+
   it("with voice down, says so and sells nothing", () => {
     render(<InterviewAgent {...props} entry={{ kind: "voice-down" }} />);
     expect(screen.queryByRole("button", { name: /start the interview|get pro|buy/i })).toBeNull();
@@ -438,18 +452,28 @@ describe("InterviewAgent: during the call", () => {
     });
 
     act(() => {
-      vi.advanceTimersByTime(224_000);
+      vi.advanceTimersByTime(149_000);
     });
     expect(sdk.sendContextualUpdate).not.toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(2_000);
     });
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(1);
-    expect(sdk.sendContextualUpdate.mock.calls[0][0]).toMatch(/^\[time\] About one minute remains/);
+    expect(sdk.sendContextualUpdate.mock.calls[0][0]).toMatch(/^\[time\] Half of the interview time has passed; about 2 minutes remain/);
     act(() => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(1);
+    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(2);
+    expect(sdk.sendContextualUpdate.mock.calls[1][0]).toMatch(/^\[time\] About two minutes remain/);
+    act(() => {
+      vi.advanceTimersByTime(45_000);
+    });
+    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
+    expect(sdk.sendContextualUpdate.mock.calls[2][0]).toMatch(/^\[time\] About one minute remains/);
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
   });
 
   it("hangs up by itself when a call runs past its length, and reports it as finished", async () => {
@@ -537,6 +561,59 @@ describe("InterviewAgent: ending", () => {
 
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
     expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: details.reason }));
+  });
+
+  it("when the interviewer hangs up early, before the wrap-up line, keeps the time: Continue or Finish, nothing scored yet", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    await answer();
+    act(() => {
+      vi.advanceTimersByTime(177_000);
+    });
+
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "agent", context: { type: "end_call" } });
+    });
+
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText("The interview ended early. You still have 2:03.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^continue$/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
+    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "agent", outcome: "drop" }));
+    // The interviewer's mistake does not cost a connection: all three are still there.
+    expect(screen.getByText("Continue — 3 starts left")).toBeTruthy();
+  });
+
+  it("after the wrap-up line, an interviewer hang-up is the end: the feedback page opens", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+    await answer();
+    act(() => {
+      vi.advanceTimersByTime(235_000);
+    });
+
+    await act(async () => {
+      callbacks().onDisconnect?.({ reason: "agent", context: { type: "end_call" } });
+    });
+
+    expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+  });
+
+  it("shows no hint about the questions when there is nothing to start", () => {
+    render(<InterviewAgent {...props} entry={{ kind: "needs-pro", reason: "trial-used" }} maxDurationSeconds={0} />);
+    expect(screen.queryByText("The questions come from the posting and your analysis.")).toBeNull();
   });
 
   it("does not wait on the report: the feedback page opens even when it fails", async () => {

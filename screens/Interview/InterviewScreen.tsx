@@ -1,10 +1,12 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ClientMessages from "@/components/i18n/ClientMessages";
 import { getAuthUser } from "@/lib/auth";
 import { detectPostingLanguage, type InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { fetchInterviewById, fetchInterviewCallState } from "@/lib/database/interview";
 import { finalizeLapsedInterviews, storedCallCounts } from "@/lib/database/interviewResume";
-import { currentInterviewEntitlement } from "@/lib/database/usage";
+import { currentInterviewEntitlement, currentOpenSubscriptionStatus } from "@/lib/database/usage";
+import { DEV_VOICE_DOWN_COOKIE, devToolsAllowed } from "@/lib/devTools";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { AGENT_SECONDS, sourceOfPaidBy } from "@/lib/interviewEntitlement";
 import { decideRoomEntry } from "@/lib/interviewEntry";
@@ -89,7 +91,11 @@ export default async function InterviewScreen({
   // Voice health is asked for the agent a start (or a purchase) would use, from the minute-long cache.
   const atCap = interview.startCount >= MAX_INTERVIEW_STARTS;
   const voiceSeconds = paid ? maxDurationSeconds : entitlement && entitlement.source !== "none" ? entitlement.maxDurationSeconds : AGENT_SECONDS.main;
-  const voiceUp = atCap ? true : (await voiceEntryStatus(voiceSeconds)) === "up";
+  // Dev only: the e2e of the voice-down state sets this cookie; outside dev tools it is never read.
+  const forcedDown = devToolsAllowed() && (await cookies()).get(DEV_VOICE_DOWN_COOKIE)?.value === "1";
+  const voiceUp = atCap ? true : forcedDown ? false : (await voiceEntryStatus(voiceSeconds)) === "up";
+  // Only when nothing can start: an open subscription means the portal, not a checkout.
+  const openSubscription = entitlement?.source === "none" && !paid ? await currentOpenSubscriptionStatus() : null;
   const entry = decideRoomEntry({
     startCount: interview.startCount,
     maxStarts: MAX_INTERVIEW_STARTS,
@@ -97,6 +103,7 @@ export default async function InterviewScreen({
     resumable: resume?.resumable === true,
     entitlement,
     voiceUp,
+    openSubscription,
   });
   const locale = await getLocale();
   const price = (key: keyof typeof CATALOG) => formatMoney(Number(CATALOG[key].amountMinor) / 100, CATALOG_CURRENCY, locale);

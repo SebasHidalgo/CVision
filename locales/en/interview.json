@@ -23,7 +23,8 @@
       "start": "Start the interview",
       "queued": "Waiting for an interviewer",
       "reconnect": "Reconnect",
-      "startAgain": "Start again"
+      "startAgain": "Start again",
+      "continue": "Continue"
     },
     "clock": {
       "timeLeft": "Time left",
@@ -53,7 +54,9 @@
       "noTime": "There is too little time left to reconnect. The interview is scored with what you said.",
       "finish": "Finish and get feedback",
       "silent_one": "Your call dropped before you answered. You can start again with the full {{count}} minute.",
-      "silent_other": "Your call dropped before you answered. You can start again with the full {{count}} minutes."
+      "silent_other": "Your call dropped before you answered. You can start again with the full {{count}} minutes.",
+      "early": "The interview ended early. You still have {{left}}.",
+      "earlyResume": "Continue and the interviewer picks up where you left off, or finish now and get your feedback."
     },
     "reconnect_one": "Reconnect — {{count}} start left",
     "reconnect_other": "Reconnect — {{count}} starts left",
@@ -84,7 +87,8 @@
       "lines_other": "{{count}} lines",
       "emptyLive": "Every finished sentence lands here as it is said.",
       "emptyIdle": "Once the call starts, the conversation is written down here as it happens.",
-      "newMessages": "New messages"
+      "newMessages": "New messages",
+      "backToNewest": "Back to the newest message"
     },
     "language": {
       "label": "Interview language",
@@ -113,8 +117,19 @@
         "title": "Your {{limit}} interviews renew on {{date}}.",
         "body": "Want this one sooner? A pack adds {{credits}} full interviews for {{price}}. Credits never expire and work on any plan.",
         "checkout": "Buy {{credits}} interviews · {{price}}"
+      },
+      "confirming": "Your purchase is being confirmed. It usually takes a few seconds; check again if it takes longer.",
+      "notYet": "Not confirmed yet. Give it a moment and check again.",
+      "subscription": {
+        "paused": "Your Pro subscription is paused.",
+        "pausedBody": "Resume it in the billing portal to do this interview. A new subscription can't start while this one is open.",
+        "pending": "Your Pro subscription is being updated.",
+        "pendingBody": "Check it in the billing portal. A change can take a few minutes to reach us.",
+        "pastDue": "Your last payment didn't go through. Update your payment method in the billing portal to keep Pro."
       }
-    }
+    },
+    "continueStarts_one": "Continue — {{count}} start left",
+    "continueStarts_other": "Continue — {{count}} starts left"
   },
   "list": {
     "eyebrow": "Your interviews",
