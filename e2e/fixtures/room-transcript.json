@@ -1,0 +1,204 @@
+{
+  "about": "Invented 24-line call for the layout check of the live room: no real call, no real person.",
+  "role": {
+    "en": "Senior Data Engineer",
+    "es": "Ingeniero de Datos Senior"
+  },
+  "company": "Northwind Labs",
+  "en": [
+    {
+      "role": "agent",
+      "text": "Hi Martin, thanks for joining. Let's start broad: which part of your current work is closest to this data engineering role?"
+    },
+    {
+      "role": "user",
+      "text": "Probably the daily sales load. I built the jobs that pull each branch's files, clean them and land them in the warehouse before seven in the morning, when the sales team opens its dashboards."
+    },
+    {
+      "role": "agent",
+      "text": "What did you do when a file arrived late or with its columns changed?"
+    },
+    {
+      "role": "user",
+      "text": "At first I fixed it by hand, honestly. Then I added a schema check at the start: if a column was missing or changed type, the job stopped and posted the branch name to the team channel."
+    },
+    {
+      "role": "agent",
+      "text": "Good. Roughly how often did that alert fire in a month?"
+    },
+    {
+      "role": "user",
+      "text": "Two or three times a month, almost always the same branch, which exported from a spreadsheet."
+    },
+    {
+      "role": "agent",
+      "text": "The role asks for orchestration with a workflow tool. What did you use to schedule those jobs?"
+    },
+    {
+      "role": "user",
+      "text": "Scheduled tasks on the server and a script that chained the steps. I haven't used a dedicated orchestrator, though I've read a fair amount about modelling dependencies between tasks."
+    },
+    {
+      "role": "agent",
+      "text": "Understood. If you had to move those jobs to such a tool tomorrow, where would you start?"
+    },
+    {
+      "role": "user",
+      "text": "I'd first draw the real dependencies, because some are only implied by the schedule today. Then I'd move one flow, sales, with retries and alerts, and run it next to the old one for a week before switching the old one off."
+    },
+    {
+      "role": "agent",
+      "text": "How would you check that both give the same result during that week?"
+    },
+    {
+      "role": "user",
+      "text": "Compare daily counts per branch and the sums of the amounts. If anything differs by more than a small margin, I look at it before going on."
+    },
+    {
+      "role": "agent",
+      "text": "Let's talk data quality. Tell me about a time a wrong number reached a dashboard."
+    },
+    {
+      "role": "user",
+      "text": "A refund got loaded twice. The dashboard showed negative sales for one store. I found out because the manager asked, not from an alert, and that bothered me quite a bit."
+    },
+    {
+      "role": "agent",
+      "text": "What did you change afterwards?"
+    },
+    {
+      "role": "user",
+      "text": "I added a uniqueness rule on the transaction id and a test that runs before publishing. It hasn't happened again since, at least not that kind of error."
+    },
+    {
+      "role": "agent",
+      "text": "Great. The team writes fairly complex SQL. How comfortable are you tuning a slow query?"
+    },
+    {
+      "role": "user",
+      "text": "Quite. The first thing I read is the execution plan. Once I took a four-minute report down to twenty seconds by replacing a subquery with an indexed temporary table."
+    },
+    {
+      "role": "agent",
+      "text": "Have you worked with partitions or very large tables?"
+    },
+    {
+      "role": "user",
+      "text": "Date partitions, yes, on the sales table, which holds several years. Truly huge volumes, billions of rows, not yet."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. One last one: how do you document a job so someone else can maintain it?"
+    },
+    {
+      "role": "user",
+      "text": "Every job has a file with the sources it reads, the tables it writes, who to tell when it fails and the steps to rerun it. I update it in the same change that touches the code."
+    },
+    {
+      "role": "agent",
+      "text": "Very good, Martin. That wraps up the practice. Thanks for your answers; your feedback will appear on your screen in a moment."
+    },
+    {
+      "role": "user",
+      "text": "Thank you."
+    }
+  ],
+  "es": [
+    {
+      "role": "agent",
+      "text": "Hola, Martina, gracias por conectarte. Empecemos por lo general: ¿qué parte de tu trabajo actual se parece más a este puesto de ingeniería de datos?"
+    },
+    {
+      "role": "user",
+      "text": "Diría que la carga diaria de ventas. Armé los procesos que traen los archivos de cada sucursal, los limpian y los dejan en el almacén de datos antes de las siete de la mañana, que es cuando el equipo comercial abre sus tableros."
+    },
+    {
+      "role": "agent",
+      "text": "¿Qué hacías cuando un archivo llegaba tarde o con columnas cambiadas?"
+    },
+    {
+      "role": "user",
+      "text": "Al principio lo resolvía a mano, la verdad. Después agregué una validación del esquema al inicio: si una columna faltaba o cambiaba de tipo, el proceso se detenía y avisaba al canal del equipo con el nombre de la sucursal."
+    },
+    {
+      "role": "agent",
+      "text": "Bien. ¿Cuántas veces por mes se disparaba esa alerta, más o menos?"
+    },
+    {
+      "role": "user",
+      "text": "Dos o tres veces al mes, casi siempre por la misma sucursal, que exportaba desde una planilla."
+    },
+    {
+      "role": "agent",
+      "text": "El puesto pide orquestación con una herramienta de flujos de trabajo. ¿Qué usaste para programar esos procesos?"
+    },
+    {
+      "role": "user",
+      "text": "Usamos tareas programadas en el servidor y un script que encadenaba los pasos. No usé una herramienta de orquestación dedicada, aunque leí bastante sobre cómo se modelan las dependencias entre tareas."
+    },
+    {
+      "role": "agent",
+      "text": "Entiendo. Si mañana tuvieras que migrar esos procesos a una herramienta así, ¿por dónde empezarías?"
+    },
+    {
+      "role": "user",
+      "text": "Primero dibujaría las dependencias reales, porque hoy algunas están implícitas en el horario. Después movería un solo flujo, el de ventas, con reintentos y alertas, y lo dejaría correr en paralelo con el viejo una semana antes de apagar el anterior."
+    },
+    {
+      "role": "agent",
+      "text": "¿Cómo comprobarías que los dos dan el mismo resultado durante esa semana?"
+    },
+    {
+      "role": "user",
+      "text": "Compararía conteos por día y sucursal, y sumas de importes. Si algo difiere en más de un margen chico, lo reviso antes de seguir."
+    },
+    {
+      "role": "agent",
+      "text": "Hablemos de calidad de datos. Cuéntame una vez en que un dato incorrecto llegó a un tablero."
+    },
+    {
+      "role": "user",
+      "text": "Pasó con una devolución que se cargó dos veces. El tablero mostraba ventas negativas en una tienda. Lo detecté porque el gerente preguntó, no por una alerta, y eso me molestó bastante."
+    },
+    {
+      "role": "agent",
+      "text": "¿Qué cambiaste después?"
+    },
+    {
+      "role": "user",
+      "text": "Agregué una regla de unicidad sobre el identificador de la operación y una prueba que corre antes de publicar. Desde entonces no volvió a pasar, al menos no con ese tipo de error."
+    },
+    {
+      "role": "agent",
+      "text": "Perfecto. El equipo trabaja con consultas SQL bastante complejas. ¿Qué tan cómodo te sientes optimizando una consulta lenta?"
+    },
+    {
+      "role": "user",
+      "text": "Bastante. Lo primero que miro es el plan de ejecución. Una vez bajé un reporte de cuatro minutos a veinte segundos cambiando una subconsulta por una tabla temporal con índice."
+    },
+    {
+      "role": "agent",
+      "text": "¿Y trabajaste con particiones o con tablas muy grandes?"
+    },
+    {
+      "role": "user",
+      "text": "Con particiones por fecha sí, en la tabla de ventas, que tiene varios años. Con volúmenes enormes, de miles de millones de filas, todavía no."
+    },
+    {
+      "role": "agent",
+      "text": "Gracias. Una última: ¿cómo documentas un proceso para que otra persona lo pueda mantener?"
+    },
+    {
+      "role": "user",
+      "text": "Cada proceso tiene un archivo con qué fuentes lee, qué tablas escribe, a quién avisar si falla y los pasos para volver a correrlo. Lo actualizo en el mismo cambio que modifica el código."
+    },
+    {
+      "role": "agent",
+      "text": "Muy bien, Martina. Con esto terminamos la práctica. Gracias por tus respuestas; tu feedback aparecerá en tu pantalla en un momento."
+    },
+    {
+      "role": "user",
+      "text": "Gracias a ti."
+    }
+  ]
+}

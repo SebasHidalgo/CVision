@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -45,11 +45,32 @@ export function required(name: string): string {
  * made. It refuses to run against anything but the Paddle sandbox and a
  * Clerk development instance.
  */
-export function assertSandbox(): void {
+export function assertSandbox({ server = true }: { server?: boolean } = {}): void {
+  if (server) assertLedgerServer();
   if (process.env.PADDLE_ENV !== "sandbox") throw new Error(`PADDLE_ENV is ${process.env.PADDLE_ENV ?? "unset"}; the e2e suite runs only against the sandbox`);
   if (!required("PADDLE_API_KEY").startsWith("pdl_sdbx_")) throw new Error("PADDLE_API_KEY is not a sandbox key");
   if (!required("CLERK_SECRET_KEY").startsWith("sk_test_")) throw new Error("CLERK_SECRET_KEY is not a development-instance key");
   if (!required("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY").startsWith("pk_test_")) throw new Error("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not a development-instance key");
+}
+
+/**
+ * The app server must be the suite's own (e2e/server.mjs): Gemini on the free key, each call in the spend
+ * ledger. A plain `npm run dev` left running would answer on the same port with the paid key, outside the
+ * ledger, so the suite refuses it. E2E_NO_SERVER, with a server started some other way, skips the check.
+ */
+export function assertLedgerServer(): void {
+  if (process.env.E2E_NO_SERVER) return;
+  const marker = path.resolve(process.cwd(), "e2e", ".artifacts", "gemini-ledger.json");
+  const fail = (why: string): never => {
+    throw new Error(`the app server is not the suite's (${why}): stop any "npm run dev" on port 3000 and let Playwright start e2e/server.mjs, or run "npm run e2e:server"`);
+  };
+  if (!existsSync(marker)) fail("no Gemini ledger marker");
+  const { pid } = JSON.parse(readFileSync(marker, "utf8")) as { pid: number };
+  try {
+    process.kill(pid, 0);
+  } catch {
+    fail(`the marker's process ${pid} is gone`);
+  }
 }
 
 /**

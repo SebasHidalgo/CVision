@@ -42,9 +42,9 @@ export function UserIdentity({ user, fallback }: UserIdentityProps) {
   const email = user.primaryEmailAddress?.emailAddress;
   return (
     <div className="min-w-0">
-      <p className="truncate text-sm font-medium text-ink">{user.fullName ?? email ?? fallback}</p>
+      <p data-truncate="account-name" className="truncate text-sm font-medium text-ink">{user.fullName ?? email ?? fallback}</p>
       {user.fullName && email && (
-        <p className="mt-0.5 truncate font-mono text-[11px] text-ink-3">{email}</p>
+        <p data-truncate="account-email" className="mt-0.5 truncate font-mono text-[11px] text-ink-3">{email}</p>
       )}
     </div>
   );

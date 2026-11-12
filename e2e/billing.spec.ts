@@ -80,7 +80,7 @@ test("the analysis page and the room say the period pays first, for twelve minut
   expect(await roomLength(page, t)).toBe("12:00");
   const text = await mainText(page);
   expect(text).toContain(t("interview:room.upTo", { count: 12 }));
-  expect(text).toContain(t("interview:room.source.period"));
+  expect(text).toContain(t("interview:room.source.period", { count: 4, limit: 4 }));
 });
 
 test("cancelling the subscription now leaves a Free account whose credits still buy full interviews", async ({ page }, testInfo) => {
@@ -105,7 +105,7 @@ test("cancelling the subscription now leaves a Free account whose credits still 
   expect(await roomLength(page, t)).toBe("12:00");
   const room = await mainText(page);
   expect(room).toContain(t("interview:room.upTo", { count: 12 }));
-  expect(room).toContain(t("interview:room.source.credit"));
+  expect(room).toContain(t("interview:room.source.credit", { count: 4 }));
 });
 
 test("Pro from the pricing page", async ({ page }, testInfo) => {

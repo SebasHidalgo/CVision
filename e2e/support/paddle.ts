@@ -87,12 +87,15 @@ export async function payInOverlay(page: Page, { email }: { email: string }): Pr
   await pay.click();
 }
 
-/** Closes the overlay without paying: its close button, or Escape. */
+/**
+ * Closes the overlay without paying, by its close button. The overlay's body exists before it draws anything (a
+ * cold sandbox load took over 5 s), and Escape never closes it (probed in M10-C), so this waits for the button.
+ */
 export async function closeOverlay(page: Page): Promise<void> {
   const frame = page.frameLocator(PADDLE_FRAME);
   const close = frame.getByRole("button", { name: /close|cerrar/i }).first();
-  if (await close.isVisible({ timeout: 5_000 }).catch(() => false)) await close.click();
-  else await page.keyboard.press("Escape");
+  await close.waitFor({ state: "visible", timeout: 30_000 });
+  await close.click();
   await expect(page.locator(PADDLE_FRAME)).toHaveCount(0, { timeout: 15_000 });
 }
 

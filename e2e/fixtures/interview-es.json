@@ -1,0 +1,195 @@
+{
+  "about": "Invented Spanish interview, stored as production stores it, for the layout check of the feedback page: no real call, no real person.",
+  "role": "Ingeniero de Datos Senior",
+  "techstack": [
+    "SQL",
+    "Python",
+    "Airflow"
+  ],
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Hola, Martina, gracias por conectarte. Empecemos por lo general: ¿qué parte de tu trabajo actual se parece más a este puesto de ingeniería de datos?",
+      "time_in_call_secs": 0
+    },
+    {
+      "role": "user",
+      "message": "Diría que la carga diaria de ventas. Armé los procesos que traen los archivos de cada sucursal, los limpian y los dejan en el almacén de datos antes de las siete de la mañana, que es cuando el equipo comercial abre sus tableros.",
+      "time_in_call_secs": 10
+    },
+    {
+      "role": "agent",
+      "message": "¿Qué hacías cuando un archivo llegaba tarde o con columnas cambiadas?",
+      "time_in_call_secs": 27
+    },
+    {
+      "role": "user",
+      "message": "Al principio lo resolvía a mano, la verdad. Después agregué una validación del esquema al inicio: si una columna faltaba o cambiaba de tipo, el proceso se detenía y avisaba al canal del equipo con el nombre de la sucursal.",
+      "time_in_call_secs": 33
+    },
+    {
+      "role": "agent",
+      "message": "Bien. ¿Cuántas veces por mes se disparaba esa alerta, más o menos?",
+      "time_in_call_secs": 48
+    },
+    {
+      "role": "user",
+      "message": "Dos o tres veces al mes, casi siempre por la misma sucursal, que exportaba desde una planilla.",
+      "time_in_call_secs": 54
+    },
+    {
+      "role": "agent",
+      "message": "El puesto pide orquestación con una herramienta de flujos de trabajo. ¿Qué usaste para programar esos procesos?",
+      "time_in_call_secs": 61
+    },
+    {
+      "role": "user",
+      "message": "Usamos tareas programadas en el servidor y un script que encadenaba los pasos. No usé una herramienta de orquestación dedicada, aunque leí bastante sobre cómo se modelan las dependencias entre tareas.",
+      "time_in_call_secs": 68
+    },
+    {
+      "role": "agent",
+      "message": "Entiendo. Si mañana tuvieras que migrar esos procesos a una herramienta así, ¿por dónde empezarías?",
+      "time_in_call_secs": 80
+    },
+    {
+      "role": "user",
+      "message": "Primero dibujaría las dependencias reales, porque hoy algunas están implícitas en el horario. Después movería un solo flujo, el de ventas, con reintentos y alertas, y lo dejaría correr en paralelo con el viejo una semana antes de apagar el anterior.",
+      "time_in_call_secs": 86
+    },
+    {
+      "role": "agent",
+      "message": "¿Cómo comprobarías que los dos dan el mismo resultado durante esa semana?",
+      "time_in_call_secs": 102
+    },
+    {
+      "role": "user",
+      "message": "Compararía conteos por día y sucursal, y sumas de importes. Si algo difiere en más de un margen chico, lo reviso antes de seguir.",
+      "time_in_call_secs": 108
+    },
+    {
+      "role": "system",
+      "message": "[call resumed]",
+      "time_in_call_secs": 0
+    },
+    {
+      "role": "agent",
+      "message": "Hablemos de calidad de datos. Cuéntame una vez en que un dato incorrecto llegó a un tablero.",
+      "time_in_call_secs": 0
+    },
+    {
+      "role": "user",
+      "message": "Pasó con una devolución que se cargó dos veces. El tablero mostraba ventas negativas en una tienda. Lo detecté porque el gerente preguntó, no por una alerta, y eso me molestó bastante.",
+      "time_in_call_secs": 7
+    },
+    {
+      "role": "agent",
+      "message": "¿Qué cambiaste después?",
+      "time_in_call_secs": 19
+    },
+    {
+      "role": "user",
+      "message": "Agregué una regla de unicidad sobre el identificador de la operación y una prueba que corre antes de publicar. Desde entonces no volvió a pasar, al menos no con ese tipo de error.",
+      "time_in_call_secs": 25
+    },
+    {
+      "role": "agent",
+      "message": "Perfecto. El equipo trabaja con consultas SQL bastante complejas. ¿Qué tan cómodo te sientes optimizando una consulta lenta?",
+      "time_in_call_secs": 38
+    },
+    {
+      "role": "user",
+      "message": "Bastante. Lo primero que miro es el plan de ejecución. Una vez bajé un reporte de cuatro minutos a veinte segundos cambiando una subconsulta por una tabla temporal con índice.",
+      "time_in_call_secs": 45
+    },
+    {
+      "role": "agent",
+      "message": "¿Y trabajaste con particiones o con tablas muy grandes?",
+      "time_in_call_secs": 57
+    },
+    {
+      "role": "user",
+      "message": "Con particiones por fecha sí, en la tabla de ventas, que tiene varios años. Con volúmenes enormes, de miles de millones de filas, todavía no.",
+      "time_in_call_secs": 63
+    },
+    {
+      "role": "agent",
+      "message": "Gracias. Una última: ¿cómo documentas un proceso para que otra persona lo pueda mantener?",
+      "time_in_call_secs": 73
+    },
+    {
+      "role": "user",
+      "message": "Cada proceso tiene un archivo con qué fuentes lee, qué tablas escribe, a quién avisar si falla y los pasos para volver a correrlo. Lo actualizo en el mismo cambio que modifica el código.",
+      "time_in_call_secs": 79
+    },
+    {
+      "role": "agent",
+      "message": "Muy bien, Martina. Con esto terminamos la práctica. Gracias por tus respuestas; tu feedback aparecerá en tu pantalla en un momento.",
+      "time_in_call_secs": 92
+    },
+    {
+      "role": "user",
+      "message": "Gracias a ti.",
+      "time_in_call_secs": 100
+    }
+  ],
+  "report": {
+    "gapFollowThrough": [
+      {
+        "requirement": "Orquestación de flujos con Airflow o una herramienta similar",
+        "outcome": "addressed",
+        "quote": "Primero dibujaría las dependencias reales, porque hoy algunas están implícitas en el horario.",
+        "note": "No orchestrator used yet, but a sensible migration plan with a parallel run."
+      },
+      {
+        "requirement": "Experiencia con volúmenes de datos muy grandes",
+        "outcome": "dodged",
+        "quote": "Con volúmenes enormes, de miles de millones de filas, todavía no.",
+        "note": "Honest, but no plan for closing the gap."
+      }
+    ],
+    "notableAnswers": [
+      {
+        "quote": "Agregué una regla de unicidad sobre el identificador de la operación y una prueba que corre antes de publicar.",
+        "worked": true,
+        "why": "A concrete fix tied to the incident, with its result."
+      },
+      {
+        "quote": "Lo detecté porque el gerente preguntó, no por una alerta, y eso me molestó bastante.",
+        "worked": true,
+        "why": "Owns the miss instead of hiding it."
+      }
+    ],
+    "categoryScores": null,
+    "strengths": [
+      {
+        "point": "Turns incidents into checks",
+        "anchor": {
+          "source": "notableAnswers",
+          "index": 0
+        }
+      }
+    ],
+    "areasForImprovement": [
+      {
+        "point": "Bring a plan for large volumes",
+        "anchor": {
+          "source": "gapFollowThrough",
+          "index": 1
+        }
+      }
+    ],
+    "finalAssessment": "Clear, specific answers about daily loads and data quality; orchestration and scale remain to be shown.",
+    "totalScore": 68,
+    "interviewStats": {
+      "totalTurns": 25,
+      "candidateTurns": 12,
+      "candidateWords": 420,
+      "averageCandidateTurnWords": 35,
+      "candidateOnFloorSeconds": 170,
+      "longestTurnGapSeconds": 25,
+      "durationSeconds": 300,
+      "short": false
+    }
+  }
+}

@@ -55,7 +55,7 @@ test("an analysis offers the 5-minute trial, and the room promises five minutes 
   expect(await roomLength(page, t)).toBe("5:00");
   const text = await mainText(page);
   expect(text).toContain(t("interview:room.upTo", { count: 5 }));
-  expect(text).toContain(t("interview:room.source.trial"));
+  expect(text).toContain(t("interview:room.source.trial", { minutes: 5 }));
   expect(text).toMatch(literal(t("analysis:attempts.attempt", { number: 1 }), "i"));
 
   // The room proposes the posting language (English here), whatever the interface language, and lets it be changed.

@@ -95,7 +95,7 @@ export default function FileUploader({
           <div className="flex w-full items-center gap-5">
             <Sheet />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-ink">{file.name}</p>
+              <p data-truncate="file-name" className="truncate font-medium text-ink">{file.name}</p>
               <p className="eyebrow mt-1.5">
                 {t("file.details", { size: formatFileSize(file.size, t) })}
               </p>

@@ -94,7 +94,7 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
           <div className="flex items-center justify-between gap-6 border-b border-line px-5 py-4 sm:px-6">
             <div className="min-w-0">
               <p className="eyebrow">{t("drawer.title")}</p>
-              <p className="mt-1 truncate font-medium text-ink">{title}</p>
+              <p data-truncate="drawer-title" className="mt-1 truncate font-medium text-ink">{title}</p>
             </div>
             <div className="flex shrink-0 items-center gap-4">
               <button

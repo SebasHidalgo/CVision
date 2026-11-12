@@ -9,14 +9,25 @@ import type { Page } from "@playwright/test";
  * sticky bar is compared with its own contents only (content scrolls under it by design).
  */
 
-export type LayoutKind = "horizontal-scroll" | "overlap" | "overflow" | "clipped";
+export type LayoutKind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated";
 export type LayoutViolation = { page: string; width: number; kind: LayoutKind; detail: string };
+
+/**
+ * Where text may be cut with an ellipsis on purpose, by the element's `data-truncate` value. Any other text cut
+ * short (an ellipsis or a line clamp whose full text does not fit) is a violation: a label the reader cannot read.
+ */
+export const TRUNCATION_ALLOWED: Record<string, string> = {
+  "file-name": "the CV file the user just picked; its name is theirs and matters to nothing on the page",
+  "drawer-title": "the CV drawer's header; the same title is the page heading behind the drawer",
+  "account-name": "the account menu; a long name is the user's own and Clerk's profile shows it in full",
+  "account-email": "the account menu; addresses run 40+ characters (test accounts do) and Clerk's profile shows them in full",
+};
 
 /** The whole document at the current viewport. Call at the top of the page, after it settled. */
 export async function layoutViolations(page: Page, label: string): Promise<LayoutViolation[]> {
   const width = page.viewportSize()?.width ?? 0;
-  const found = await page.evaluate(() => {
-    type Kind = "horizontal-scroll" | "overlap" | "overflow" | "clipped";
+  const found = await page.evaluate((allowed: string[]) => {
+    type Kind = "horizontal-scroll" | "overlap" | "overflow" | "clipped" | "truncated";
     const out: Array<{ kind: Kind; detail: string }> = [];
     const TOLERANCE = 2;
     const BUTTON = 'button, [role="button"], [data-slot="button"]';
@@ -215,9 +226,26 @@ export async function layoutViolations(page: Page, label: string): Promise<Layou
       );
       if (spills || truncated) report("clipped", `${describe(button)}${truncated ? " (truncated)" : " (text outside the button)"}`);
     }
+
+    // 6. Text cut short with an ellipsis or a line clamp whose full text does not fit, outside the allowlist.
+    for (const el of document.body.querySelectorAll("*")) {
+      if (!(el instanceof HTMLElement) || !shown(el) || !(el.textContent ?? "").trim() || el.closest(BUTTON)) continue;
+      const style = styleOf(el);
+      const ellipsis = style.textOverflow === "ellipsis" && style.overflowX !== "visible" && el.scrollWidth > el.clientWidth + 1;
+      const clamp = style.getPropertyValue("-webkit-line-clamp") !== "none" && style.getPropertyValue("-webkit-line-clamp") !== "" && el.scrollHeight > el.clientHeight + 1;
+      if (!ellipsis && !clamp) continue;
+      const key = el.closest("[data-truncate]")?.getAttribute("data-truncate");
+      if (key && allowed.includes(key)) continue;
+      report("truncated", `${describe(el)} is cut short (${ellipsis ? "ellipsis" : "line clamp"}): it needs ${ellipsis ? el.scrollWidth : el.scrollHeight}px, has ${ellipsis ? el.clientWidth : el.clientHeight}px`);
+    }
     return out;
-  });
+  }, Object.keys(TRUNCATION_ALLOWED));
   return found.map((violation) => ({ page: label, width, ...violation }));
+}
+
+/** Opens every <details> so collapsed content (a feedback transcript, an evidence list) is measured too. */
+export async function openDetails(page: Page): Promise<void> {
+  await page.evaluate(() => document.querySelectorAll("details").forEach((details) => (details.open = true)));
 }
 
 /** Waits until the page is still: fonts loaded, no translation skeleton left, the network quiet. */

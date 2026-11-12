@@ -35,9 +35,9 @@ export default function IndexRow({
       </span>
 
       <div className="min-w-0">
-        <h3 className="display-sm truncate text-ink">{title}</h3>
+        <h3 className="display-sm break-words text-ink">{title}</h3>
         {subtitle && (
-          <p className="mt-1 truncate text-sm text-ink-2 md:text-[15px]">
+          <p className="mt-1 break-words text-sm text-ink-2 md:text-[15px]">
             {subtitle}
           </p>
         )}

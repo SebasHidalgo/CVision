@@ -68,7 +68,8 @@ export default defineConfig({
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : {
-        command: "npm run dev",
+        // Its own server: Gemini on the free key with every call in the spend ledger, dev tools on.
+        command: "node e2e/server.mjs",
         url: "http://localhost:3000/pricing",
         reuseExistingServer: true,
         timeout: 180_000,

@@ -19,7 +19,7 @@ import { deleteAccount, listTestAccounts } from "./support/accounts";
 const { values: args } = parseArgs({ options: { "dry-run": { type: "boolean", default: false } } });
 
 async function main() {
-  assertSandbox();
+  assertSandbox({ server: false });
   const accounts = await listTestAccounts();
   console.log(`${accounts.length} test account(s) on the instance`);
   for (const account of accounts) {

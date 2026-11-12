@@ -4,14 +4,16 @@ import { createAccount, deleteAccount, signIn, type TestAccount } from "./suppor
 import { openRoom } from "./support/app";
 import { copyFor, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
-import { layoutViolations, settle, type LayoutViolation } from "./support/layout";
-import { seedAnalysis } from "./support/seed";
+import { layoutViolations, openDetails, settle, type LayoutViolation } from "./support/layout";
+import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
 
 /**
  * The main pages from a phone to a wide desktop, once per interface language: no sideways scroll, no
  * text over or under a button, a card, an illustration or other text, no text leaving its block, no
- * button that clips its text. One seeded analysis (no model call
- * for it; in Spanish, its translation on first view), one interview room opened before Start.
+ * button that clips its text, no text cut short with an ellipsis outside the allowlist. Every <details> is opened
+ * first. One seeded analysis (no model call for it; in Spanish, its translation on first view), its room before
+ * Start and again with the trial used (the Pro offer), the room live with an invented 24-line call (the dev-only
+ * preview route), and a finished Spanish interview's feedback page with its transcript (seeded, no call).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -37,6 +39,7 @@ async function check(page: import("@playwright/test").Page, urls: Array<[string,
     for (const [label, url] of urls) {
       await page.goto(url);
       await settle(page);
+      await openDetails(page);
       found.push(...(await layoutViolations(page, label)));
     }
   }
@@ -53,10 +56,13 @@ test("the checks catch what they look for", async ({ page }) => {
     <button style="width:60px;overflow:hidden;white-space:nowrap">Empezar la entrevista</button>
     <div style="width:600px">wide</div>
     <p style="width:100px;white-space:nowrap">Una línea que no entra en su columna</p>
+    <p style="width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Entrevistador</p>
+    <p data-truncate="file-name" style="width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">curriculum-final-v3.pdf</p>
   </body>`);
   const seen = await layoutViolations(page, "self-test");
   const kinds = seen.map((violation) => violation.kind).sort();
-  expect(kinds).toEqual(["clipped", "horizontal-scroll", "overflow", "overlap"]);
+  expect(kinds).toEqual(["clipped", "horizontal-scroll", "overflow", "overlap", "truncated"]);
+  expect(seen.find((violation) => violation.kind === "truncated")?.detail).toContain("Entrevistador");
 });
 
 test("the checks catch a heading that runs behind the illustration beside it", async ({ page }) => {
@@ -92,6 +98,7 @@ test("the main pages hold their layout from 375 to 1920 px", async ({ page }, te
   await page.goto(`/resume/analysis/${analysisId}`);
   await settle(page);
   const room = new URL(await openRoom(page, t)).pathname;
+  const feedback = `/interview/${await seedCompletedInterview(account, analysisId)}/feedback`;
 
   await check(
     page,
@@ -100,12 +107,18 @@ test("the main pages hold their layout from 375 to 1920 px", async ({ page }, te
       ["analyses", "/resume/analyses"],
       ["analysis", `/resume/analysis/${analysisId}`],
       ["interview room", room],
+      ["interview room, live (24 lines)", "/dev/room-preview"],
+      ["interview feedback (Spanish transcript)", feedback],
       ["interviews", "/interviews"],
       ["account and billing", "/account/billing"],
       ["pricing (signed in)", "/pricing"],
     ],
     found,
   );
+
+  // The same room once the trial is used: the Pro offer in place of Start.
+  await setUsage(account, { trialUsed: true });
+  await check(page, [["interview room, Pro offer", room]], found);
 
   for (const violation of found) console.log(`[layout] ${violation.page} @${violation.width}: ${violation.kind} — ${violation.detail}`);
   await testInfo.attach("layout-violations.json", { body: JSON.stringify(found, null, 2), contentType: "application/json" });

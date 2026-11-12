@@ -67,8 +67,11 @@ export function interviewCta(page: Page): Locator {
 export async function openRoom(page: Page, t: Copy): Promise<string> {
   const cta = interviewCta(page);
   const button = cta.getByRole("button").first();
-  if (await button.isVisible({ timeout: 2_000 }).catch(() => false)) await button.click();
-  else await cta.getByRole("link", { name: literal(t("analysis:cta.openRoom"), "i") }).first().click();
+  const link = cta.getByRole("link", { name: literal(t("analysis:cta.openRoom"), "i") }).first();
+  // isVisible does not wait: wait for whichever control the CTA renders, then pick it.
+  await button.or(link).first().waitFor({ timeout: 30_000 });
+  if (await button.isVisible()) await button.click();
+  else await link.click();
   await page.waitForURL(/\/interview\/[^/?]+$/, { timeout: 60_000 });
   await page.getByRole("button", { name: literal(t("interview:room.startButton.start"), "i") }).waitFor({ timeout: 30_000 });
   return page.url();
