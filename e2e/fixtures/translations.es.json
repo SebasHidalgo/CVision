@@ -1,5 +1,6 @@
 {
   "about": "Spanish translations of e2e/fixtures/analysis.json and interview-es.json, as the app stores them. Rebuilt by capture-translations.ts.",
+  "promptVersion": "t2",
   "analysis": {
     "sourceHash": "142d079568dcab327968fb76124a69e82b08923e5be0000e203f2cced21e27ef",
     "payload": {

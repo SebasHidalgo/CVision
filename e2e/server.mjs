@@ -1,6 +1,6 @@
 // The suite's app server: `next dev` with the Gemini ledger preloaded and dev tools on.
 import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 // The same .env the app reads; nothing already set is overridden.
@@ -22,6 +22,29 @@ if (process.env.PADDLE_ENV !== "sandbox") {
   process.exit(1);
 }
 
+// A marker left by a killed server is removed; one whose process still runs stops this start.
+const marker = path.resolve("e2e/.artifacts/gemini-ledger.json");
+if (existsSync(marker)) {
+  let pid = 0;
+  try {
+    pid = Number(JSON.parse(readFileSync(marker, "utf8")).pid) || 0;
+  } catch {
+    // Unreadable: stale.
+  }
+  let alive = false;
+  try {
+    alive = pid > 0 && process.kill(pid, 0);
+  } catch {
+    alive = false;
+  }
+  if (alive) {
+    console.error(`[e2e] the suite's server is already running (pid ${pid}). Stop it first.`);
+    process.exit(1);
+  }
+  rmSync(marker, { force: true });
+  console.log(`[e2e] removed a stale server marker${pid ? ` (pid ${pid} is gone)` : ""}`);
+}
+
 const preload = path.resolve("e2e/support/gemini-ledger.cjs").replace(/\\/g, "/");
 const child = spawn(process.execPath, [path.resolve("node_modules/next/dist/bin/next"), "dev"], {
   stdio: "inherit",
@@ -29,7 +52,6 @@ const child = spawn(process.execPath, [path.resolve("node_modules/next/dist/bin/
   env: { ...process.env, E2E_GEMINI_TIER: process.env.E2E_GEMINI_TIER ?? "flex", ALLOW_DEV_TOOLS: "1", NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require "${preload}"`.trim() },
 });
 // The specs check this marker: this launcher's pid lives exactly as long as the server it started.
-const marker = path.resolve("e2e/.artifacts/gemini-ledger.json");
 mkdirSync(path.dirname(marker), { recursive: true });
 writeFileSync(marker, `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
 const stop = () => {

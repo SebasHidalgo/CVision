@@ -46,6 +46,8 @@ export type ErrorCode =
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
+  // Client-side only: the checkout overlay never opened; nothing was sent to pay.
+  | "CHECKOUT_NOT_OPENED"
   | "UNKNOWN";
 
 /**

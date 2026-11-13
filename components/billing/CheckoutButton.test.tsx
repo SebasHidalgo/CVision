@@ -111,7 +111,7 @@ describe("CheckoutButton", () => {
   it.each<[CheckoutOutcome, RegExp | null]>([
     ["closed", null],
     ["error", /Billing isn't responding/],
-    ["timeout", /Billing isn't responding/],
+    ["timeout", /The checkout didn't open. Nothing was charged. Try again./],
   ])("leaves the spinner when the overlay ends with %s, and says so when it was not the buyer's choice", async (outcome, copy) => {
     vi.mocked(openCheckout).mockResolvedValueOnce(outcome);
     mount();

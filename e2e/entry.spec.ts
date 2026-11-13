@@ -24,6 +24,8 @@ test.setTimeout(420_000);
 
 let free: TestAccount;
 let pro: TestAccount;
+// Created by the test that needs it: a Free account that buys while the room is told "not yet".
+let slow: TestAccount | null = null;
 let freeRoom = "";
 let freeAnalysis = "";
 let proRoom = "";
@@ -38,7 +40,7 @@ test.beforeAll(async ({}, testInfo) => {
 });
 
 test.afterAll(async () => {
-  for (const account of [free, pro]) if (account) await deleteAccount(account);
+  for (const account of [free, pro, slow]) if (account) await deleteAccount(account);
 });
 
 const startButton = (page: Page, t: Copy) => page.getByRole("button", { name: literal(t("interview:room.startButton.start"), "i") });
@@ -200,4 +202,37 @@ test("Pro with the period used: the renewal date and the pack, no Start; buying 
 
   await buyInRoom(page, t, upToPrice(t, "interview:room.offer.pack.checkout", { credits: 4 }), pro.email);
   expect(await mainText(page)).toContain(t("interview:room.source.credit", { count: 4 }));
+});
+
+test("a purchase the room has not seen confirmed after 20 s says so, and Check again brings Start", async ({ page }, testInfo) => {
+  const t = copyFor(localeOf(testInfo));
+  slow = await createAccount(`entry-slow-${localeOf(testInfo)}`);
+  await signIn(page, slow);
+  await page.goto(`/resume/analysis/${await seedAnalysis(slow)}`);
+  const room = await openRoom(page, t);
+  await setUsage(slow, { trialUsed: true });
+  await openFresh(page, room);
+  await expect(startButton(page, t)).toHaveCount(0);
+
+  // The room's poll is answered "not applied yet" whatever the server knows: a confirmation that is late.
+  await page.route("**/api/billing/status**", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { data?: { transactionApplied?: boolean } };
+    if (body.data) body.data.transactionApplied = false;
+    await route.fulfill({ response, json: body });
+  });
+  await openCheckout(page, upToPrice(t, "interview:room.offer.pro.checkout"));
+  await payInOverlay(page, { email: slow.email });
+
+  await expect(page.getByText(t("interview:room.offer.confirming"))).toBeVisible({ timeout: 180_000 });
+  const checkAgain = page.getByRole("button", { name: literal(t("interview:room.offer.checkAgain"), "i") });
+  await expect(checkAgain).toBeVisible();
+  await expect(startButton(page, t)).toHaveCount(0);
+
+  // The purchase did reach the app; the button asks the server, which the poll was not allowed to believe.
+  const buyer = slow.id;
+  await expect.poll(() => db.subscription.count({ where: { userId: buyer } }), { timeout: 120_000 }).toBeGreaterThan(0);
+  await checkAgain.click();
+  await expect(startButton(page, t)).toBeVisible({ timeout: 120_000 });
+  expect(await mainText(page)).toContain(t("interview:room.source.period", { count: 4, limit: 4 }));
 });

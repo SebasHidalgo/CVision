@@ -105,7 +105,7 @@ const relative = (file: string) => path.relative(ROOT, file).split(path.sep).joi
 describe("the npm scripts", () => {
   it("are all accounted for", () => {
     expect(SCRIPTS.map((script) => script.name).sort()).toEqual(
-      ["agent:sync", "ai:doctor", "billing:doctor", "billing:reconcile", "billing:sync", "db:check-rls", "eval", "eval:pdf", "report:guards", "storage:setup", "storage:gc", "db:bootstrap", "user:set-plan", "voice:cost", "voice:doctor", "voice:samples", "voice:simulate", "e2e:cleanup", "dev:usage"].sort(),
+      ["agent:sync", "ai:doctor", "billing:doctor", "billing:reconcile", "billing:sync", "db:check-rls", "eval", "eval:pdf", "report:guards", "storage:setup", "storage:gc", "db:bootstrap", "user:set-plan", "voice:cost", "voice:doctor", "voice:samples", "voice:simulate", "e2e:cleanup", "e2e:capture-translations", "dev:usage"].sort(),
     );
   });
 

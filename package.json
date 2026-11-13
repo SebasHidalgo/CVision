@@ -31,6 +31,7 @@
     "e2e:voice": "playwright test --project voice",
     "e2e:server": "node e2e/server.mjs",
     "e2e:cleanup": "tsx --conditions=react-server --env-file-if-exists=.env e2e/cleanup.ts",
+    "e2e:capture-translations": "tsx --conditions=react-server --env-file-if-exists=.env e2e/fixtures/capture-translations.ts",
     "storage:setup": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/setup.ts",
     "db:bootstrap": "tsx --env-file-if-exists=.env scripts/db/bootstrap.ts"
   },

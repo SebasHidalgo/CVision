@@ -113,9 +113,9 @@ export default function CheckoutButtonClient({ item, label, className, size = "l
         else router.push(activationHref({ item, transactionId }));
         return;
       }
-      if (outcome === "error" || outcome === "timeout") {
-        toast.error(errorCopy("BILLING_UNAVAILABLE"));
-      }
+      // An overlay that never opened is a different story from a provider that failed: the retry is immediate.
+      if (outcome === "timeout") toast.error(errorCopy("CHECKOUT_NOT_OPENED"));
+      else if (outcome === "error") toast.error(errorCopy("BILLING_UNAVAILABLE"));
     } catch (error) {
       if (controller.signal.aborted || !mounted.current) return;
       // The action rejected (network, a stale deployment) or Paddle.js did not load.

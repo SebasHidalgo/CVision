@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -69,7 +69,9 @@ export function assertLedgerServer(): void {
   try {
     process.kill(pid, 0);
   } catch {
-    fail(`the marker's process ${pid} is gone`);
+    // Stale: its server was killed. Removed, so the next start is clean.
+    rmSync(marker, { force: true });
+    fail(`the marker's process ${pid} is gone; the stale marker was removed`);
   }
 }
 
