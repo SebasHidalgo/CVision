@@ -277,7 +277,10 @@ Posting rules, before the CV quotes are checked:
 Status rules, after the CV quotes are checked, in this order:
 
 1. **Key-term coverage.** A `cvMatch` that is not in the CV is emptied
-   (`key-term / match-dropped`). So is one whose `relation` is `related` or
+   (`key-term / match-dropped`). Before that, a term that names a kind of
+   language ("another European language", "idioma extranjero") is settled by
+   the CV's stated languages, not by the model's label (M10-F,
+   `docs/analysis-quality.md`, "Language categories"). So is one whose `relation` is `related` or
    `none` (M8-H): an AI-powered product does not show "AI development
    tools", a line about remote teams does not show "distributed systems",
    unless the CV word contains the term itself (`key-term / match-dropped`,

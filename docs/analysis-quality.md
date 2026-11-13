@@ -418,3 +418,43 @@ recorded weakness. The canary reference is `m10e-final-s7` (the
 `m10d-drift-q`, `m10e-u1` to `u8`, `m10e-enc1` to `enc3` (after);
 `m10d-q2-replay`, `m10e-pre-*`, `m10e-preg-*` (before, replayed).
 
+## Language categories (M10-F)
+
+The item above is fixed in code, not in the prompt. A key term that names a
+**kind of language** instead of one language ("another European language",
+"a second language", "a foreign language", "otro idioma", "segundo idioma",
+"idioma extranjero", "idiomas europeos"; the bare noun "language" when the
+posting's own phrase is one of those) is answered by the CV's stated
+languages, whatever relation the model gave (`lib/ai/requirementLanguages.ts`,
+`languageCategory` and `categoryLanguagesInCv`):
+
+- a CV language counts when the CV states a level for it (the M8-D rule) and
+  it is in the category: a curated list of 26 languages, each with its
+  English and Spanish names, 19 of them European;
+- a language the posting already works in does not count as "another" one:
+  the languages the posting names anywhere, and the language it is written
+  in. English does not answer "another language" when the posting requires
+  English, and "English (native)" does not answer "a second language" in an
+  English posting that never names English;
+- when one counts, the term's relation is `same` and its match is the
+  model's own if it names a language that counts, else the CV's first
+  (`key-term / text-replaced`); when none counts and the model matched a
+  language the posting already works in, the match is dropped
+  (`key-term / match-dropped`, "not another language").
+
+A named language ("Portuguese is a plus") is not a category and is left to
+the model and the level rule.
+
+**Measured** (2026-11-13).
+
+| | Before (M10-E code) | After |
+|---|---|---|
+| `es-cv-en-job`, "Another European language is a plus", post-drift answers replayed (5 runs with a stored answer) | met 3, partial 2 | met 5 |
+| The same item, pre-drift answers replayed (3 runs) | met 3 | met 3 |
+| Six live reruns, no seed, free key (`m10f-u1` to `u6`) | (M10-E live: partial 3 of 6) | met 6 of 6; the code changed the label in 2, the model said `same` in 3, one named no key term |
+| Every other requirement of every replayed fixture (11 runs, 18 fixtures at most, both real postings) | | 0 status changes |
+| Canary `m10e-final-s7`, live, standard tier | | byte-identical |
+
+Replays: `m10f-r-m10e-*`. The other half of the relation-label weakness is
+untouched: `es-cv-en-job`'s statistics item still reads partial in 6 of 6
+live runs (A/B tests labelled `related` to experiment design).

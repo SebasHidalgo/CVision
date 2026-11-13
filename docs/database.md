@@ -119,7 +119,7 @@ production's functions must sit in the database's region (`vercel.json`).
 | `User` | one row per Clerk account: the id, a manual comp (`compPlan`), timestamps. Everything else hangs from it with `onDelete: Cascade` |
 | `ResumeAnalysis`, `ResumeFeedback` | the posting and the CV's key; the analysis and its guardrail stats |
 | `Interview`, `InterviewFeedback` | a rehearsal: sessions issued, transcript, failure reason, what paid for it; the feedback report |
-| `UsageEvent` | the usage ledger: analyses, interviews, trials, credit grants and revokes; refunds mark, never delete |
+| `UsageEvent` | the usage ledger: analyses, interviews, trials, credit grants and revokes; refunds mark, never delete. A partial unique index (`UsageEvent_one_live_trial`, raw SQL in its migration) allows one unrefunded `INTERVIEW_TRIAL` per user |
 | `RateLimitCounter` | fixed hourly windows per user and action, pruned on the next hit |
 | `BillingCustomer`, `Subscription`, `BillingEvent` | the provider's customer id, a mirror of each subscription, and every accepted event id (no payload; outlives the account) |
 | `GuardStatDaily` | anonymous daily tallies of what the guardrails did; never deleted |
