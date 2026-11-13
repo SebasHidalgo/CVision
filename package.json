@@ -21,6 +21,7 @@
     "voice:cost": "tsx --env-file-if-exists=.env scripts/voice/cost.ts",
     "voice:samples": "tsx --env-file-if-exists=.env scripts/voice/samples.ts",
     "voice:simulate": "tsx --env-file-if-exists=.env scripts/voice/simulate.ts",
+    "voice:trim-transcripts": "tsx --env-file-if-exists=.env scripts/voice/trim-transcripts.ts",
     "dev:usage": "tsx --conditions=react-server --env-file-if-exists=.env scripts/dev/usage.ts",
     "ai:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/ai/doctor.ts",
     "billing:sync": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/sync.ts",
