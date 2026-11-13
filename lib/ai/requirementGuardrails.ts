@@ -3,7 +3,7 @@ import { codeNote, type AnalysisLanguage } from "@/lib/ai/analysisWording";
 import { and, or, say, type Phrase, type Sentence } from "@/lib/ai/sentences";
 import { renderPhrase, renderSentence, renderSentences } from "@/lib/i18n/sentences";
 import { placeholderFor, spanFor, type Intervention } from "@/lib/ai/analysisGuardrails";
-import { languagesAsked, statesLevel } from "@/lib/ai/requirementLanguages";
+import { categoryLanguagesInCv, languageCategory, languagesAsked, namesLanguage, statesLevel } from "@/lib/ai/requirementLanguages";
 import { exampleSpans, locateTerm, withQuoteAlternatives, withRelatedField } from "@/lib/ai/requirementAlternatives";
 import { candidateYears, roundYears, totalExperienceIn, withoutDateRanges, yearsClauseIn, yearsIn, yearsStatus } from "@/lib/ai/requirementYears";
 import type {
@@ -520,6 +520,8 @@ export type StatusContext = {
   statedYears?: number | null;
   /** The CV and the posting are in different languages: a term the code cannot find verbatim may still be there. */
   crossLanguage?: boolean;
+  /** The posting, for what "another language" is other than. */
+  jobText?: string;
 };
 
 /** After guardAnalysis, so evidence it dropped counts as none. */
@@ -556,6 +558,27 @@ export function enforceRequirementStatuses(
         }
       }
       const quote = requirement.sourceQuote ?? "";
+      // A category of languages ("another European language") is answered by the CV's stated languages, whatever the model labelled.
+      for (const [i, term] of requirement.keyTerms.terms.entries()) {
+        const category = languageCategory(term.term, quote);
+        if (!category) continue;
+        const answers = categoryLanguagesInCv({ category, cvText: context.cvText, jobText: context.jobText ?? "" });
+        const was = `${term.term}: ${normalizeWhitespace(term.cvMatch) || "(none)"} [${term.relation ?? "?"}]`;
+        if (answers.length > 0) {
+          // The model's own match stays when it names a language that counts; otherwise the CV's first one.
+          const own = answers.some((answer) => containsTerm(term.cvMatch, answer.word));
+          if (!own || term.relation !== "same") {
+            interventions.push({ check: "key-term", action: "text-replaced", path: `${at}.keyTerms.terms[${i}].cvMatch`, value: was, replacement: `${own ? normalizeWhitespace(term.cvMatch) : answers[0].word} [same]` });
+          }
+          if (!own) term.cvMatch = answers[0].word;
+          term.relation = "same";
+        } else if (normalizeWhitespace(term.cvMatch) && namesLanguage(term.cvMatch)) {
+          // Only languages the posting already works in: not another one.
+          interventions.push({ check: "key-term", action: "match-dropped", path: `${at}.keyTerms.terms[${i}].cvMatch`, value: was, replacement: "not another language" });
+          term.cvMatch = "";
+          term.relation = "none";
+        }
+      }
       const related = withRelatedField(requirement.keyTerms, quote, `${at}.keyTerms`);
       interventions.push(...related.interventions);
       // A CV word that is only near the term does not show it (M8-H); one that contains the term itself does, however labelled.

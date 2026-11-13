@@ -1192,3 +1192,53 @@ describe("M8-C language", () => {
     expect(requirementHeadline(requirements, "es")).toBe("Brechas principales: 4+ años de experiencia.");
   });
 });
+
+describe("M10-F: a category of languages is answered by the CV's stated languages", () => {
+  const POSTING = "We are hiring an analyst for our team. Fluent English; our working language is English. Another European language is a plus.";
+  const cv = "IDIOMAS\nEspañol (nativo), inglés (C1), portugués (B1).";
+  const context = { pending: [{ yearsEvidence: [] }], cvText: cv, now: NOW, crossLanguage: true, jobText: POSTING };
+  const stored = (cvMatch: string, relation: "same" | "related" | "none", status: Requirement["status"] = "met"): Requirement => ({
+    requirement: "Another European language",
+    kind: "preferred",
+    status,
+    evidence: "Español (nativo), inglés (C1), portugués (B1).",
+    note: "",
+    assessable: true,
+    sourceQuote: "Another European language is a plus.",
+    keyTerms: { mode: "all", terms: [{ term: "Another European language", cvMatch, relation }] },
+  });
+
+  it("counts a stated language of the category as the same thing, whatever the model labelled it", () => {
+    for (const [cvMatch, relation] of [["portugués", "related"], ["portugués (B1)", "none"], ["", "none"]] as const) {
+      const { requirements, interventions } = enforceRequirementStatuses([stored(cvMatch, relation)], context);
+      expect(requirements[0].status).toBe("met");
+      const [term] = requirements[0].keyTerms?.terms ?? [];
+      expect(term.relation).toBe("same");
+      // The model's own match stays when it names a language that counts; otherwise the CV's first one.
+      expect(term.cvMatch).toBe(cvMatch === "" ? "Español" : cvMatch);
+      expect(interventions).toContainEqual(expect.objectContaining({ check: "key-term", action: "text-replaced" }));
+      expect(interventions.some((one) => one.action === "status-capped")).toBe(false);
+    }
+  });
+
+  it("leaves a match the model already called the same untouched and unrecorded", () => {
+    const { requirements, interventions } = enforceRequirementStatuses([stored("portugués", "same")], context);
+    expect(requirements[0].keyTerms?.terms[0]).toMatchObject({ cvMatch: "portugués", relation: "same" });
+    expect(interventions.filter((one) => one.check === "key-term")).toEqual([]);
+  });
+
+  it("does not let English answer it when the posting itself requires English", () => {
+    const english = { ...context, cvText: "Languages\nEnglish (native)." };
+    const { requirements, interventions } = enforceRequirementStatuses([{ ...stored("English", "same"), evidence: "English (native)." }], english);
+    expect(requirements[0].keyTerms?.terms[0]).toMatchObject({ cvMatch: "", relation: "none" });
+    expect(requirements[0].status).toBe("missing");
+    expect(interventions).toContainEqual(expect.objectContaining({ action: "match-dropped", replacement: "not another language" }));
+  });
+
+  it("is not a rule about named languages or about anything that is not a language", () => {
+    const named: Requirement = { ...stored("portugués (B1)", "same"), requirement: "Portuguese", sourceQuote: "Portuguese is a plus.", keyTerms: { mode: "all", terms: [{ term: "Portuguese", cvMatch: "portugués (B1)", relation: "translation" }] } };
+    const { requirements, interventions } = enforceRequirementStatuses([named], context);
+    expect(requirements[0].keyTerms?.terms[0]).toMatchObject({ cvMatch: "portugués (B1)", relation: "translation" });
+    expect(interventions.filter((one) => one.action === "text-replaced")).toEqual([]);
+  });
+});

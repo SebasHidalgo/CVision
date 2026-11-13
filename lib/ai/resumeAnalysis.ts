@@ -286,6 +286,7 @@ export function finishAnalysis({
           now,
           statedYears: statedTotalYears(text, answer.atsCompatibility.sectionsDetected),
           crossLanguage: detectPostingLanguage(jobDescription) !== detectPostingLanguage(text),
+          jobText: jobDescription,
         }
       : undefined,
   );
