@@ -23,7 +23,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: [...configDefaults.exclude, ".next/**"],
+    exclude: [...configDefaults.exclude, ".next/**", ".next-e2e/**"],
     setupFiles: ["./vitest.setup.ts"],
     unstubGlobals: true,
     unstubEnvs: true,

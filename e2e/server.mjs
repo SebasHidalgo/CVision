@@ -1,5 +1,5 @@
-// The suite's app server: `next dev` with the Gemini ledger preloaded and dev tools on.
-import { spawn } from "node:child_process";
+// The suite's app server: a production build of its own with the Gemini ledger preloaded and dev tools on.
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -46,10 +46,22 @@ if (existsSync(marker)) {
 }
 
 const preload = path.resolve("e2e/support/gemini-ledger.cjs").replace(/\\/g, "/");
-const child = spawn(process.execPath, [path.resolve("node_modules/next/dist/bin/next"), "dev"], {
+const next = path.resolve("node_modules/next/dist/bin/next");
+// A production build of its own (.next-e2e, with the dev-only pages): `next dev` compiles and renders each request
+// several times slower, and with parallel workers it was the suite's bottleneck. E2E_SERVER_MODE=dev keeps the dev server.
+const dev = process.env.E2E_SERVER_MODE === "dev";
+if (!dev) {
+  console.log("[e2e] building the suite's production server (.next-e2e)");
+  const built = spawnSync(process.execPath, [next, "build"], { stdio: "inherit", env: { ...process.env, E2E_BUILD: "1", NODE_ENV: "production" } });
+  if (built.status !== 0) {
+    console.error("[e2e] the build failed");
+    process.exit(1);
+  }
+}
+const child = spawn(process.execPath, [next, dev ? "dev" : "start", "-p", "3000"], {
   stdio: "inherit",
   // Flex: same measured latency as standard, half the price.
-  env: { ...process.env, E2E_GEMINI_TIER: process.env.E2E_GEMINI_TIER ?? "flex", ALLOW_DEV_TOOLS: "1", NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require "${preload}"`.trim() },
+  env: { ...process.env, ...(dev ? {} : { E2E_BUILD: "1" }), E2E_GEMINI_TIER: process.env.E2E_GEMINI_TIER ?? "flex", ALLOW_DEV_TOOLS: "1", NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require "${preload}"`.trim() },
 });
 // The specs check this marker: this launcher's pid lives exactly as long as the server it started.
 mkdirSync(path.dirname(marker), { recursive: true });

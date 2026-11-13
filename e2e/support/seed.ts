@@ -89,6 +89,57 @@ export async function seedCompletedInterview(account: Pick<TestAccount, "id">, a
   return id;
 }
 
+/**
+ * An interview whose call just ended and whose record has not arrived: the feedback page waits on it. `complete()` then
+ * stores what the webhook and the generator would (the same invented transcript and report), so a spec can check the
+ * open page shows the feedback without a reload. No call, no model; the conversation id is invented and the platform is
+ * never asked (the reconcile waits two minutes after the end).
+ */
+export async function seedInterviewAwaitingFeedback(account: Pick<TestAccount, "id">, analysisId: string): Promise<{ id: string; complete: () => Promise<void> }> {
+  const fixture = JSON.parse(readFileSync(path.resolve(process.cwd(), "e2e", "fixtures", "interview-es.json"), "utf8"));
+  const report = seededReport(fixture);
+  const last = await db.interview.findFirst({ where: { resumeAnalysisId: analysisId }, orderBy: { attemptNumber: "desc" }, select: { attemptNumber: true } });
+  const id = randomUUID();
+  const conversationId = `conv_e2e_${id.replace(/-/g, "")}`;
+  const now = new Date();
+  await db.interview.create({
+    data: {
+      id,
+      userId: account.id,
+      resumeAnalysisId: analysisId,
+      attemptNumber: (last?.attemptNumber ?? 0) + 1,
+      role: fixture.role,
+      techstack: fixture.techstack,
+      status: "IN_PROGRESS",
+      language: "es",
+      tier: "TRIAL",
+      startCount: 1,
+      conversationId,
+      issuedConversationIds: [conversationId],
+      startedAt: now,
+      lastSessionAt: now,
+      endedAt: now,
+    },
+  });
+  return {
+    id,
+    complete: async () => {
+      const created = await db.interview.update({
+        where: { id },
+        data: {
+          status: "COMPLETED",
+          transcript: fixture.transcript as Prisma.InputJsonValue,
+          transcriptSource: "seed",
+          durationSeconds: 300,
+          InterviewFeedback: { create: { totalScore: report.totalScore, report: report as unknown as Prisma.InputJsonValue } },
+        },
+        select: { InterviewFeedback: { select: { id: true } } },
+      });
+      if (created.InterviewFeedback) await storeTranslation({ interviewFeedbackId: created.InterviewFeedback.id }, TRANSLATIONS.feedback);
+    },
+  };
+}
+
 /** Puts a test account's ledger in a state with the dev:usage tool's own core (no call, no purchase). */
 export async function setUsage(account: Pick<TestAccount, "id">, target: DevUsageTarget) {
   await db.user.upsert({ where: { id: account.id }, create: { id: account.id }, update: {} });

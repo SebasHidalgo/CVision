@@ -16,9 +16,13 @@ function devOrigins(): string[] {
   return [...hosts];
 }
 
+// The browser suite's own production build (e2e/server.mjs): its own folder, and the dev-only pages, which still answer 404 without dev tools.
+const e2eBuild = process.env.E2E_BUILD === "1";
+
 const nextConfig: NextConfig = {
+  distDir: e2eBuild ? ".next-e2e" : ".next",
   // Dev-only pages are page.dev.tsx: a production build doesn't know the extension.
-  pageExtensions: process.env.NODE_ENV === "production" ? ["tsx", "ts", "jsx", "js"] : ["dev.tsx", "tsx", "ts", "jsx", "js"],
+  pageExtensions: process.env.NODE_ENV === "production" && !e2eBuild ? ["tsx", "ts", "jsx", "js"] : ["dev.tsx", "tsx", "ts", "jsx", "js"],
   experimental: {
     serverActions: {
       // No action carries a file: the CV goes to storage over a signed URL

@@ -16,32 +16,21 @@ import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
  * preview route), and a finished Spanish interview's feedback page with its transcript (seeded, no call).
  */
 
-test.describe.configure({ mode: "serial" });
-test.setTimeout(1_800_000);
+// One test per width, each on its own account: they run in parallel workers.
+test.describe.configure({ mode: "parallel" });
+test.setTimeout(600_000);
 
 const WIDTHS = [375, 768, 1024, 1280, 1366, 1440, 1920] as const;
 const HEIGHT: Record<(typeof WIDTHS)[number], number> = { 375: 812, 768: 1024, 1024: 768, 1280: 900, 1366: 768, 1440: 900, 1920: 1080 };
 
-let account: TestAccount;
-
-test.beforeAll(async ({}, testInfo) => {
-  assertSandbox();
-  account = await createAccount(`layout-${localeOf(testInfo)}`);
-});
-
-test.afterAll(async () => {
-  if (account) await deleteAccount(account);
-});
+test.beforeAll(() => assertSandbox());
 
 async function check(page: import("@playwright/test").Page, urls: Array<[string, string]>, found: LayoutViolation[]) {
-  for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: HEIGHT[width] });
-    for (const [label, url] of urls) {
-      await page.goto(url);
-      await settle(page);
-      await openDetails(page);
-      found.push(...(await layoutViolations(page, label)));
-    }
+  for (const [label, url] of urls) {
+    await page.goto(url);
+    await settle(page);
+    await openDetails(page);
+    found.push(...(await layoutViolations(page, label)));
   }
 }
 
@@ -114,42 +103,50 @@ test("settling fails fast on a page that keeps reloading itself", async ({ page 
   expect(Date.now() - startedAt).toBeLessThan(10_000);
 });
 
-test("the main pages hold their layout from 375 to 1920 px", async ({ page }, testInfo) => {
-  const t = copyFor(localeOf(testInfo));
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  const found: LayoutViolation[] = [];
+for (const width of WIDTHS) {
+  test(`the main pages hold their layout at ${width} px`, async ({ page }, testInfo) => {
+    const t = copyFor(localeOf(testInfo));
+    await page.setViewportSize({ width, height: HEIGHT[width] });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const found: LayoutViolation[] = [];
 
-  await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"]], found);
+    await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"]], found);
 
-  await signIn(page, account);
-  const analysisId = await seedAnalysis(account);
-  await page.goto(`/resume/analysis/${analysisId}`);
-  await settle(page);
-  const room = new URL(await openRoom(page, t)).pathname;
-  const feedback = `/interview/${await seedCompletedInterview(account, analysisId)}/feedback`;
+    const account: TestAccount = await createAccount(`layout-${width}-${localeOf(testInfo)}`);
+    try {
+      await signIn(page, account);
+      const analysisId = await seedAnalysis(account);
+      await page.goto(`/resume/analysis/${analysisId}`);
+      await settle(page);
+      const room = new URL(await openRoom(page, t)).pathname;
+      const feedback = `/interview/${await seedCompletedInterview(account, analysisId)}/feedback`;
 
-  await check(
-    page,
-    [
-      ["upload", "/resume/upload"],
-      ["analyses", "/resume/analyses"],
-      ["analysis", `/resume/analysis/${analysisId}`],
-      ["interview room", room],
-      ["interview room, live (24 lines)", "/dev/room-preview"],
-      ["interview room, time up and closing", "/dev/room-preview?closing=1"],
-      ["interview feedback (Spanish transcript)", feedback],
-      ["interviews", "/interviews"],
-      ["account and billing", "/account/billing"],
-      ["pricing (signed in)", "/pricing"],
-    ],
-    found,
-  );
+      await check(
+        page,
+        [
+          ["upload", "/resume/upload"],
+          ["analyses", "/resume/analyses"],
+          ["analysis", `/resume/analysis/${analysisId}`],
+          ["interview room", room],
+          ["interview room, live (24 lines)", "/dev/room-preview"],
+          ["interview room, time up and closing", "/dev/room-preview?closing=1"],
+          ["interview feedback (Spanish transcript)", feedback],
+          ["interviews", "/interviews"],
+          ["account and billing", "/account/billing"],
+          ["pricing (signed in)", "/pricing"],
+        ],
+        found,
+      );
 
-  // The same room once the trial is used: the Pro offer in place of Start.
-  await setUsage(account, { trialUsed: true });
-  await check(page, [["interview room, Pro offer", room]], found);
+      // The same room once the trial is used: the Pro offer in place of Start.
+      await setUsage(account, { trialUsed: true });
+      await check(page, [["interview room, Pro offer", room]], found);
+    } finally {
+      await deleteAccount(account);
+    }
 
-  for (const violation of found) console.log(`[layout] ${violation.page} @${violation.width}: ${violation.kind} — ${violation.detail}`);
-  await testInfo.attach("layout-violations.json", { body: JSON.stringify(found, null, 2), contentType: "application/json" });
-  expect(found).toEqual([]);
-});
+    for (const violation of found) console.log(`[layout] ${violation.page} @${violation.width}: ${violation.kind} — ${violation.detail}`);
+    await testInfo.attach("layout-violations.json", { body: JSON.stringify(found, null, 2), contentType: "application/json" });
+    expect(found).toEqual([]);
+  });
+}

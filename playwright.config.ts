@@ -6,16 +6,21 @@ import { BASE_URL, loadEnv } from "./e2e/support/env";
  * the Clerk development instance (test accounts the suite creates and
  * deletes), the Paddle sandbox and, for the opt-in voice spec only, the
  * ElevenLabs workspace. Webhooks reach the server through the tunnel in
- * E2E_PUBLIC_URL, which must be up for the billing specs.
+ * E2E_PUBLIC_URL, which must be up for the external tier.
  *
- *   npm run e2e          the suite (billing, free account, sign-up, language),
- *                        once in English and once in Spanish; no call
- *   npm run e2e:voice    one real voice start, opt-in: it spends seconds of
- *                        platform time and prints the cost
- *   npm run e2e:cleanup  delete every +clerk_test account left behind
+ * Three tiers, each once in English and once in Spanish (e2e/run.mjs runs them in this order):
+ *   fast       seeded pages; Clerk accounts, no Paddle, no Gemini, no voice, no tunnel
+ *   external   the Paddle sandbox and its webhooks through the tunnel (billing, entry)
+ *   model      a real Gemini analysis (smoke); alone, because the model-call guard
+ *              counts the ledger's rows while a test runs
  *
- * Everything is read from .env; nothing is hard-coded. One worker: the
- * specs share quotas, the sandbox and the tunnel.
+ *   npm run e2e            all three        npm run e2e:fast / e2e:external
+ *   npm run e2e:voice      one real voice start, opt-in: seconds of platform time, cost printed
+ *   npm run e2e:cleanup    delete every +clerk_test account left behind
+ *
+ * Spec files run in parallel workers (E2E_WORKERS, default 4); the tests of a
+ * file run in order in one worker, on accounts that file creates. Nothing is
+ * shared between files but the server, the sandbox and the tunnel.
  */
 
 loadEnv();
@@ -23,16 +28,25 @@ loadEnv();
 const chrome = devices["Desktop Chrome"];
 // Scratch files under e2e/.artifacts (ignored by git) are never part of the suite.
 const ARTIFACTS = /[\\/]\.artifacts[\\/]/;
+const EXTERNAL = /(billing|entry)\.spec\.ts$/;
+const MODEL = /smoke\.spec\.ts$/;
+const VOICE = /voice\.spec\.ts$/;
+
+/** The same tier in both interface languages: the specs read their copy from locales/. */
+const tier = (name: string, files: { testMatch?: RegExp; testIgnore: RegExp[] }) => [
+  { name, use: { ...chrome }, ...files },
+  { name: `${name}-es`, use: { ...chrome, locale: "es-ES" }, ...files },
+];
 
 export default defineConfig({
   testDir: "e2e",
   outputDir: "e2e/.artifacts/test-results",
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.E2E_WORKERS) || 4,
   retries: 0,
   timeout: 300_000,
   expect: { timeout: 20_000 },
-  reporter: [["list"], ["html", { outputFolder: "e2e/.artifacts/report", open: "never" }]],
+  reporter: [["list"], ["html", { outputFolder: process.env.E2E_REPORT_DIR || "e2e/.artifacts/report", open: "never" }]],
   use: {
     baseURL: BASE_URL,
     locale: "en-US",
@@ -42,18 +56,9 @@ export default defineConfig({
     video: "off",
   },
   projects: [
-    {
-      name: "chromium",
-      use: { ...chrome },
-      testIgnore: [/voice\.spec\.ts/, ARTIFACTS],
-    },
-    {
-      // The same flows with a Spanish browser: the interface, Clerk and the checkout in Spanish,
-      // and an analysis translated at creation. The specs read their copy from locales/.
-      name: "chromium-es",
-      use: { ...chrome, locale: "es-ES" },
-      testIgnore: [/voice\.spec\.ts/, ARTIFACTS],
-    },
+    ...tier("fast", { testIgnore: [EXTERNAL, MODEL, VOICE, ARTIFACTS] }),
+    ...tier("external", { testMatch: EXTERNAL, testIgnore: [ARTIFACTS] }),
+    ...tier("model", { testMatch: MODEL, testIgnore: [ARTIFACTS] }),
     {
       // Fake media devices: the browser grants the microphone and feeds a
       // test tone, so Start reaches the server and the platform with nobody
@@ -71,10 +76,11 @@ export default defineConfig({
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : {
-        // Its own server: Gemini on the free key with every call in the spend ledger, dev tools on.
+        // Its own production build and server: every Gemini call in the spend ledger, dev tools on.
         command: "node e2e/server.mjs",
         url: "http://localhost:3000/pricing",
         reuseExistingServer: true,
-        timeout: 180_000,
+        // It builds first.
+        timeout: 600_000,
       },
 });
