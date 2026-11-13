@@ -50,7 +50,16 @@ globalThis.fetch = async (input, init) => {
     response = await realFetch(input, request);
     const body = await response.clone().json().catch(() => null);
     record(url, response, body, Date.now() - startedAt);
-    if (response.ok || ![429, 503].includes(response.status) || attempt === MAX_ATTEMPTS) break;
+    if (response.ok || ![429, 503].includes(response.status)) break;
+    if (attempt === MAX_ATTEMPTS) {
+      // Flex has no capacity promise: one last try at the standard price, so congestion does not fail the suite.
+      if (TIER !== "flex" || response.status !== 503 || typeof init?.body !== "string") break;
+      console.warn("[e2e][gemini] Flex answered 503 three times; this call goes on the standard tier");
+      const startedAt = Date.now();
+      response = await realFetch(input, init);
+      record(url, response, await response.clone().json().catch(() => null), Date.now() - startedAt, "standard");
+      break;
+    }
     console.warn(`[e2e][gemini] answered HTTP ${response.status}; retrying (${attempt}/${MAX_ATTEMPTS - 1})`);
     await new Promise((resolve) => setTimeout(resolve, RETRY_WAIT_MS * attempt));
   }
@@ -58,12 +67,12 @@ globalThis.fetch = async (input, init) => {
   return response;
 };
 
-function record(url, response, body, ms) {
+function record(url, response, body, ms, asked = TIER) {
   const usage = body && body.usageMetadata;
   const n = (value) => (typeof value === "number" ? value : 0);
   const model = (/models\/([^:]+):/.exec(url) || [])[1] || null;
   // A failed call has no usage: record the tier it asked for.
-  const served = !usage ? TIER : usage.serviceTier === "flex" ? "flex" : "standard";
+  const served = !usage ? asked : usage.serviceTier === "flex" ? "flex" : "standard";
   const input = usage ? n(usage.promptTokenCount) : 0;
   const output = usage ? n(usage.candidatesTokenCount) + n(usage.thoughtsTokenCount) : 0;
   const price = priceOf(model, served);

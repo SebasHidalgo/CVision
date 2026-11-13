@@ -235,4 +235,6 @@ test("a purchase the room has not seen confirmed after 20 s says so, and Check a
   await checkAgain.click();
   await expect(startButton(page, t)).toBeVisible({ timeout: 120_000 });
   expect(await mainText(page)).toContain(t("interview:room.source.period", { count: 4, limit: 4 }));
+  // A poll may still be in flight through the route above.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
