@@ -7,6 +7,7 @@ import {
   endsUnanswered,
   endToolFromClaim,
   isEarlyEnd,
+  questionPending,
   readCallEnd,
   saidGoodbye,
   settleCallEnd,
@@ -161,9 +162,11 @@ describe("decideEndTool: the room's answer to end_interview", () => {
     expect(decision.result.startsWith(`${END_TOOL_REFUSED}: the call continues.`)).toBe(true);
     expect(decision.result).toContain("The interview time is not up: 1 min 6 s remain.");
     expect(decision.result).toContain("Do not say goodbye again and do not call end_interview until a [time] line says the time is up.");
-    expect(decision.result).toContain('Say one short bridging phrase (in Spanish, "Sigamos un poco más.") and ask your next interview question now.');
-    // Under a minute the time left is said in seconds; a fraction of a second left is still time left.
-    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 45.7, turns: base }).result).toContain("45 s remain");
+    expect(decision.result).toContain(`Say one short bridging phrase in the call's language (in English "Let's keep going a little longer.", in Spanish "Sigamos un poco más.") and ask your next interview question now, one you have not asked before.`);
+    expect(decision).toMatchObject({ silent: false });
+    // Under a minute the time left is said in seconds, rounded up; a fraction of a second left is still time left.
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 45.2, turns: base }).result).toContain("46 s remain");
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 0.4, turns: base }).result).toContain("1 s remain");
     expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 0.4, turns: base }).allow).toBe(false);
   });
 
@@ -189,13 +192,17 @@ describe("decideEndTool: the room's answer to end_interview", () => {
   it("allows candidate_confirmed only after the confirmation question got an answer that is not a no, whatever the clock says", () => {
     expect(decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: [...asked, user("Sí, terminemos.")] })).toMatchObject({ allow: true, detail: "confirmed" });
     // The request alone, a no, or no question at all: refused, with the question to ask.
-    for (const turns of [base, asked, [...asked, user("No, mejor sigamos.")], [...base, user("Creo que ya está.")]]) {
+    for (const turns of [base, [...asked, user("No, mejor sigamos.")], [...base, user("Creo que ya está.")]]) {
       const decision = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns });
-      expect(decision.allow).toBe(false);
+      expect(decision).toMatchObject({ allow: false, silent: false });
       expect(decision.result.startsWith(END_TOOL_REFUSED)).toBe(true);
       expect(decision.result).toContain('"Do you want to end the interview now?"');
       expect(decision.result).toContain("Do not say goodbye again.");
     }
+    // Asked and not yet answered: the candidate is about to answer, so the refusal is silent.
+    const waiting = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: asked });
+    expect(waiting).toMatchObject({ allow: false, silent: true });
+    expect(waiting.result).toContain("say nothing now: reply with no words at all");
     // The goodbye that came with the call is known to the room: it has nothing to add before hanging up.
     const withGoodbye = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: [...asked, user("Sí, terminemos."), agent("Gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.")] });
     expect(withGoodbye).toMatchObject({ allow: true, detail: "confirmed", goodbyeSaid: true });
@@ -206,6 +213,39 @@ describe("decideEndTool: the room's answer to end_interview", () => {
     expect(without.result).toContain("Say the goodbye now");
     // Claiming a confirmation after the time is up changes nothing about the rule: it still needs the exchange.
     expect(decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: -5, turns: base }).allow).toBe(false);
+  });
+
+  it("the owner's 4:24: a question, then end_interview with 36 s left: refused without a word, so the question is not heard twice", () => {
+    const turns = [
+      ...base,
+      agent("¿Qué parte del inventario te tocó?"),
+      user("Las alertas de stock y el panel de reposición."),
+      agent("Interesante. ¿Qué falló la primera vez que lo pusiste en producción?"),
+    ];
+    const decision = decideEndTool({ reason: "time_up", paidSecondsLeft: 34, turns });
+    expect(decision).toMatchObject({ allow: false, silent: true });
+    expect(decision.result.startsWith(`${END_TOOL_REFUSED}: the call continues.`)).toBe(true);
+    expect(decision.result).toContain("34 s remain");
+    expect(decision.result).toContain("say nothing now: reply with no words at all, and let them answer. Do not repeat or rephrase the question.");
+    expect(decision.result).not.toContain("bridging");
+    // Once the candidate answered, a refusal asks for a new question out loud.
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 20, turns: [...turns, user("Las alertas se disparaban dos veces.")] })).toMatchObject({ silent: false });
+  });
+
+  it("an early goodbye with no question in it: refused out loud, a bridge and a new question", () => {
+    const turns = [...base, agent("¿Cómo lo probaste?"), user("Con tests de integración."), agent("Muchas gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.")];
+    expect(questionPending(turns)).toBe(false);
+    const decision = decideEndTool({ reason: "time_up", paidSecondsLeft: 50, turns });
+    expect(decision).toMatchObject({ allow: false, silent: false });
+    expect(decision.result).toContain("Sigamos un poco más.");
+  });
+
+  it("allows time_up over a question still unanswered, and marks it to wait for the answer", () => {
+    const pending = [...base, agent("¿Y cómo lo desplegaste?")];
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 0, turns: [...pending, agent("Gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.")] })).toMatchObject({ allow: true, awaitAnswer: true, goodbyeSaid: true });
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 0, turns: [...pending, user("Con Docker."), agent("Gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.")] })).toMatchObject({ allow: true, awaitAnswer: false });
+    // A confirmed stop never waits: the confirmation was the answer.
+    expect(decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 100, turns: [...asked, user("Sí, terminemos.")] })).toMatchObject({ allow: true, awaitAnswer: false });
   });
 
   it("reads an unknown or missing reason as time_up", () => {

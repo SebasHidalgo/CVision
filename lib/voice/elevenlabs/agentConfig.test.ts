@@ -101,9 +101,9 @@ describe("the end_interview tool", () => {
     expect(description).toContain("Call it only together with the spoken goodbye");
     expect(description).toContain("only after a [time] line said the interview time is up (reason time_up)");
     expect(description).toContain("after the candidate answered yes to your question whether to end the interview now (reason candidate_confirmed)");
-    expect(description).toContain("Never call it together with a question or a request");
+    expect(description).toContain("Never call it in a turn that asks a question or requests anything");
     expect(description).toContain("never while a question of yours has no answer");
-    expect(description).toContain("If the result starts with REFUSED, the call continues");
+    expect(description).toContain("If the result starts with REFUSED, the call continues: do exactly what the result says (when your question is waiting for its answer, say nothing at all)");
   });
 });
 

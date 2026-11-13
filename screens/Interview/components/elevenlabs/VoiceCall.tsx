@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { ConversationProvider, useConversation, useConversationClientTool } from "@elevenlabs/react";
 import { END_INTERVIEW_TOOL, END_TOOL_REFUSED } from "@/lib/voice/callEnd";
 import { WORKLET_PATHS } from "@/lib/voice/elevenlabs/worklets";
@@ -68,7 +69,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
       return `${END_TOOL_REFUSED}: the call continues. Ask your next interview question.`;
     }
   });
-  const { startSession, endSession, sendContextualUpdate, sendUserMessage, mode } = useConversation({
+  const { startSession, endSession, sendContextualUpdate, sendUserMessage, getInputVolume, mode } = useConversation({
     onConnect: handlers.onConnect,
     onDisconnect: (details) => {
       // The platform hard limit arrives as an error event; it is the agent ending the call.
@@ -91,6 +92,16 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     },
   });
 
+  /** The candidate's microphone level now, 0 to 1; 0 when the SDK cannot read it. */
+  const candidateLevel = useCallback(() => {
+    try {
+      const level = getInputVolume();
+      return Number.isFinite(level) ? level : 0;
+    } catch {
+      return 0;
+    }
+  }, [getInputVolume]);
+
   return {
     /** "speaking" while the interviewer talks, "listening" otherwise. */
     mode,
@@ -107,6 +118,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     end: () => endSession(),
     /** A note for the interviewer that the candidate does not hear: the room's clock. */
     notify: (text: string) => sendContextualUpdate(text),
+    candidateLevel,
     /** Dev tools only: a typed candidate line, for the voice e2e. */
     say: (text: string) => sendUserMessage(text),
   };

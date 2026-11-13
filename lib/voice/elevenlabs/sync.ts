@@ -26,21 +26,32 @@ export type SyncAgentsOptions = {
 const TIERS: InterviewTierId[] = ["FULL", "TRIAL"];
 
 /**
- * Read-back paths that may differ between the two agents besides the
- * definition's own: the platform's identity and bookkeeping fields (ids,
- * timestamps, the version and branch ids it assigns per agent).
+ * Read-back fields that differ between any two agents built from one
+ * definition: the platform's identity and bookkeeping, never behaviour.
+ * Every other difference between a synced agent and a fresh one is a
+ * leftover setting, and the sync fails on it.
  */
-const EXPECTED_READBACK_DIFFERENCES = [
-  "agentId",
-  "versionId",
-  "branchId",
-  "mainBranchId",
-  "metadata",
-  "accessInfo",
-  "phoneNumbers",
-  // A counter the platform keeps on an agent's (unused) workflow; seen on one agent only after the 2026-11-13 sync.
-  "workflow.version",
+export const READBACK_BOOKKEEPING: readonly { path: string; reason: string }[] = [
+  { path: "agentId", reason: "each agent's own id" },
+  { path: "versionId", reason: "the version the platform assigns per agent" },
+  { path: "branchId", reason: "the branch the platform assigns per agent" },
+  { path: "mainBranchId", reason: "the branch the platform assigns per agent" },
+  { path: "metadata", reason: "creation and update timestamps" },
+  { path: "accessInfo", reason: "who created the agent and their role" },
+  { path: "phoneNumbers", reason: "telephony assigned per agent; these agents have none" },
+  { path: "workflow.version", reason: "a counter on the agent's unused workflow; seen on one agent only after the 2026-11-13 sync" },
 ];
+
+/** The fresh agent a sync creates to compare against, and deletes: its name marks it, so an orphan is found and removed. */
+export const SYNC_CHECK_SUFFIX = " (sync check, deleted after)";
+const FRESH_ONLY: readonly { path: string; reason: string }[] = [{ path: "name", reason: "the fresh agent's name marks it as a sync check" }];
+
+const isAllowed = (path: string, list: readonly { path: string }[]) => list.some((entry) => path === entry.path || path.startsWith(`${entry.path}.`));
+
+/** Where a synced agent differs from a fresh one built from the same definition, bookkeeping aside: settings this file no longer sets. */
+export function leftoverSettings(synced: unknown, fresh: unknown): string[] {
+  return diffPaths(synced, fresh).filter((path) => !isAllowed(path, READBACK_BOOKKEEPING) && !isAllowed(path, FRESH_ONLY));
+}
 
 /** Pushes both agents, reads them back and prints what the platform holds. Resolves to the count of unintended differences. */
 export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAgentsOptions): Promise<number> {
@@ -105,7 +116,45 @@ export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAge
     }
   }
   if (wrongTools === 0) console.log(`\nBoth agents end a call only through the room: tool ${endToolId}, no end_call.`);
-  return reportDifferences(agents.FULL, agents.TRIAL) + wrongTools;
+
+  // An update merges: a fresh agent from the same definition shows what the platform keeps that this file no longer sets.
+  await removeOrphanChecks(client);
+  let leftovers = 0;
+  for (const tier of TIERS) {
+    const definition = buildInterviewAgentDefinition({ postCallWebhookId, endToolId, tier });
+    const fresh = await freshReadback(client, definition);
+    const paths = leftoverSettings(agents[tier], fresh);
+    leftovers += paths.length;
+    if (paths.length === 0) {
+      console.log(`${tier} agent: no leftover settings (the read-back equals a fresh agent from this definition, bookkeeping aside).`);
+      continue;
+    }
+    console.warn(`\n!! ${tier} agent: ${paths.length} setting(s) the platform kept that a fresh agent from agentConfig.ts does not have:`);
+    for (const path of paths) console.warn(`  !! ${path}: synced ${describeValue(pick(agents[tier], path))}, fresh ${describeValue(pick(fresh, path))}`);
+    console.warn("  Set each in agentConfig.ts, or add it to CLEARED_SETTINGS so the next sync sends it as null.");
+  }
+  return reportDifferences(agents.FULL, agents.TRIAL) + wrongTools + leftovers;
+}
+
+/** Creates a throwaway agent from the definition, reads it back and deletes it. No call is made and nothing is charged. */
+async function freshReadback(client: ElevenLabsClient, definition: ReturnType<typeof buildInterviewAgentDefinition>): Promise<Agent> {
+  const created = await client.conversationalAi.agents.create({ ...definition, name: `${definition.name}${SYNC_CHECK_SUFFIX}` });
+  try {
+    return await client.conversationalAi.agents.get(created.agentId);
+  } finally {
+    await client.conversationalAi.agents.delete(created.agentId).catch((error: unknown) => {
+      console.warn(`  Could not delete the sync-check agent ${created.agentId}; the next sync removes it (${error instanceof Error ? error.message : String(error)})`);
+    });
+  }
+}
+
+/** Sync-check agents a crashed sync left behind. */
+async function removeOrphanChecks(client: ElevenLabsClient) {
+  const { agents } = await client.conversationalAi.agents.list({ search: SYNC_CHECK_SUFFIX.trim(), pageSize: 100 });
+  for (const agent of agents.filter((one) => one.name.endsWith(SYNC_CHECK_SUFFIX))) {
+    await client.conversationalAi.agents.delete(agent.agentId);
+    console.log(`Removed a sync-check agent left behind: ${agent.agentId}`);
+  }
 }
 
 /** What is wrong with an agent's way to end a call as read back, or null. */
@@ -249,7 +298,7 @@ function printEffectiveSettings(tier: InterviewTierId, agent: Agent) {
 
 /** Every field in which the two agents differ on the platform, intended or not. */
 function reportDifferences(full: Agent, trial: Agent): number {
-  const expected = [...EXPECTED_TIER_DIFFERENCES, ...EXPECTED_READBACK_DIFFERENCES];
+  const expected = [...EXPECTED_TIER_DIFFERENCES, ...READBACK_BOOKKEEPING.map((entry) => entry.path)];
   const isExpected = (path: string) => expected.some((prefix) => path === prefix || path.startsWith(`${prefix}.`));
 
   const differences = diffPaths(full, trial);

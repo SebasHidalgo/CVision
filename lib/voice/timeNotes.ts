@@ -11,12 +11,13 @@ const MIN_GAP_SECONDS = 15;
 /** The paid time is over: the last answer is heard out, then the goodbye and the tool. */
 export const UP_TEXT =
   "[time] The interview time is up. Ask nothing new. If the candidate is answering or still owes you an answer to your last question, wait for it; if they stay silent, say only a short \"take your time\" in the call's language. Once they have answered, or if no question was pending, say the goodbye (thank them, and say their feedback will appear on their screen in a moment) and call end_interview with reason time_up in that same turn. Do not reply to this line.";
-/** The last minute is still interview: short questions, no goodbye. */
+// The notes before 0:00 never name the goodbye or the tool, even to forbid them: the backup model called end_interview right after such a line.
+/** The last minute is still interview: short questions. */
 export const ONE_TEXT =
-  "[time] About one minute remains. This is not the end: keep asking, but only short questions or short follow-ups. Do not say goodbye, do not announce a last question or that you are closing, and do not call end_interview; another [time] line will say when the time is up. Do not reply to this line.";
-/** Not the end: nothing in it may be announced to the candidate. */
+  "[time] About one minute remains. Keep the interview going as before: ask short questions or short follow-ups, and do not mention the time. Another [time] line will say when the time is up. Do not reply to this line.";
+/** Nothing in it may be announced to the candidate. */
 export const TWO_TEXT =
-  "[time] About two minutes remain. This is not the end: keep asking, with short follow-ups and no large new topic. Do not say goodbye, do not announce a last question or that you are closing, and do not call end_interview; another [time] line will say when the time is up. Do not reply to this line.";
+  "[time] About two minutes remain. Keep the interview going as before, with short follow-ups and no large new topic, and do not mention the time. Another [time] line will say when the time is up. Do not reply to this line.";
 export const halfText = (minutes: number) =>
   `[time] Half of the interview time has passed; about ${minutes} minutes remain. Keep asking questions as before and do not mention the time. Do not reply to this line.`;
 

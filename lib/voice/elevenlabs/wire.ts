@@ -158,19 +158,34 @@ function endToolCall(turns: WireTurn[]): EndToolCall | null {
   return null;
 }
 
-/** Turns the backup model answered: runs of agent entries the platform marks with the model it switched to. */
-function backupModelTurns(turns: WireTurn[]): { count: number; models: string[] } {
+/** A record entry as the backup count reads it; the server's webhook and the doctor's API read both map to this. */
+export type BackupCountEntry = { role: string; llm_override?: unknown };
+
+/** Turns the backup model answered: runs of agent entries the platform marks with the model it switched to. One rule for the server and the doctor. */
+export function backupModelTurns(turns: BackupCountEntry[]): { count: number; models: string[] } {
   const models = new Set<string>();
   let count = 0;
   let inRun = false;
   for (const turn of turns) {
-    const override = (turn as { llm_override?: unknown }).llm_override;
+    const override = turn.llm_override;
     const flagged = turn.role === "agent" && typeof override === "string" && override.trim() !== "";
     if (flagged && !inRun) count += 1;
     if (flagged) models.add((override as string).trim());
     inRun = flagged;
   }
   return { count, models: [...models] };
+}
+
+/** The interviewer's turns: each stretch of agent entries between the candidate's lines. */
+export function interviewerTurnCount(turns: BackupCountEntry[]): number {
+  let count = 0;
+  let inRun = false;
+  for (const turn of turns) {
+    const agent = turn.role === "agent";
+    if (agent && !inRun) count += 1;
+    inRun = agent;
+  }
+  return count;
 }
 
 

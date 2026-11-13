@@ -163,6 +163,25 @@
       "passExample": "Let's keep going a little longer. How would you let the rest of the team know?",
       "failExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment."
     },
+    "refused-question": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Good. Tell me about a production incident you had to handle: what happened, and what did you do?"
+        },
+        {
+          "role": "tool",
+          "reason": "time_up",
+          "answer": "refused",
+          "secondsLeft": 36
+        }
+      ],
+      "endTool": "forbidden",
+      "silent": true,
+      "condition": "The interviewer says nothing at all: its reply has no words. Any words fail, including repeating or rephrasing the question, a bridging phrase or a goodbye.",
+      "passExample": "(no reply)",
+      "failExample": "Let's keep going a little longer. So, what production incident did you handle, and what did you do?"
+    },
     "silent": {
       "extra": [
         {

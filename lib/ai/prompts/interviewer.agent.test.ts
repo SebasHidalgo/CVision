@@ -149,7 +149,10 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
     expect(INTERVIEWER_AGENT_PROMPT).toContain("end_interview goes with the goodbye and with nothing else");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("If the room answers REFUSED, the interview is not over and the candidate is still on the call");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Sigamos un poco más.");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("ask your next interview question");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("and ask a new interview question");
+    // A refusal while a question waits for its answer is silent: the question is never asked twice.
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("reply with no words at all and let them answer, and never ask that question again");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("end_interview never goes in a turn that asks a question");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Never ask or request anything in the turn that says goodbye");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("a goodbye left only in the tool is never heard");
     // The platform's own hang-up tool is gone from the agents and from the prompt.

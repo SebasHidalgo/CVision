@@ -1,5 +1,5 @@
 // Checks the interviewer's next turn in text, with no call (about 40 credits a run).
-// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local, --list.
+// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local, --list, --max-credits N (per run, default 150).
 // --llm runs this checkout's definition on another model (the backup); --local runs it unsynced.
 // Exit code 1 when a run fails. Never prints the key.
 import { readFileSync } from "node:fs";
@@ -23,10 +23,11 @@ const { values: args } = parseArgs({
     llm: { type: "string" },
     local: { type: "boolean" },
     list: { type: "boolean" },
+    "max-credits": { type: "string" },
   },
 });
 
-type Check = { condition: string; passExample: string; failExample: string; endTool?: "forbidden" | EndToolReason };
+type Check = { condition: string; passExample: string; failExample: string; endTool?: "forbidden" | EndToolReason; silent?: boolean };
 type Turn = { role: "agent" | "user"; message: string };
 /** A fixture turn: spoken, one of the room's [time] lines by name, or an end_interview call with the room's answer (refused with this much paid time left, or allowed). */
 type FixtureTurn = Turn | { role: "note"; note: "half" | "two" | "one" | "up" } | { role: "tool"; reason: EndToolReason; answer: "allowed" } | { role: "tool"; reason: EndToolReason; answer: "refused"; secondsLeft: number };
@@ -99,14 +100,18 @@ async function main() {
     for (const one of names) {
       const picked = fixture.cases[one];
       if (!picked) throw new Error(`--case must be all or one of ${Object.keys(fixture.cases).join(", ")}`);
-      // The room's answer is the one the room's own code gives.
-      const answer = (turn: Extract<FixtureTurn, { role: "tool" }>) =>
+      // The room's answer is the one the room's own code gives, on the lines it would have heard by then.
+      const answer = (turn: Extract<FixtureTurn, { role: "tool" }>, before: Turn[]) =>
         turn.answer === "allowed"
-          ? decideEndTool({ reason: "time_up", paidSecondsLeft: 0, turns: [] }).result
-          : decideEndTool({ reason: turn.reason === "candidate_confirmed" ? "candidate_confirmed" : "time_up", paidSecondsLeft: turn.secondsLeft, turns: [] }).result;
-      const extra: History = picked.extra.map((turn) =>
-        turn.role === "note" ? { role: "note" as const, message: noteText[turn.note] } : turn.role === "tool" ? { role: "tool" as const, reason: turn.reason, result: answer(turn) } : turn,
-      );
+          ? decideEndTool({ reason: "time_up", paidSecondsLeft: 0, turns: before }).result
+          : decideEndTool({ reason: turn.reason === "candidate_confirmed" ? "candidate_confirmed" : "time_up", paidSecondsLeft: turn.secondsLeft, turns: before }).result;
+      const heard: Turn[] = [{ role: "agent", message: variables.opening_line }, ...fixture.history];
+      const extra: History = picked.extra.map((turn) => {
+        if (turn.role === "note") return { role: "note" as const, message: noteText[turn.note] };
+        if (turn.role === "tool") return { role: "tool" as const, reason: turn.reason, result: answer(turn, heard) };
+        heard.push(turn);
+        return turn;
+      });
       planned.push({ label: `${name} / ${one}`, variables, history: [{ role: "agent", message: variables.opening_line }, ...fixture.history, ...extra], check: picked });
     }
   } else {
@@ -139,6 +144,8 @@ async function main() {
       failExample: one.check.failExample,
       repeat,
       ...(one.check.endTool ? { endTool: one.check.endTool } : {}),
+      ...(one.check.silent ? { mustBeSilent: true } : {}),
+      ...(args["max-credits"] ? { maxCredits: Number(args["max-credits"]) } : {}),
       ...(configOverride ? { configOverride } : {}),
     });
     for (const [index, run] of runs.entries()) {

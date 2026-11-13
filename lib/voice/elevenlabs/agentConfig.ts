@@ -51,7 +51,7 @@ export const END_INTERVIEW_TOOL_CONFIG: ElevenLabs.ToolRequestModelToolConfig.Cl
   type: "client",
   name: END_INTERVIEW_TOOL,
   description:
-    "Asks the room to end the call; only the room can hang up. The room acts once the reply this is called with has been spoken: it hangs up, so the candidate cannot answer anything said in that reply, or it refuses when the interview is not over. Call it only together with the spoken goodbye (thanks, and that the feedback will appear on the candidate's screen), and only after a [time] line said the interview time is up (reason time_up) or after the candidate answered yes to your question whether to end the interview now (reason candidate_confirmed). Never call it together with a question or a request, the confirmation question and \"take your time\" included, and never while a question of yours has no answer. If the result starts with REFUSED, the call continues: say one short bridging phrase and ask your next interview question.",
+    "Asks the room to end the call; only the room can hang up. The room acts once the reply this is called with has been spoken: it hangs up, so the candidate cannot answer anything said in that reply, or it refuses when the interview is not over. Call it only together with the spoken goodbye (thanks, and that the feedback will appear on the candidate's screen), and only after a [time] line said the interview time is up (reason time_up) or after the candidate answered yes to your question whether to end the interview now (reason candidate_confirmed). Never call it in a turn that asks a question or requests anything, the confirmation question and \"take your time\" included, and never while a question of yours has no answer. If the result starts with REFUSED, the call continues: do exactly what the result says (when your question is waiting for its answer, say nothing at all).",
   parameters: {
     type: "object",
     required: ["reason"],
@@ -207,6 +207,7 @@ export type InterviewAgentDefinition = {
   tags: string[];
   conversationConfig: ElevenLabs.ConversationalConfig;
   platformSettings: ElevenLabs.AgentPlatformSettingsRequestModel;
+  workflow: ElevenLabs.AgentWorkflowRequestModel;
 };
 
 /**
@@ -227,7 +228,7 @@ export function buildInterviewAgentDefinition({
   /** Where the per-environment daily cap is read from. */
   env?: Record<string, string | undefined>;
 }): InterviewAgentDefinition {
-  return {
+  return withClearedSettings({
     name: INTERVIEW_AGENT_NAMES[tier],
     tags: tier === "TRIAL" ? ["cvision", "trial"] : ["cvision"],
     conversationConfig: {
@@ -243,8 +244,6 @@ export function buildInterviewAgentDefinition({
           // No knowledge base. One tool, answered by the room, so only the room hangs up.
           toolIds: endToolId ? [endToolId] : [],
           knowledgeBase: [],
-          // An update merges: the platform's end_call goes only when it is set to null, not when it is left out.
-          builtInTools: { endCall: null as unknown as undefined },
           // Explicit: a backup model answers a turn the primary fails (seen live), so it is named and tested.
           backupLlmConfig: { preference: "override", order: INTERVIEW_AGENT_BACKUP_LLMS },
           cascadeTimeoutSeconds: INTERVIEW_AGENT_CASCADE_TIMEOUT_SECONDS,
@@ -323,7 +322,35 @@ export function buildInterviewAgentDefinition({
         retentionDays: 30,
       },
     },
-  };
+    // No workflow is used. Set because agents created before the platform's default changed hold false (found by the leftover check).
+    workflow: { preventSubagentLoops: true },
+  });
+}
+
+/**
+ * Settings an earlier definition set and this one removed. An agent update
+ * merges, so leaving a key out keeps the old value on the platform: each one
+ * here goes out as null, which clears it. `agent:sync` fails on any other
+ * leftover it finds, naming the path to add here.
+ */
+export const CLEARED_SETTINGS: readonly { path: string; reason: string }[] = [
+  { path: "conversationConfig.agent.prompt.builtInTools.endCall", reason: "only the room hangs up (M10-F); left out, end_call survived the first sync" },
+];
+
+/** The definition with every cleared setting written as null, creating the objects on its path. */
+export function withClearedSettings(definition: InterviewAgentDefinition): InterviewAgentDefinition {
+  const copy = structuredClone(definition) as unknown as Record<string, unknown>;
+  for (const { path } of CLEARED_SETTINGS) {
+    const keys = path.split(".");
+    let node = copy;
+    for (const key of keys.slice(0, -1)) {
+      const next = node[key];
+      if (typeof next !== "object" || next === null || Array.isArray(next)) node[key] = {};
+      node = node[key] as Record<string, unknown>;
+    }
+    node[keys.at(-1)!] = null;
+  }
+  return copy as unknown as InterviewAgentDefinition;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>

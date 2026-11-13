@@ -133,14 +133,28 @@ export function candidateConfirmedStop(turns: TranscriptTurn[]): boolean {
   return Boolean(reply) && !DECLINED.test(reply!.text);
 }
 
+const ASKS = /[?？]/;
+
+/** Since the candidate last spoke, the interviewer asked something that is not the goodbye: it still has no answer. */
+export function questionPending(turns: TranscriptTurn[]): boolean {
+  const said = spokenTurns(turns);
+  const lastAnswer = said.findLastIndex((turn) => turn.role === "user");
+  return said.slice(lastAnswer + 1).some((turn) => turn.role === "agent" && ASKS.test(turn.text) && !isGoodbye(turn.text));
+}
+
 const timeLeftWords = (seconds: number) => {
-  const whole = Math.max(0, Math.floor(seconds));
+  // Rounded up: a fraction of a second left is not "0 s".
+  const whole = Math.max(0, Math.ceil(seconds));
   const minutes = Math.floor(whole / 60);
   return minutes > 0 ? `${minutes} min ${whole % 60} s` : `${whole} s`;
 };
 
-/** The room's answer to the interviewer's end_interview: what the tool returns, whether the room now hangs up, and whether the goodbye was already said. */
-export type EndToolDecision = { allow: true; detail: EndDetail; result: string; goodbyeSaid: boolean } | { allow: false; result: string };
+/**
+ * The room's answer to the interviewer's end_interview: what the tool returns and whether the room now hangs up.
+ * Allowed: whether the goodbye was already said, and whether a question before it still waits for the candidate's answer.
+ * Refused: silent when the interviewer's last words asked something (the candidate is about to answer), spoken otherwise.
+ */
+export type EndToolDecision = { allow: true; detail: EndDetail; result: string; goodbyeSaid: boolean; awaitAnswer: boolean } | { allow: false; result: string; silent: boolean };
 
 /** The answer to an allowed call whose goodbye was already spoken; it goes out as the room hangs up. */
 export const END_ALLOWED_QUIET = `${END_TOOL_ALLOWED}: the room is ending the call now. Say nothing more.`;
@@ -151,8 +165,20 @@ const allowed = (detail: EndDetail, turns: TranscriptTurn[]): EndToolDecision =>
   const result = goodbyeSaid
     ? END_ALLOWED_QUIET
     : `${END_TOOL_ALLOWED}: the room hangs up when you finish speaking. Say the goodbye now, in the call's language, in two short sentences: thank the candidate for practicing, and say their feedback will appear on their screen in a moment. Ask nothing and do not call end_interview again.`;
-  return { allow: true, detail, result, goodbyeSaid };
+  // A confirmed stop was answered by the confirmation itself; a time-up goodbye may come over an open question.
+  return { allow: true, detail, result, goodbyeSaid, awaitAnswer: detail === "time_up" && questionPending(turns) };
 };
+
+/** After the candidate answered the question the goodbye came over: one more short goodbye, then the room hangs up. */
+export const END_ALLOWED_AFTER_ANSWER = `${END_TOOL_ALLOWED}: the candidate has answered and the room hangs up when you finish speaking. Say one short sentence that thanks them for the answer and says their feedback will appear on their screen in a moment. Ask nothing and do not call end_interview again.`;
+
+/** A refusal while the interviewer's question waits for its answer: no words, or the candidate hears the question twice. */
+const refusedSilently = (why: string) =>
+  `${END_TOOL_REFUSED}: the call continues. ${why} Your question is still waiting for the candidate's answer, so say nothing now: reply with no words at all, and let them answer. Do not repeat or rephrase the question. Do not call end_interview until a [time] line says the time is up.`;
+
+/** A refusal after a turn that asked nothing (an early goodbye): the interview picks up with a new question. */
+const refusedAloud = (why: string) =>
+  `${END_TOOL_REFUSED}: the call continues. ${why} Do not say goodbye again and do not call end_interview until a [time] line says the time is up. Say one short bridging phrase in the call's language (in English "Let's keep going a little longer.", in Spanish "Sigamos un poco más.") and ask your next interview question now, one you have not asked before.`;
 
 /** The end a room claim describes, when the record lost the tool turn. */
 export function endToolFromClaim(claim: CallEnd | null | undefined): EndToolCall | null {
@@ -173,18 +199,21 @@ export function decideEndTool({
   /** The live lines, for the confirmation exchange. */
   turns: TranscriptTurn[];
 }): EndToolDecision {
+  const silent = questionPending(turns);
   if (reason === "candidate_confirmed") {
     if (candidateConfirmedStop(turns)) return allowed("confirmed", turns);
+    const why = `The candidate has not answered yes to "Do you want to end the interview now?".`;
     return {
       allow: false,
-      result: `${END_TOOL_REFUSED}: the call continues. The candidate has not answered yes to "Do you want to end the interview now?". If they asked to stop, ask that question on its own, in the call's language, and wait for their answer. Otherwise say one short bridging phrase and go on with your next interview question. Do not say goodbye again.`,
+      silent,
+      result: silent
+        ? refusedSilently(why)
+        : `${END_TOOL_REFUSED}: the call continues. ${why} If they asked to stop, ask that question on its own, in the call's language, and wait for their answer. Otherwise say one short bridging phrase and go on with your next interview question. Do not say goodbye again.`,
     };
   }
   if (paidSecondsLeft <= 0) return allowed("time_up", turns);
-  return {
-    allow: false,
-    result: `${END_TOOL_REFUSED}: the call continues. The interview time is not up: ${timeLeftWords(paidSecondsLeft)} remain. Do not say goodbye again and do not call end_interview until a [time] line says the time is up. Say one short bridging phrase (in Spanish, "Sigamos un poco más.") and ask your next interview question now.`,
-  };
+  const why = `The interview time is not up: ${timeLeftWords(paidSecondsLeft)} remain.`;
+  return { allow: false, silent, result: silent ? refusedSilently(why) : refusedAloud(why) };
 }
 
 /** With this little left an end stands whatever was said: no call is worth resuming. */

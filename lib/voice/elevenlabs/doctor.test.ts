@@ -42,6 +42,8 @@ function agentReadback(tier: "FULL" | "TRIAL", overrides: Record<string, unknown
   config.agent.dynamic_variables = { dynamic_variable_placeholders: {} };
   body.metadata = { created_at_unix_secs: 1_760_000_000, updated_at_unix_secs: 1_760_000_000 };
   body.version_id = "ver_1";
+  // The workflow comes back with its (empty) graph.
+  body.workflow = { ...(body.workflow as Record<string, unknown>), edges: {}, nodes: {} };
   return { ...body, ...overrides };
 }
 
@@ -311,19 +313,20 @@ describe("voice:doctor", () => {
           words("agent", "Welcome."),
           words("user", "Hello."),
           words("agent", "What did you build last?", { llm_override: "gpt-4o" }),
-          // A tool entry carries no words: not a turn.
+          // A tool entry right after the words: the same turn, as the server counts it.
           { role: "agent", message: null, time_in_call_secs: 2, llm_override: "gpt-4o" },
           words("user", "A billing service."),
           words("agent", "And what was hard about it?", { llm_override: "gpt-4o" }),
         ]),
       },
-      "GET /v1/convai/conversations/conv_b": { body: conversation("conv_b", TRIAL_ID, [words("agent", "Welcome."), words("user", "Hello."), words("agent", "Tell me about your last role.")]) },
+      // The owner's 4:24 shape: the primary wrote the words, the backup only the tool call. The server counts it; so does the doctor.
+      "GET /v1/convai/conversations/conv_b": { body: conversation("conv_b", TRIAL_ID, [words("agent", "Welcome."), words("user", "Hello."), words("agent", "Tell me about your last role."), { role: "agent", message: null, time_in_call_secs: 9, llm_override: "gpt-4o" }]) },
     });
     const checks = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
 
     expect(byName(checks, "backup model (recent calls)")).toMatchObject({
       outcome: "pass",
-      detail: expect.stringContaining("the latest 2 call(s): 2 of 5 interviewer turn(s) were answered by the backup model (gpt-4o), in conv_a (2 of 3)."),
+      detail: expect.stringContaining("the latest 2 call(s): 3 of 5 interviewer turn(s) were answered by the backup model (gpt-4o), in conv_a (2 of 3), conv_b (1 of 2)."),
     });
     expect(byName(checks, "backup model (recent calls)").detail).toContain("[CVision][voice] call end");
     // Another workspace agent's call is not read, and the list asks for the latest ten.

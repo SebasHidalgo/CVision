@@ -32,6 +32,8 @@ const sdk = vi.hoisted(() => ({
   endSession: vi.fn(),
   sendContextualUpdate: vi.fn(),
   sendUserMessage: vi.fn(),
+  /** The candidate's microphone level the room reads. */
+  inputLevel: 0,
   /** The client tools the room registered, by name: a test calls one as the platform would. */
   tools: {} as Record<string, (parameters: unknown) => unknown>,
   setMode: (_mode: "speaking" | "listening") => {},
@@ -54,6 +56,7 @@ vi.mock("@elevenlabs/react", async () => {
         endSession: sdk.endSession,
         sendContextualUpdate: sdk.sendContextualUpdate,
         sendUserMessage: sdk.sendUserMessage,
+        getInputVolume: () => sdk.inputLevel,
         mode,
         isSpeaking: mode === "speaking",
         isListening: mode === "listening",
@@ -227,6 +230,7 @@ beforeEach(() => {
   // The room logs each end_interview call for support.
   vi.spyOn(console, "info").mockImplementation(() => {});
   sdk.tools = {};
+  sdk.inputLevel = 0;
 });
 
 afterEach(() => {
@@ -530,8 +534,8 @@ describe("InterviewAgent: during the call", () => {
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(2);
     tick(15_000);
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
-    expect(sdk.sendContextualUpdate.mock.calls[2][0]).toMatch(/^\[time\] About one minute remains\. This is not the end: keep asking/);
-    expect(sdk.sendContextualUpdate.mock.calls[2][0]).toMatch(/Do not say goodbye/);
+    expect(sdk.sendContextualUpdate.mock.calls[2][0]).toMatch(/^\[time\] About one minute remains\. Keep the interview going as before/);
+    expect(sdk.sendContextualUpdate.mock.calls[2][0]).not.toMatch(/goodbye|end_interview/);
 
     tick(58_000);
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
@@ -620,13 +624,13 @@ describe("InterviewAgent: only the room hangs up", () => {
     expect(result).toMatch(/^REFUSED: the call continues\./);
     expect(result).toContain("3 min 0 s remain");
     expect(result).toMatch(/Do not say goodbye/);
-    expect(result).toMatch(/ask your next interview question now\.$/);
+    expect(result).toMatch(/ask your next interview question now, one you have not asked before\.$/);
     expect(sdk.endSession).not.toHaveBeenCalled();
     expect(endedReports()).toHaveLength(0);
     expect(screen.getByRole("button", { name: /end the interview/i })).toBeTruthy();
     expect(clock()).toBe("3:00");
     // For support: the reason and the clocks, never what was said.
-    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=120s left=180s: refused");
+    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=120s left=180s: refused (spoken)");
   });
 
   it("an answer that ends at 3:54 of a five-minute trial does not lead to a goodbye: the room refuses and the interview goes on", async () => {
@@ -647,6 +651,23 @@ describe("InterviewAgent: only the room hangs up", () => {
     expect(clock()).toBe("0:46");
     expect(screen.getByRole("status").textContent).toBe("Last minute. The interviewer keeps asking until the time is up.");
     expect(screen.getByRole("button", { name: /end the interview/i })).toBeTruthy();
+  });
+
+  it("a question, then end_interview with 36 s left: refused without a word, so the candidate never hears the question twice", async () => {
+    await liveCall(300, { source: "trial" });
+    await say("agent", "What part of the inventory service was yours?");
+    tick(250_000);
+    await say("user", "The stock alerts and the reorder screen.");
+    tick(14_000);
+    await say("agent", "Interesting. What broke the first time it went to production?");
+
+    const result = askToEnd("time_up");
+
+    expect(result).toMatch(/^REFUSED: the call continues\. The interview time is not up: 36 s remain\./);
+    expect(result).toContain("say nothing now: reply with no words at all");
+    expect(result).not.toContain("bridging");
+    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=264s left=36s: refused (silent)");
+    expect(sdk.endSession).not.toHaveBeenCalled();
   });
 
   it("reads a call with no known reason as time_up: refused while paid time is left", async () => {
@@ -693,6 +714,48 @@ describe("InterviewAgent: only the room hangs up", () => {
     expect(report()).not.toHaveProperty("outcome");
     expect(endedReports()).toHaveLength(1);
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+  });
+
+  it("a goodbye over a question with no answer after 0:00: the room waits for the answer, then a short goodbye, then hangs up", async () => {
+    await liveCall(300);
+    await answer();
+    tick(298_000);
+    await say("agent", "And how did you roll it back?");
+    tick(14_000);
+    // 0:00 has passed; the interviewer says goodbye over its own open question.
+    act(() => sdk.setMode("speaking"));
+    await say("agent", GOODBYE);
+    const answers = askToEndAllowed("time_up");
+    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/: allowed \(time_up, after the answer\)$/));
+    act(() => sdk.setMode("listening"));
+    // The candidate starts answering: their microphone carries sound, so the wait goes on past fifteen seconds.
+    sdk.inputLevel = 0.3;
+    tick(20_000);
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    sdk.inputLevel = 0;
+    await say("user", "With a feature flag, in under a minute.");
+    tick(3_200);
+    await settled();
+    expect(answers).toEqual([expect.stringMatching(/^ALLOWED: the candidate has answered/)]);
+    act(() => sdk.setMode("speaking"));
+    tick(3_000);
+    act(() => sdk.setMode("listening"));
+    tick(2_300);
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("a goodbye over a question with no answer after 0:00, and silence: the room hangs up after fifteen seconds", async () => {
+    await liveCall(300);
+    await answer();
+    tick(298_000);
+    await say("agent", "And how did you roll it back?");
+    tick(14_000);
+    await say("agent", GOODBYE);
+    askToEndAllowed("time_up");
+    tick(14_000);
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    tick(1_500);
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
   });
 
   it("a second breath in the goodbye starts the wait again", async () => {

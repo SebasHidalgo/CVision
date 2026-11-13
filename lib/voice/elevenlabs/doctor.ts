@@ -14,6 +14,7 @@ import {
 } from "@/lib/voice/balance";
 import { buildInterviewAgentDefinition, END_INTERVIEW_TOOL_CONFIG, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV, interviewAgentVoices } from "./agentConfig";
 import { endToolProblem, findEndToolId } from "./sync";
+import { backupModelTurns, interviewerTurnCount } from "./wire";
 import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
@@ -271,7 +272,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const { dynamicVariables: _placeholders, ...agentWithoutPlaceholders } = expected.conversationConfig.agent ?? {};
       void _placeholders;
       const comparable = { ...expected, conversationConfig: { ...expected.conversationConfig, agent: agentWithoutPlaceholders } };
-      const differences = definitionDifferences(comparable, { name: agent.name, tags: agent.tags, conversationConfig: agent.conversationConfig, platformSettings: agent.platformSettings });
+      const differences = definitionDifferences(comparable, { name: agent.name, tags: agent.tags, conversationConfig: agent.conversationConfig, platformSettings: agent.platformSettings, workflow: agent.workflow });
       if (!postCallWebhookId) differences.push("platformSettings.workspaceOverrides.webhooks.postCallWebhookId (none attached)");
       // The definition's empty built-in tools walk nothing: an end_call left on is looked for by name.
       const toolProblem = endToolId ? endToolProblem(agent, endToolId) : null;
@@ -344,12 +345,14 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
         unread.push(conversation.conversationId);
         continue;
       }
-      const agentTurns = record.transcript.filter((turn) => turn.role === "agent" && typeof turn.message === "string" && turn.message.trim() !== "");
-      const backup = agentTurns.filter((turn) => typeof turn.llmOverride === "string" && turn.llmOverride.trim() !== "");
-      turns += agentTurns.length;
-      backupTurns += backup.length;
-      for (const turn of backup) models.add(turn.llmOverride!.trim());
-      if (backup.length > 0) callsWithBackup.push(`${conversation.conversationId} (${backup.length} of ${agentTurns.length})`);
+      // The server's rule (wire.ts): a backup turn is a run of flagged entries, words or a tool call alike.
+      const entries = record.transcript.map((turn) => ({ role: turn.role, llm_override: turn.llmOverride }));
+      const backup = backupModelTurns(entries);
+      const agentTurns = interviewerTurnCount(entries);
+      turns += agentTurns;
+      backupTurns += backup.count;
+      for (const model of backup.models) models.add(model);
+      if (backup.count > 0) callsWithBackup.push(`${conversation.conversationId} (${backup.count} of ${agentTurns})`);
     }
     const read = recent.length - unread.length;
     const unreadNote = unread.length ? ` ${unread.length} record(s) could not be read (${unread.join(", ")}).` : "";

@@ -1,13 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { agentConfigOverride, checkNextTurn, toRun, type NextTurnCheck } from "./simulate";
+import { agentConfigOverride, checkNextTurn, CreditCapError, toRun, type NextTurnCheck } from "./simulate";
 
 /** The platform's agent tests, stubbed: create, run, poll, delete. */
-function serve(answers: { invocations: unknown[]; createStatus?: number }) {
+function serve(answers: { invocations: unknown[]; createStatus?: number; used?: number[] }) {
   const calls: { method: string; path: string; body: unknown; key: string | null }[] = [];
   let polls = 0;
+  let reads = 0;
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     const method = (init?.method ?? "GET").toUpperCase();
+    // The balance the credit cap reads; not part of the test's own calls.
+    if (url.pathname === "/v1/user/subscription") {
+      if (!answers.used) return Response.json({ detail: "no stub" }, { status: 404 });
+      reads += 1;
+      return Response.json({ character_count: answers.used[Math.min(reads - 1, answers.used.length - 1)] });
+    }
     calls.push({ method, path: url.pathname, body: init?.body ? JSON.parse(String(init.body)) : undefined, key: new Headers(init?.headers).get("xi-api-key") });
     if (method === "POST" && url.pathname === "/v1/convai/agent-testing/create") {
       return answers.createStatus
@@ -125,6 +132,31 @@ describe("checkNextTurn: the interviewer's next turn, in text", () => {
     // The platform's old tool is not the room's: it does not count as asking.
     serve({ invocations: [run([question, { role: "agent", message: null, tool_calls: [{ tool_name: "end_call", params_as_json: "{}" }] }])] });
     expect(await checkNextTurn({ ...check, repeat: 1, endTool: "forbidden" }, env, noWait)).toMatchObject([{ passed: true, endedCall: false }]);
+  });
+
+  it("abandons a run whose spend passes its cap, read from the balance while it runs, and deletes the test", async () => {
+    const calls = serve({ invocations: [pending, pending, pending, finished], used: [1_000, 1_040, 1_160] });
+    await expect(checkNextTurn({ ...check, repeat: 1, maxCredits: 150 }, env, noWait)).rejects.toThrow(CreditCapError);
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+      "POST /v1/convai/agent-testing/create",
+      "POST /v1/convai/agents/agent_full/run-tests",
+      "GET /v1/convai/test-invocations/inv_1",
+      "GET /v1/convai/test-invocations/inv_1",
+      "DELETE /v1/convai/agent-testing/test_1",
+    ]);
+    // Under the cap the run finishes as usual; with no balance to read there is no cap.
+    serve({ invocations: [pending, finished], used: [1_000, 1_100] });
+    await expect(checkNextTurn({ ...check, repeat: 1, maxCredits: 150 }, env, noWait)).resolves.toHaveLength(2);
+    serve({ invocations: [pending, pending, finished] });
+    await expect(checkNextTurn({ ...check, repeat: 1 }, env, noWait)).resolves.toHaveLength(2);
+  });
+
+  it("passes a silent check only when the turn has no words and no tool call, whatever the judge said", () => {
+    const run = (turns: NonNullable<Parameters<typeof toRun>[0]["agent_responses"]>, status = "failed") => ({ status, credits_used: 30, agent_responses: turns, condition_result: { rationale: { summary: "No response." } } });
+    expect(toRun(run([{ role: "agent", message: "" }]), "forbidden", true)).toMatchObject({ passed: true, said: "" });
+    expect(toRun(run([]), "forbidden", true)).toMatchObject({ passed: true });
+    expect(toRun(run([{ role: "agent", message: "Sigamos. ¿Qué pasó en ese incidente?" }], "passed"), "forbidden", true)).toMatchObject({ passed: false, why: "the interviewer spoke; the judge: No response." });
+    expect(toRun(run([{ role: "agent", message: null, tool_calls: [{ tool_name: "end_interview", params_as_json: '{"reason":"time_up"}' }] }]), "forbidden", true)).toMatchObject({ passed: false });
   });
 
   it("deletes the test even when the run never finishes", async () => {

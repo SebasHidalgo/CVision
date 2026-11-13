@@ -42,7 +42,23 @@ export type NextTurnCheck = {
   endToolId?: string | null;
   /** The agent's full configuration for this run only: a backup model, or a definition not yet synced. */
   configOverride?: { conversation_config: unknown; platform_settings: unknown };
+  /** Checked in code, not by the judge: the turn must have no words at all (a silent refusal). */
+  mustBeSilent?: boolean;
+  /** The most a run may spend, read from the account's balance while it runs; past it the run is abandoned. Default 150. */
+  maxCredits?: number;
 };
+
+/** A run that spent more than its cap: the test was deleted and the run abandoned. */
+export class CreditCapError extends Error {}
+
+const DEFAULT_MAX_CREDITS = 150;
+
+/** Credits the account has used this period: the balance the cap is read from. */
+async function creditsUsedNow(env: Record<string, string | undefined>): Promise<number | null> {
+  const subscription = await call("GET", "/v1/user/subscription", undefined, env).catch(() => null);
+  const used = subscription?.character_count;
+  return typeof used === "number" && Number.isFinite(used) ? used : null;
+}
 
 export type NextTurnRun = {
   /** What the agent wrote. */
@@ -96,7 +112,7 @@ const reasonOf = (params: string | null | undefined): string | null => {
 };
 
 /** One run as the check reads it: the words for the judge, the tool call as a fact. */
-export function toRun(run: WireRun, endTool: NextTurnCheck["endTool"]): NextTurnRun {
+export function toRun(run: WireRun, endTool: NextTurnCheck["endTool"], mustBeSilent = false): NextTurnRun {
   const turns = run.agent_responses ?? [];
   const said = turns
     .filter((turn) => turn.role === "agent" && typeof turn.message === "string" && turn.message.trim() !== "")
@@ -120,6 +136,11 @@ export function toRun(run: WireRun, endTool: NextTurnCheck["endTool"]): NextTurn
               ? "the turn that asks the room to hang up also asked something"
               : null;
   const judged = run.condition_result?.rationale?.summary ?? null;
+  if (mustBeSilent) {
+    // Words are a fact, not a judgement: the judge's verdict on an empty reply is only reported.
+    const spoke = said !== "" ? "the interviewer spoke" : endedCall ? "end_interview was called again" : null;
+    return { said, passed: run.status !== "pending" && spoke === null, why: spoke ? `${spoke}${judged ? `; the judge: ${judged}` : ""}` : judged, credits: typeof run.credits_used === "number" ? run.credits_used : null, endedCall, endReason, model: turns.find((turn) => typeof turn.producing_llm === "string" && turn.producing_llm)?.producing_llm ?? null };
+  }
   return {
     said,
     passed: run.status === "passed" && broken === null,
@@ -175,6 +196,9 @@ export async function checkNextTurn(check: NextTurnCheck, env: Record<string, st
 
   try {
     const repeat = Math.max(1, Math.floor(check.repeat ?? 1));
+    // The platform cannot cap a run: the account's balance is read while it runs (a looping run once spent ~1,900).
+    const maxCredits = (check.maxCredits ?? DEFAULT_MAX_CREDITS) * repeat;
+    const usedBefore = await creditsUsedNow(env);
     let invocation = await call("POST", `/v1/convai/agents/${encodeURIComponent(check.agentId)}/run-tests`, { tests: [{ test_id: testId }], ...(repeat > 1 ? { repeat_count: repeat } : {}), ...(check.configOverride ? { agent_config_override: check.configOverride } : {}) }, env);
     const invocationId = typeof invocation.id === "string" ? invocation.id : null;
     if (!invocationId) throw new Error("ElevenLabs started the run without an id");
@@ -182,9 +206,13 @@ export async function checkNextTurn(check: NextTurnCheck, env: Record<string, st
     for (let polls = 0; polls < POLL_LIMIT && runs().some((run) => run.status === "pending"); polls += 1) {
       await wait(POLL_MS);
       invocation = await call("GET", `/v1/convai/test-invocations/${encodeURIComponent(invocationId)}`, undefined, env);
+      const usedNow = usedBefore === null ? null : await creditsUsedNow(env);
+      if (usedBefore !== null && usedNow !== null && usedNow - usedBefore > maxCredits) {
+        throw new CreditCapError(`the run passed its cap of ${maxCredits} credits (the balance moved by ${usedNow - usedBefore}): abandoned, its test deleted`);
+      }
     }
     if (runs().some((run) => run.status === "pending")) throw new Error("the test run did not finish in three minutes");
-    return runs().map((run) => toRun(run, check.endTool));
+    return runs().map((run) => toRun(run, check.endTool, check.mustBeSilent));
   } finally {
     // Best effort: a test left behind costs nothing and is named, so it can be deleted by hand.
     await call("DELETE", `/v1/convai/agent-testing/${encodeURIComponent(testId)}`, undefined, env).catch(() => undefined);
