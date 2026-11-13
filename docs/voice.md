@@ -40,6 +40,26 @@ a workspace object, like the webhook: the sync creates or updates it by name
 and attaches its id to both agents (`toolIds`), then reads both back and
 fails if `end_call` is still on or the tool is not attached.
 
+**Leftover settings (M10-G).** An agent update merges: a key removed from
+`agentConfig.ts` stays on the platform with its old value (that is how
+`end_call` survived the first M10-F sync). After pushing, the sync creates a
+throwaway agent from the same definition (named `… (sync check, deleted
+after)`), reads it back, deletes it, and compares each synced agent with it.
+A fresh agent holds exactly what the definition sets plus the platform's
+current defaults, so any other difference is a setting the platform kept.
+The sync fails on it and prints the path with both values. Two fixes: set
+the key in the definition, or add it to `CLEARED_SETTINGS` (with a reason)
+so every sync sends it as `null`, the documented way to clear a key.
+`end_call` is the first entry. Allowed differences are the platform's
+bookkeeping, each with its reason in `READBACK_BOOKKEEPING` (`lib/voice/elevenlabs/sync.ts`):
+ids, version and branch ids, timestamps, creator, phone numbers, the unused
+workflow's version counter, and the fresh agent's name. The first run found
+one leftover on both agents: `workflow.preventSubagentLoops` was `false` on
+the old agents and `true` on a fresh one, a platform default that changed
+after they were created. The definition now sets it. No workflow is used.
+The check costs nothing; a sync that crashes between create and delete
+leaves a marked agent, which the next sync removes.
+
 What can end a call by itself, and what is set (M10-F):
 
 | Setting | Value | What it does |
@@ -221,24 +241,37 @@ The prompt speaks `{{language_name}}` for everything it says and names requireme
 | When | What it says |
 |---|---|
 | half time (calls of 4 min or more) | keep asking as before; do not mention the time |
-| 2:00 left (calls of 3 min or more) | not the end: keep asking, short follow-ups, no large new topic |
-| 1:00 left | not the end: keep asking, only short questions; no goodbye, no "last question" |
+| 2:00 left (calls of 3 min or more) | keep the interview going as before, short follow-ups, no large new topic; do not mention the time |
+| 1:00 left | keep the interview going as before, only short questions or follow-ups; do not mention the time |
 | 0:00 | the time is up: ask nothing new; let the candidate finish the answer under way (or answer the question just asked; one short "take your time" on silence); then say the goodbye and call `end_interview` |
 
-A line that would land within 15 s of the next is skipped; nothing is sent after the 0:00 line.
+A line that would land within 15 s of the next is skipped; nothing is sent after the 0:00 line. Since M10-G no line before 0:00 names the goodbye, the closing or the tool, not even to forbid them. In the owner's M10-F trial the backup model called `end_interview` 23 s after a 1:00 line that said "do not say goodbye … and do not call end_interview" (a unit test now pins the absence of those words). The platform's record dates a `[time]` line at the interviewer's previous turn, not when it arrived: in that call the half and two-minute lines both read 133 s, because the interviewer last spoke then.
 
 **The room's clock** counts the paid length. At 0:00 it stops counting and shows "Time's up · closing…" / "Tiempo cumplido · cerrando…", never a negative time, with a line telling the candidate to finish their answer. The call goes on through the grace. The room hangs up by itself only past the paid length plus the grace: 15 s past it on a first call (the platform cuts at its own limit first and says its line), 3 s past it on a resumed call, whose paid time is shorter than the platform's limit.
 
 **Only the room hangs up (the veto).** The platform's `end_call` let any turn hang up: in M10-E a turn written by the backup model asked for one more thing and ended the call in the same generation. Now the interviewer has no tool that ends a call. It has `end_interview` (`reason`: `time_up` or `candidate_confirmed`), a client tool: the platform sends the call to the browser, the room decides (`decideEndTool`, `lib/voice/callEnd.ts`), and the room's answer goes back to the model.
 
-- `time_up` before the room's clock reached 0:00 is **refused**: the result starts with `REFUSED`, says how much time is left, and tells the interviewer to say one short bridging phrase and ask its next question. The call never stopped.
+- `time_up` before the room's clock reached 0:00 is **refused**: the result starts with `REFUSED` and says how much time is left (rounded up: a fraction of a second left is "1 s"). The call never stopped. What the result asks for depends on the room's live lines (M10-G):
+  - **Silent refusal.** Since the candidate's last words the interviewer asked something that is not the goodbye (`questionPending`). The candidate is about to answer, so the result says: reply with no words at all, do not repeat or rephrase the question. The same applies to a refused `candidate_confirmed` while the confirmation question waits for its answer.
+  - **Spoken refusal.** The interviewer's turn asked nothing, for example an early goodbye. The result asks for one short bridging phrase in the call's language and a new question, one not asked before.
 - `time_up` at or after 0:00 is allowed.
 - `candidate_confirmed` is allowed only when the live lines show the interviewer's question whether to end the interview followed by a reply that is not a no; otherwise it is refused with that question to ask. An unknown reason is read as `time_up`.
 - An allowed call is **not answered**: the room waits until the goodbye that came with it has been spoken (the interviewer quiet for 2 s after speaking; 30 s at most) and ends the session itself. If no goodbye is heard within 3 s, the room does answer (`ALLOWED`, "say the goodbye now"), and hangs up after it or 8 s later.
-- After the 0:00 line, a goodbye said without the tool ends the call the same way.
+- **A goodbye over an unanswered question (M10-G).** After 0:00 the interviewer may say goodbye while its last question has no answer, for example when the turn timeout makes it speak. The room allows the end but marks it `awaitAnswer` and does not hang up when the goodbye ends. It waits for whichever comes first:
+  - **The candidate's answer.** A new candidate line arrives. The room then expects one short goodbye of the interviewer's own; if none is heard within 3 s it answers the held call with `END_ALLOWED_AFTER_ANSWER`, "thank them for the answer, feedback on screen". It hangs up 2 s after that goodbye, or 8 s after the answer.
+  - **15 s of silence** (`ANSWER_WAIT_MS`). The room hangs up.
+
+  While the candidate's microphone carries sound (`getInputVolume` at 0.05 or more, an estimate not measured on calls), the silence count restarts, so a long answer is not cut. All of this happens inside the grace: the platform's limit, paid length plus 60 s, stays the backstop. The logic is a pure step function, `stepClosing` in `screens/Interview/utils/closing.ts`, unit-tested on its own and through the room.
+- After the 0:00 line, a goodbye said without the tool ends the call the same way, with the same wait when a question is pending.
 - A handler that throws answers `REFUSED`: a bug in the room must not end a call.
 
 The interviewer says the goodbye and calls the tool in the same turn. The first M10-F design asked the room first, with no words, and said goodbye only on a yes; the configured model said the goodbye with the call anyway (2 of 2 agent tests), so the design follows the model: the room, not the wording, is what stops an early end. The cost of that choice: an end refused by the room was already heard as a goodbye, and is followed by "Sigamos un poco más." and a question.
+
+**The question asked twice (the owner's M10-F trial, `conv_1401…`, M10-G).** At 4:24 (264 s on the platform's clock, 36 s before 0:00) the interviewer asked a question. Gemini wrote it: TTFB 1.26 s, last sentence 1.42 s. In the same generation the platform switched to the backup, and gpt-4o wrote only `end_interview(time_up)`: 16 output tokens, no words, tool request in 0.76 s. The room refused within 0.12 s with the M10-F text, "say one short bridging phrase and ask your next interview question now". Gemini did exactly that: "Sigamos un poco más." and the same question again, reworded, two seconds after the first. The record gives no reason for the switch: no error, no warning, and the primary's text was far inside the 4 s cascade timeout. The fix is the silent refusal above, chosen over a tool with no response plus a contextual update, because a contextual update cannot carry the spoken recovery an early goodbye needs. Evidence, in agent tests on this checkout's definition (the history ends with the interviewer's question, then the call and the room's silent refusal):
+- Gemini returned 0 output tokens: no words, no tool, and no switch to the backup.
+- gpt-4o returned 1 output token and no reply.
+
+The platform's judge cannot score an empty reply ("Unknown error"), so `voice:simulate` checks silence in code (`silent: true` in a fixture case).
 
 **Client tools over WebRTC, checked live** (the voice e2e spec, 2026-11-13, two calls of 5 and 3 s, on the trial agent in Spanish). The spec sends the 0:00 line and one typed candidate line through the room's dev hooks, minutes before the room's clock allows an end. Both times: the interviewer said the goodbye and called `end_interview(time_up)`; the call reached the room 1.4 to 1.5 s after the trigger; the room refused; the interviewer's next turn was "Sigamos un poco más." and a question. The platform's record holds the call and the room's answer as two tool turns (`tool_calls` and `tool_results`, type `client`), which is what the server reads. The SDK side: `@elevenlabs/react` 1.17 registers the handler with `useConversationClientTool`; `@elevenlabs/client` 1.27 runs it for any transport and sends `client_tool_result`. **Not checked live:** an allowed end (it needs a call that reaches 0:00, or a confirmed stop), so the wait for the goodbye's audio is covered by unit tests only.
 
@@ -267,7 +300,14 @@ A confirmed stop stands whatever time is left. End and Finish stand. With 30 s o
 
 **Overruns.** A call's record is reported as an overrun when it ran more than the grace plus 15 s past its paid time (`CALL_OVERRUN_TOLERANCE_SECONDS` = 75).
 
-**The backup model.** The platform answers a turn with the backup model (`gpt-4o`) when the primary fails it, and marks the turn (`llm_override`). The server counts those turns per call (`backupModelTurns`), stores the count on the call's end and prints it in the `call end` line; `voice:doctor` reads the latest ten calls and says how many interviewer turns the backup answered, in which calls.
+**The backup model.** The platform answers a turn with the backup model (`gpt-4o`) when the primary fails it, and marks the turn (`llm_override`). The server counts those turns per call (`backupModelTurns` in `wire.ts`: a run of flagged entries is one turn, whether it holds words or only a tool call), stores the count on the call's end and prints it in the `call end` line. `voice:doctor` reads the latest ten calls with the same function. Before M10-G the doctor counted only flagged entries with words, so a backup turn that only called a tool, like the owner's 4:24, was invisible to it. Its denominator is the interviewer's turns, each stretch of agent entries between the candidate's lines (`interviewerTurnCount`).
+
+**Backup decision (M10-G): unchanged, `gpt-4o` with a 4 s cascade timeout.** In the latest calls of both agents, the backup answered three times:
+- a spoken question in October;
+- a whole turn with `end_call` in M10-E;
+- the tool call alone in M10-F, after the primary's words.
+
+None of the three was latency: the primary's text arrived well inside 4 s, so a longer timeout would not have kept the turn on Gemini. The record carries no cause, so another backup could not be chosen on evidence. Another Gemini model would share the primary's failures. A different provider was not tested. The harm of these switches was a wrong end request; the room now refuses one silently when a question is pending, and before 0:00 always. On gpt-4o with the M10-G definition, the 1:00 case asked a short question without the tool (1/1), and the silent refusal produced no words (1/1).
 
 **Checked with agent tests** (`npm run voice:simulate -- --fixture closing-es|closing-en --case <name,name|all> [--tier trial] [--list]`). A `note` turn is the `contextual_update` tool turn a call records; a `tool` turn is an `end_interview` call with the answer the room's own code gives (`decideEndTool`). Whether the tool was called, and with which reason, is read in code from the run's tool calls; the judge reads the words.
 
@@ -279,7 +319,20 @@ A confirmed stop stands whatever time is left. End and Finish stand. With 30 s o
 | `stop-yes` | the candidate confirmed a stop: the goodbye, with `end_interview(candidate_confirmed)` | 1/1 on the final wording |
 | `silent` | the 0:00 line landed over an unanswered question: "take your time", no goodbye, no tool | **no verdict**: failed on the first M10-F wording (goodbye and tool over the pending question), and its run on the final wording was one of the two that looped |
 
-**Not run: English on the full agent, and anything on the backup model.** The budget for agent tests was 800 credits and the phase used 4,083 (41 + 283 on the first wording, 3,759 on the final one, of which 3,648 were the two looping runs). After that no more were run. The final wording restores the M10-E rules for the `silent` case, which passed 3/3 in M10-E with `end_call`; with `end_interview` it is unverified. If the interviewer does say goodbye over a pending question after 0:00, the room allows it (the time is up) and the candidate loses the chance to answer that question; before 0:00 the room refuses.
+**M10-G runs**, Spanish, trial agent, this checkout's definition (`--local`, or `--llm gpt-4o`). The budget was 300 credits and the runs used 282; each run is capped at 150, read from the account's balance while it runs (`--max-credits`), and abandoned past it.
+
+| Case | Model | Result | Credits |
+|---|---|---|---|
+| `refused-question` (new: the call came with a question; silent refusal) | gemini-3.5-flash | no words, no tool (0 output tokens) | 41 |
+| `one-minute` (new 1:00 wording) | gpt-4o | a short follow-up question, no tool | 57 |
+| `refused-question` | gpt-4o | no words (1 output token) | 56 |
+| `refused` (early goodbye; spoken refusal, new wording) | gemini-3.5-flash | "Sigamos un poco más." and a new question | 44 |
+| `silent` (0:00 over an unanswered question) | gemini-3.5-flash | **fail**: re-asked the question in other words; no goodbye, no tool | 43 |
+| `refused-question`, English, **full agent** | gemini-3.5-flash | no words, no tool (0 output tokens) | 41 |
+
+The `silent` failure is the test's shape as much as the model: the test forces a reply right after the 0:00 line, which in a call does not happen ("do not reply to this line"); in a call the next reply comes from the 12 s turn timeout, and re-asking then is a nudge, not the defect the owner heard. It is open: the rule says "take your time". The other English cases were not run on the full agent.
+
+**M10-F (history). Not run: English on the full agent, and anything on the backup model.** The budget for agent tests was 800 credits and the phase used 4,083 (41 + 283 on the first wording, 3,759 on the final one, of which 3,648 were the two looping runs). After that no more were run. The final wording restores the M10-E rules for the `silent` case, which passed 3/3 in M10-E with `end_call`; with `end_interview` it is unverified. If the interviewer does say goodbye over a pending question after 0:00, the room allows it (the time is up); since M10-G it then waits for the answer or 15 s of silence before hanging up, so the candidate keeps the chance to answer. Before 0:00 the room refuses.
 
 ### How a call ended before M10-F (history)
 
