@@ -37,6 +37,11 @@ describe("what the interviewer's last words were", () => {
     expect(candidateConfirmedStop([...asked, user("Sí, terminemos."), agent(GOODBYE_ES)])).toBe(true);
     expect(candidateConfirmedStop([...asked, user("No, mejor sigamos."), agent(GOODBYE_ES)])).toBe(false);
     expect(candidateConfirmedStop([...base, agent(GOODBYE_ES)])).toBe(false);
+    // A word of thanks after the goodbye is not the answer to the question.
+    expect(candidateConfirmedStop([...asked, user("Sí, terminemos."), agent(GOODBYE_ES), user("Gracias, hasta luego.")])).toBe(true);
+    expect(candidateConfirmedStop([...asked, user("No, mejor sigamos."), agent(GOODBYE_ES), user("Bueno, gracias.")])).toBe(false);
+    // Asked, and the call ended before any answer.
+    expect(candidateConfirmedStop(asked)).toBe(false);
     const english = [agent("Do you want to end the interview now?"), user("Yes, please.")];
     expect(candidateConfirmedStop(english)).toBe(true);
     expect(candidateConfirmedStop([agent("Do you want to end the interview now?"), user("Not yet, let's continue.")])).toBe(false);

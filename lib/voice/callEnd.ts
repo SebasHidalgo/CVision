@@ -89,11 +89,11 @@ const DECLINED = /^\W*(no\b|nope\b|not yet|todav[ií]a no|a[uú]n no|mejor (no|s
 /** The candidate was asked whether to end the interview and did not say no. */
 export function candidateConfirmedStop(turns: TranscriptTurn[]): boolean {
   const said = spokenTurns(turns);
-  const reply = said.findLastIndex((turn) => turn.role === "user");
-  if (reply < 1) return false;
-  const asked = said[reply - 1];
-  if (asked.role !== "agent" || !/[?？]/.test(asked.text) || !CONFIRM_END.test(asked.text)) return false;
-  return !DECLINED.test(said[reply].text);
+  // The last time the interviewer asked, and the candidate's first words after it.
+  const asked = said.findLastIndex((turn) => turn.role === "agent" && /[?？]/.test(turn.text) && CONFIRM_END.test(turn.text));
+  if (asked < 0) return false;
+  const reply = said.slice(asked + 1).find((turn) => turn.role === "user");
+  return Boolean(reply) && !DECLINED.test(reply!.text);
 }
 
 /** With this little left an end stands whatever was said: no call is worth resuming. */
