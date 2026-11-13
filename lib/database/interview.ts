@@ -7,8 +7,8 @@ import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
-import type { CallEnd, RoomEndClaim } from "@/lib/voice/callEnd";
-import type { CallSegment } from "@/lib/voice/segments";
+import { readCallEnd, withLateClaim, type CallEnd, type RoomEndClaim } from "@/lib/voice/callEnd";
+import { readSegments, type CallSegment } from "@/lib/voice/segments";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
 import { expireAbandonedInterviews } from "./interviewExpiry";
@@ -416,6 +416,26 @@ export async function markInterviewEnded(params: {
     }
   } catch (error) {
     handleError(error, "Failed to record the end of the interview");
+  }
+}
+
+/** The room's report arrived after the call's record: what only the room knows is added to the stored end. */
+export async function applyLateEndClaim(interviewId: string, claim: { reason: RoomEndClaim; roomSeconds: number | null }): Promise<boolean> {
+  try {
+    const userId = await requireUserId();
+    const row = await prisma.interview.findFirst({ where: { id: interviewId, userId }, select: { conversationId: true, callEnd: true, segments: true } });
+    const next = row ? withLateClaim(readCallEnd(row.callEnd), claim) : null;
+    if (!row || !next) return false;
+    // A scored interview keeps the same end on its last segment.
+    const segments = readSegments(row.segments);
+    const patched = segments.map((segment) => (segment.conversationId === row.conversationId && segment.end ? { ...segment, end: next } : segment));
+    const updated = await prisma.interview.updateMany({
+      where: { id: interviewId, userId, conversationId: row.conversationId },
+      data: { callEnd: next, ...(segments.length > 0 ? { segments: patched as Prisma.InputJsonValue } : {}) },
+    });
+    return updated.count === 1;
+  } catch (error) {
+    handleError(error, "Failed to add the room's account of the end");
   }
 }
 

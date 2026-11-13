@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
-import { markInterviewEnded } from "@/lib/database/interview";
+import { applyLateEndClaim, markInterviewEnded } from "@/lib/database/interview";
 import { recordCallOutcome } from "@/lib/database/interviewResume";
 import { EARLY_END_WINDOW_MS } from "@/lib/voice/postCall";
 import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
@@ -10,7 +10,7 @@ import { UnauthorizedError } from "@/lib/error/errors";
 import { POST } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn() }));
-vi.mock("@/lib/database/interview", () => ({ markInterviewEnded: vi.fn() }));
+vi.mock("@/lib/database/interview", () => ({ markInterviewEnded: vi.fn(), applyLateEndClaim: vi.fn(async () => true) }));
 vi.mock("@/lib/database/interviewResume", () => ({ recordCallOutcome: vi.fn(async () => ({ finalized: false })) }));
 vi.mock("@/lib/voice/reconcile", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/voice/reconcile")>();
@@ -155,6 +155,20 @@ describe("POST /api/interview/[id]/ended", () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining("end=interviewer room=233s"));
     // A reason the room cannot know is refused, not stored.
     expect(await post(JSON.stringify({ reason: "agent", end: "platform" }))).toMatchObject({ status: 400 });
+  });
+
+  it("adds the room's account to an end the record already stored: the webhook can beat the report", async () => {
+    vi.mocked(markInterviewEnded).mockResolvedValue({ recorded: false });
+    expect(await post(JSON.stringify({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: 3.1 }))).toMatchObject({ status: 200 });
+    expect(applyLateEndClaim).toHaveBeenCalledWith(INTERVIEW_ID, { reason: "user", roomSeconds: 3.1 });
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("after the record"));
+  });
+
+  it("does not look for a stored end when the report came first, or says nothing about the end", async () => {
+    expect(await post(JSON.stringify({ reason: "user", end: "user", elapsedSeconds: 3 }))).toMatchObject({ status: 200 });
+    vi.mocked(markInterviewEnded).mockResolvedValue({ recorded: false });
+    expect(await post(JSON.stringify({ reason: "reconnect", outcome: "drop" }))).toMatchObject({ status: 200 });
+    expect(applyLateEndClaim).not.toHaveBeenCalled();
   });
 
   it("tolerates an empty or non-JSON body: the reason is for the log", async () => {

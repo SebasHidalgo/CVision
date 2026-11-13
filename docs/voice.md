@@ -237,7 +237,7 @@ The same mechanism shows with the configured model. With the first M10-E wording
 | `disconnect` | The client left and the room did not claim it (a lost connection, a closed tab). |
 | `platform` | Any other wording in the record: the platform ended it (a silence timeout, an error); `detail` keeps the wording. |
 
-The room reports its claim and its own count of the call with the end report (`end`, `elapsedSeconds`); the record settles it (`settleCallEnd`, `lib/voice/callEnd.ts`): the platform cannot tell End from a closed tab, so there the room's word stands, and everywhere else the record's does. One log line per stored call: `[CVision][voice] call end interview=… reason=… platform=…s room=…s status=…`, with `EARLY END` when it applies.
+The room reports its claim and its own count of the call with the end report (`end`, `elapsedSeconds`); the record settles it (`settleCallEnd`, `lib/voice/callEnd.ts`): the platform cannot tell End from a closed tab, so there the room's word stands, and everywhere else the record's does. The record can arrive before the room's report (seen in the voice e2e run of 2026-11-13, whose End was first stored as a disconnect): the report then adds what only the room knows to the stored end (`applyLateEndClaim`), never replacing the platform's own word. One log line per stored call: `[CVision][voice] call end interview=… reason=… platform=…s room=…s status=…`, with `EARLY END` when it applies.
 
 **The classification** (`isEarlyEnd`, pure, run by the server on the record and by the room on its live lines). A call the interviewer or the platform ended is an early end when:
 

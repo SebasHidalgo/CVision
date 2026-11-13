@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateConfirmedStop, endsUnanswered, isEarlyEnd, readCallEnd, saidGoodbye, settleCallEnd, type PlatformEnd } from "./callEnd";
+import { candidateConfirmedStop, endsUnanswered, isEarlyEnd, readCallEnd, saidGoodbye, settleCallEnd, withLateClaim, type PlatformEnd } from "./callEnd";
 
 type Turn = { role: string; message: string | null };
 const agent = (message: string | null): Turn => ({ role: "agent", message });
@@ -112,6 +112,22 @@ describe("settleCallEnd", () => {
     // The room thought the interviewer ended it; the record says the client left.
     expect(settle("client", { reason: "interviewer" }, left)).toMatchObject({ reason: "disconnect" });
     expect(settle("unknown")).toMatchObject({ reason: "disconnect", detail: null });
+  });
+
+  it("lets a room report that lands after the record say what only the room knows", () => {
+    const dropped = { reason: "disconnect" as const, detail: "Client disconnected: 1005", roomSeconds: null, recorded: true };
+    // The webhook won the race: the candidate's End was stored as a disconnect.
+    expect(withLateClaim(dropped, { reason: "user", roomSeconds: 3.1 })).toEqual({ reason: "user", detail: null, roomSeconds: 3.1, recorded: true });
+    expect(withLateClaim(dropped, { reason: "room", roomSeconds: 303 })).toMatchObject({ reason: "room" });
+    // A disconnect stays one, with the room's clock added.
+    expect(withLateClaim(dropped, { reason: "disconnect", roomSeconds: 40 })).toEqual({ ...dropped, roomSeconds: 40 });
+    // The platform's own word is never replaced; only the missing clock is filled.
+    const hungUp = { reason: "interviewer" as const, detail: "Time is up.", roomSeconds: null, recorded: true };
+    expect(withLateClaim(hungUp, { reason: "user", roomSeconds: 235 })).toEqual({ ...hungUp, roomSeconds: 235 });
+    expect(withLateClaim({ ...hungUp, roomSeconds: 234 }, { reason: "interviewer", roomSeconds: 235 })).toBeNull();
+    // Nothing recorded yet: the ordinary report writes the claim.
+    expect(withLateClaim(null, { reason: "user", roomSeconds: 1 })).toBeNull();
+    expect(withLateClaim({ reason: "user", recorded: false }, { reason: "user", roomSeconds: 1 })).toBeNull();
   });
 
   it("reads back only what it wrote", () => {

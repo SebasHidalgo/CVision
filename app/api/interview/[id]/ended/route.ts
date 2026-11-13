@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
-import { markInterviewEnded } from "@/lib/database/interview";
+import { applyLateEndClaim, markInterviewEnded } from "@/lib/database/interview";
 import { recordCallOutcome } from "@/lib/database/interviewResume";
 import { EARLY_END_WINDOW_MS } from "@/lib/voice/postCall";
 import { reconcileNeedsFeedback, reconcileStrandedInterview } from "@/lib/voice/reconcile";
@@ -51,9 +51,11 @@ export async function POST(
 
     const { end, elapsedSeconds } = parsed.data;
     const mark = await markInterviewEnded({ interviewId: id, endedAt: new Date(), ...(end ? { claim: { reason: end, roomSeconds: elapsedSeconds ?? null } } : {}) });
+    // The record can beat this report: then the stored end takes what only the room knows.
+    const late = !mark.recorded && end ? await applyLateEndClaim(id, { reason: end, roomSeconds: elapsedSeconds ?? null }) : false;
     const early = mark.recorded && mark.sessionAgeMs !== null && mark.sessionAgeMs <= EARLY_END_WINDOW_MS;
     console.info(
-      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} end=${end ?? "(none)"} room=${typeof elapsedSeconds === "number" ? `${Math.round(elapsedSeconds)}s` : "?"} recorded=${mark.recorded}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
+      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} end=${end ?? "(none)"} room=${typeof elapsedSeconds === "number" ? `${Math.round(elapsedSeconds)}s` : "?"} recorded=${mark.recorded}${late ? " (after the record: its end now carries the room's account)" : ""}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
     );
 
     if (early) {

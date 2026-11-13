@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { createInterview, markInterviewEnded, reserveInterviewSession } from "./interview";
+import { applyLateEndClaim, createInterview, markInterviewEnded, reserveInterviewSession } from "./interview";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
@@ -11,7 +11,7 @@ const tx = {
   interview: { findFirst: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
-  default: { $transaction: vi.fn(), interview: { updateMany: vi.fn(), update: vi.fn() } },
+  default: { $transaction: vi.fn(), interview: { updateMany: vi.fn(), update: vi.fn(), findFirst: vi.fn() } },
 }));
 
 const RESUME_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
@@ -184,5 +184,32 @@ describe("markInterviewEnded", () => {
   it("lets any other database failure through as the app's error", async () => {
     vi.mocked(prisma.interview.update).mockRejectedValue(new Error("connection lost"));
     await expect(markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe("applyLateEndClaim", () => {
+  const stored = { reason: "disconnect", detail: "Client disconnected: 1005", roomSeconds: null, recorded: true };
+
+  it("turns a recorded disconnect into the candidate's End when the room's report lands after the record", async () => {
+    vi.mocked(prisma.interview.findFirst).mockResolvedValueOnce({ conversationId: "conv_1", callEnd: stored, segments: null } as never);
+    vi.mocked(prisma.interview.updateMany).mockResolvedValueOnce({ count: 1 });
+
+    expect(await applyLateEndClaim(INTERVIEW_ID, { reason: "user", roomSeconds: 3.1 })).toBe(true);
+    expect(prisma.interview.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: INTERVIEW_ID, userId: "user_1" } }));
+    // Guarded on the call it read: a newer session's end is never touched.
+    expect(prisma.interview.updateMany).toHaveBeenCalledWith({
+      where: { id: INTERVIEW_ID, userId: "user_1", conversationId: "conv_1" },
+      data: { callEnd: { reason: "user", detail: null, roomSeconds: 3.1, recorded: true } },
+    });
+  });
+
+  it("writes nothing when there is no recorded end, or nothing to add", async () => {
+    vi.mocked(prisma.interview.findFirst).mockResolvedValueOnce({ conversationId: "conv_1", callEnd: null, segments: null } as never);
+    expect(await applyLateEndClaim(INTERVIEW_ID, { reason: "user", roomSeconds: 3 })).toBe(false);
+    vi.mocked(prisma.interview.findFirst).mockResolvedValueOnce({ conversationId: "conv_1", callEnd: { ...stored, reason: "interviewer", roomSeconds: 200 }, segments: null } as never);
+    expect(await applyLateEndClaim(INTERVIEW_ID, { reason: "user", roomSeconds: 201 })).toBe(false);
+    vi.mocked(prisma.interview.findFirst).mockResolvedValueOnce(null);
+    expect(await applyLateEndClaim(INTERVIEW_ID, { reason: "user", roomSeconds: 3 })).toBe(false);
+    expect(prisma.interview.updateMany).not.toHaveBeenCalled();
   });
 });

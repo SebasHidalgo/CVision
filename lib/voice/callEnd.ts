@@ -62,6 +62,14 @@ export function settleCallEnd({
   return settled("disconnect", clipDetail(terminationReason));
 }
 
+/** A room report that lands after the record: it still says what only the room knows. Null when nothing changes. */
+export function withLateClaim(stored: CallEnd | null, claim: { reason: RoomEndClaim; roomSeconds: number | null }): CallEnd | null {
+  if (!stored?.recorded) return null;
+  const roomSeconds = stored.roomSeconds ?? claim.roomSeconds;
+  if (stored.reason === "disconnect" && (claim.reason === "user" || claim.reason === "room")) return { ...stored, reason: claim.reason, detail: null, roomSeconds };
+  return roomSeconds !== (stored.roomSeconds ?? null) ? { ...stored, roomSeconds } : null;
+}
+
 type Spoken = { role: string; text: string };
 
 const spokenTurns = (turns: TranscriptTurn[]): Spoken[] =>
