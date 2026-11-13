@@ -112,7 +112,8 @@ async function main() {
   let credits = 0;
   for (const [index, run] of runs.entries()) {
     credits += run.credits ?? 0;
-    console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1}: ${run.said || "(the interviewer said nothing)"}`);
+    // One line per reply: a reply's later paragraphs must survive a grep.
+    console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1}: ${run.said.replace(/\s+/g, " ") || "(the interviewer said nothing)"}`);
     if (run.why) console.log(`      -> ${run.why}`);
   }
   const failed = runs.filter((run) => !run.passed).length;
