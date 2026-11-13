@@ -1,5 +1,6 @@
 // Checks the interviewer's next turn in text, with no call (about 40 credits a run).
-// Flags: --fixture pending-question|closing-es|closing-en, --case, --tier trial, --repeat N.
+// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local.
+// --llm runs this checkout's definition on another model (the backup); --local runs it unsynced.
 // Exit code 1 when a run fails. Never prints the key.
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -7,8 +8,9 @@ import { parseArgs } from "node:util";
 import { buildInterviewerContext, type InterviewerContextInput } from "@/lib/ai/prompts/interviewer.agent";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { checkNextTurn } from "@/lib/voice/admin";
+import { agentConfigOverride, checkNextTurn } from "@/lib/voice/admin";
 import { continuityRecord } from "@/lib/voice/segments";
+import { halfText, TWO_TEXT, WRAP_TEXT } from "@/lib/voice/timeNotes";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 
 const { values: args } = parseArgs({
@@ -17,11 +19,15 @@ const { values: args } = parseArgs({
     case: { type: "string" },
     repeat: { type: "string" },
     tier: { type: "string" },
+    llm: { type: "string" },
+    local: { type: "boolean" },
   },
 });
 
-type Check = { condition: string; passExample: string; failExample: string };
+type Check = { condition: string; passExample: string; failExample: string; endCall?: "required" | "forbidden" };
 type Turn = { role: "agent" | "user"; message: string };
+/** A fixture turn: spoken, or one of the room's [time] lines by name. */
+type FixtureTurn = Turn | { role: "note"; note: "half" | "two" | "wrap" };
 
 type Base = {
   candidateFirstName: string;
@@ -44,7 +50,7 @@ type ResumeFixture = Base & {
 /** A first call: the conversation so far, then one case's last turns and what the next turn must do. */
 type CaseFixture = Base & {
   history: Turn[];
-  cases: Record<string, Check & { extra: Turn[] }>;
+  cases: Record<string, Check & { extra: FixtureTurn[] }>;
 };
 
 const AGENT_ENV = { full: "ELEVENLABS_AGENT_ID", trial: "ELEVENLABS_TRIAL_AGENT_ID" } as const;
@@ -74,51 +80,64 @@ async function main() {
     ...(resume ? { resume } : {}),
   });
 
-  let variables: Record<string, string>;
-  let history: Turn[];
-  let check: Check;
+  // What one check sends: the session's variables, the conversation so far, and what the next turn must do.
+  type Planned = { label: string; variables: Record<string, string>; history: { role: "agent" | "user" | "note"; message: string }[]; check: Check };
+  const planned: Planned[] = [];
   if ("cases" in fixture) {
     const chosen = args.case ?? "covered";
-    const picked = fixture.cases[chosen];
-    if (!picked) throw new Error(`--case must be one of ${Object.keys(fixture.cases).join(", ")}`);
-    variables = buildInterviewerContext(base()).dynamicVariables;
-    history = [{ role: "agent", message: variables.opening_line }, ...fixture.history, ...picked.extra];
-    check = picked;
-    console.log(`${name} / ${chosen} on the ${tier} agent (${seconds / 60} min): ${history.length} turns, then the interviewer's next one.\n`);
+    const names = chosen === "all" ? Object.keys(fixture.cases) : chosen.split(",");
+    const variables = buildInterviewerContext(base()).dynamicVariables;
+    // A note turn becomes the line the room would send at that point of this tier's call.
+    const noteText = { wrap: WRAP_TEXT, two: TWO_TEXT, half: halfText(Math.floor(seconds / 120)) };
+    for (const one of names) {
+      const picked = fixture.cases[one];
+      if (!picked) throw new Error(`--case must be all or one of ${Object.keys(fixture.cases).join(", ")}`);
+      const extra = picked.extra.map((turn) => (turn.role === "note" ? { role: "note" as const, message: noteText[turn.note] } : turn));
+      planned.push({ label: `${name} / ${one}`, variables, history: [{ role: "agent", message: variables.opening_line }, ...fixture.history, ...extra], check: picked });
+    }
   } else {
     const record = continuityRecord(fixture.turns);
-    variables = buildInterviewerContext(base({ remainingSeconds: fixture.plannedSeconds - fixture.droppedAfterSeconds, record }, fixture.plannedSeconds)).dynamicVariables;
-    history = [
-      { role: "agent", message: variables.opening_line },
-      { role: "user", message: fixture.check.candidateReply },
-    ];
-    check = fixture.check;
+    const variables = buildInterviewerContext(base({ remainingSeconds: fixture.plannedSeconds - fixture.droppedAfterSeconds, record }, fixture.plannedSeconds)).dynamicVariables;
+    planned.push({ label: name, variables, history: [{ role: "agent", message: variables.opening_line }, { role: "user", message: fixture.check.candidateReply }], check: fixture.check });
     console.log(`The resumed call opens with: ${variables.opening_line}`);
     console.log(`The candidate replies: ${fixture.check.candidateReply}`);
     console.log(`Answered before the drop: ${record.exchanges.length} exchange(s). Pending: ${record.pending ?? "(none)"}\n`);
   }
 
-  const runs = await checkNextTurn({
-    agentId,
-    name: `${fixture.company} ${name} check ${new Date().toISOString()}`,
-    variables,
-    history,
-    condition: check.condition,
-    passExample: check.passExample,
-    failExample: check.failExample,
-    repeat,
-  });
+  // The synced agent as it is, or this checkout's definition for this run only.
+  const configOverride = args.llm || args.local ? agentConfigOverride(tier === "trial" ? "TRIAL" : "FULL", args.llm ? { llm: args.llm } : {}) : undefined;
+  const running = configOverride ? `this checkout's definition${args.llm ? ` on ${args.llm}` : ""}` : "the synced agent";
 
   let credits = 0;
-  for (const [index, run] of runs.entries()) {
-    credits += run.credits ?? 0;
-    // One line per reply: a reply's later paragraphs must survive a grep.
-    console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1}: ${run.said.replace(/\s+/g, " ") || "(the interviewer said nothing)"}`);
-    if (run.why) console.log(`      -> ${run.why}`);
+  let failed = 0;
+  let total = 0;
+  for (const one of planned) {
+    console.log(`${one.label} on the ${tier} agent (${seconds / 60} min, ${running}): ${one.history.length} turns, then the interviewer's next one.`);
+    const runs = await checkNextTurn({
+      agentId,
+      name: `${fixture.company} ${one.label} check ${new Date().toISOString()}`,
+      variables: one.variables,
+      history: one.history,
+      condition: one.check.condition,
+      passExample: one.check.passExample,
+      failExample: one.check.failExample,
+      repeat,
+      ...(one.check.endCall ? { endCall: one.check.endCall } : {}),
+      ...(configOverride ? { configOverride } : {}),
+    });
+    for (const [index, run] of runs.entries()) {
+      credits += run.credits ?? 0;
+      total += 1;
+      if (!run.passed) failed += 1;
+      // One line per reply: a reply's later paragraphs must survive a grep.
+      console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1} [${run.model ?? "model?"}, end_call: ${run.endedCall ? "yes" : "no"}]: ${run.said.replace(/\s+/g, " ") || "(the interviewer said nothing)"}`);
+      if (run.why) console.log(`      -> ${run.why}`);
+    }
+    if (runs.length === 0) failed += 1;
+    console.log("");
   }
-  const failed = runs.filter((run) => !run.passed).length;
-  console.log(`\n${runs.length - failed} of ${runs.length} run(s) passed. Credits used: ${credits}.`);
-  if (failed > 0 || runs.length === 0) process.exitCode = 1;
+  console.log(`${total - failed} of ${total} run(s) passed. Credits used: ${credits}.`);
+  if (failed > 0 || total === 0) process.exitCode = 1;
 }
 
 // The script smoke test loads this module to prove its imports resolve; it must not run.

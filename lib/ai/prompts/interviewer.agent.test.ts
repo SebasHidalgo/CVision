@@ -132,10 +132,29 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
   });
 
   it("ends the call only on the room's signal or the candidate's request, never because topics are covered", () => {
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("You end the call in only two cases");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The call ends in only two ways, and you start neither on your own");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("In every other case you never close and never call end_call");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Never say that you have covered everything");
     expect(INTERVIEWER_AGENT_PROMPT).not.toContain("hiring-side");
+  });
+
+  it("never ends over a pending question, never without a spoken goodbye, and confirms before ending on request", () => {
+    // The mechanism, so no model attaches end_call to a turn that asks something.
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("it hangs up the moment the reply it is called with has been spoken");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("must never call end_call");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never end the call while a question of yours is unanswered");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("their silence is thinking time, not the end");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("a goodbye left only in the tool is never heard");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never close on the request alone");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("¿Quieres terminar la entrevista ahora?");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("it is never a yes by itself");
+    // The half-time and two-minute lines must not be announced.
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("never call a question the last one");
+  });
+
+  it("speaks as one interviewer, with no organization behind the practice", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never use a \"we\" that stands for a company or a team");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("con nosotros");
   });
 
   it("speaks English by default: opening line, language name", () => {

@@ -10,7 +10,7 @@ import { synthesizeSample } from "./elevenlabs/cost";
 
 export { listConversationIds, readConversationCost, readPlanPrice, summarizeCosts, type ConversationCost, type CostSummary, type PlanPrice } from "./elevenlabs/cost";
 export { SPANISH_VOICE_CANDIDATES, SPANISH_VOICE_SAMPLE_TEXT } from "./elevenlabs/agentConfig";
-export { checkNextTurn, type NextTurnCheck, type NextTurnRun } from "./elevenlabs/simulate";
+export { agentConfigOverride, checkNextTurn, type NextTurnCheck, type NextTurnRun } from "./elevenlabs/simulate";
 
 /** The agent ids the environment holds: the conversations voice:cost reads are theirs. */
 export const INTERVIEW_AGENT_IDS_FROM_ENV = interviewAgentIdsFromEnv;

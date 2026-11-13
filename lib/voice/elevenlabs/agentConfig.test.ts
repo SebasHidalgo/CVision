@@ -32,6 +32,24 @@ describe("the two interview agents", () => {
     expect(trial.platformSettings.overrides?.conversationConfigOverride?.agent?.prompt?.prompt).toBe(false);
   });
 
+  it("cannot be ended by a pause for thought: a nudge after 20 s, the call closed only after two minutes of silence", () => {
+    for (const agent of [full, trial]) {
+      expect(agent.conversationConfig.turn).toEqual({ turnTimeout: 20, silenceEndCallTimeout: 120 });
+    }
+  });
+
+  it("name their one backup model, and tell end_call when it may be used", () => {
+    for (const agent of [full, trial]) {
+      const prompt = agent.conversationConfig.agent?.prompt;
+      expect(prompt?.backupLlmConfig).toEqual({ preference: "override", order: ["gpt-4o"] });
+      expect(prompt?.cascadeTimeoutSeconds).toBe(4);
+      const endCall = prompt?.builtInTools?.endCall;
+      expect(endCall?.description).toContain("Hangs up the call the moment the reply it is called with has been spoken");
+      expect(endCall?.description).toContain("Never call it together with a question or a request");
+      expect(endCall?.description).toContain("the goodbye must be in your reply");
+    }
+  });
+
   it("tell the dashboard's test call the trial's minutes", () => {
     const placeholders = (
       trial.conversationConfig.agent?.dynamicVariables as { dynamicVariablePlaceholders?: Record<string, string> } | undefined

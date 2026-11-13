@@ -1,5 +1,5 @@
 {
-  "about": "Invented Spanish first call for the closing checks: every listed topic answered briefly. Cases: covered (no signal: the next turn must be a question), signal (after the wrap-up line: close), stop (the candidate asks to stop: close), contact (asked when they will hear back, after the signal).",
+  "about": "Invented Spanish first call for the ending checks. A turn with role \"note\" is one of the room's [time] lines, sent as the silent contextual update it is in a call. Cases: covered, two-minute, silent, answer, signal, ambiguous, stop, stop-yes, stop-no, contact.",
   "candidateFirstName": "Tomás",
   "role": "Desarrollador/a Backend SR",
   "company": "Northwind Labs",
@@ -29,27 +29,173 @@
   "cases": {
     "covered": {
       "extra": [],
+      "endCall": "forbidden",
       "condition": "The interviewer's reply asks the candidate a new interview question: about their experience, a situation they might face in this role, or a follow-up on an earlier answer. It does not close the interview, does not say goodbye, does not say the questions are done or that the interview is over, and does not mention the feedback appearing.",
       "passExample": "Perfecto. Imagina que en este puesto se cae el servicio de reembolsos un viernes en la noche. ¿Cómo lo abordarías?",
       "failExample": "Muchas gracias, Tomás. Hemos completado las preguntas planificadas. Tu feedback aparecerá en tu pantalla en un momento."
     },
+    "two-minute": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "¿Cómo organizaban el trabajo en tu último equipo? ¿Usaban alguna metodología ágil?"
+        },
+        {
+          "role": "note",
+          "note": "two"
+        },
+        {
+          "role": "user",
+          "message": "La verdad, no me acuerdo mucho de eso."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The interviewer's reply goes on with the interview: it asks one more interview question or a follow-up. It does not announce that the interview is ending: no 'para cerrar', 'para terminar', 'para finalizar', 'última pregunta' or similar. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "No pasa nada. Cuéntame entonces cómo te repartías las tareas con tus compañeros en ese proyecto.",
+      "failExample": "No pasa nada. Para ir cerrando la entrevista, cuéntame de un proyecto del que estés orgulloso."
+    },
+    "silent": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "note",
+          "note": "wrap"
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate has not answered the interviewer's last question yet. The interviewer's reply is one short, patient line that gives the candidate time to answer it (for example 'Tómate tu tiempo'), or briefly repeats that same question. It does not ask about anything else. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Tómate tu tiempo, Tomás.",
+      "failExample": "Gracias por practicar, Tomás. Tu feedback aparecerá en tu pantalla en un momento."
+    },
+    "answer": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "note",
+          "note": "wrap"
+        },
+        {
+          "role": "user",
+          "message": "Primero miraría los paneles para ver qué cambió, y si hubo un despliegue reciente lo revertiría."
+        }
+      ],
+      "endCall": "required",
+      "condition": "The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen, using the word 'feedback' (not 'retroalimentación' or 'comentarios'). It asks nothing. It speaks as one person: no 'con nosotros', 'nuestro equipo' or 'agradecemos'. It does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "Gracias por practicar conmigo, Tomás. Tu feedback aparecerá en tu pantalla en un momento.",
+      "failExample": "Buena respuesta. ¿Y cómo avisarías al resto del equipo?"
+    },
     "signal": {
-      "extra": [{ "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." }],
-      "condition": "The interviewer's reply closes the interview: it thanks the candidate and says their feedback will appear on their screen, and it calls that feedback by the word 'feedback' (not 'retroalimentación' or 'comentarios'). It does not ask a new question and does not say anyone will contact the candidate or that there are next steps.",
+      "extra": [
+        {
+          "role": "note",
+          "note": "wrap"
+        }
+      ],
+      "endCall": "required",
+      "condition": "The interviewer's reply is the goodbye: it thanks the candidate and says their feedback will appear on their screen, using the word 'feedback' (not 'retroalimentación' or 'comentarios'). It asks nothing, speaks as one person (no 'con nosotros', 'nuestro equipo' or 'agradecemos'), and does not say anyone will contact the candidate or that there are next steps.",
       "passExample": "Muchas gracias por practicar conmigo, Tomás. Tu feedback aparecerá en tu pantalla en un momento.",
       "failExample": "Gracias, Tomás. ¿Me cuentas cómo harías el monitoreo del servicio de pagos?"
     },
+    "ambiguous": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "user",
+          "message": "Mmm… creo que ya está."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate's remark is ambiguous: it is not clear whether they want to end the interview. The interviewer's reply asks them, in one short question, whether they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "¿Quieres terminar la entrevista ahora, Tomás?",
+      "failExample": "De acuerdo, Tomás. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento."
+    },
     "stop": {
-      "extra": [{ "role": "user", "message": "Disculpa, prefiero terminar aquí. ¿Podemos cortar la entrevista?" }],
-      "condition": "The interviewer's reply accepts the candidate's request to stop and closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask another question and does not try to keep the interview going.",
-      "passExample": "Claro, Tomás, lo dejamos aquí. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento.",
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "user",
+          "message": "Disculpa, prefiero terminar aquí. ¿Podemos cortar la entrevista?"
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate asked to stop. The interviewer's reply does not close yet: it asks them, in one short question, to confirm that they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Claro, Tomás. ¿Quieres terminar la entrevista ahora?",
+      "failExample": "Claro, Tomás, lo dejamos aquí. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento."
+    },
+    "stop-yes": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "user",
+          "message": "Disculpa, prefiero terminar aquí. ¿Podemos cortar la entrevista?"
+        },
+        {
+          "role": "agent",
+          "message": "Claro, Tomás. ¿Quieres terminar la entrevista ahora?"
+        },
+        {
+          "role": "user",
+          "message": "Sí, terminemos."
+        }
+      ],
+      "endCall": "required",
+      "condition": "The candidate confirmed they want to end. The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen, using the word 'feedback'. It asks nothing and does not try to keep the interview going.",
+      "passExample": "Perfecto, Tomás. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento.",
       "failExample": "Entiendo, pero antes cuéntame cómo abordarías una caída del servicio de pagos."
+    },
+    "stop-no": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Imagina que el servicio de reembolsos se cae un viernes por la noche. ¿Qué harías primero?"
+        },
+        {
+          "role": "user",
+          "message": "Disculpa, prefiero terminar aquí. ¿Podemos cortar la entrevista?"
+        },
+        {
+          "role": "agent",
+          "message": "Claro, Tomás. ¿Quieres terminar la entrevista ahora?"
+        },
+        {
+          "role": "user",
+          "message": "No, mejor sigamos."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate decided to continue. The interviewer's reply goes on with the interview: it asks an interview question (the pending one again, or a new one). It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Perfecto, seguimos. Te preguntaba qué harías primero si el servicio de reembolsos se cae un viernes por la noche.",
+      "failExample": "De acuerdo. Gracias por practicar; tu feedback aparecerá en tu pantalla en un momento."
     },
     "contact": {
       "extra": [
-        { "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." },
-        { "role": "agent", "message": "Muy bien, gracias por el detalle." },
-        { "role": "user", "message": "Gracias a ti. ¿Y cuándo me avisan si paso a la siguiente etapa?" }
+        {
+          "role": "note",
+          "note": "wrap"
+        },
+        {
+          "role": "agent",
+          "message": "Muy bien, gracias por el detalle."
+        },
+        {
+          "role": "user",
+          "message": "Gracias a ti. ¿Y cuándo me avisan si paso a la siguiente etapa?"
+        }
       ],
       "condition": "The interviewer's reply answers honestly for a practice interview: it never says or implies that a company, a team or anyone will contact the candidate, review their answers, or decide on a next stage; it may say this is practice and that their feedback appears on their screen after the call. It does not ask a new interview question.",
       "passExample": "Esta es una entrevista de práctica, así que no hay otra etapa: tu feedback aparecerá en tu pantalla en un momento. ¡Gracias por practicar, Tomás!",

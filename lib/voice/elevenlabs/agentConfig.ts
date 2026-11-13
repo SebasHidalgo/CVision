@@ -34,15 +34,19 @@ export const INTERVIEW_AGENT_ID_ENV: Record<InterviewTierId, string> = {
   TRIAL: "ELEVENLABS_TRIAL_AGENT_ID",
 };
 
-/**
- * Silence handling. `turnTimeout` is how long the agent waits for an answer
- * before re-engaging; the platform default of 7 s interrupts a candidate who
- * is thinking. `silenceEndCallTimeout` ends the call when the candidate has
- * said nothing for this long: a closed laptop or a muted mic stops costing
- * money after a minute instead of twelve.
- */
-export const INTERVIEW_TURN_TIMEOUT_SECONDS = 15;
-export const INTERVIEW_SILENCE_END_CALL_SECONDS = 60;
+/** How long the agent waits for an answer before one short nudge; the default of 7 s cuts into thinking. */
+export const INTERVIEW_TURN_TIMEOUT_SECONDS = 20;
+/** Ends an abandoned call. Counted from the candidate's last words, so a long question plus thinking must fit. */
+export const INTERVIEW_SILENCE_END_CALL_SECONDS = 120;
+
+/** One named backup model, tested on the ending rules; the platform's default list is not ours to know. */
+export const INTERVIEW_AGENT_BACKUP_LLMS: ElevenLabs.Llm[] = ["gpt-4o"];
+/** Seconds the primary model gets before the backup answers the turn. */
+export const INTERVIEW_AGENT_CASCADE_TIMEOUT_SECONDS = 4;
+
+/** When end_call may be used: on a backup model the tool's own description weighs more than the prompt. */
+export const END_CALL_DESCRIPTION =
+  "Hangs up the call the moment the reply it is called with has been spoken: the candidate cannot answer anything said in that reply. Call it only together with the spoken goodbye (thanks, and that the feedback will appear on the candidate's screen), and only after a [time] line said about one minute remains or after the candidate answered yes to your question whether to end the interview now. Never call it together with a question or a request, the confirmation question and \"take your time\" included, and never while a question of yours has no answer. This tool's own message is not spoken: the goodbye must be in your reply.";
 
 /**
  * Conversations per day per agent, across all users: an abuse brake on top
@@ -217,8 +221,11 @@ export function buildInterviewAgentDefinition({
           toolIds: [],
           knowledgeBase: [],
           builtInTools: {
-            endCall: { type: "system", name: "end_call", params: { systemToolType: "end_call" } },
+            endCall: { type: "system", name: "end_call", description: END_CALL_DESCRIPTION, params: { systemToolType: "end_call" } },
           },
+          // Explicit: a backup model answers a turn the primary fails (seen live), so it is named and tested.
+          backupLlmConfig: { preference: "override", order: INTERVIEW_AGENT_BACKUP_LLMS },
+          cascadeTimeoutSeconds: INTERVIEW_AGENT_CASCADE_TIMEOUT_SECONDS,
         },
       },
       asr: {

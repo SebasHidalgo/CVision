@@ -42,8 +42,22 @@ describe("dueTimeNote", () => {
 
   it("says how much is left at half time, and that it is not a line to answer", () => {
     expect(dueTimeNote(720, 360, new Set())?.text).toBe(
-      "[time] Half of the interview time has passed; about 6 minutes remain. Keep asking questions. Do not reply to this line.",
+      "[time] Half of the interview time has passed; about 6 minutes remain. Keep asking questions as before and do not mention the time. Do not reply to this line.",
     );
-    expect(dueTimeNote(300, 230, new Set(["half", "two"]))?.text).toContain("give your closing line, and end the call");
+  });
+
+  it("tells the interviewer that two minutes left is not the end", () => {
+    const two = dueTimeNote(300, 180, new Set(["half"]))?.text ?? "";
+    expect(two).toContain("This is not the end");
+    expect(two).toContain("do not announce a last question or that you are closing");
+    expect(two).toContain("do not call end_call");
+  });
+
+  it("closes only over an answered question, with the goodbye spoken in the same turn as end_call", () => {
+    const wrap = dueTimeNote(300, 230, new Set(["half", "two"]))?.text ?? "";
+    expect(wrap).toContain("First check whether the candidate has answered your last question");
+    expect(wrap).toContain("do not say goodbye and do not call end_call");
+    expect(wrap).toContain("say the goodbye");
+    expect(wrap).toContain("call end_call in that same turn");
   });
 });

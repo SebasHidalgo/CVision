@@ -8,11 +8,14 @@ const TWO_MINUTES = 120;
 /** A note this close to the next one is skipped: two lines in a row say nothing new. */
 const MIN_GAP_SECONDS = 15;
 
-const WRAP_TEXT = "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call.";
-const TWO_TEXT =
-  "[time] About two minutes remain. Keep asking: keep follow-ups short and do not open a large new topic. Do not close yet; another [time] line will say when. Do not reply to this line.";
-const halfText = (minutes: number) =>
-  `[time] Half of the interview time has passed; about ${minutes} minutes remain. Keep asking questions. Do not reply to this line.`;
+/** The close: never over a pending question, and the goodbye is spoken before end_call. */
+export const WRAP_TEXT =
+  "[time] About one minute remains in this call. Ask nothing new. First check whether the candidate has answered your last question. If they have not, do not say goodbye and do not call end_call: wait for the answer, and if they stay silent say only a short \"take your time\" in the call's language. Once they have answered, or if no question was pending, say the goodbye (thank them, and say their feedback will appear on their screen in a moment) and call end_call in that same turn. Do not reply to this line.";
+/** Not the end: nothing in it may be announced to the candidate. */
+export const TWO_TEXT =
+  "[time] About two minutes remain. This is not the end: keep asking, with short follow-ups and no large new topic. Do not say goodbye, do not announce a last question or that you are closing, and do not call end_call; another [time] line will say when. Do not reply to this line.";
+export const halfText = (minutes: number) =>
+  `[time] Half of the interview time has passed; about ${minutes} minutes remain. Keep asking questions as before and do not mention the time. Do not reply to this line.`;
 
 /** The note due at `elapsed` of `callSeconds`, or null; a later note supersedes a missed earlier one. */
 export function dueTimeNote(callSeconds: number, elapsed: number, sent: ReadonlySet<TimeNoteId>): TimeNote | null {

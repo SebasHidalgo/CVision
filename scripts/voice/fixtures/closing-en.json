@@ -1,5 +1,5 @@
 {
-  "about": "Invented English first call for the closing checks: every listed topic answered briefly. Cases: covered (no signal: the next turn must be a question), signal (after the wrap-up line: close), stop (the candidate asks to stop: close), contact (asked when they will hear back, after the signal).",
+  "about": "Invented English first call for the ending checks. A turn with role \"note\" is one of the room's [time] lines, sent as the silent contextual update it is in a call. Cases: covered, two-minute, silent, answer, signal, ambiguous, stop, stop-yes, stop-no, contact.",
   "candidateFirstName": "Priya",
   "role": "Sr. Backend Developer",
   "company": "Northwind Labs",
@@ -29,27 +29,173 @@
   "cases": {
     "covered": {
       "extra": [],
+      "endCall": "forbidden",
       "condition": "The interviewer's reply asks the candidate a new interview question: about their experience, a situation they might face in this role, or a follow-up on an earlier answer. It does not close the interview, does not say goodbye, does not say the questions are done or that the interview is over, and does not mention the feedback appearing.",
       "passExample": "Great. Suppose the refunds service goes down late on a Friday in this role. How would you approach it?",
       "failExample": "Thank you, Priya. We've covered all the planned questions. Your feedback will appear on your screen in a moment."
     },
+    "two-minute": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "How was the work organised on your last team? Did you follow an agile method?"
+        },
+        {
+          "role": "note",
+          "note": "two"
+        },
+        {
+          "role": "user",
+          "message": "Honestly, I don't remember much about that."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The interviewer's reply goes on with the interview: it asks one more interview question or a follow-up. It does not announce that the interview is ending: no 'to close', 'to finish', 'to wrap up', 'one last question' or similar. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "That's fine. Tell me how you and your teammates split the work on that project.",
+      "failExample": "No problem. To close our conversation today, tell me about a project you are proud of."
+    },
+    "silent": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "note",
+          "note": "wrap"
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate has not answered the interviewer's last question yet. The interviewer's reply is one short, patient line that gives the candidate time to answer it (for example 'Take your time'), or briefly repeats that same question. It does not ask about anything else. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Take your time, Priya.",
+      "failExample": "Thanks for practicing, Priya. Your feedback will appear on your screen in a moment."
+    },
+    "answer": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "note",
+          "note": "wrap"
+        },
+        {
+          "role": "user",
+          "message": "I'd check the dashboards to see what changed, and roll back if there was a recent deploy."
+        }
+      ],
+      "endCall": "required",
+      "condition": "The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing. It speaks as one person: no 'with us', 'our team' or 'we appreciate'. It does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment.",
+      "failExample": "Good answer. And how would you tell the rest of the team?"
+    },
     "signal": {
-      "extra": [{ "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." }],
-      "condition": "The interviewer's reply closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask a new question and does not say anyone will contact the candidate or that there are next steps.",
+      "extra": [
+        {
+          "role": "note",
+          "note": "wrap"
+        }
+      ],
+      "endCall": "required",
+      "condition": "The interviewer's reply is the goodbye: it thanks the candidate and says their feedback will appear on their screen. It asks nothing, speaks as one person (no 'with us', 'our team' or 'we appreciate'), and does not say anyone will contact the candidate or that there are next steps.",
       "passExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment.",
       "failExample": "Thanks, Priya. How would you set up monitoring for the payments service?"
     },
+    "ambiguous": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "user",
+          "message": "Hmm… I think that's it."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate's remark is ambiguous: it is not clear whether they want to end the interview. The interviewer's reply asks them, in one short question, whether they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Do you want to end the interview now, Priya?",
+      "failExample": "All right, Priya. Thanks for practicing; your feedback will appear on your screen in a moment."
+    },
     "stop": {
-      "extra": [{ "role": "user", "message": "Sorry, I'd rather stop here. Can we end the interview?" }],
-      "condition": "The interviewer's reply accepts the candidate's request to stop and closes the interview: it thanks the candidate and says their feedback will appear on their screen. It does not ask another question and does not try to keep the interview going.",
-      "passExample": "Of course, Priya, we'll stop here. Thanks for practicing; your feedback will appear on your screen in a moment.",
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "user",
+          "message": "Sorry, I'd rather stop here. Can we end the interview?"
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate asked to stop. The interviewer's reply does not close yet: it asks them, in one short question, to confirm that they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Of course, Priya. Do you want to end the interview now?",
+      "failExample": "Of course, Priya, we'll stop here. Thanks for practicing; your feedback will appear on your screen in a moment."
+    },
+    "stop-yes": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "user",
+          "message": "Sorry, I'd rather stop here. Can we end the interview?"
+        },
+        {
+          "role": "agent",
+          "message": "Of course, Priya. Do you want to end the interview now?"
+        },
+        {
+          "role": "user",
+          "message": "Yes, let's end it."
+        }
+      ],
+      "endCall": "required",
+      "condition": "The candidate confirmed they want to end. The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing and does not try to keep the interview going.",
+      "passExample": "All right, Priya. Thanks for practicing; your feedback will appear on your screen in a moment.",
       "failExample": "I understand, but first tell me how you would handle an outage of the payments service."
+    },
+    "stop-no": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "user",
+          "message": "Sorry, I'd rather stop here. Can we end the interview?"
+        },
+        {
+          "role": "agent",
+          "message": "Of course, Priya. Do you want to end the interview now?"
+        },
+        {
+          "role": "user",
+          "message": "No, let's keep going."
+        }
+      ],
+      "endCall": "forbidden",
+      "condition": "The candidate decided to continue. The interviewer's reply goes on with the interview: it asks an interview question (the pending one again, or a new one). It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
+      "passExample": "Great, let's go on. I had asked what you would do first if the refunds service went down late on a Friday.",
+      "failExample": "All right. Thanks for practicing; your feedback will appear on your screen in a moment."
     },
     "contact": {
       "extra": [
-        { "role": "user", "message": "[time] About one minute remains in this call. Finish the current exchange, give your closing line, and end the call." },
-        { "role": "agent", "message": "Very good, thanks for the detail." },
-        { "role": "user", "message": "Thank you. So when will I hear whether I move on to the next stage?" }
+        {
+          "role": "note",
+          "note": "wrap"
+        },
+        {
+          "role": "agent",
+          "message": "Very good, thanks for the detail."
+        },
+        {
+          "role": "user",
+          "message": "Thank you. So when will I hear whether I move on to the next stage?"
+        }
       ],
       "condition": "The interviewer's reply answers honestly for a practice interview: it never says or implies that a company, a team or anyone will contact the candidate, review their answers, or decide on a next stage; it may say this is practice and that their feedback appears on their screen after the call. It does not ask a new interview question.",
       "passExample": "This is a practice interview, so there's no next stage: your feedback will appear on your screen in a moment. Thanks for practicing, Priya!",
