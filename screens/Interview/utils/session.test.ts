@@ -79,6 +79,24 @@ describe("reportInterviewEnded", () => {
     );
   });
 
+  it("says how the room read the end: an interviewer end carries the tool call the room allowed and no outcome", async () => {
+    const fetchImpl = respond({ ok: true, data: { recorded: true } });
+
+    await reportInterviewEnded(INTERVIEW_ID, "user", fetchImpl, undefined, { end: "interviewer", endDetail: "time_up", elapsedSeconds: 318.2 });
+
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ reason: "user", end: "interviewer", endDetail: "time_up", elapsedSeconds: 318.2 });
+  });
+
+  it("sends the candidate's Finish with the room's clock and no end detail", async () => {
+    const fetchImpl = respond({ ok: true, data: { recorded: true } });
+
+    await reportInterviewEnded(INTERVIEW_ID, "user", fetchImpl, "finish", { end: "user", elapsedSeconds: 41 });
+
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: 41 });
+  });
+
   it("swallows every failure: a rejected fetch and a non-2xx alike", async () => {
     await expect(
       reportInterviewEnded(INTERVIEW_ID, "error", vi.fn(async () => {

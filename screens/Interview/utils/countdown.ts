@@ -1,8 +1,8 @@
 /**
- * The room's clock is display only: the agent's own limit ends the call. The
- * clock exists so the candidate can finish an answer before that happens. Its
- * warnings are interface copy, in the interface language, whatever language
- * the session speaks.
+ * The room's clock counts the paid length of the call. At 0:00 it stops
+ * counting and the room shows its closing label while the call runs on
+ * through the grace. Its warnings are interface copy, in the interface
+ * language, whatever language the session speaks.
  */
 export const COUNTDOWN_WARNING_SECONDS = 60;
 export const COUNTDOWN_FINAL_SECONDS = 10;

@@ -6,7 +6,9 @@ import {
   INTERVIEWER_FIRST_MESSAGE,
   type InterviewerVariables,
 } from "@/lib/ai/prompts/interviewer.agent";
+import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
+import { END_INTERVIEW_TOOL, END_TOOL_REASONS } from "@/lib/voice/callEnd";
 
 /**
  * The interview agents, as code. `scripts/voice/sync-agent.ts` pushes
@@ -34,8 +36,8 @@ export const INTERVIEW_AGENT_ID_ENV: Record<InterviewTierId, string> = {
   TRIAL: "ELEVENLABS_TRIAL_AGENT_ID",
 };
 
-/** How long the agent waits for an answer before one short nudge; the default of 7 s cuts into thinking. */
-export const INTERVIEW_TURN_TIMEOUT_SECONDS = 20;
+/** Silence after a question before one short nudge. Answers began within 5 s of it; 12 s leaves double that. */
+export const INTERVIEW_TURN_TIMEOUT_SECONDS = 12;
 /** Ends an abandoned call. Counted from the candidate's last words, so a long question plus thinking must fit. */
 export const INTERVIEW_SILENCE_END_CALL_SECONDS = 120;
 
@@ -44,9 +46,29 @@ export const INTERVIEW_AGENT_BACKUP_LLMS: ElevenLabs.Llm[] = ["gpt-4o"];
 /** Seconds the primary model gets before the backup answers the turn. */
 export const INTERVIEW_AGENT_CASCADE_TIMEOUT_SECONDS = 4;
 
-/** When end_call may be used: on a backup model the tool's own description weighs more than the prompt. */
-export const END_CALL_DESCRIPTION =
-  "Hangs up the call the moment the reply it is called with has been spoken: the candidate cannot answer anything said in that reply. Call it only together with the spoken goodbye (thanks, and that the feedback will appear on the candidate's screen), and only after a [time] line said about one minute remains or after the candidate answered yes to your question whether to end the interview now. Never call it together with a question or a request, the confirmation question and \"take your time\" included, and never while a question of yours has no answer. This tool's own message is not spoken: the goodbye must be in your reply.";
+/** The workspace tool both agents ask the room to end a call with. The room answers it, and may refuse. */
+export const END_INTERVIEW_TOOL_CONFIG: ElevenLabs.ToolRequestModelToolConfig.Client = {
+  type: "client",
+  name: END_INTERVIEW_TOOL,
+  description:
+    "Asks the room to end the call; only the room can hang up. The room acts once the reply this is called with has been spoken: it hangs up, so the candidate cannot answer anything said in that reply, or it refuses when the interview is not over. Call it only together with the spoken goodbye (thanks, and that the feedback will appear on the candidate's screen), and only after a [time] line said the interview time is up (reason time_up) or after the candidate answered yes to your question whether to end the interview now (reason candidate_confirmed). Never call it together with a question or a request, the confirmation question and \"take your time\" included, and never while a question of yours has no answer. If the result starts with REFUSED, the call continues: say one short bridging phrase and ask your next interview question.",
+  parameters: {
+    type: "object",
+    required: ["reason"],
+    properties: {
+      reason: {
+        type: "string",
+        enum: [...END_TOOL_REASONS],
+        description: "time_up: a [time] line said the interview time is up. candidate_confirmed: the candidate answered yes when asked whether to end the interview now.",
+      },
+    },
+  },
+  // The room's answer goes back to the interviewer. Immediate: in the platform's test mode "post_tool_speech" looped (about 65 generations a run, 2026-11-13).
+  expectsResponse: true,
+  executionMode: "immediate",
+  // Longer than the room ever holds an allowed call open (it hangs up instead of answering).
+  responseTimeoutSecs: 45,
+};
 
 /**
  * Conversations per day per agent, across all users: an abuse brake on top
@@ -194,10 +216,13 @@ export type InterviewAgentDefinition = {
  */
 export function buildInterviewAgentDefinition({
   postCallWebhookId,
+  endToolId = null,
   tier = "FULL",
   env = process.env,
 }: {
   postCallWebhookId: string | null;
+  /** The workspace id of the end_interview tool; null leaves the agent with no way to ask for the end (the sync warns). */
+  endToolId?: string | null;
   tier?: InterviewTierId;
   /** Where the per-environment daily cap is read from. */
   env?: Record<string, string | undefined>;
@@ -215,14 +240,11 @@ export function buildInterviewAgentDefinition({
           prompt: INTERVIEWER_AGENT_PROMPT,
           llm: INTERVIEW_AGENT_LLM,
           temperature: INTERVIEW_AGENT_LLM_TEMPERATURE,
-          // No knowledge base and no custom tools: the context is all in the
-          // prompt. The one system tool lets the agent end the call after its
-          // closing line instead of waiting for the candidate or for silence.
-          toolIds: [],
+          // No knowledge base. One tool, answered by the room, so only the room hangs up.
+          toolIds: endToolId ? [endToolId] : [],
           knowledgeBase: [],
-          builtInTools: {
-            endCall: { type: "system", name: "end_call", description: END_CALL_DESCRIPTION, params: { systemToolType: "end_call" } },
-          },
+          // An update merges: the platform's end_call goes only when it is set to null, not when it is left out.
+          builtInTools: { endCall: null as unknown as undefined },
           // Explicit: a backup model answers a turn the primary fails (seen live), so it is named and tested.
           backupLlmConfig: { preference: "override", order: INTERVIEW_AGENT_BACKUP_LLMS },
           cascadeTimeoutSeconds: INTERVIEW_AGENT_CASCADE_TIMEOUT_SECONDS,
@@ -258,9 +280,8 @@ export function buildInterviewAgentDefinition({
         silenceEndCallTimeout: INTERVIEW_SILENCE_END_CALL_SECONDS,
       },
       conversation: {
-        // The tier's hard limit: the platform cuts the call here, whatever
-        // the browser or the prompt say.
-        maxDurationSeconds: INTERVIEW_TIERS[tier].seconds,
+        // The paid length plus the grace for the last answer and the goodbye: the platform cuts the call here.
+        maxDurationSeconds: INTERVIEW_TIERS[tier].seconds + INTERVIEW_GRACE_SECONDS,
         textOnly: false,
       },
     },

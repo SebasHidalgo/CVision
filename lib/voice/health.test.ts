@@ -52,7 +52,7 @@ describe("assertVoiceCapacity", () => {
     await expect(assertVoiceCapacity(FULL, NOW + 1_000)).rejects.toMatchObject({ code: "VOICE_UNAVAILABLE" });
 
     expect(console.error).toHaveBeenCalledTimes(1);
-    expect(String(vi.mocked(console.error).mock.calls[0][0])).toMatch(/REFUSING voice sessions: free plan \(free\): 900 of 10000 credits left.*floor 6765 credits/);
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toMatch(/REFUSING voice sessions: free plan \(free\): 900 of 10000 credits left.*floor 7329 credits/);
   });
 
   it("reads the balance once a minute, not on every start", async () => {

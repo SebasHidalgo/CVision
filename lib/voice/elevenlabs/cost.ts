@@ -64,6 +64,29 @@ async function get(path: string, env: Record<string, string | undefined>): Promi
 const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
 
+/** One recorded turn in a line, for a script to print: when, who (and which model, when the backup answered), its first words, its tool calls and their results. */
+export type RecordedTurnLine = { at: number | null; role: string; backupModel: string | null; said: string | null; tools: string[] };
+
+/** How the platform recorded a call, turn by turn, with what the tools were asked and answered. Throws on any platform error. */
+export async function readConversationTurns(conversationId: string, env: Record<string, string | undefined> = process.env): Promise<{ termination: string | null; turns: RecordedTurnLine[] }> {
+  const record = await get(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`, env);
+  const metadata = (record.metadata ?? {}) as Record<string, unknown>;
+  const list = (value: unknown) => (Array.isArray(value) ? (value as Record<string, unknown>[]) : []);
+  return {
+    termination: text(metadata.termination_reason),
+    turns: list(record.transcript).map((turn) => ({
+      at: number(turn.time_in_call_secs),
+      role: text(turn.role) ?? "?",
+      backupModel: text(turn.llm_override),
+      said: text(turn.message)?.slice(0, 70) ?? null,
+      tools: [
+        ...list(turn.tool_calls).map((call) => `call ${text(call.tool_name) ?? "?"} (${text(call.type) ?? "?"}) ${text(call.params_as_json) ?? ""}`),
+        ...list(turn.tool_results).map((result) => `result ${text(result.tool_name) ?? "?"} (${text(result.type) ?? "?"})${result.is_error === true ? " ERROR" : ""}: ${(text(result.result_value) ?? "").slice(0, 60)}`),
+      ],
+    })),
+  };
+}
+
 /** One conversation's charge. Throws on any platform error; the caller prints it. */
 export async function readConversationCost(conversationId: string, env: Record<string, string | undefined> = process.env): Promise<ConversationCost> {
   const record = await get(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`, env);

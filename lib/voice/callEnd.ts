@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { INTERVIEW_WRAP_UP_SECONDS } from "@/lib/interviewLimits";
 import type { TranscriptTurn } from "./transcript";
 
 // Why a call ended and whether that end may stand. Pure: the server and the room share it.
 
-/** End/Finish, end_call, the time limit, the room's hang-up, a lost connection, a platform-side end. */
+/** End/Finish, the interviewer's tool, the time limit, the room's hang-up, a lost connection, a platform-side end. */
 export const CALL_END_REASONS = ["user", "interviewer", "limit", "room", "disconnect", "platform"] as const;
 export type CallEndReason = (typeof CALL_END_REASONS)[number];
 
@@ -12,16 +11,34 @@ export type CallEndReason = (typeof CALL_END_REASONS)[number];
 export const ROOM_END_CLAIMS = ["user", "interviewer", "limit", "room", "disconnect"] as const;
 export type RoomEndClaim = (typeof ROOM_END_CLAIMS)[number];
 
+/** The client tool the interviewer asks the room to end the call with; the room may refuse. */
+export const END_INTERVIEW_TOOL = "end_interview";
+export const END_TOOL_REASONS = ["time_up", "candidate_confirmed"] as const;
+export type EndToolReason = (typeof END_TOOL_REASONS)[number];
+/** How the room's answer starts: the record shows whether the call was to end. */
+export const END_TOOL_ALLOWED = "ALLOWED";
+export const END_TOOL_REFUSED = "REFUSED";
+
+/** What an interviewer end is stored as: the time was up, or the candidate confirmed. */
+export const END_DETAILS = ["time_up", "confirmed"] as const;
+export type EndDetail = (typeof END_DETAILS)[number];
+const endDetailOf = (reason: EndToolReason): EndDetail => (reason === "candidate_confirmed" ? "confirmed" : "time_up");
+
+/** The last end_interview call of a record: its reason, and whether the room refused it (the room answers every refusal; an allowed call ends the session). */
+export type EndToolCall = { reason: EndToolReason; refused: boolean };
+
 export const MAX_CALL_END_DETAIL_CHARS = 200;
 
 export const callEndSchema = z.object({
   reason: z.enum(CALL_END_REASONS),
-  /** The interviewer's reason for end_call, or the platform's wording; never the candidate's words. */
+  /** time_up | confirmed for the interviewer's tool; the platform's wording otherwise. Never the candidate's words. */
   detail: z.string().max(MAX_CALL_END_DETAIL_CHARS).nullish(),
   /** The room's own count of the call, to compare its clock with the platform's. */
   roomSeconds: z.number().nonnegative().nullish(),
   /** True once the platform's record settled the reason. */
   recorded: z.boolean().optional(),
+  /** Turns of this call the backup model answered. */
+  backupTurns: z.number().int().nonnegative().optional(),
 });
 export type CallEnd = z.infer<typeof callEndSchema>;
 
@@ -36,37 +53,49 @@ const clipDetail = (text: string | null | undefined) => {
   return clean ? clean.slice(0, MAX_CALL_END_DETAIL_CHARS) : null;
 };
 
-/** How the platform recorded the end. "platform": it ended the call itself (a timeout, an error). */
+const isEndDetail = (value: unknown): value is EndDetail => value === "time_up" || value === "confirmed";
+
+/** How the platform recorded the end. "agent": the old end_call tool. "platform": it ended the call itself. */
 export type PlatformEnd = "agent" | "limit" | "client" | "platform" | "unknown";
 
 /** The one reason a call ended: the record wins, except where only the room can tell (End, its hang-up, a drop). */
 export function settleCallEnd({
   endedBy,
+  endTool = null,
   endCallReason,
   terminationReason,
   claim,
+  backupTurns = 0,
 }: {
   endedBy: PlatformEnd;
+  /** The record's last end_interview call, if any. */
+  endTool?: EndToolCall | null;
+  /** The reason the interviewer gave the old end_call tool. */
   endCallReason: string | null;
   terminationReason: string | null;
   /** What the room reported before the record arrived. */
   claim: CallEnd | null;
+  backupTurns?: number;
 }): CallEnd {
   const roomSeconds = claim?.roomSeconds ?? null;
-  const settled = (reason: CallEndReason, detail: string | null): CallEnd => ({ reason, detail, roomSeconds, recorded: true });
+  const settled = (reason: CallEndReason, detail: string | null): CallEnd => ({ reason, detail, roomSeconds, recorded: true, ...(backupTurns > 0 ? { backupTurns } : {}) });
   if (endedBy === "agent") return settled("interviewer", clipDetail(endCallReason));
   if (endedBy === "limit") return settled("limit", null);
   if (endedBy === "platform") return settled("platform", clipDetail(terminationReason));
-  // The client left: End, the room's hang-up and a drop look the same to the platform.
+  // The client left. The room hung up on the interviewer's tool when the record shows a call it did not refuse.
+  if (endTool && !endTool.refused) return settled("interviewer", endDetailOf(endTool.reason));
   if (claim?.reason === "user" || claim?.reason === "room") return settled(claim.reason, null);
+  // The room says so and the record lost the tool turn.
+  if (claim?.reason === "interviewer" && isEndDetail(claim.detail)) return settled("interviewer", claim.detail);
   return settled("disconnect", clipDetail(terminationReason));
 }
 
 /** A room report that lands after the record: it still says what only the room knows. Null when nothing changes. */
-export function withLateClaim(stored: CallEnd | null, claim: { reason: RoomEndClaim; roomSeconds: number | null }): CallEnd | null {
+export function withLateClaim(stored: CallEnd | null, claim: { reason: RoomEndClaim; detail?: string | null; roomSeconds: number | null }): CallEnd | null {
   if (!stored?.recorded) return null;
   const roomSeconds = stored.roomSeconds ?? claim.roomSeconds;
   if (stored.reason === "disconnect" && (claim.reason === "user" || claim.reason === "room")) return { ...stored, reason: claim.reason, detail: null, roomSeconds };
+  if (stored.reason === "disconnect" && claim.reason === "interviewer" && isEndDetail(claim.detail)) return { ...stored, reason: "interviewer", detail: claim.detail, roomSeconds };
   return roomSeconds !== (stored.roomSeconds ?? null) ? { ...stored, roomSeconds } : null;
 }
 
@@ -104,27 +133,90 @@ export function candidateConfirmedStop(turns: TranscriptTurn[]): boolean {
   return Boolean(reply) && !DECLINED.test(reply!.text);
 }
 
+const timeLeftWords = (seconds: number) => {
+  const whole = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(whole / 60);
+  return minutes > 0 ? `${minutes} min ${whole % 60} s` : `${whole} s`;
+};
+
+/** The room's answer to the interviewer's end_interview: what the tool returns, whether the room now hangs up, and whether the goodbye was already said. */
+export type EndToolDecision = { allow: true; detail: EndDetail; result: string; goodbyeSaid: boolean } | { allow: false; result: string };
+
+/** The answer to an allowed call whose goodbye was already spoken; it goes out as the room hangs up. */
+export const END_ALLOWED_QUIET = `${END_TOOL_ALLOWED}: the room is ending the call now. Say nothing more.`;
+
+const allowed = (detail: EndDetail, turns: TranscriptTurn[]): EndToolDecision => {
+  // The goodbye normally comes in the same turn as the tool; a call without it gets the chance to say it.
+  const goodbyeSaid = saidGoodbye(turns) && spokenTurns(turns).at(-1)?.role === "agent";
+  const result = goodbyeSaid
+    ? END_ALLOWED_QUIET
+    : `${END_TOOL_ALLOWED}: the room hangs up when you finish speaking. Say the goodbye now, in the call's language, in two short sentences: thank the candidate for practicing, and say their feedback will appear on their screen in a moment. Ask nothing and do not call end_interview again.`;
+  return { allow: true, detail, result, goodbyeSaid };
+};
+
+/** The end a room claim describes, when the record lost the tool turn. */
+export function endToolFromClaim(claim: CallEnd | null | undefined): EndToolCall | null {
+  if (claim?.reason !== "interviewer" || !isEndDetail(claim.detail)) return null;
+  return { reason: claim.detail === "confirmed" ? "candidate_confirmed" : "time_up", refused: false };
+}
+
+/** The veto. Time-up only once the paid time is over; a confirmed stop only when the candidate answered the question. */
+export function decideEndTool({
+  reason,
+  paidSecondsLeft,
+  turns,
+}: {
+  /** What the interviewer passed; anything unknown is read as time_up. */
+  reason: unknown;
+  /** Of this call's paid length, by the room's clock. */
+  paidSecondsLeft: number;
+  /** The live lines, for the confirmation exchange. */
+  turns: TranscriptTurn[];
+}): EndToolDecision {
+  if (reason === "candidate_confirmed") {
+    if (candidateConfirmedStop(turns)) return allowed("confirmed", turns);
+    return {
+      allow: false,
+      result: `${END_TOOL_REFUSED}: the call continues. The candidate has not answered yes to "Do you want to end the interview now?". If they asked to stop, ask that question on its own, in the call's language, and wait for their answer. Otherwise say one short bridging phrase and go on with your next interview question. Do not say goodbye again.`,
+    };
+  }
+  if (paidSecondsLeft <= 0) return allowed("time_up", turns);
+  return {
+    allow: false,
+    result: `${END_TOOL_REFUSED}: the call continues. The interview time is not up: ${timeLeftWords(paidSecondsLeft)} remain. Do not say goodbye again and do not call end_interview until a [time] line says the time is up. Say one short bridging phrase (in Spanish, "Sigamos un poco más.") and ask your next interview question now.`,
+  };
+}
+
 /** With this little left an end stands whatever was said: no call is worth resuming. */
 export const EARLY_END_MIN_LEFT_SECONDS = 30;
+/** Records of the old end_call tool: a clean goodbye with more than this left was early unless asked for. */
+const LEGACY_WRAP_UP_SECONDS = 75;
 
-/** An end by the interviewer or the platform that came too soon: resumable, its connection given back. */
+/** An end before the paid time was up that was neither the candidate's End nor a confirmed stop: resumable, its connection given back. */
 export function isEarlyEnd({
   endedBy,
+  endTool = null,
   secondsLeft,
   finishRequested,
   turns,
 }: {
   endedBy: PlatformEnd;
-  /** Of the whole interview, after this call. */
+  endTool?: EndToolCall | null;
+  /** Of the whole interview's paid time, after this call. */
   secondsLeft: number;
   /** End, or "Finish and get feedback": the candidate's own decision. */
   finishRequested: boolean;
   turns: TranscriptTurn[];
 }): boolean {
-  if (endedBy !== "agent" && endedBy !== "platform") return false;
   if (finishRequested || !Number.isFinite(secondsLeft) || secondsLeft <= EARLY_END_MIN_LEFT_SECONDS) return false;
-  // A question left hanging, or no goodbye at all.
-  if (endsUnanswered(turns) || !saidGoodbye(turns)) return true;
-  // A clean goodbye with minutes left counts only when the candidate asked for it.
-  return secondsLeft > INTERVIEW_WRAP_UP_SECONDS && !candidateConfirmedStop(turns);
+  // The platform ended it by itself (a silence timeout, an error) with paid time left.
+  if (endedBy === "platform") return true;
+  // Older records, when the platform's end_call could hang up: matched by the goodbye's words.
+  if (endedBy === "agent") {
+    if (endsUnanswered(turns) || !saidGoodbye(turns)) return true;
+    return secondsLeft > LEGACY_WRAP_UP_SECONDS && !candidateConfirmedStop(turns);
+  }
+  // The room hung up on the tool with paid time left: only a confirmed stop may do that.
+  if (endTool && !endTool.refused) return endTool.reason !== "candidate_confirmed";
+  return false;
 }

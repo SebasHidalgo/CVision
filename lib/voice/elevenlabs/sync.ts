@@ -7,6 +7,7 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import {
   buildInterviewAgentDefinition,
   diffPaths,
+  END_INTERVIEW_TOOL_CONFIG,
   EXPECTED_TIER_DIFFERENCES,
   INTERVIEW_AGENT_ID_ENV,
   INTERVIEW_WEBHOOK_NAME,
@@ -37,6 +38,8 @@ const EXPECTED_READBACK_DIFFERENCES = [
   "metadata",
   "accessInfo",
   "phoneNumbers",
+  // A counter the platform keeps on an agent's (unused) workflow; seen on one agent only after the 2026-11-13 sync.
+  "workflow.version",
 ];
 
 /** Pushes both agents, reads them back and prints what the platform holds. Resolves to the count of unintended differences. */
@@ -47,9 +50,10 @@ export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAge
   ) as Record<InterviewTierId, string | null>;
 
   if (dryRun) {
-    const full = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", tier: "FULL" });
-    const trial = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", tier: "TRIAL" });
+    const full = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", endToolId: "<end_interview tool id>", tier: "FULL" });
+    const trial = buildInterviewAgentDefinition({ postCallWebhookId: "<webhook id>", endToolId: "<end_interview tool id>", tier: "TRIAL" });
     console.log(JSON.stringify(full, null, 2));
+    console.log(`\nThe workspace tool both agents use:\n${JSON.stringify(END_INTERVIEW_TOOL_CONFIG, null, 2)}`);
     console.log(`\nThe trial agent differs from the above at:`);
     for (const path of diffPaths(full, trial)) {
       console.log(`  ${path}: ${describeValue(pick(full, path))} -> ${describeValue(pick(trial, path))}`);
@@ -68,10 +72,11 @@ export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAge
   const client = new ElevenLabsClient({ apiKey, maxRetries: 0, timeoutInSeconds: 30 });
 
   const postCallWebhookId = await ensureWebhook(client, webhookUrl, replaceWebhook);
+  const endToolId = await ensureEndTool(client);
 
   const agentIds = {} as Record<InterviewTierId, string>;
   for (const tier of TIERS) {
-    const definition = buildInterviewAgentDefinition({ postCallWebhookId, tier });
+    const definition = buildInterviewAgentDefinition({ postCallWebhookId, endToolId, tier });
     const existing = configuredIds[tier];
     if (existing) {
       await client.conversationalAi.agents.update(existing, definition);
@@ -90,7 +95,53 @@ export async function syncAgents({ webhookUrl, replaceWebhook, dryRun }: SyncAge
     agents[tier] = await client.conversationalAi.agents.get(agentIds[tier]);
     printEffectiveSettings(tier, agents[tier]);
   }
-  return reportDifferences(agents.FULL, agents.TRIAL);
+  // Only the room may hang up: the read-back must show the room's tool and no end_call.
+  let wrongTools = 0;
+  for (const tier of TIERS) {
+    const problem = endToolProblem(agents[tier], endToolId);
+    if (problem) {
+      wrongTools += 1;
+      console.warn(`!! ${tier} agent: ${problem}`);
+    }
+  }
+  if (wrongTools === 0) console.log(`\nBoth agents end a call only through the room: tool ${endToolId}, no end_call.`);
+  return reportDifferences(agents.FULL, agents.TRIAL) + wrongTools;
+}
+
+/** What is wrong with an agent's way to end a call as read back, or null. */
+export function endToolProblem(agent: { conversationConfig: { agent?: { prompt?: { toolIds?: string[] | null; builtInTools?: { endCall?: unknown } | null } | null } | null } }, endToolId: string): string | null {
+  const prompt = agent.conversationConfig.agent?.prompt;
+  if (prompt?.builtInTools?.endCall) return "the platform's end_call tool is still on: the interviewer could hang up by itself";
+  if (!(prompt?.toolIds ?? []).includes(endToolId)) return `the ${END_INTERVIEW_TOOL_CONFIG.name} tool (${endToolId}) is not attached: the interviewer cannot ask the room to end the call`;
+  return null;
+}
+
+type ToolsApi = Pick<ElevenLabsClient["conversationalAi"]["tools"], "list">;
+
+/** The workspace id of the end_interview client tool, or null when the workspace has none. */
+export async function findEndToolId(client: { conversationalAi: { tools: ToolsApi } }): Promise<string | null> {
+  const { tools } = await client.conversationalAi.tools.list({ search: END_INTERVIEW_TOOL_CONFIG.name, types: "client", pageSize: 100 });
+  return tools.find((tool) => tool.toolConfig.type === "client" && tool.toolConfig.name === END_INTERVIEW_TOOL_CONFIG.name)?.id ?? null;
+}
+
+/** The workspace id of the end_interview tool the agents use, or null before the first sync. */
+export async function endToolIdFromWorkspace(env: Record<string, string | undefined> = process.env): Promise<string | null> {
+  const apiKey = env.ELEVENLABS_API_KEY?.trim();
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set (see .env.template)");
+  return findEndToolId(new ElevenLabsClient({ apiKey, maxRetries: 0, timeoutInSeconds: 20 }));
+}
+
+/** The end_interview tool as code: created once in the workspace, updated on every sync. */
+async function ensureEndTool(client: ElevenLabsClient): Promise<string> {
+  const existing = await findEndToolId(client);
+  if (existing) {
+    await client.conversationalAi.tools.update(existing, { toolConfig: END_INTERVIEW_TOOL_CONFIG });
+    console.log(`Updated tool "${END_INTERVIEW_TOOL_CONFIG.name}" ${existing}`);
+    return existing;
+  }
+  const created = await client.conversationalAi.tools.create({ toolConfig: END_INTERVIEW_TOOL_CONFIG });
+  console.log(`Created tool "${END_INTERVIEW_TOOL_CONFIG.name}" ${created.id}`);
+  return created.id;
 }
 
 /**
@@ -172,6 +223,8 @@ function printEffectiveSettings(tier: InterviewTierId, agent: Agent) {
     ["override: prompt", overrides?.agent?.prompt?.prompt],
     ["override: first message", overrides?.agent?.firstMessage],
     ["override: voice", overrides?.tts?.voiceId],
+    ["tools", cc.agent?.prompt?.toolIds],
+    ["built-in tools", Object.entries(cc.agent?.prompt?.builtInTools ?? {}).flatMap(([name, tool]) => (tool ? [name] : []))],
     ["webhook id", ps?.workspaceOverrides?.webhooks?.postCallWebhookId],
     ["webhook events", ps?.workspaceOverrides?.webhooks?.events],
     ["llm", cc.agent?.prompt?.llm],

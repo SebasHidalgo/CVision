@@ -49,13 +49,14 @@ export async function POST(
     const parsed = interviewEndedRequestSchema.safeParse(body ?? {});
     if (!parsed.success) throw new ValidationError("Invalid end-of-call report");
 
-    const { end, elapsedSeconds } = parsed.data;
-    const mark = await markInterviewEnded({ interviewId: id, endedAt: new Date(), ...(end ? { claim: { reason: end, roomSeconds: elapsedSeconds ?? null } } : {}) });
+    const { end, endDetail, elapsedSeconds } = parsed.data;
+    const claim = end ? { reason: end, detail: end === "interviewer" ? (endDetail ?? null) : null, roomSeconds: elapsedSeconds ?? null } : null;
+    const mark = await markInterviewEnded({ interviewId: id, endedAt: new Date(), ...(claim ? { claim } : {}) });
     // The record can beat this report: then the stored end takes what only the room knows.
-    const late = !mark.recorded && end ? await applyLateEndClaim(id, { reason: end, roomSeconds: elapsedSeconds ?? null }) : false;
+    const late = !mark.recorded && claim ? await applyLateEndClaim(id, claim) : false;
     const early = mark.recorded && mark.sessionAgeMs !== null && mark.sessionAgeMs <= EARLY_END_WINDOW_MS;
     console.info(
-      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} end=${end ?? "(none)"} room=${typeof elapsedSeconds === "number" ? `${Math.round(elapsedSeconds)}s` : "?"} recorded=${mark.recorded}${late ? " (after the record: its end now carries the room's account)" : ""}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
+      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} end=${end ?? "(none)"}${claim?.detail ? `/${claim.detail}` : ""} room=${typeof elapsedSeconds === "number" ? `${Math.round(elapsedSeconds)}s` : "?"} recorded=${mark.recorded}${late ? " (after the record: its end now carries the room's account)" : ""}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
     );
 
     if (early) {

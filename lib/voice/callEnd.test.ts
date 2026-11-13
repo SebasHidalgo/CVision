@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { candidateConfirmedStop, endsUnanswered, isEarlyEnd, readCallEnd, saidGoodbye, settleCallEnd, withLateClaim, type PlatformEnd } from "./callEnd";
+import {
+  candidateConfirmedStop,
+  decideEndTool,
+  END_TOOL_ALLOWED,
+  END_TOOL_REFUSED,
+  endsUnanswered,
+  endToolFromClaim,
+  isEarlyEnd,
+  readCallEnd,
+  saidGoodbye,
+  settleCallEnd,
+  withLateClaim,
+  type EndToolCall,
+  type PlatformEnd,
+} from "./callEnd";
 
 type Turn = { role: string; message: string | null };
 const agent = (message: string | null): Turn => ({ role: "agent", message });
@@ -48,7 +62,8 @@ describe("what the interviewer's last words were", () => {
   });
 });
 
-describe("isEarlyEnd", () => {
+// Records from when the platform's end_call could hang up: judged by the goodbye's words.
+describe("isEarlyEnd: records of the old end_call tool", () => {
   it("catches the owner's first trial: a last request with no answer, end_call, 65 s left, the wrap-up line already sent", () => {
     const turns = [...base, agent("Tranquila. Para ir cerrando, cuéntame de alguna mejora que hayas propuesto, explicando qué cambió.")];
     expect(early(turns, 65)).toBe(true);
@@ -134,5 +149,145 @@ describe("settleCallEnd", () => {
     expect(readCallEnd({ reason: "interviewer", detail: "done", roomSeconds: 12, recorded: true })).toMatchObject({ reason: "interviewer" });
     expect(readCallEnd({ reason: "nonsense" })).toBeNull();
     expect(readCallEnd(null)).toBeNull();
+  });
+});
+
+describe("decideEndTool: the room's answer to end_interview", () => {
+  const asked = [...base, agent("¿Cómo priorizabas los errores?"), user("Prefiero terminar aquí."), agent("Claro. ¿Quieres terminar la entrevista ahora?")];
+
+  it("refuses time_up while paid time is left, and says how much and what to do instead", () => {
+    const decision = decideEndTool({ reason: "time_up", paidSecondsLeft: 66, turns: base });
+    expect(decision.allow).toBe(false);
+    expect(decision.result.startsWith(`${END_TOOL_REFUSED}: the call continues.`)).toBe(true);
+    expect(decision.result).toContain("The interview time is not up: 1 min 6 s remain.");
+    expect(decision.result).toContain("Do not say goodbye again and do not call end_interview until a [time] line says the time is up.");
+    expect(decision.result).toContain('Say one short bridging phrase (in Spanish, "Sigamos un poco más.") and ask your next interview question now.');
+    // Under a minute the time left is said in seconds; a fraction of a second left is still time left.
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 45.7, turns: base }).result).toContain("45 s remain");
+    expect(decideEndTool({ reason: "time_up", paidSecondsLeft: 0.4, turns: base }).allow).toBe(false);
+  });
+
+  it("today's shape: an answer ending at 3:54 of a five-minute trial does not lead to a goodbye", () => {
+    // The candidate finished an answer at 234 s; the interviewer asks to end with 66 s of paid time left.
+    const turns = [...base, agent("¿Cómo priorizabas los errores?"), user("Primero los que bloqueaban a un cliente, después por frecuencia.")];
+    const decision = decideEndTool({ reason: "time_up", paidSecondsLeft: 300 - 234, turns });
+    expect(decision).toMatchObject({ allow: false });
+    expect(decision.result).not.toContain(END_TOOL_ALLOWED);
+    expect(saidGoodbye([{ role: "agent", message: decision.result }])).toBe(false);
+  });
+
+  it("allows time_up once the paid time is over, and tells the interviewer to say the goodbye now", () => {
+    for (const left of [0, -1, -42]) {
+      const decision = decideEndTool({ reason: "time_up", paidSecondsLeft: left, turns: base });
+      expect(decision).toMatchObject({ allow: true, detail: "time_up" });
+      expect(decision.result.startsWith(`${END_TOOL_ALLOWED}:`)).toBe(true);
+      expect(decision.result).toContain("the room hangs up when you finish speaking");
+      expect(decision.result).toContain("Ask nothing and do not call end_interview again.");
+    }
+  });
+
+  it("allows candidate_confirmed only after the confirmation question got an answer that is not a no, whatever the clock says", () => {
+    expect(decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: [...asked, user("Sí, terminemos.")] })).toMatchObject({ allow: true, detail: "confirmed" });
+    // The request alone, a no, or no question at all: refused, with the question to ask.
+    for (const turns of [base, asked, [...asked, user("No, mejor sigamos.")], [...base, user("Creo que ya está.")]]) {
+      const decision = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns });
+      expect(decision.allow).toBe(false);
+      expect(decision.result.startsWith(END_TOOL_REFUSED)).toBe(true);
+      expect(decision.result).toContain('"Do you want to end the interview now?"');
+      expect(decision.result).toContain("Do not say goodbye again.");
+    }
+    // The goodbye that came with the call is known to the room: it has nothing to add before hanging up.
+    const withGoodbye = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: [...asked, user("Sí, terminemos."), agent("Gracias por practicar. Tu feedback aparecerá en tu pantalla en un momento.")] });
+    expect(withGoodbye).toMatchObject({ allow: true, detail: "confirmed", goodbyeSaid: true });
+    expect(withGoodbye.result).toBe("ALLOWED: the room is ending the call now. Say nothing more.");
+    // Called without it: the answer asks for the goodbye.
+    const without = decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: 200, turns: [...asked, user("Sí, terminemos.")] });
+    expect(without).toMatchObject({ allow: true, goodbyeSaid: false });
+    expect(without.result).toContain("Say the goodbye now");
+    // Claiming a confirmation after the time is up changes nothing about the rule: it still needs the exchange.
+    expect(decideEndTool({ reason: "candidate_confirmed", paidSecondsLeft: -5, turns: base }).allow).toBe(false);
+  });
+
+  it("reads an unknown or missing reason as time_up", () => {
+    for (const reason of [undefined, null, "", "done", 7, { reason: "time_up" }]) {
+      expect(decideEndTool({ reason, paidSecondsLeft: 120, turns: [...asked, user("Sí.")] }).allow).toBe(false);
+      expect(decideEndTool({ reason, paidSecondsLeft: 0, turns: base })).toMatchObject({ allow: true, detail: "time_up" });
+    }
+  });
+});
+
+describe("isEarlyEnd: a call the room hung up on the interviewer's tool", () => {
+  const tool = (reason: EndToolCall["reason"], refused = false): EndToolCall => ({ reason, refused });
+  const byTool = (endTool: EndToolCall | null, secondsLeft: number, finishRequested = false) => isEarlyEnd({ endedBy: "client", endTool, secondsLeft, finishRequested, turns: [...base, agent(GOODBYE_ES)] });
+
+  it("is early when time_up was allowed with paid time left, goodbye or not: only the clock decides", () => {
+    expect(byTool(tool("time_up"), 66)).toBe(true);
+    expect(byTool(tool("time_up"), 31)).toBe(true);
+    expect(byTool(tool("time_up"), 30)).toBe(false);
+    expect(byTool(tool("time_up"), 0)).toBe(false);
+    expect(byTool(tool("time_up"), -40)).toBe(false);
+  });
+
+  it("lets a confirmed stop stand at any time, and the candidate's End always", () => {
+    expect(byTool(tool("candidate_confirmed"), 240)).toBe(false);
+    expect(byTool(tool("time_up"), 240, true)).toBe(false);
+  });
+
+  it("does not call a refused request, or no request, an early end: the client left, which is a drop", () => {
+    expect(byTool(tool("time_up", true), 120)).toBe(false);
+    expect(byTool(null, 120)).toBe(false);
+  });
+
+  it("keeps the goodbye words only for records of the old end_call tool", () => {
+    // The same goodbye with 180 s left: early under end_call, and under the tool only by its reason.
+    expect(isEarlyEnd({ endedBy: "agent", secondsLeft: 180, finishRequested: false, turns: [...base, agent(GOODBYE_ES)] })).toBe(true);
+    expect(isEarlyEnd({ endedBy: "agent", secondsLeft: 50, finishRequested: false, turns: [...base, agent(GOODBYE_ES)] })).toBe(false);
+    // A platform-side end is early by the clock alone, whoever spoke last.
+    expect(isEarlyEnd({ endedBy: "platform", secondsLeft: 50, finishRequested: false, turns: [...base, agent(GOODBYE_ES)] })).toBe(true);
+    expect(isEarlyEnd({ endedBy: "platform", secondsLeft: 50, finishRequested: false, turns: base })).toBe(true);
+  });
+});
+
+describe("settleCallEnd: the interviewer's tool, the room's claim, the backup model", () => {
+  const left = "Client disconnected: 1005";
+  const settle = (input: Partial<Parameters<typeof settleCallEnd>[0]>) => settleCallEnd({ endedBy: "client", endCallReason: null, terminationReason: left, claim: null, ...input });
+
+  it("stores an allowed tool call as the interviewer's end, with why", () => {
+    expect(settle({ endTool: { reason: "time_up", refused: false }, claim: { reason: "interviewer", detail: "time_up", roomSeconds: 318.2 } })).toEqual({ reason: "interviewer", detail: "time_up", roomSeconds: 318.2, recorded: true });
+    expect(settle({ endTool: { reason: "candidate_confirmed", refused: false } })).toMatchObject({ reason: "interviewer", detail: "confirmed" });
+    // The record's tool call wins over what the room said about a later End.
+    expect(settle({ endTool: { reason: "time_up", refused: false }, claim: { reason: "user", roomSeconds: 320 } })).toMatchObject({ reason: "interviewer", detail: "time_up", roomSeconds: 320 });
+  });
+
+  it("does not take a refused request for an end: the room's word, or a disconnect", () => {
+    expect(settle({ endTool: { reason: "time_up", refused: true } })).toMatchObject({ reason: "disconnect", detail: left });
+    expect(settle({ endTool: { reason: "time_up", refused: true }, claim: { reason: "user", roomSeconds: 200 } })).toMatchObject({ reason: "user", detail: null });
+  });
+
+  it("falls back to the room's claim when the record lost the tool turn, and only for the two details the room may give", () => {
+    expect(settle({ claim: { reason: "interviewer", detail: "confirmed", roomSeconds: 150 } })).toMatchObject({ reason: "interviewer", detail: "confirmed", roomSeconds: 150 });
+    expect(settle({ claim: { reason: "interviewer", detail: "time_up" } })).toMatchObject({ reason: "interviewer", detail: "time_up" });
+    expect(settle({ claim: { reason: "interviewer", detail: "because I say so" } })).toMatchObject({ reason: "disconnect" });
+    expect(settle({ claim: { reason: "interviewer" } })).toMatchObject({ reason: "disconnect" });
+    expect(endToolFromClaim({ reason: "interviewer", detail: "confirmed" })).toEqual({ reason: "candidate_confirmed", refused: false });
+    expect(endToolFromClaim({ reason: "interviewer", detail: "time_up" })).toEqual({ reason: "time_up", refused: false });
+    for (const claim of [null, undefined, { reason: "interviewer" as const }, { reason: "interviewer" as const, detail: "other" }, { reason: "user" as const, detail: "time_up" }]) expect(endToolFromClaim(claim)).toBeNull();
+  });
+
+  it("counts the turns the backup model answered, and stays silent about none", () => {
+    expect(settle({ backupTurns: 2 })).toMatchObject({ reason: "disconnect", backupTurns: 2 });
+    expect(settle({ endedBy: "limit", backupTurns: 1 })).toEqual({ reason: "limit", detail: null, roomSeconds: null, recorded: true, backupTurns: 1 });
+    expect(settle({ backupTurns: 0 })).not.toHaveProperty("backupTurns");
+    expect(readCallEnd({ reason: "interviewer", detail: "time_up", recorded: true, backupTurns: 3 })).toMatchObject({ backupTurns: 3 });
+    expect(readCallEnd({ reason: "interviewer", backupTurns: -1 })).toBeNull();
+  });
+
+  it("lets a late room report turn a stored disconnect into the interviewer's end, with one of its two details", () => {
+    const dropped = { reason: "disconnect" as const, detail: left, roomSeconds: null, recorded: true };
+    expect(withLateClaim(dropped, { reason: "interviewer", detail: "time_up", roomSeconds: 317 })).toEqual({ reason: "interviewer", detail: "time_up", roomSeconds: 317, recorded: true });
+    expect(withLateClaim(dropped, { reason: "interviewer", detail: "confirmed", roomSeconds: 90 })).toMatchObject({ reason: "interviewer", detail: "confirmed" });
+    // Without a known detail the claim only adds the room's clock.
+    expect(withLateClaim(dropped, { reason: "interviewer", roomSeconds: 90 })).toEqual({ ...dropped, roomSeconds: 90 });
+    expect(withLateClaim(dropped, { reason: "interviewer", detail: "anything", roomSeconds: 90 })).toEqual({ ...dropped, roomSeconds: 90 });
   });
 });

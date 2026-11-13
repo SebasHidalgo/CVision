@@ -28,6 +28,7 @@
     },
     "clock": {
       "timeLeft": "Time left",
+      "closing": "Time's up · closing…",
       "length": "Interview length"
     },
     "interviewer": "Interviewer",
@@ -69,8 +70,10 @@
     "ending": "Ending",
     "openingFeedback": "Opening your feedback",
     "countdown": {
-      "warning": "One minute left. Finish the answer you are on.",
-      "final": "Time is up. The interviewer is wrapping up."
+      "warning": "Last minute. The interviewer keeps asking until the time is up.",
+      "final": "A few seconds left.",
+      "closing": "Time's up. Finish your answer; the interviewer will say goodbye and close the call.",
+      "goodbye": "The interviewer is saying goodbye."
     },
     "microphone": {
       "insecure": "The microphone only works over a secure connection. Open this page over https and try again.",

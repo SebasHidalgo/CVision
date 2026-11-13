@@ -5,7 +5,7 @@ import {
   markSessionLost,
   storeConversationTranscript,
 } from "@/lib/database/interviewTranscript";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { MAX_CALL_SECONDS } from "@/lib/interviewLimits";
 import { toCallRecord } from "@/lib/voice/elevenlabs/wire";
 import { fetchConversation } from "@/lib/voice";
 import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/voice/postCall";
@@ -22,7 +22,8 @@ vi.mock("@/lib/database/interviewResume", () => ({ finalizeResumableInterview: v
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const NOW = new Date("2026-10-13T12:00:00Z");
-const WINDOW_MS = (MAX_INTERVIEW_DURATION_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
+// The platform cuts a call at the paid length plus the grace: only past that is a silent call stranded.
+const WINDOW_MS = (MAX_CALL_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
 
 const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForReconcile>>> = {}) => ({
   id: INTERVIEW_ID,

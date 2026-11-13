@@ -1,5 +1,5 @@
 {
-  "about": "Invented English first call for the ending checks. A turn with role \"note\" is one of the room's [time] lines, sent as the silent contextual update it is in a call. Cases: covered, two-minute, silent, answer, signal, ambiguous, stop, stop-yes, stop-no, contact.",
+  "about": "Invented English first call for the ending checks. A turn with role \"note\" is one of the room's [time] lines, sent as the silent contextual update it is in a call. A turn with role \"tool\" is an end_interview call with the room's answer. Cases: covered, two-minute, one-minute, refused, silent, answer, signal, ambiguous, stop, stop-yes, stop-no, contact.",
   "candidateFirstName": "Priya",
   "role": "Sr. Backend Developer",
   "company": "Northwind Labs",
@@ -7,29 +7,92 @@
   "jobDescription": "Northwind Labs is hiring a Senior Backend Developer for its payments team.\n\nResponsibilities:\n- Design and maintain the APIs behind checkout and refunds.\n- Review code and mentor junior developers.\n- Take part in the payments on-call rotation.\n- Improve monitoring and incident response.\n\nRequirements:\n- Experience building services in Node.js and TypeScript.\n- Kubernetes in production.\n- GraphQL API design.\n- Nice to have: experience with Kafka.\n- Available for on-call.",
   "analysisSummary": "The resume shows Node.js and TypeScript services; Kubernetes appears in part, and it does not show GraphQL or Kafka.",
   "requirements": [
-    { "requirement": "Experience building services in Node.js and TypeScript", "kind": "required", "status": "met", "evidence": "Built the order service in Node.js and TypeScript", "note": "Shown in the resume." },
-    { "requirement": "Kubernetes in production", "kind": "required", "status": "partial", "evidence": "Deployed services to a staging cluster", "note": "Only a staging environment." },
-    { "requirement": "GraphQL API design", "kind": "required", "status": "missing", "evidence": "", "note": "Not in the resume." },
-    { "requirement": "Experience with Kafka", "kind": "preferred", "status": "missing", "evidence": "", "note": "Not in the resume." },
-    { "requirement": "Available for on-call", "kind": "required", "status": "not_evident", "evidence": "", "note": "" }
+    {
+      "requirement": "Experience building services in Node.js and TypeScript",
+      "kind": "required",
+      "status": "met",
+      "evidence": "Built the order service in Node.js and TypeScript",
+      "note": "Shown in the resume."
+    },
+    {
+      "requirement": "Kubernetes in production",
+      "kind": "required",
+      "status": "partial",
+      "evidence": "Deployed services to a staging cluster",
+      "note": "Only a staging environment."
+    },
+    {
+      "requirement": "GraphQL API design",
+      "kind": "required",
+      "status": "missing",
+      "evidence": "",
+      "note": "Not in the resume."
+    },
+    {
+      "requirement": "Experience with Kafka",
+      "kind": "preferred",
+      "status": "missing",
+      "evidence": "",
+      "note": "Not in the resume."
+    },
+    {
+      "requirement": "Available for on-call",
+      "kind": "required",
+      "status": "not_evident",
+      "evidence": "",
+      "note": ""
+    }
   ],
   "history": [
-    { "role": "user", "message": "Hi. I'm a backend developer, five years, mostly Node." },
-    { "role": "agent", "message": "Thanks, Priya. Have you run Kubernetes in production?" },
-    { "role": "user", "message": "Only a staging cluster." },
-    { "role": "agent", "message": "I see. Have you designed a GraphQL API?" },
-    { "role": "user", "message": "No, just REST." },
-    { "role": "agent", "message": "Have you used Kafka or a similar messaging system?" },
-    { "role": "user", "message": "No." },
-    { "role": "agent", "message": "Tell me about the order service you built in Node.js and TypeScript. Which part was yours?" },
-    { "role": "user", "message": "Most of it. It worked well." },
-    { "role": "agent", "message": "Would you be available to take part in an on-call rotation?" },
-    { "role": "user", "message": "Yes, that's fine." }
+    {
+      "role": "user",
+      "message": "Hi. I'm a backend developer, five years, mostly Node."
+    },
+    {
+      "role": "agent",
+      "message": "Thanks, Priya. Have you run Kubernetes in production?"
+    },
+    {
+      "role": "user",
+      "message": "Only a staging cluster."
+    },
+    {
+      "role": "agent",
+      "message": "I see. Have you designed a GraphQL API?"
+    },
+    {
+      "role": "user",
+      "message": "No, just REST."
+    },
+    {
+      "role": "agent",
+      "message": "Have you used Kafka or a similar messaging system?"
+    },
+    {
+      "role": "user",
+      "message": "No."
+    },
+    {
+      "role": "agent",
+      "message": "Tell me about the order service you built in Node.js and TypeScript. Which part was yours?"
+    },
+    {
+      "role": "user",
+      "message": "Most of it. It worked well."
+    },
+    {
+      "role": "agent",
+      "message": "Would you be available to take part in an on-call rotation?"
+    },
+    {
+      "role": "user",
+      "message": "Yes, that's fine."
+    }
   ],
   "cases": {
     "covered": {
       "extra": [],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The interviewer's reply asks the candidate a new interview question: about their experience, a situation they might face in this role, or a follow-up on an earlier answer. It does not close the interview, does not say goodbye, does not say the questions are done or that the interview is over, and does not mention the feedback appearing.",
       "passExample": "Great. Suppose the refunds service goes down late on a Friday in this role. How would you approach it?",
       "failExample": "Thank you, Priya. We've covered all the planned questions. Your feedback will appear on your screen in a moment."
@@ -49,10 +112,56 @@
           "message": "Honestly, I don't remember much about that."
         }
       ],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The interviewer's reply goes on with the interview: it asks one more interview question or a follow-up. It does not announce that the interview is ending: no 'to close', 'to finish', 'to wrap up', 'one last question' or similar. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
       "passExample": "That's fine. Tell me how you and your teammates split the work on that project.",
       "failExample": "No problem. To close our conversation today, tell me about a project you are proud of."
+    },
+    "one-minute": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "note",
+          "note": "one"
+        },
+        {
+          "role": "user",
+          "message": "I'd check the dashboards to see what changed, and roll back if there was a recent deploy."
+        }
+      ],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply goes on with the interview: it asks one short interview question or a short follow-up. It does not announce that the interview is ending (no 'to close', 'to wrap up', 'last question' or similar), does not say goodbye, does not mention the feedback appearing and does not say the interview is over or that the time is up.",
+      "passExample": "That makes sense. And how would you let the rest of the team know?",
+      "failExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment."
+    },
+    "refused": {
+      "extra": [
+        {
+          "role": "agent",
+          "message": "Suppose the refunds service goes down late on a Friday. What would you do first?"
+        },
+        {
+          "role": "user",
+          "message": "I'd check the dashboards to see what changed, and roll back if there was a recent deploy."
+        },
+        {
+          "role": "agent",
+          "message": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment."
+        },
+        {
+          "role": "tool",
+          "reason": "time_up",
+          "answer": "refused",
+          "secondsLeft": 66
+        }
+      ],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply goes on with the interview: it asks an interview question or a follow-up. It does not announce that the interview is ending (no 'to close', 'to wrap up', 'last question' or similar), does not say goodbye, does not mention the feedback appearing and does not say the interview is over or that the time is up. It may begin with one short bridging phrase. It does not say goodbye again and does not mention the room, a refusal or the time.",
+      "passExample": "Let's keep going a little longer. How would you let the rest of the team know?",
+      "failExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment."
     },
     "silent": {
       "extra": [
@@ -62,10 +171,10 @@
         },
         {
           "role": "note",
-          "note": "wrap"
+          "note": "up"
         }
       ],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The candidate has not answered the interviewer's last question yet. The interviewer's reply is one short, patient line that gives the candidate time to answer it (for example 'Take your time'), or briefly repeats that same question. It does not ask about anything else. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
       "passExample": "Take your time, Priya.",
       "failExample": "Thanks for practicing, Priya. Your feedback will appear on your screen in a moment."
@@ -78,14 +187,14 @@
         },
         {
           "role": "note",
-          "note": "wrap"
+          "note": "up"
         },
         {
           "role": "user",
           "message": "I'd check the dashboards to see what changed, and roll back if there was a recent deploy."
         }
       ],
-      "endCall": "required",
+      "endTool": "time_up",
       "condition": "The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing. It speaks as one person: no 'with us', 'our team' or 'we appreciate'. It does not say anyone will contact the candidate or that there are next steps.",
       "passExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment.",
       "failExample": "Good answer. And how would you tell the rest of the team?"
@@ -94,10 +203,10 @@
       "extra": [
         {
           "role": "note",
-          "note": "wrap"
+          "note": "up"
         }
       ],
-      "endCall": "required",
+      "endTool": "time_up",
       "condition": "The interviewer's reply is the goodbye: it thanks the candidate and says their feedback will appear on their screen. It asks nothing, speaks as one person (no 'with us', 'our team' or 'we appreciate'), and does not say anyone will contact the candidate or that there are next steps.",
       "passExample": "Thank you for practicing with me, Priya. Your feedback will appear on your screen in a moment.",
       "failExample": "Thanks, Priya. How would you set up monitoring for the payments service?"
@@ -113,7 +222,7 @@
           "message": "Hmm… I think that's it."
         }
       ],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The candidate's remark is ambiguous: it is not clear whether they want to end the interview. The interviewer's reply asks them, in one short question, whether they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
       "passExample": "Do you want to end the interview now, Priya?",
       "failExample": "All right, Priya. Thanks for practicing; your feedback will appear on your screen in a moment."
@@ -129,7 +238,7 @@
           "message": "Sorry, I'd rather stop here. Can we end the interview?"
         }
       ],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The candidate asked to stop. The interviewer's reply does not close yet: it asks them, in one short question, to confirm that they want to end the interview now. It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
       "passExample": "Of course, Priya. Do you want to end the interview now?",
       "failExample": "Of course, Priya, we'll stop here. Thanks for practicing; your feedback will appear on your screen in a moment."
@@ -153,7 +262,7 @@
           "message": "Yes, let's end it."
         }
       ],
-      "endCall": "required",
+      "endTool": "candidate_confirmed",
       "condition": "The candidate confirmed they want to end. The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing and does not try to keep the interview going.",
       "passExample": "All right, Priya. Thanks for practicing; your feedback will appear on your screen in a moment.",
       "failExample": "I understand, but first tell me how you would handle an outage of the payments service."
@@ -177,7 +286,7 @@
           "message": "No, let's keep going."
         }
       ],
-      "endCall": "forbidden",
+      "endTool": "forbidden",
       "condition": "The candidate decided to continue. The interviewer's reply goes on with the interview: it asks an interview question (the pending one again, or a new one). It does not say goodbye, does not mention the feedback appearing and does not say the interview is over or ending.",
       "passExample": "Great, let's go on. I had asked what you would do first if the refunds service went down late on a Friday.",
       "failExample": "All right. Thanks for practicing; your feedback will appear on your screen in a moment."
@@ -186,7 +295,7 @@
       "extra": [
         {
           "role": "note",
-          "note": "wrap"
+          "note": "up"
         },
         {
           "role": "agent",

@@ -150,18 +150,40 @@ describe("POST /api/interview/[id]/ended", () => {
     expect(markInterviewEnded).toHaveBeenCalledWith({
       interviewId: INTERVIEW_ID,
       endedAt: new Date("2026-10-13T12:00:00Z"),
-      claim: { reason: "interviewer", roomSeconds: 233.4 },
+      claim: { reason: "interviewer", detail: null, roomSeconds: 233.4 },
     });
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining("end=interviewer room=233s"));
     // A reason the room cannot know is refused, not stored.
     expect(await post(JSON.stringify({ reason: "agent", end: "platform" }))).toMatchObject({ status: 400 });
   });
 
+  it("stores which request the room allowed when the interviewer ended the call, and only then", async () => {
+    expect(await post(JSON.stringify({ reason: "user", end: "interviewer", endDetail: "time_up", elapsedSeconds: 317.6 }))).toMatchObject({ status: 200 });
+    expect(markInterviewEnded).toHaveBeenLastCalledWith({ interviewId: INTERVIEW_ID, endedAt: new Date("2026-10-13T12:00:00Z"), claim: { reason: "interviewer", detail: "time_up", roomSeconds: 317.6 } });
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("end=interviewer/time_up room=318s"));
+    expect(await post(JSON.stringify({ reason: "user", end: "interviewer", endDetail: "confirmed", elapsedSeconds: 90 }))).toMatchObject({ status: 200 });
+    expect(markInterviewEnded).toHaveBeenLastCalledWith(expect.objectContaining({ claim: { reason: "interviewer", detail: "confirmed", roomSeconds: 90 } }));
+    // The detail belongs to an interviewer end: with any other reason it is dropped.
+    expect(await post(JSON.stringify({ reason: "user", end: "user", endDetail: "time_up", elapsedSeconds: 12 }))).toMatchObject({ status: 200 });
+    expect(markInterviewEnded).toHaveBeenLastCalledWith(expect.objectContaining({ claim: { reason: "user", detail: null, roomSeconds: 12 } }));
+    // Free text is refused: the stored detail is one of two words, never the room's prose.
+    expect(await post(JSON.stringify({ reason: "user", end: "interviewer", endDetail: "the candidate said bye" }))).toMatchObject({ status: 400 });
+    expect(markInterviewEnded).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not take an interviewer end for the candidate's Finish: no outcome, so the record decides", async () => {
+    expect(await post(JSON.stringify({ reason: "user", end: "interviewer", endDetail: "time_up", elapsedSeconds: 310 }))).toMatchObject({ status: 200, body: { ok: true, data: { finalized: false } } });
+    expect(recordCallOutcome).not.toHaveBeenCalled();
+  });
+
   it("adds the room's account to an end the record already stored: the webhook can beat the report", async () => {
     vi.mocked(markInterviewEnded).mockResolvedValue({ recorded: false });
     expect(await post(JSON.stringify({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: 3.1 }))).toMatchObject({ status: 200 });
-    expect(applyLateEndClaim).toHaveBeenCalledWith(INTERVIEW_ID, { reason: "user", roomSeconds: 3.1 });
+    expect(applyLateEndClaim).toHaveBeenCalledWith(INTERVIEW_ID, { reason: "user", detail: null, roomSeconds: 3.1 });
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining("after the record"));
+    // The same for the interviewer's allowed end, with its detail.
+    expect(await post(JSON.stringify({ reason: "user", end: "interviewer", endDetail: "confirmed", elapsedSeconds: 88 }))).toMatchObject({ status: 200 });
+    expect(applyLateEndClaim).toHaveBeenLastCalledWith(INTERVIEW_ID, { reason: "interviewer", detail: "confirmed", roomSeconds: 88 });
   });
 
   it("does not look for a stored end when the report came first, or says nothing about the end", async () => {

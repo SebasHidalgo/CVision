@@ -22,8 +22,8 @@ function suiteModelCalls(): number {
   return readFileSync(file, "utf8").split(/\r?\n/).filter((line) => line.includes('"command":"e2e"')).length;
 }
 
-/** Only these specs may call the model; everything else runs on seeded analyses and translations. */
-const MODEL_SPECS = /smoke\.spec\.ts$/;
+/** Only these specs may call the model; everything else runs on seeded analyses and translations. The voice spec's call is the feedback of its own short interview. */
+const MODEL_SPECS = /(?:smoke|voice)\.spec\.ts$/;
 
 export const test = base.extend<{ cspWatch: void; modelCallGuard: void }>({
   // A test outside the smoke specs that calls Gemini fails.

@@ -4,7 +4,7 @@ import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
 import { assertRateLimit } from "@/lib/database/rateLimit";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { MAX_CALL_SECONDS } from "@/lib/interviewLimits";
 import { isStranded } from "@/lib/voice/postCall";
 import {
   reconcileChangedRow,
@@ -43,7 +43,7 @@ export async function GET(
     let row = await fetchInterviewStatus(id);
     if (!row) throw new NotFoundError("Interview not found");
 
-    if (isStranded(row, new Date(), MAX_INTERVIEW_DURATION_SECONDS)) {
+    if (isStranded(row, new Date(), MAX_CALL_SECONDS)) {
       try {
         const outcome = await reconcileStrandedInterview(id);
         if (reconcileNeedsFeedback(outcome)) {

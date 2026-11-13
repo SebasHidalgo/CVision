@@ -12,7 +12,9 @@ import {
   VOICE_CREDITS_PER_MINUTE_ENV,
   type VoiceBalance,
 } from "@/lib/voice/balance";
-import { buildInterviewAgentDefinition, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV, interviewAgentVoices } from "./agentConfig";
+import { buildInterviewAgentDefinition, END_INTERVIEW_TOOL_CONFIG, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV, interviewAgentVoices } from "./agentConfig";
+import { endToolProblem, findEndToolId } from "./sync";
+import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
 /**
@@ -73,6 +75,9 @@ function describeLimits(tier: InterviewTierId, settings: { callLimits?: { dailyL
   return `${daily}, ${burst}, ${queue}`;
 }
 
+/** How many of the latest calls the doctor reads for turns the backup model answered. */
+export const RECENT_CALLS_READ = 10;
+
 /** A library voice whose owner withdraws it stays usable for its notice period; inside this many days the doctor fails. */
 export const VOICE_REMOVAL_WARNING_DAYS = 30;
 
@@ -122,6 +127,8 @@ export function definitionDifferences(expected: unknown, actual: unknown, prefix
       definitionDifferences(expected[key], key in actual ? actual[key] : actual[snakeCase(key)], prefix ? `${prefix}.${key}` : key),
     );
   }
+  // A null in the definition switches something off: absent on read is the same thing.
+  if (expected === null) return actual === null || actual === undefined ? [] : [prefix || "(root)"];
   return JSON.stringify(expected) === JSON.stringify(actual) ? [] : [prefix || "(root)"];
 }
 
@@ -188,7 +195,11 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const floor = readBalanceFloor(seconds, env);
       const capacity = decideVoiceCapacity(balance, floor);
       reachable = capacity.available;
-      const formula = overridden && floor !== Math.ceil((seconds / 60) * rate * VOICE_BALANCE_MARGIN) ? VOICE_BALANCE_FLOOR_ENV : `${seconds / 60} min x ${rate} credits a minute x ${VOICE_BALANCE_MARGIN}`;
+      const callSeconds = seconds + INTERVIEW_GRACE_SECONDS;
+      const formula =
+        overridden && floor !== Math.ceil((callSeconds / 60) * rate * VOICE_BALANCE_MARGIN)
+          ? VOICE_BALANCE_FLOOR_ENV
+          : `${seconds / 60} min + ${INTERVIEW_GRACE_SECONDS} s of grace x ${rate} credits a minute x ${VOICE_BALANCE_MARGIN}`;
       checks.push(
         floor === 0
           ? skip(name, "the check is off (ELEVENLABS_BALANCE_FLOOR_CREDITS=0): every start is attempted", "Unset ELEVENLABS_BALANCE_FLOOR_CREDITS to guard starts with the default floor.")
@@ -210,7 +221,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
     checks.push(
       pass(
         "interviews covered",
-        `at ${rate} credits a minute (${rateSource}) the balance pays for ${covered("FULL")} full interview(s) of ${INTERVIEW_TIERS.FULL.seconds / 60} min (${each.FULL} credits each) or ${covered("TRIAL")} trial(s) of ${INTERVIEW_TIERS.TRIAL.seconds / 60} min (${each.TRIAL} each). A call past the plan's concurrency limit is charged at the burst rate: ${burstInterviewCredits(INTERVIEW_TIERS.FULL.seconds, env)} credits for a full interview; the floor does not include it`,
+        `at ${rate} credits a minute (${rateSource}) the balance pays for ${covered("FULL")} full interview(s) of ${INTERVIEW_TIERS.FULL.seconds / 60} min (${each.FULL} credits each, the ${INTERVIEW_GRACE_SECONDS} s of grace included) or ${covered("TRIAL")} trial(s) of ${INTERVIEW_TIERS.TRIAL.seconds / 60} min (${each.TRIAL} each). A call past the plan's concurrency limit is charged at the burst rate: ${burstInterviewCredits(INTERVIEW_TIERS.FULL.seconds, env)} credits for a full interview; the floor does not include it`,
       ),
     );
   } catch (error) {
@@ -223,6 +234,19 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
     for (const name of ["balance floor", "balance floor (trial)", "interviews covered"]) {
       checks.push(skip(name, "not checked: the balance could not be read (see permission user_read)", "Without user_read the session endpoint logs a warning once and guards nothing."));
     }
+  }
+
+  // The tool both agents ask the room to end a call with: a workspace object, like the webhook.
+  let endToolId: string | null = null;
+  try {
+    endToolId = await findEndToolId(client);
+    checks.push(
+      endToolId
+        ? pass("end tool", `${endToolId} "${END_INTERVIEW_TOOL_CONFIG.name}" is in the workspace: the interviewer asks the room to end a call, and only the room hangs up`)
+        : fail("end tool", `the workspace has no "${END_INTERVIEW_TOOL_CONFIG.name}" client tool: the interviewer cannot ask for the end, and every call runs to the platform's limit`, "Run npm run agent:sync: it creates the tool and attaches it to both agents."),
+    );
+  } catch (error) {
+    checks.push(failFrom("end tool", error, "tools read (ConvAI)"));
   }
 
   // The agents, against the definition that `agent:sync` pushes.
@@ -240,7 +264,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const postCallWebhookId = agent.platformSettings?.workspaceOverrides?.webhooks?.postCallWebhookId ?? null;
       webhookIdsSeen.add(postCallWebhookId);
       webhookIdByAgent.push(postCallWebhookId);
-      const expected = buildInterviewAgentDefinition({ postCallWebhookId, tier, env });
+      const expected = buildInterviewAgentDefinition({ postCallWebhookId, endToolId, tier, env });
       // The dashboard's test-call placeholders are left out: the platform
       // answers `dynamic_variable_placeholders: {}` on read whatever the
       // sync pushed (seen 2026-10-23), and no real session depends on them.
@@ -249,6 +273,9 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       const comparable = { ...expected, conversationConfig: { ...expected.conversationConfig, agent: agentWithoutPlaceholders } };
       const differences = definitionDifferences(comparable, { name: agent.name, tags: agent.tags, conversationConfig: agent.conversationConfig, platformSettings: agent.platformSettings });
       if (!postCallWebhookId) differences.push("platformSettings.workspaceOverrides.webhooks.postCallWebhookId (none attached)");
+      // The definition's empty built-in tools walk nothing: an end_call left on is looked for by name.
+      const toolProblem = endToolId ? endToolProblem(agent, endToolId) : null;
+      if (toolProblem) differences.push(`the way a call ends (${toolProblem})`);
       checks.push(
         differences.length
           ? fail(name, `${id} ("${agent.name}") differs from agentConfig.ts at ${differences.join(", ")}`, "Run npm run agent:sync to push the definition in code; a change made in the dashboard is overwritten.")
@@ -299,10 +326,43 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
     ),
   );
 
-  // The conversation read the reconcile needs when a webhook never comes.
+  // The conversation read the reconcile needs when a webhook never comes, and what the latest calls say about the backup model.
   try {
-    const page = await client.conversationalAi.conversations.list({ pageSize: 1 });
+    const page = await client.conversationalAi.conversations.list({ pageSize: RECENT_CALLS_READ });
     checks.push(pass("permission conversations read", `${page.conversations.length ? "conversations listed" : "no conversations yet"}; the reconcile can fetch a call whose webhook was lost`));
+    const own = new Set(TIERS.map((tier) => agentIds[tier]).filter((id): id is string => id !== null));
+    const recent = page.conversations.filter((conversation) => own.has(conversation.agentId));
+    let turns = 0;
+    let backupTurns = 0;
+    const callsWithBackup: string[] = [];
+    const models = new Set<string>();
+    // A record that cannot be read is counted and said: it must not look like a missing permission.
+    const unread: string[] = [];
+    for (const conversation of recent) {
+      const record = await client.conversationalAi.conversations.get(conversation.conversationId).catch(() => null);
+      if (!record) {
+        unread.push(conversation.conversationId);
+        continue;
+      }
+      const agentTurns = record.transcript.filter((turn) => turn.role === "agent" && typeof turn.message === "string" && turn.message.trim() !== "");
+      const backup = agentTurns.filter((turn) => typeof turn.llmOverride === "string" && turn.llmOverride.trim() !== "");
+      turns += agentTurns.length;
+      backupTurns += backup.length;
+      for (const turn of backup) models.add(turn.llmOverride!.trim());
+      if (backup.length > 0) callsWithBackup.push(`${conversation.conversationId} (${backup.length} of ${agentTurns.length})`);
+    }
+    const read = recent.length - unread.length;
+    const unreadNote = unread.length ? ` ${unread.length} record(s) could not be read (${unread.join(", ")}).` : "";
+    checks.push(
+      recent.length === 0
+        ? skip("backup model (recent calls)", "no call of these agents among the latest conversations")
+        : read === 0
+          ? skip("backup model (recent calls)", `none of the latest ${recent.length} call(s) could be read (${unread.join(", ")})`, "Run the doctor again; the server log has a line per call: [CVision][voice] call end … backup=N")
+          : pass(
+              "backup model (recent calls)",
+              `the latest ${read} call(s): ${backupTurns} of ${turns} interviewer turn(s) were answered by the backup model${models.size ? ` (${[...models].join(", ")})` : ""}${callsWithBackup.length ? `, in ${callsWithBackup.join(", ")}` : ""}.${unreadNote} The server log has a line per call: [CVision][voice] call end … backup=N`,
+            ),
+    );
   } catch (error) {
     checks.push(failFrom("permission conversations read", error, "conversations read (ConvAI)"));
   }

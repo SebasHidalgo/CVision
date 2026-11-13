@@ -8,7 +8,7 @@ import {
   type StoreTranscriptResult,
 } from "@/lib/database/interviewTranscript";
 import { finalizeResumableInterview } from "@/lib/database/interviewResume";
-import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { MAX_CALL_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { readSegments } from "@/lib/voice/segments";
 import { fetchConversation } from "@/lib/voice";
 import {
@@ -72,7 +72,7 @@ export async function reconcileStrandedInterview(
       endedAt: row.endedAt,
     },
     now,
-    MAX_INTERVIEW_DURATION_SECONDS,
+    MAX_CALL_SECONDS,
     graceSeconds,
   );
   if (!stranded) return { kind: "not-stranded" };

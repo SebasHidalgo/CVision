@@ -1,5 +1,5 @@
 // Checks the interviewer's next turn in text, with no call (about 40 credits a run).
-// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local.
+// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local, --list.
 // --llm runs this checkout's definition on another model (the backup); --local runs it unsynced.
 // Exit code 1 when a run fails. Never prints the key.
 import { readFileSync } from "node:fs";
@@ -8,9 +8,10 @@ import { parseArgs } from "node:util";
 import { buildInterviewerContext, type InterviewerContextInput } from "@/lib/ai/prompts/interviewer.agent";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { agentConfigOverride, checkNextTurn } from "@/lib/voice/admin";
+import { agentConfigOverride, checkNextTurn, endToolIdFromWorkspace } from "@/lib/voice/admin";
+import { decideEndTool, type EndToolReason } from "@/lib/voice/callEnd";
 import { continuityRecord } from "@/lib/voice/segments";
-import { halfText, TWO_TEXT, WRAP_TEXT } from "@/lib/voice/timeNotes";
+import { halfText, ONE_TEXT, TWO_TEXT, UP_TEXT } from "@/lib/voice/timeNotes";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 
 const { values: args } = parseArgs({
@@ -21,13 +22,14 @@ const { values: args } = parseArgs({
     tier: { type: "string" },
     llm: { type: "string" },
     local: { type: "boolean" },
+    list: { type: "boolean" },
   },
 });
 
-type Check = { condition: string; passExample: string; failExample: string; endCall?: "required" | "forbidden" };
+type Check = { condition: string; passExample: string; failExample: string; endTool?: "forbidden" | EndToolReason };
 type Turn = { role: "agent" | "user"; message: string };
-/** A fixture turn: spoken, or one of the room's [time] lines by name. */
-type FixtureTurn = Turn | { role: "note"; note: "half" | "two" | "wrap" };
+/** A fixture turn: spoken, one of the room's [time] lines by name, or an end_interview call with the room's answer (refused with this much paid time left, or allowed). */
+type FixtureTurn = Turn | { role: "note"; note: "half" | "two" | "one" | "up" } | { role: "tool"; reason: EndToolReason; answer: "allowed" } | { role: "tool"; reason: EndToolReason; answer: "refused"; secondsLeft: number };
 
 type Base = {
   candidateFirstName: string;
@@ -81,18 +83,30 @@ async function main() {
   });
 
   // What one check sends: the session's variables, the conversation so far, and what the next turn must do.
-  type Planned = { label: string; variables: Record<string, string>; history: { role: "agent" | "user" | "note"; message: string }[]; check: Check };
+  type History = Parameters<typeof checkNextTurn>[0]["history"];
+  type Planned = { label: string; variables: Record<string, string>; history: History; check: Check };
   const planned: Planned[] = [];
   if ("cases" in fixture) {
     const chosen = args.case ?? "covered";
     const names = chosen === "all" ? Object.keys(fixture.cases) : chosen.split(",");
     const variables = buildInterviewerContext(base()).dynamicVariables;
     // A note turn becomes the line the room would send at that point of this tier's call.
-    const noteText = { wrap: WRAP_TEXT, two: TWO_TEXT, half: halfText(Math.floor(seconds / 120)) };
+    const noteText = { up: UP_TEXT, one: ONE_TEXT, two: TWO_TEXT, half: halfText(Math.floor(seconds / 120)) };
+    if (args.list) {
+      for (const [one, picked] of Object.entries(fixture.cases)) console.log(`${one.padEnd(14)} ${picked.endTool ?? "(words only)"}`);
+      return;
+    }
     for (const one of names) {
       const picked = fixture.cases[one];
       if (!picked) throw new Error(`--case must be all or one of ${Object.keys(fixture.cases).join(", ")}`);
-      const extra = picked.extra.map((turn) => (turn.role === "note" ? { role: "note" as const, message: noteText[turn.note] } : turn));
+      // The room's answer is the one the room's own code gives.
+      const answer = (turn: Extract<FixtureTurn, { role: "tool" }>) =>
+        turn.answer === "allowed"
+          ? decideEndTool({ reason: "time_up", paidSecondsLeft: 0, turns: [] }).result
+          : decideEndTool({ reason: turn.reason === "candidate_confirmed" ? "candidate_confirmed" : "time_up", paidSecondsLeft: turn.secondsLeft, turns: [] }).result;
+      const extra: History = picked.extra.map((turn) =>
+        turn.role === "note" ? { role: "note" as const, message: noteText[turn.note] } : turn.role === "tool" ? { role: "tool" as const, reason: turn.reason, result: answer(turn) } : turn,
+      );
       planned.push({ label: `${name} / ${one}`, variables, history: [{ role: "agent", message: variables.opening_line }, ...fixture.history, ...extra], check: picked });
     }
   } else {
@@ -105,7 +119,9 @@ async function main() {
   }
 
   // The synced agent as it is, or this checkout's definition for this run only.
-  const configOverride = args.llm || args.local ? agentConfigOverride(tier === "trial" ? "TRIAL" : "FULL", args.llm ? { llm: args.llm } : {}) : undefined;
+  const endToolId = args.llm || args.local ? await endToolIdFromWorkspace() : null;
+  if ((args.llm || args.local) && !endToolId) throw new Error("the workspace has no end_interview tool yet: run npm run agent:sync first");
+  const configOverride = args.llm || args.local ? agentConfigOverride(tier === "trial" ? "TRIAL" : "FULL", { ...(args.llm ? { llm: args.llm } : {}), endToolId }) : undefined;
   const running = configOverride ? `this checkout's definition${args.llm ? ` on ${args.llm}` : ""}` : "the synced agent";
 
   let credits = 0;
@@ -122,7 +138,7 @@ async function main() {
       passExample: one.check.passExample,
       failExample: one.check.failExample,
       repeat,
-      ...(one.check.endCall ? { endCall: one.check.endCall } : {}),
+      ...(one.check.endTool ? { endTool: one.check.endTool } : {}),
       ...(configOverride ? { configOverride } : {}),
     });
     for (const [index, run] of runs.entries()) {
@@ -130,7 +146,7 @@ async function main() {
       total += 1;
       if (!run.passed) failed += 1;
       // One line per reply: a reply's later paragraphs must survive a grep.
-      console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1} [${run.model ?? "model?"}, end_call: ${run.endedCall ? "yes" : "no"}]: ${run.said.replace(/\s+/g, " ") || "(the interviewer said nothing)"}`);
+      console.log(`${run.passed ? "PASS" : "FAIL"}  run ${index + 1} [${run.model ?? "model?"}, end_interview: ${run.endedCall ? (run.endReason ?? "no reason") : "no"}]: ${run.said.replace(/\s+/g, " ") || "(the interviewer said nothing)"}`);
       if (run.why) console.log(`      -> ${run.why}`);
     }
     if (runs.length === 0) failed += 1;

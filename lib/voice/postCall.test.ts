@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import {
   CALL_FAILED,
   CALL_OVERRUN_TOLERANCE_SECONDS,
@@ -271,14 +272,15 @@ describe("decidePostCallOutcome", () => {
 });
 
 describe("callOverrunSeconds: a call that ran past what its session allowed", () => {
-  it("reports only what passes the tolerance", () => {
-    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(15);
-    // A resumed call allowed 284 s that the room hung up three seconds late.
+  it("reports only what passes the tolerance: the grace and a margin", () => {
+    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(75);
+    // A resumed call allowed 284 s that used its grace and was hung up three seconds late.
     expect(callOverrunSeconds(284, 287)).toBe(0);
-    expect(callOverrunSeconds(284, 299)).toBe(0);
-    expect(callOverrunSeconds(284, 299.6)).toBe(16);
+    expect(callOverrunSeconds(284, 347)).toBe(0);
+    expect(callOverrunSeconds(284, 359)).toBe(0);
+    expect(callOverrunSeconds(284, 359.6)).toBe(76);
     // A browser that never hung up: the agent's own limit ended it.
-    expect(callOverrunSeconds(284, 720)).toBe(436);
+    expect(callOverrunSeconds(284, 780)).toBe(496);
   });
 
   it("says nothing when the allowance or the length is unknown (a row from before, a record without metadata)", () => {
@@ -410,5 +412,188 @@ describe("fromConversationApi", () => {
       durationSeconds: 0,
       startRefunded: true,
     });
+  });
+});
+
+// A request to the room and its answer, the way the record carries a client tool.
+const askedRoom = (reason: string, answer: string | null, at = 230, id = "req_1") => [
+  { role: "agent", message: null, time_in_call_secs: at, tool_calls: [{ tool_name: "end_interview", params_as_json: JSON.stringify({ reason }), request_id: id }] },
+  ...(answer === null ? [] : [{ role: "agent", message: null, time_in_call_secs: at, tool_results: [{ tool_name: "end_interview", result_value: answer, request_id: id }] }]),
+];
+const ALLOWED = "ALLOWED: the room hangs up when you finish speaking. Say the goodbye now.";
+const REFUSED = "REFUSED: the call continues. The interview time is not up: 1 min 6 s remain.";
+const CLIENT_LEFT = "Client disconnected: 1005";
+
+describe("toCallRecord: what the tool turns say, and what is kept of a turn", () => {
+  const record = (transcript: PostCallTranscription["transcript"]) => toCallRecord(payload({ transcript, metadata: { start_time_unix_secs: START, call_duration_secs: 240, termination_reason: CLIENT_LEFT } }));
+
+  it("reads the last end_interview call: refused only when the room's answer says so", () => {
+    expect(record([...payload().transcript, ...askedRoom("time_up", ALLOWED)]).endTool).toEqual({ reason: "time_up", refused: false });
+    expect(record([...payload().transcript, ...askedRoom("candidate_confirmed", `  ${ALLOWED}`)]).endTool).toEqual({ reason: "candidate_confirmed", refused: false });
+    expect(record([...payload().transcript, ...askedRoom("time_up", REFUSED)]).endTool).toEqual({ reason: "time_up", refused: true });
+    expect(record([...payload().transcript, ...askedRoom("time_up", `  ${REFUSED}`)]).endTool).toEqual({ reason: "time_up", refused: true });
+    // The room answers every refusal at once and hangs up on a call it allows, usually before any answer is recorded.
+    expect(record([...payload().transcript, ...askedRoom("time_up", null)]).endTool).toEqual({ reason: "time_up", refused: false });
+    expect(record(payload().transcript).endTool).toBeNull();
+  });
+
+  it("takes the last request when there were several, each with its own answer", () => {
+    const turns = [...payload().transcript, ...askedRoom("time_up", REFUSED, 200, "req_1"), { role: "agent", message: "What did you do next?", time_in_call_secs: 204 }, { role: "user", message: "I wrote the fix.", time_in_call_secs: 215 }, ...askedRoom("time_up", ALLOWED, 301, "req_2")];
+    expect(record(turns).endTool).toEqual({ reason: "time_up", refused: false });
+    // The other way round: an allowed answer to an earlier request does not allow the last one.
+    const reversed = [...payload().transcript, ...askedRoom("time_up", ALLOWED, 200, "req_1"), ...askedRoom("candidate_confirmed", REFUSED, 301, "req_2")];
+    expect(record(reversed).endTool).toEqual({ reason: "candidate_confirmed", refused: true });
+  });
+
+  it("reads an unknown reason or unreadable parameters as time_up, and ignores other tools", () => {
+    expect(record([...payload().transcript, ...askedRoom("whenever", ALLOWED)]).endTool).toEqual({ reason: "time_up", refused: false });
+    const broken = [{ role: "agent", message: null, tool_calls: [{ tool_name: "end_interview", params_as_json: "{", request_id: "req_9" }] }];
+    expect(record([...payload().transcript, ...broken]).endTool).toEqual({ reason: "time_up", refused: false });
+    const note = [{ role: "agent", message: null, tool_calls: [{ tool_name: "contextual_update", params_as_json: "{}", request_id: "n_1" }] }, { role: "agent", message: null, tool_results: [{ tool_name: "contextual_update", result_value: "ALLOWED", request_id: "n_1" }] }];
+    expect(record([...payload().transcript, ...note]).endTool).toBeNull();
+  });
+
+  it("counts the turns the backup model answered: one per run of interviewer entries it wrote, and names the models", () => {
+    const turns = [
+      { role: "agent", message: "Welcome.", time_in_call_secs: 0 },
+      { role: "user", message: "Hello.", time_in_call_secs: 3 },
+      // One turn: its words and its tool entry both carry the mark.
+      { role: "agent", message: "Tell me about your last project.", time_in_call_secs: 5, llm_override: "gpt-4o" },
+      { role: "agent", message: null, time_in_call_secs: 6, llm_override: "gpt-4o", tool_calls: [{ tool_name: "contextual_update", params_as_json: "{}" }] },
+      { role: "user", message: "It was a billing service.", time_in_call_secs: 12 },
+      { role: "agent", message: "What was hard about it?", time_in_call_secs: 20 },
+      { role: "user", message: "The retries.", time_in_call_secs: 26, llm_override: "ignored on a candidate turn" },
+      { role: "agent", message: "And how did you test them?", time_in_call_secs: 30, llm_override: " gpt-4o-mini " },
+    ];
+    const read = record(turns);
+    expect(read.backupTurns).toBe(2);
+    expect(read.backupModels).toEqual(["gpt-4o", "gpt-4o-mini"]);
+    expect(record(payload().transcript)).toMatchObject({ backupTurns: 0, backupModels: [] });
+  });
+
+  it("keeps of each turn only who spoke, what, and when, and drops the turns without words", () => {
+    const turns = [
+      { role: "agent", message: "Welcome.", time_in_call_secs: 0, llm_override: "gpt-4o", agent_metadata: { agent_id: "agent_1" }, conversation_turn_metrics: { metrics: { ttfb: 0.4 } }, interrupted: false, source_medium: "audio", feedback: null },
+      { role: "user", message: "Hello.", time_in_call_secs: 3, llm_usage: null, rag_retrieval_info: null, original_message: "Hello" },
+      ...askedRoom("time_up", REFUSED, 5),
+      { role: "agent", message: "   ", time_in_call_secs: 6 },
+      { role: "user", message: "No timestamp on this one." },
+    ];
+    const kept = record(turns).turns;
+    expect(kept).toEqual([
+      { role: "agent", message: "Welcome.", time_in_call_secs: 0 },
+      { role: "user", message: "Hello.", time_in_call_secs: 3 },
+      { role: "user", message: "No timestamp on this one." },
+    ]);
+    for (const turn of kept) expect(Object.keys(turn).every((key) => ["role", "message", "time_in_call_secs"].includes(key))).toBe(true);
+  });
+});
+
+describe("the grace: a call may run past its paid length", () => {
+  it("reports an overrun only past the grace plus fifteen seconds", () => {
+    expect(INTERVIEW_GRACE_SECONDS).toBe(60);
+    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(INTERVIEW_GRACE_SECONDS + 15);
+    // A five-minute trial that used its grace in full, and the platform's own cut a second later.
+    expect(callOverrunSeconds(300, 360)).toBe(0);
+    expect(callOverrunSeconds(300, 361)).toBe(0);
+    expect(callOverrunSeconds(300, 375)).toBe(0);
+    expect(callOverrunSeconds(300, 376)).toBe(76);
+    // A resumed call allowed 120 s that the room never hung up: the platform's limit ended it.
+    expect(callOverrunSeconds(120, 360)).toBe(240);
+  });
+});
+
+describe("decidePostCallOutcome: only the room hangs up", () => {
+  // A five-minute trial that ended after `seconds` with the client leaving, with these last turns.
+  const ended = (seconds: number, last: PostCallTranscription["transcript"], r: PostCallRow = row(), reason = CLIENT_LEFT) =>
+    decidePostCallOutcome({
+      row: r,
+      data: toCallRecord(payload({ transcript: [...payload().transcript, ...last], metadata: { start_time_unix_secs: START, call_duration_secs: seconds, termination_reason: reason } })),
+      eventTimestamp: START + 500,
+      maxStarts: 3,
+      plannedSeconds: 300,
+      now: new Date((START + seconds + 5) * 1000),
+    });
+  const GOODBYE = { role: "agent", message: "Thanks for practicing, Ana. Your feedback will appear on your screen in a moment.", time_in_call_secs: 236 };
+  const QUESTION = { role: "agent", message: "Tell me about a project you led, and what your part in it was.", time_in_call_secs: 150 };
+  const ANSWER = { role: "user", message: "I led the move to the new billing service.", time_in_call_secs: 228 };
+
+  it("today's shape: a goodbye allowed at 3:54 of 5:00 is early: not scored, resumable, its start given back", () => {
+    const outcome = ended(234, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED), GOODBYE]);
+    expect(outcome).toMatchObject({ kind: "store", status: "IN_PROGRESS", earlyEnd: true, startRefunded: true, failureReason: null, callEnd: { reason: "interviewer", detail: "time_up", recorded: true } });
+    expect((outcome as { resumableUntil: Date | null }).resumableUntil).toEqual(new Date((START + 234 + 600) * 1000));
+    // The transcript stored is this call's, without the tool turns; nothing is merged for scoring yet.
+    expect((outcome as { transcript: { message?: string | null }[] }).transcript.at(-1)?.message).toBe(GOODBYE.message);
+    // On the last start too: the connection comes back, so it can be continued.
+    expect(ended(234, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED), GOODBYE], row({ startCount: 3 }))).toMatchObject({ status: "IN_PROGRESS", startRefunded: true });
+  });
+
+  it("scores the interview when the room allowed the end after the paid time was over, inside the grace", () => {
+    for (const seconds of [300, 318, 359]) {
+      expect(ended(seconds, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED, seconds - 12), GOODBYE])).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, startRefunded: false, resumableUntil: null, durationSeconds: seconds, callEnd: { reason: "interviewer", detail: "time_up" } });
+    }
+  });
+
+  it("scores a stop the candidate confirmed, however much time was left", () => {
+    const confirmed = [QUESTION, { role: "user", message: "Sorry, can we stop here?", time_in_call_secs: 160 }, { role: "agent", message: "Do you want to end the interview now?", time_in_call_secs: 163 }, { role: "user", message: "Yes.", time_in_call_secs: 166 }, ...askedRoom("candidate_confirmed", ALLOWED, 168), GOODBYE];
+    expect(ended(176, confirmed)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, startRefunded: false, callEnd: { reason: "interviewer", detail: "confirmed" } });
+  });
+
+  it("keeps a call whose request the room refused as a drop: resumable, the start not given back", () => {
+    expect(ended(240, [QUESTION, ANSWER, ...askedRoom("time_up", REFUSED)])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: false, startRefunded: false, callEnd: { reason: "disconnect", detail: CLIENT_LEFT } });
+    // A plain disconnect over a pending question: the same.
+    expect(ended(150, [QUESTION])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: false, startRefunded: false, callEnd: { reason: "disconnect" } });
+    // An unanswered time_up with paid time left is a call the room should not have ended: early, never scored.
+    expect(ended(240, [QUESTION, ANSWER, ...askedRoom("time_up", null)])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true, callEnd: { reason: "interviewer", detail: "time_up" } });
+  });
+
+  it("treats a platform-side end with paid time left as early, whoever spoke last", () => {
+    for (const last of [[QUESTION], [QUESTION, ANSWER]]) {
+      expect(ended(200, last, row(), "Call ended due to silence timeout")).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true, callEnd: { reason: "platform", detail: "Call ended due to silence timeout" } });
+    }
+  });
+
+  it("lets the candidate's End or Finish stand over anything", () => {
+    const finished = row({ finishRequestedAt: new Date(), callEnd: { reason: "user", roomSeconds: 120.4 } });
+    expect(ended(121, [QUESTION], finished)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, startRefunded: false, callEnd: { reason: "user", roomSeconds: 120.4 } });
+    expect(ended(234, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED), GOODBYE], row({ finishRequestedAt: new Date() }))).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false });
+  });
+
+  it("lets any end stand with 30 s or less of paid time left: nothing is left to resume", () => {
+    expect(ended(271, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED), GOODBYE])).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false });
+    expect(ended(275, [QUESTION], row(), "Call ended due to silence timeout")).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, callEnd: { reason: "platform" } });
+    expect(ended(275, [QUESTION])).toMatchObject({ status: "FEEDBACK_PENDING", callEnd: { reason: "disconnect" } });
+    // One second more of paid time left and each of them is resumable.
+    expect(ended(269, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED), GOODBYE])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true });
+    expect(ended(269, [QUESTION], row(), "Call ended due to silence timeout")).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true });
+  });
+
+  it("scores a call the platform cut at the paid length plus the grace", () => {
+    expect(ended(360, [QUESTION, ANSWER], row(), "Maximum duration exceeded")).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, durationSeconds: 360, callEnd: { reason: "limit" } });
+  });
+
+  it("falls back to what the room said it allowed when the record lost the tool turn", () => {
+    const confirmed = row({ callEnd: { reason: "interviewer", detail: "confirmed", roomSeconds: 175.2 } });
+    expect(ended(176, [QUESTION, GOODBYE], confirmed)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, callEnd: { reason: "interviewer", detail: "confirmed", roomSeconds: 175.2, recorded: true } });
+    // A time_up the room claims with paid time left is as early as one the record shows.
+    const timeUp = row({ callEnd: { reason: "interviewer", detail: "time_up", roomSeconds: 233 } });
+    expect(ended(234, [QUESTION, ANSWER, GOODBYE], timeUp)).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true, callEnd: { reason: "interviewer", detail: "time_up" } });
+    // The claim counts only when the client left: a platform-side end is the platform's.
+    expect(ended(200, [QUESTION], confirmed, "Call ended due to silence timeout")).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, callEnd: { reason: "platform" } });
+    // A claim without one of the two details is not an end by the interviewer.
+    expect(ended(176, [QUESTION, GOODBYE], row({ callEnd: { reason: "interviewer" } }))).toMatchObject({ status: "IN_PROGRESS", earlyEnd: false, callEnd: { reason: "disconnect" } });
+  });
+
+  it("still classifies a record of the old end_call tool by the goodbye's words", () => {
+    const OLD_END = "end_call tool was called.";
+    expect(ended(250, [QUESTION, ANSWER, GOODBYE], row(), OLD_END)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, callEnd: { reason: "interviewer" } });
+    expect(ended(178, [QUESTION, ANSWER, GOODBYE], row(), OLD_END)).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true });
+    expect(ended(235, [QUESTION], row(), OLD_END)).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true });
+  });
+
+  it("carries the count of backup-model turns on the stored end", () => {
+    const outcome = ended(318, [{ ...QUESTION, llm_override: "gpt-4o" }, ANSWER, ...askedRoom("time_up", ALLOWED, 306), GOODBYE]);
+    expect(outcome).toMatchObject({ status: "FEEDBACK_PENDING", callEnd: { reason: "interviewer", detail: "time_up", backupTurns: 1 } });
+    expect((ended(318, [QUESTION, ANSWER, ...askedRoom("time_up", ALLOWED, 306), GOODBYE]) as { callEnd: object }).callEnd).not.toHaveProperty("backupTurns");
   });
 });

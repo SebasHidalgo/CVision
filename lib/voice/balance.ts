@@ -1,4 +1,4 @@
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
+import { INTERVIEW_GRACE_SECONDS, MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 
 /**
  * The voice platform's balance, and whether it can carry one more
@@ -13,8 +13,12 @@ import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
  * refused before anything is reserved rather than after the candidate has
  * heard silence.
  *
- *   floor = minutes of the agent's hard limit x credits a minute x margin
+ *   floor = minutes of the agent's hard limit (the paid length plus the
+ *           grace for the last answer and the goodbye) x credits a minute x margin
  */
+
+/** The longest a call of this paid length can run on the platform. */
+const hardLimitSeconds = (paidSeconds: number) => paidSeconds + INTERVIEW_GRACE_SECONDS;
 
 /** Credits a call minute costs: 451 on Starter (398 call + 53 LLM), measured with voice:cost on 2026-11-12. */
 export const VOICE_CREDITS_PER_MINUTE = 451;
@@ -34,9 +38,9 @@ export function readCreditsPerMinute(env: Record<string, string | undefined> = p
   return value > 0 ? value : VOICE_CREDITS_PER_MINUTE;
 }
 
-/** What an interview of this length costs at the rate in force, without the margin. */
+/** What an interview of this paid length costs at most at the rate in force (the grace used in full), without the margin. */
 export function interviewCredits(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
-  return Math.ceil((maxDurationSeconds / 60) * readCreditsPerMinute(env));
+  return Math.ceil((hardLimitSeconds(maxDurationSeconds) / 60) * readCreditsPerMinute(env));
 }
 
 /** The same interview at the burst rate. Not in the floor: bursting means many calls at once, which no single floor holds. */
@@ -44,9 +48,9 @@ export function burstInterviewCredits(maxDurationSeconds: number, env: Record<st
   return interviewCredits(maxDurationSeconds, env) * VOICE_BURST_RATE;
 }
 
-/** The floor for an agent: its hard duration at the rate in force, plus the margin. On Starter, 12 min: 6,765 credits; the 5-minute trial: 2,819. */
+/** The floor for an agent of this paid length: its hard limit at the rate in force, plus the margin. On Starter, 12 min: 7,329 credits; the 5-minute trial: 3,383. */
 export function voiceBalanceFloor(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
-  return Math.ceil((maxDurationSeconds / 60) * readCreditsPerMinute(env) * VOICE_BALANCE_MARGIN);
+  return Math.ceil((hardLimitSeconds(maxDurationSeconds) / 60) * readCreditsPerMinute(env) * VOICE_BALANCE_MARGIN);
 }
 
 /** The full interview's floor at the measured rate, the largest any start needs. */

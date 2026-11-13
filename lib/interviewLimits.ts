@@ -5,7 +5,7 @@
  * interviews a plan gets) live in lib/plans.ts.
  */
 
-/** Hard cap of the full agent, enforced by the platform: billing stops here even if the tab hangs. */
+/** The paid length of the full interview. The platform cuts a call at this plus the grace (MAX_CALL_SECONDS), even if the tab hangs. */
 export const MAX_INTERVIEW_DURATION_SECONDS = 12 * 60;
 
 /**
@@ -20,9 +20,15 @@ export const MAX_INTERVIEW_STARTS = 3;
  * issued for this long never connected, or never got an answer, and is not
  * coming back: it is expired lazily wherever interviews or quotas are read,
  * and the unit its first token reserved is given back. Far past any call
- * (the agents hang up at twelve minutes) and past the reconcile window.
+ * (the platform cuts one at thirteen minutes) and past the reconcile window.
  */
 export const INTERVIEW_ABANDON_MS = 2 * 60 * 60_000;
 
-/** Call time left at the wrap-up line; an agent hang-up with more left is early and not final. */
-export const INTERVIEW_WRAP_UP_SECONDS = 75;
+/** Time past the paid length for the last answer and the goodbye: the longest answer measured (43 s) plus a goodbye (15 s). */
+export const INTERVIEW_GRACE_SECONDS = 60;
+
+/** The longest any call may run on the platform: the full interview plus the grace. */
+export const MAX_CALL_SECONDS = MAX_INTERVIEW_DURATION_SECONDS + INTERVIEW_GRACE_SECONDS;
+
+/** With this much paid time left the interviewer keeps asking, but only short questions. */
+export const INTERVIEW_LAST_MINUTE_SECONDS = 60;

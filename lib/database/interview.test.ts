@@ -170,6 +170,15 @@ describe("markInterviewEnded", () => {
     });
   });
 
+  it("stores the room's claim with it, unrecorded, with the detail of an interviewer end", async () => {
+    vi.mocked(prisma.interview.update).mockResolvedValue({ lastSessionAt: null } as never);
+
+    await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt, claim: { reason: "interviewer", detail: "time_up", roomSeconds: 317.6 } });
+    expect(prisma.interview.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { endedAt, callEnd: { reason: "interviewer", detail: "time_up", roomSeconds: 317.6, recorded: false } } }));
+    await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt, claim: { reason: "user", roomSeconds: 40 } });
+    expect(prisma.interview.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { endedAt, callEnd: { reason: "user", detail: null, roomSeconds: 40, recorded: false } } }));
+  });
+
   it("reports an unknown session age for a row without one", async () => {
     vi.mocked(prisma.interview.update).mockResolvedValue({ lastSessionAt: null } as never);
     expect(await markInterviewEnded({ interviewId: INTERVIEW_ID, endedAt })).toEqual({ recorded: true, sessionAgeMs: null });
@@ -200,6 +209,17 @@ describe("applyLateEndClaim", () => {
     expect(prisma.interview.updateMany).toHaveBeenCalledWith({
       where: { id: INTERVIEW_ID, userId: "user_1", conversationId: "conv_1" },
       data: { callEnd: { reason: "user", detail: null, roomSeconds: 3.1, recorded: true } },
+    });
+  });
+
+  it("turns a recorded disconnect into the interviewer's end when the room says which request it allowed", async () => {
+    vi.mocked(prisma.interview.findFirst).mockResolvedValueOnce({ conversationId: "conv_1", callEnd: stored, segments: null } as never);
+    vi.mocked(prisma.interview.updateMany).mockResolvedValueOnce({ count: 1 });
+
+    expect(await applyLateEndClaim(INTERVIEW_ID, { reason: "interviewer", detail: "confirmed", roomSeconds: 88 })).toBe(true);
+    expect(prisma.interview.updateMany).toHaveBeenCalledWith({
+      where: { id: INTERVIEW_ID, userId: "user_1", conversationId: "conv_1" },
+      data: { callEnd: { reason: "interviewer", detail: "confirmed", roomSeconds: 88, recorded: true } },
     });
   });
 

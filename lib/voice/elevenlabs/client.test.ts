@@ -80,10 +80,10 @@ describe("fetchConversation", () => {
         conversationId: "conv_1",
         failed: false,
         failure: null,
+        // Only the spoken turns are kept, and of each only who, what and when.
         turns: [
           { role: "agent", message: "Hi Ana.", time_in_call_secs: 0 },
           { role: "user", message: "Hello.", time_in_call_secs: 3 },
-          { role: "agent", message: null, time_in_call_secs: 9, tool_calls: [{ tool_name: "end_call", params_as_json: JSON.stringify({ reason: "Time is up." }) }] },
         ],
         startTimeSeconds: 1_760_000_000,
         durationSeconds: 200.4,
@@ -91,9 +91,35 @@ describe("fetchConversation", () => {
         endedBy: "agent",
         // The interviewer stated its reason in the tool call; the API keeps it as the webhook does.
         endCallReason: "Time is up.",
+        endTool: null,
         terminationReason: "end_call tool",
+        backupTurns: 0,
+        backupModels: [],
       },
     });
+  });
+
+  it("reads the room's answer to end_interview and the backup model's turns from the API record, as from the webhook", async () => {
+    const request = { type: "client", request_id: "req_7", tool_name: "end_interview", params_as_json: JSON.stringify({ reason: "time_up" }), tool_has_been_called: true };
+    const answer = (value: string) => ({ type: "client", request_id: "req_7", tool_name: "end_interview", result_value: value, is_error: false, tool_has_been_called: true, tool_latency_secs: 0.2 });
+    const transcript = (value: string) => [
+      { role: "agent", message: "Hi Ana.", time_in_call_secs: 0 },
+      { role: "user", message: "Hello.", time_in_call_secs: 3 },
+      { role: "agent", message: "What did you build last?", time_in_call_secs: 5, llm_override: "gpt-4o" },
+      { role: "user", message: "A billing service.", time_in_call_secs: 12 },
+      { role: "agent", message: null, time_in_call_secs: 301, tool_calls: [request] },
+      { role: "agent", message: null, time_in_call_secs: 301, tool_results: [answer(value)] },
+      { role: "agent", message: "Thanks for practicing. Your feedback will appear on your screen.", time_in_call_secs: 303 },
+    ];
+    const metadata = { start_time_unix_secs: 1_760_000_000, call_duration_secs: 311, termination_reason: "Client disconnected: 1005" };
+
+    stubElevenLabs(() => Response.json(record({ transcript: transcript("ALLOWED: say the goodbye now."), metadata })));
+    const allowed = await fetchConversation("conv_1");
+    expect(allowed).toMatchObject({ kind: "ended", record: { endedBy: "client", endTool: { reason: "time_up", refused: false }, backupTurns: 1, backupModels: ["gpt-4o"], endCallReason: null } });
+    expect(allowed.kind === "ended" && allowed.record.turns.map((turn) => Object.keys(turn).sort())).toEqual(Array.from({ length: 5 }, () => ["message", "role", "time_in_call_secs"]));
+
+    stubElevenLabs(() => Response.json(record({ transcript: transcript("REFUSED: the call continues."), metadata })));
+    expect(await fetchConversation("conv_1")).toMatchObject({ kind: "ended", record: { endTool: { reason: "time_up", refused: true } } });
   });
 
   it.each(["initiated", "in-progress", "processing"])("reports a %s conversation as still in progress", async (status) => {

@@ -136,6 +136,7 @@ test("the main pages hold their layout from 375 to 1920 px", async ({ page }, te
       ["analysis", `/resume/analysis/${analysisId}`],
       ["interview room", room],
       ["interview room, live (24 lines)", "/dev/room-preview"],
+      ["interview room, time up and closing", "/dev/room-preview?closing=1"],
       ["interview feedback (Spanish transcript)", feedback],
       ["interviews", "/interviews"],
       ["account and billing", "/account/billing"],

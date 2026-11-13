@@ -28,6 +28,7 @@
     },
     "clock": {
       "timeLeft": "Tiempo restante",
+      "closing": "Tiempo cumplido · cerrando…",
       "length": "Duración de la entrevista"
     },
     "interviewer": "Entrevistador",
@@ -75,8 +76,10 @@
     "ending": "Terminando",
     "openingFeedback": "Abriendo tu feedback",
     "countdown": {
-      "warning": "Queda un minuto. Termina la respuesta que estás dando.",
-      "final": "Se acabó el tiempo. El entrevistador está cerrando."
+      "warning": "Último minuto. El entrevistador sigue preguntando hasta que se cumpla el tiempo.",
+      "final": "Quedan unos segundos.",
+      "closing": "Se cumplió el tiempo. Termina tu respuesta; el entrevistador se despedirá y cerrará la llamada.",
+      "goodbye": "El entrevistador se está despidiendo."
     },
     "microphone": {
       "insecure": "El micrófono solo funciona en un sitio seguro. Abre esta página con https e inténtalo de nuevo.",

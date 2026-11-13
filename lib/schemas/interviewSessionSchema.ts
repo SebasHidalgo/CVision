@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { INTERVIEW_LANGUAGES } from "@/lib/ai/postingLanguage";
-import { ROOM_END_CLAIMS } from "@/lib/voice/callEnd";
+import { END_DETAILS, ROOM_END_CLAIMS } from "@/lib/voice/callEnd";
 
 /**
  * What `POST /api/interview/[id]/session` answers on success. The route
@@ -58,6 +58,8 @@ export const interviewEndedRequestSchema = z.object({
   outcome: z.enum(["finish", "drop"]).optional(),
   /** Why the call ended, as the room saw it: stored until the platform's record settles it. */
   end: z.enum(ROOM_END_CLAIMS).optional(),
+  /** For an interviewer end: the tool call the room allowed. */
+  endDetail: z.enum(END_DETAILS).optional(),
   /** The room's own count of the call, in seconds. */
   elapsedSeconds: z.number().min(0).max(7_200).optional(),
 });

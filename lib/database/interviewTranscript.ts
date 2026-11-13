@@ -131,7 +131,7 @@ export async function storeConversationTranscript({
       // Ids, the reason and the two clocks; the interviewer's own wording stays in the row.
       const room = outcome.callEnd.roomSeconds;
       console.info(
-        `[CVision][voice] call end interview=${row.id} conversation=${data.conversationId} reason=${outcome.callEnd.reason} platform=${data.durationSeconds ?? "?"}s room=${typeof room === "number" ? `${room}s` : "?"} status=${outcome.status}${outcome.earlyEnd ? " EARLY END: resumable, start given back" : ""}`,
+        `[CVision][voice] call end interview=${row.id} conversation=${data.conversationId} reason=${outcome.callEnd.reason}${outcome.callEnd.reason === "interviewer" && outcome.callEnd.detail ? `/${outcome.callEnd.detail}` : ""} platform=${data.durationSeconds ?? "?"}s room=${typeof room === "number" ? `${room}s` : "?"} status=${outcome.status} backup=${data.backupTurns ?? 0}${data.backupModels?.length ? ` (${data.backupModels.join(", ")})` : ""}${outcome.earlyEnd ? " EARLY END: resumable, start given back" : ""}`,
       );
     }
 

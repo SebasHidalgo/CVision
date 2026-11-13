@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildInterviewAgentDefinition, INTERVIEW_WEBHOOK_NAME } from "./agentConfig";
-import { definitionDifferences, runVoiceDoctor } from "./doctor";
+import { buildInterviewAgentDefinition, END_INTERVIEW_TOOL_CONFIG, INTERVIEW_WEBHOOK_NAME } from "./agentConfig";
+import { definitionDifferences, RECENT_CALLS_READ, runVoiceDoctor } from "./doctor";
 
 /**
  * The doctor against a stubbed ElevenLabs: every request is answered from
@@ -14,6 +14,7 @@ const FULL_ID = "agent_full_0001";
 const TRIAL_ID = "agent_trial_0001";
 const WEBHOOK_ID = "6da9664598144153b0f6303fb2d92aa7";
 const WEBHOOK_URL = "https://tunnel.example/api/webhooks/elevenlabs";
+const TOOL_ID = "tool_end_0001";
 
 type Answer = { status?: number; body: unknown };
 type Table = Record<string, Answer | ((url: URL) => Answer)>;
@@ -31,7 +32,7 @@ function snake(value: unknown): unknown {
 }
 
 function agentReadback(tier: "FULL" | "TRIAL", overrides: Record<string, unknown> = {}) {
-  const definition = buildInterviewAgentDefinition({ postCallWebhookId: WEBHOOK_ID, tier });
+  const definition = buildInterviewAgentDefinition({ postCallWebhookId: WEBHOOK_ID, endToolId: TOOL_ID, tier });
   const body = snake({ agentId: tier === "FULL" ? FULL_ID : TRIAL_ID, ...definition }) as Record<string, unknown>;
   // What the platform adds on read: ids, timestamps, tool defaults. And
   // what it drops: the placeholders come back empty whatever was pushed.
@@ -80,6 +81,31 @@ const webhook = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+/** The workspace's tools as the platform lists them: the room's tool, and whatever else lives there. */
+const workspaceTools = (tools: { id: string; name: string; type?: string }[] = [{ id: TOOL_ID, name: END_INTERVIEW_TOOL_CONFIG.name }]) => ({
+  tools: tools.map((tool) => ({
+    id: tool.id,
+    tool_config: { type: tool.type ?? "client", name: tool.name, description: "x", expects_response: true },
+    access_info: { is_creator: true, creator_name: "Owner", creator_email: "owner@example.test", role: "admin" },
+    usage_stats: { avg_latency_secs: 0 },
+  })),
+  has_more: false,
+});
+
+/** One row of the conversations list, and the record behind it, in the API's casing. */
+const listed = (id: string, agentId: string) => ({ agent_id: agentId, conversation_id: id, start_time_unix_secs: 1_760_000_000, call_duration_secs: 300, message_count: 4, status: "done", call_successful: "success" });
+const conversation = (id: string, agentId: string, transcript: Record<string, unknown>[]) => ({
+  agent_id: agentId,
+  conversation_id: id,
+  status: "done",
+  transcript,
+  metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 300, termination_reason: "Client disconnected: 1005" },
+  has_audio: false,
+  has_user_audio: false,
+  has_response_audio: false,
+  has_auxiliary_audio: false,
+});
+
 const SARAH = "EXAVITQu4vr4xnSDxMaL";
 const NORAH = "kcQkGnn0HAT2JRDQ4Ljp";
 
@@ -97,6 +123,7 @@ function healthy(): Table {
     [`GET /v1/voices/${SARAH}`]: { body: { voice_id: SARAH, name: "Sarah", category: "premade", fine_tuning: { state: {} }, sharing: null } },
     [`GET /v1/voices/${NORAH}`]: { body: libraryVoice() },
     "GET /v1/user/subscription": { body: subscription() },
+    "GET /v1/convai/tools": { body: workspaceTools() },
     [`GET /v1/convai/agents/${FULL_ID}`]: { body: agentReadback("FULL") },
     [`GET /v1/convai/agents/${TRIAL_ID}`]: { body: agentReadback("TRIAL") },
     "GET /v1/convai/conversations": { body: { conversations: [], has_more: false, next_cursor: null } },
@@ -147,10 +174,13 @@ describe("voice:doctor", () => {
 
     expect(checks.filter((check) => check.outcome === "fail")).toEqual([]);
     expect(byName(checks, "permission user_read")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("71000 of 121000 credits left") });
-    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 6765 (12 min x 451 credits a minute x 1.25): starts are allowed" });
-    expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 720 s, daily cap 100") });
-    expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 300 s, daily cap 25") });
+    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 7329 (12 min + 60 s of grace x 451 credits a minute x 1.25): starts are allowed" });
+    expect(byName(checks, "end tool")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${TOOL_ID} "end_interview" is in the workspace`) });
+    // The platform's limit is the paid length plus the grace.
+    expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 780 s, daily cap 100") });
+    expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 360 s, daily cap 25") });
     expect(byName(checks, "permission conversations read").outcome).toBe("pass");
+    expect(byName(checks, "backup model (recent calls)")).toMatchObject({ outcome: "skip", detail: "no call of these agents among the latest conversations" });
     expect(byName(checks, "webhook")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${WEBHOOK_ID} "${INTERVIEW_WEBHOOK_NAME}" -> ${WEBHOOK_URL} (hmac; 2 of the 2 agent(s) read point at it)`) });
     expect(byName(checks, "webhook secret")).toMatchObject({ outcome: "skip", detail: expect.stringContaining("cannot be compared here") });
     expect(byName(checks, "permission token issue (ConvAI write)").outcome).toBe("skip");
@@ -158,6 +188,7 @@ describe("voice:doctor", () => {
     for (const request of requests) expect(request.headers.get("xi-api-key")).toBe(API_KEY);
     expect(requests.map((request) => `${request.method} ${request.url.pathname}`)).toEqual([
       "GET /v1/user/subscription",
+      "GET /v1/convai/tools",
       `GET /v1/convai/agents/${FULL_ID}`,
       `GET /v1/convai/agents/${TRIAL_ID}`,
       `GET /v1/voices/${SARAH}`,
@@ -192,14 +223,14 @@ describe("voice:doctor", () => {
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000 }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({
       outcome: "fail",
-      detail: "1000 credits reachable, floor 6765 (12 min x 451 credits a minute x 1.25): the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
+      detail: "1000 credits reachable, floor 7329 (12 min + 60 s of grace x 451 credits a minute x 1.25): the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
     });
 
     // Enough for the 5-minute trial, not for a full interview.
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 115_000 }) } });
     const trialOnly = await runVoiceDoctor({ webhookUrl: null, env: env() });
     expect(byName(trialOnly, "balance floor").outcome).toBe("fail");
-    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 2819 (5 min x 451 credits a minute x 1.25): starts are allowed" });
+    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 3383 (5 min + 60 s of grace x 451 credits a minute x 1.25): starts are allowed" });
 
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000, max_credit_limit_extension: "unlimited" }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("unlimited credits reachable") });
@@ -242,6 +273,81 @@ describe("voice:doctor", () => {
     expect(byName(checks, "agent TRIAL").outcome).toBe("pass");
   });
 
+  it("fails when the workspace has no end_interview tool: the interviewer could never ask for the end", async () => {
+    serve({ ...healthy(), "GET /v1/convai/tools": { body: workspaceTools([{ id: "tool_other", name: "end_interview_old" }]) } });
+    const checks = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
+    expect(byName(checks, "end tool")).toMatchObject({ outcome: "fail", detail: expect.stringContaining('the workspace has no "end_interview" client tool'), fix: expect.stringContaining("npm run agent:sync") });
+    // The lookup asks for client tools by name.
+    const lookup = requests.find((request) => request.url.pathname === "/v1/convai/tools");
+    expect(lookup?.url.searchParams.get("search")).toBe("end_interview");
+    expect(lookup?.url.searchParams.get("types")).toBe("client");
+
+    serve({ ...healthy(), "GET /v1/convai/tools": missing("convai_read") });
+    expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "end tool")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("convai_read") });
+  });
+
+  it("fails an agent that can still hang up by itself, and one the room's tool is not attached to", async () => {
+    const withEndCall = agentReadback("FULL") as Record<string, Record<string, Record<string, Record<string, unknown>>>>;
+    withEndCall.conversation_config.agent.prompt.built_in_tools = { end_call: { type: "system", name: "end_call", description: "", params: { system_tool_type: "end_call" } } };
+    const detached = agentReadback("TRIAL") as Record<string, Record<string, Record<string, Record<string, unknown>>>>;
+    detached.conversation_config.agent.prompt.tool_ids = [];
+    serve({ ...healthy(), [`GET /v1/convai/agents/${FULL_ID}`]: { body: withEndCall }, [`GET /v1/convai/agents/${TRIAL_ID}`]: { body: detached } });
+    const checks = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
+
+    // The definition's empty built-in tools cannot show an end_call left on: it is looked for by name.
+    expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("the way a call ends (the platform's end_call tool is still on: the interviewer could hang up by itself)"), fix: expect.stringContaining("npm run agent:sync") });
+    expect(byName(checks, "agent FULL").detail).not.toContain("toolIds");
+    expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("conversationConfig.agent.prompt.toolIds") });
+    expect(byName(checks, "agent TRIAL").detail).toContain(`the end_interview tool (${TOOL_ID}) is not attached`);
+  });
+
+  it("counts, over the latest calls of these agents, the interviewer turns the backup model answered", async () => {
+    const words = (role: string, message: string, extra: Record<string, unknown> = {}) => ({ role, message, time_in_call_secs: 1, ...extra });
+    serve({
+      ...healthy(),
+      "GET /v1/convai/conversations": { body: { conversations: [listed("conv_a", FULL_ID), listed("conv_b", TRIAL_ID), listed("conv_other", "agent_someone_else")], has_more: false, next_cursor: null } },
+      "GET /v1/convai/conversations/conv_a": {
+        body: conversation("conv_a", FULL_ID, [
+          words("agent", "Welcome."),
+          words("user", "Hello."),
+          words("agent", "What did you build last?", { llm_override: "gpt-4o" }),
+          // A tool entry carries no words: not a turn.
+          { role: "agent", message: null, time_in_call_secs: 2, llm_override: "gpt-4o" },
+          words("user", "A billing service."),
+          words("agent", "And what was hard about it?", { llm_override: "gpt-4o" }),
+        ]),
+      },
+      "GET /v1/convai/conversations/conv_b": { body: conversation("conv_b", TRIAL_ID, [words("agent", "Welcome."), words("user", "Hello."), words("agent", "Tell me about your last role.")]) },
+    });
+    const checks = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
+
+    expect(byName(checks, "backup model (recent calls)")).toMatchObject({
+      outcome: "pass",
+      detail: expect.stringContaining("the latest 2 call(s): 2 of 5 interviewer turn(s) were answered by the backup model (gpt-4o), in conv_a (2 of 3)."),
+    });
+    expect(byName(checks, "backup model (recent calls)").detail).toContain("[CVision][voice] call end");
+    // Another workspace agent's call is not read, and the list asks for the latest ten.
+    expect(requests.some((request) => request.url.pathname.endsWith("/conv_other"))).toBe(false);
+    expect(RECENT_CALLS_READ).toBe(10);
+    expect(requests.find((request) => request.url.pathname === "/v1/convai/conversations")?.url.searchParams.get("page_size")).toBe("10");
+
+    // A record that cannot be read is said, and is not a second "permission" failure.
+    serve({
+      ...healthy(),
+      "GET /v1/convai/conversations": { body: { conversations: [listed("conv_a", FULL_ID), listed("conv_b", TRIAL_ID)], has_more: false, next_cursor: null } },
+      "GET /v1/convai/conversations/conv_b": { body: conversation("conv_b", TRIAL_ID, [words("agent", "Welcome.", { llm_override: "gpt-4o" })]) },
+    });
+    const partial = await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() });
+    expect(byName(partial, "backup model (recent calls)")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("the latest 1 call(s): 1 of 1 interviewer turn(s) were answered by the backup model (gpt-4o), in conv_b (1 of 1). 1 record(s) could not be read (conv_a).") });
+    expect(partial.filter((check) => check.name === "permission conversations read")).toEqual([expect.objectContaining({ outcome: "pass" })]);
+    serve({ ...healthy(), "GET /v1/convai/conversations": { body: { conversations: [listed("conv_a", FULL_ID)], has_more: false, next_cursor: null } } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "backup model (recent calls)")).toMatchObject({ outcome: "skip", detail: "none of the latest 1 call(s) could be read (conv_a)" });
+
+    // No backup turn at all: said plainly, with nothing listed.
+    serve({ ...healthy(), "GET /v1/convai/conversations": { body: { conversations: [listed("conv_b", TRIAL_ID)], has_more: false, next_cursor: null } }, "GET /v1/convai/conversations/conv_b": { body: conversation("conv_b", TRIAL_ID, [words("agent", "Welcome."), words("user", "Hello.")]) } });
+    expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "backup model (recent calls)").detail).toContain("the latest 1 call(s): 0 of 1 interviewer turn(s) were answered by the backup model.");
+  });
+
   it("stops at the environment when the key is missing, and names unset agent ids without calling out", async () => {
     serve(healthy());
     const noKey = await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_API_KEY: "" }) });
@@ -272,13 +378,13 @@ it("says how many interviews the balance pays for, and what the burst rate would
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "interviews covered")).toMatchObject({
       outcome: "pass",
       detail:
-        "at 451 credits a minute (measured, lib/voice/balance.ts) the balance pays for 13 full interview(s) of 12 min (5412 credits each) or 31 trial(s) of 5 min (2255 each). A call past the plan's concurrency limit is charged at the burst rate: 10824 credits for a full interview; the floor does not include it",
+        "at 451 credits a minute (measured, lib/voice/balance.ts) the balance pays for 12 full interview(s) of 12 min (5863 credits each, the 60 s of grace included) or 26 trial(s) of 5 min (2706 each). A call past the plan's concurrency limit is charged at the burst rate: 11726 credits for a full interview; the floor does not include it",
     });
 
     // Another plan's rate, from the environment: the floors and the count follow it.
     const other = await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_CREDITS_PER_MINUTE: "790" }) });
-    expect(byName(other, "balance floor").detail).toBe("71000 credits reachable, floor 11850 (12 min x 790 credits a minute x 1.25): starts are allowed");
-    expect(byName(other, "interviews covered").detail).toContain("at 790 credits a minute (ELEVENLABS_CREDITS_PER_MINUTE) the balance pays for 7 full interview(s)");
+    expect(byName(other, "balance floor").detail).toBe("71000 credits reachable, floor 12838 (12 min + 60 s of grace x 790 credits a minute x 1.25): starts are allowed");
+    expect(byName(other, "interviews covered").detail).toContain("at 790 credits a minute (ELEVENLABS_CREDITS_PER_MINUTE) the balance pays for 6 full interview(s)");
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "9000" }) }), "balance floor").detail).toBe("71000 credits reachable, floor 9000 (ELEVENLABS_BALANCE_FLOOR_CREDITS): starts are allowed");
   });
 

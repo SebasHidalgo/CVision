@@ -12,8 +12,8 @@ import type { TranscriptLine } from "./components/Transcript";
 
 type PreviewFixture = { role: Record<"en" | "es", string>; company: string } & Record<"en" | "es", TranscriptLine[]>;
 
-/** Dev only: the live room with an invented 24-line call (?drip=1 drips it); 404 without dev tools. */
-export default async function RoomPreviewScreen({ drip = false }: { drip?: boolean }) {
+/** Dev only: the live room with an invented 24-line call (?drip=1 drips it, ?closing=1 shows it past its paid time); 404 without dev tools. */
+export default async function RoomPreviewScreen({ drip = false, closing = false }: { drip?: boolean; closing?: boolean }) {
   if (!devToolsAllowed()) notFound();
   const locale = await getLocale();
   const fixture = JSON.parse(readFileSync(path.join(process.cwd(), "e2e/fixtures/room-transcript.json"), "utf8")) as PreviewFixture;
@@ -28,7 +28,7 @@ export default async function RoomPreviewScreen({ drip = false }: { drip?: boole
         attemptNumber={1}
         startCount={1}
         maxStarts={MAX_INTERVIEW_STARTS}
-        maxDurationSeconds={AGENT_SECONDS.main}
+        maxDurationSeconds={closing ? 0 : AGENT_SECONDS.main}
         language={locale}
         resume={null}
         entry={{ kind: "continue" }}

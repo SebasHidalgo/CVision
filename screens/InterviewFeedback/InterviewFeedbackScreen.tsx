@@ -9,7 +9,7 @@ import {
   fetchInterviewById,
   fetchInterviewTranscript,
 } from "@/lib/database/interview";
-import { MAX_INTERVIEW_DURATION_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { MAX_CALL_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { isStranded } from "@/lib/voice/postCall";
 import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { finalizeLapsedInterviews } from "@/lib/database/interviewResume";
@@ -59,7 +59,7 @@ export default async function InterviewFeedbackScreen({
   // from the platform through the same path the webhook uses. The poll does
   // this too; here it covers a page opened long after the call.
   let interview = found;
-  if (isStranded(candidateOf(interview), now, MAX_INTERVIEW_DURATION_SECONDS)) {
+  if (isStranded(candidateOf(interview), now, MAX_CALL_SECONDS)) {
     try {
       const outcome = await reconcileStrandedInterview(interview.id, now);
       if (reconcileChangedRow(outcome)) {
@@ -84,7 +84,7 @@ export default async function InterviewFeedbackScreen({
       resumable: interview.resumableUntil !== null && interview.resumableUntil.getTime() > now.getTime(),
     },
     now,
-    MAX_INTERVIEW_DURATION_SECONDS,
+    MAX_CALL_SECONDS,
   );
   if (view.kind === "room") redirect(`/interview/${interview.id}`);
 

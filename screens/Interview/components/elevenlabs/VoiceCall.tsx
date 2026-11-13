@@ -1,6 +1,7 @@
 "use client";
 
-import { ConversationProvider, useConversation } from "@elevenlabs/react";
+import { ConversationProvider, useConversation, useConversationClientTool } from "@elevenlabs/react";
+import { END_INTERVIEW_TOOL, END_TOOL_REFUSED } from "@/lib/voice/callEnd";
 import { WORKLET_PATHS } from "@/lib/voice/elevenlabs/worklets";
 
 /**
@@ -37,6 +38,8 @@ export type VoiceCallHandlers = {
   onLineCorrected: (change: { original: string; corrected: string }) => void;
   /** Held in the platform's queue ("waiting"), then let through ("admitted"). */
   onQueue: (status: "waiting" | "admitted") => void;
+  /** The interviewer asks the room to end the call; the answer goes back to it (REFUSED… at once; ALLOWED… when the room has something to say before it hangs up). */
+  onEndRequest: (reason: unknown) => string | Promise<string>;
 };
 
 /** The platform's close code and wording for "at max capacity" (seen live, code 4300). */
@@ -56,7 +59,16 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useVoiceCall(handlers: VoiceCallHandlers) {
-  const { startSession, endSession, sendContextualUpdate, mode } = useConversation({
+  // The interviewer's only way to end the call: a tool this room answers. A handler that breaks must not end it.
+  useConversationClientTool(END_INTERVIEW_TOOL, (parameters: unknown) => {
+    try {
+      return handlers.onEndRequest((parameters as { reason?: unknown } | null | undefined)?.reason);
+    } catch (error) {
+      console.error("[CVision][room] end_interview handler failed:", error);
+      return `${END_TOOL_REFUSED}: the call continues. Ask your next interview question.`;
+    }
+  });
+  const { startSession, endSession, sendContextualUpdate, sendUserMessage, mode } = useConversation({
     onConnect: handlers.onConnect,
     onDisconnect: (details) => {
       // The platform hard limit arrives as an error event; it is the agent ending the call.
@@ -95,5 +107,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     end: () => endSession(),
     /** A note for the interviewer that the candidate does not hear: the room's clock. */
     notify: (text: string) => sendContextualUpdate(text),
+    /** Dev tools only: a typed candidate line, for the voice e2e. */
+    say: (text: string) => sendUserMessage(text),
   };
 }

@@ -46,14 +46,29 @@ describe("countdownNoticeKey", () => {
     expect(countdownNoticeKey("normal")).toBeNull();
   });
 
-  it("warns at one minute and again at the end, in each interface language", () => {
+  it("says the last minute is still interview and then that seconds are left, in each interface language, and never that the call is ending", () => {
     const en = tFor("interview", "en");
     const es = tFor("interview", "es");
     const warning = countdownNoticeKey("warning")!;
     const final = countdownNoticeKey("final")!;
-    expect(en(warning)).toMatch(/one minute/i);
-    expect(en(final)).toMatch(/wrapping up/i);
-    expect(es(warning)).toMatch(/un minuto/i);
-    expect(es(final)).toMatch(/cerrando/i);
+    expect(en(warning)).toBe("Last minute. The interviewer keeps asking until the time is up.");
+    expect(en(final)).toBe("A few seconds left.");
+    expect(es(warning)).toBe("Último minuto. El entrevistador sigue preguntando hasta que se cumpla el tiempo.");
+    expect(es(final)).toBe("Quedan unos segundos.");
+    // Before 0:00 nothing may tell the candidate to stop: the interview fills its time.
+    for (const text of [en(warning), en(final), es(warning), es(final)]) {
+      expect(text).not.toMatch(/wrapping up|finish the answer|cerrando|termina la respuesta|se acabó/i);
+    }
+  });
+
+  it("has the copy for 0:00 and for a confirmed stop in both languages: the clock's label and the notice", () => {
+    const en = tFor("interview", "en");
+    const es = tFor("interview", "es");
+    expect(en("room.clock.closing")).toBe("Time's up · closing…");
+    expect(es("room.clock.closing")).toBe("Tiempo cumplido · cerrando…");
+    expect(en("room.countdown.closing")).toMatch(/^Time's up. Finish your answer/);
+    expect(es("room.countdown.closing")).toMatch(/^Se cumplió el tiempo. Termina tu respuesta/);
+    expect(en("room.countdown.goodbye")).toBe("The interviewer is saying goodbye.");
+    expect(es("room.countdown.goodbye")).toBe("El entrevistador se está despidiendo.");
   });
 });

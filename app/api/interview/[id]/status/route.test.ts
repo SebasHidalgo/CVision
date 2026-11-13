@@ -4,7 +4,7 @@ import { generateInterviewFeedback } from "@/lib/ai/interviewFeedback";
 import { requireUserId } from "@/lib/auth";
 import { fetchInterviewStatus } from "@/lib/database/interview";
 import { expireAbandonedInterviews } from "@/lib/database/interviewExpiry";
-import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/voice/elevenlabs/agentConfig";
+import { MAX_CALL_SECONDS } from "@/lib/interviewLimits";
 import { RECONCILE_GRACE_SECONDS } from "@/lib/voice/postCall";
 import { reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { UnauthorizedError } from "@/lib/error/errors";
@@ -25,7 +25,8 @@ vi.mock("next/server", async (importOriginal) => {
 });
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
-const WINDOW_MS = (MAX_INTERVIEW_DURATION_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
+// The platform cuts a call at the paid length plus the grace: only past that is a silent call stranded.
+const WINDOW_MS = (MAX_CALL_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
 
 const snapshot = (overrides: Partial<NonNullable<Awaited<ReturnType<typeof fetchInterviewStatus>>>> = {}) => ({
   id: INTERVIEW_ID,

@@ -7,7 +7,7 @@ import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
-import { readCallEnd, withLateClaim, type CallEnd, type RoomEndClaim } from "@/lib/voice/callEnd";
+import { readCallEnd, withLateClaim, type CallEnd, type EndDetail, type RoomEndClaim } from "@/lib/voice/callEnd";
 import { readSegments, type CallSegment } from "@/lib/voice/segments";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
@@ -391,7 +391,7 @@ export async function markInterviewEnded(params: {
   interviewId: string;
   endedAt: Date;
   /** How the room saw the call end, and its own count of it. */
-  claim?: { reason: RoomEndClaim; roomSeconds: number | null };
+  claim?: { reason: RoomEndClaim; detail?: EndDetail | null; roomSeconds: number | null };
 }): Promise<InterviewEndedMark> {
   try {
     const userId = await requireUserId();
@@ -401,7 +401,7 @@ export async function markInterviewEnded(params: {
         where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
         data: {
           endedAt: params.endedAt,
-          ...(params.claim ? { callEnd: { reason: params.claim.reason, roomSeconds: params.claim.roomSeconds, recorded: false } satisfies CallEnd } : {}),
+          ...(params.claim ? { callEnd: { reason: params.claim.reason, detail: params.claim.detail ?? null, roomSeconds: params.claim.roomSeconds, recorded: false } satisfies CallEnd } : {}),
         },
         select: { lastSessionAt: true },
       });
@@ -420,7 +420,7 @@ export async function markInterviewEnded(params: {
 }
 
 /** The room's report arrived after the call's record: what only the room knows is added to the stored end. */
-export async function applyLateEndClaim(interviewId: string, claim: { reason: RoomEndClaim; roomSeconds: number | null }): Promise<boolean> {
+export async function applyLateEndClaim(interviewId: string, claim: { reason: RoomEndClaim; detail?: EndDetail | null; roomSeconds: number | null }): Promise<boolean> {
   try {
     const userId = await requireUserId();
     const row = await prisma.interview.findFirst({ where: { id: interviewId, userId }, select: { conversationId: true, callEnd: true, segments: true } });

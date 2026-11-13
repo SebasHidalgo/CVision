@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { PlatformEnd } from "@/lib/voice/callEnd";
+import { END_INTERVIEW_TOOL, END_TOOL_REASONS, END_TOOL_REFUSED, type EndToolCall, type PlatformEnd } from "@/lib/voice/callEnd";
+import { trimStoredTurns } from "@/lib/voice/transcript";
 import type { CallRecord } from "@/lib/voice/postCall";
 
 /**
@@ -7,7 +8,7 @@ import type { CallRecord } from "@/lib/voice/postCall";
  * The only place that names the webhook's and the conversations API's fields.
  */
 
-/** One turn as the platform sends it; extra keys are dropped at the border. */
+/** One turn as the platform sends it: about 35 fields, of which the app reads these. */
 const wireTurnSchema = z.looseObject({
   role: z.string(),
   message: z.string().nullish(),
@@ -55,7 +56,14 @@ export type ConversationApiRecord = {
   agentId: string;
   conversationId: string;
   status: string;
-  transcript: { role: string; message?: string | null; timeInCallSecs: number; toolCalls?: { toolName?: string | null; paramsAsJson?: string | null }[] | null }[];
+  transcript: {
+    role: string;
+    message?: string | null;
+    timeInCallSecs: number;
+    toolCalls?: { toolName?: string | null; paramsAsJson?: string | null; requestId?: string | null }[] | null;
+    toolResults?: { toolName?: string | null; resultValue?: string | null; requestId?: string | null }[] | null;
+    llmOverride?: string | null;
+  }[];
   metadata: {
     startTimeUnixSecs: number;
     callDurationSecs: number;
@@ -82,8 +90,10 @@ export function fromConversationApi(record: ConversationApiRecord): PostCallTran
       role: turn.role,
       message: turn.message ?? null,
       time_in_call_secs: turn.timeInCallSecs,
-      // Kept in the webhook's spelling: the end_call reason is read from here.
-      ...(turn.toolCalls?.length ? { tool_calls: turn.toolCalls.map((call) => ({ tool_name: call.toolName ?? null, params_as_json: call.paramsAsJson ?? null })) } : {}),
+      // Kept in the webhook's spelling: the end tool and the backup model are read from here.
+      ...(turn.toolCalls?.length ? { tool_calls: turn.toolCalls.map((call) => ({ tool_name: call.toolName ?? null, params_as_json: call.paramsAsJson ?? null, request_id: call.requestId ?? null })) } : {}),
+      ...(turn.toolResults?.length ? { tool_results: turn.toolResults.map((result) => ({ tool_name: result.toolName ?? null, result_value: result.resultValue ?? null, request_id: result.requestId ?? null })) } : {}),
+      ...(turn.llmOverride ? { llm_override: turn.llmOverride } : {}),
     })),
     metadata: {
       start_time_unix_secs: record.metadata.startTimeUnixSecs,
@@ -111,13 +121,63 @@ function endedBy(reason: string | null | undefined): PlatformEnd {
   return text ? "platform" : "unknown";
 }
 
-const toolCallSchema = z.looseObject({ tool_name: z.string().nullish(), params_as_json: z.string().nullish() });
+const toolCallSchema = z.looseObject({ tool_name: z.string().nullish(), params_as_json: z.string().nullish(), request_id: z.string().nullish() });
+const toolResultSchema = z.looseObject({ tool_name: z.string().nullish(), result_value: z.string().nullish(), request_id: z.string().nullish() });
 
-/** The reason the interviewer gave its end_call tool, when it gave one. */
-function endCallReason(turns: PostCallTranscription["transcript"]): string | null {
+type WireTurn = PostCallTranscription["transcript"][number];
+const toolCallsOf = (turn: WireTurn) => {
+  const parsed = z.array(toolCallSchema).safeParse((turn as { tool_calls?: unknown }).tool_calls ?? []);
+  return parsed.success ? parsed.data : [];
+};
+const toolResultsOf = (turn: WireTurn) => {
+  const parsed = z.array(toolResultSchema).safeParse((turn as { tool_results?: unknown }).tool_results ?? []);
+  return parsed.success ? parsed.data : [];
+};
+
+/** The last end_interview call of the record: what the interviewer asked for, and whether the room refused. */
+function endToolCall(turns: WireTurn[]): EndToolCall | null {
+  for (let index = turns.length - 1; index >= 0; index--) {
+    const call = toolCallsOf(turns[index]).findLast((one) => one.tool_name === END_INTERVIEW_TOOL);
+    if (!call) continue;
+    let reason: unknown;
+    try {
+      reason = (JSON.parse(call.params_as_json ?? "{}") as { reason?: unknown }).reason;
+    } catch {
+      reason = null;
+    }
+    // The room always answers a refusal at once; a call it allowed ends the session, usually before any answer is recorded.
+    const answer = turns
+      .slice(index)
+      .flatMap(toolResultsOf)
+      .find((result) => (call.request_id ? result.request_id === call.request_id : result.tool_name === END_INTERVIEW_TOOL));
+    return {
+      reason: END_TOOL_REASONS.find((known) => known === reason) ?? "time_up",
+      refused: (answer?.result_value ?? "").trimStart().startsWith(END_TOOL_REFUSED),
+    };
+  }
+  return null;
+}
+
+/** Turns the backup model answered: runs of agent entries the platform marks with the model it switched to. */
+function backupModelTurns(turns: WireTurn[]): { count: number; models: string[] } {
+  const models = new Set<string>();
+  let count = 0;
+  let inRun = false;
+  for (const turn of turns) {
+    const override = (turn as { llm_override?: unknown }).llm_override;
+    const flagged = turn.role === "agent" && typeof override === "string" && override.trim() !== "";
+    if (flagged && !inRun) count += 1;
+    if (flagged) models.add((override as string).trim());
+    inRun = flagged;
+  }
+  return { count, models: [...models] };
+}
+
+
+/** The reason the interviewer gave the platform's old end_call tool, when it gave one. */
+function endCallReason(turns: WireTurn[]): string | null {
   for (const turn of [...turns].reverse()) {
-    const calls = z.array(toolCallSchema).safeParse((turn as { tool_calls?: unknown }).tool_calls ?? []);
-    const call = calls.success ? calls.data.find((one) => one.tool_name === "end_call") : undefined;
+    const call = toolCallsOf(turn).find((one) => one.tool_name === "end_call");
     if (!call) continue;
     try {
       const reason = (JSON.parse(call.params_as_json ?? "{}") as { reason?: unknown }).reason;
@@ -129,20 +189,25 @@ function endCallReason(turns: PostCallTranscription["transcript"]): string | nul
   return null;
 }
 
-/** The platform's payload in the app's terms. The turns keep the stored shape, verbatim. */
+/** The platform's payload in the app's terms: the spoken turns, and what the tool turns said about the end. */
 export function toCallRecord(data: PostCallTranscription): CallRecord {
   const error = data.metadata?.error;
+  const backup = backupModelTurns(data.transcript);
   return {
     conversationId: data.conversation_id,
     agentId: data.agent_id ?? null,
     failed: data.status === "failed",
     failure: error ? { code: error.code ?? null, reason: error.reason ?? null } : null,
-    turns: data.transcript,
+    // The three fields the app reads; the tool turns were read above and are not stored.
+    turns: trimStoredTurns(data.transcript),
     startTimeSeconds: data.metadata?.start_time_unix_secs ?? null,
     durationSeconds: data.metadata?.call_duration_secs ?? null,
     variables: data.conversation_initiation_client_data?.dynamic_variables ?? null,
     endedBy: endedBy(data.metadata?.termination_reason),
     endCallReason: endCallReason(data.transcript),
+    endTool: endToolCall(data.transcript),
     terminationReason: data.metadata?.termination_reason?.trim() || null,
+    backupTurns: backup.count,
+    backupModels: backup.models,
   };
 }

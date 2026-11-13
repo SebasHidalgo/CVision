@@ -1,6 +1,7 @@
 /** The interviewer's next turn, checked in text with no call, through the platform's agent tests (about 40 credits a run). */
 
 import type { InterviewTierId } from "@/lib/plans";
+import { END_INTERVIEW_TOOL, saidGoodbye, type EndToolReason } from "@/lib/voice/callEnd";
 import { buildInterviewAgentDefinition } from "./agentConfig";
 
 const API = "https://api.elevenlabs.io";
@@ -13,8 +14,8 @@ function toWire(value: unknown): unknown {
 }
 
 /** This checkout's agent definition for one test run, optionally on another model (the backup). */
-export function agentConfigOverride(tier: InterviewTierId, { llm }: { llm?: string } = {}): NonNullable<NextTurnCheck["configOverride"]> {
-  const definition = buildInterviewAgentDefinition({ postCallWebhookId: null, tier });
+export function agentConfigOverride(tier: InterviewTierId, { llm, endToolId = null }: { llm?: string; endToolId?: string | null } = {}): NonNullable<NextTurnCheck["configOverride"]> {
+  const definition = buildInterviewAgentDefinition({ postCallWebhookId: null, endToolId, tier });
   const wire = toWire({ conversationConfig: definition.conversationConfig, platformSettings: definition.platformSettings }) as { conversation_config: { agent: { prompt: { llm: string } } }; platform_settings: unknown };
   if (llm) wire.conversation_config.agent.prompt.llm = llm;
   return wire;
@@ -26,8 +27,8 @@ export type NextTurnCheck = {
   name: string;
   /** The session's variables, exactly as the server would issue them. */
   variables: Record<string, string>;
-  /** The conversation so far, oldest first; the agent writes the turn after it. A "note" is a silent [time] line. */
-  history: { role: "agent" | "user" | "note"; message: string }[];
+  /** The conversation so far, oldest first; the agent writes the turn after it. A "note" is a silent [time] line; a "tool" is an end_interview call and the room's answer. */
+  history: ({ role: "agent" | "user" | "note"; message: string } | { role: "tool"; reason: EndToolReason; result: string })[];
   /** What the next turn must do, for the judge. */
   condition: string;
   /** One reply that meets the condition and one that does not: the judge needs both. */
@@ -35,8 +36,10 @@ export type NextTurnCheck = {
   failExample: string;
   /** How many times the agent answers; the model is not deterministic. */
   repeat?: number;
-  /** Checked in code, not by the judge: the turn must, or must not, call end_call. */
-  endCall?: "required" | "forbidden";
+  /** Checked in code, not by the judge: the turn must not ask the room to end the call, or must ask it with this reason, the goodbye spoken in the same turn. */
+  endTool?: "forbidden" | EndToolReason;
+  /** The workspace id of the end_interview tool; needed when the turn must call it. */
+  endToolId?: string | null;
   /** The agent's full configuration for this run only: a backup model, or a definition not yet synced. */
   configOverride?: { conversation_config: unknown; platform_settings: unknown };
 };
@@ -48,8 +51,9 @@ export type NextTurnRun = {
   /** The judge's reason, or the code check that failed. */
   why: string | null;
   credits: number | null;
-  /** The turn called the end_call tool. */
+  /** The turn called end_interview, and with which reason. */
   endedCall: boolean;
+  endReason: string | null;
   /** The model that wrote the turn, as the platform reports it. */
   model: string | null;
 };
@@ -78,19 +82,43 @@ async function call(method: string, path: string, body: unknown, env: Record<str
 type WireRun = {
   status?: string;
   credits_used?: number | null;
-  agent_responses?: { role?: string; message?: string | null; producing_llm?: string | null; tool_calls?: { tool_name?: string | null }[] | null }[] | null;
+  agent_responses?: { role?: string; message?: string | null; producing_llm?: string | null; tool_calls?: { tool_name?: string | null; params_as_json?: string | null }[] | null }[] | null;
   condition_result?: { result?: string; rationale?: { summary?: string } | null } | null;
 };
 
-function toRun(run: WireRun, endCall: NextTurnCheck["endCall"]): NextTurnRun {
+const reasonOf = (params: string | null | undefined): string | null => {
+  try {
+    const reason = (JSON.parse(params ?? "{}") as { reason?: unknown }).reason;
+    return typeof reason === "string" ? reason : null;
+  } catch {
+    return null;
+  }
+};
+
+/** One run as the check reads it: the words for the judge, the tool call as a fact. */
+export function toRun(run: WireRun, endTool: NextTurnCheck["endTool"]): NextTurnRun {
   const turns = run.agent_responses ?? [];
   const said = turns
     .filter((turn) => turn.role === "agent" && typeof turn.message === "string" && turn.message.trim() !== "")
     .map((turn) => (turn.message ?? "").trim())
     .join(" ");
-  const endedCall = turns.some((turn) => (turn.tool_calls ?? []).some((call) => call.tool_name === "end_call"));
-  // The judge reads the words; whether the call was ended is a fact.
-  const broken = endCall === "forbidden" && endedCall ? "end_call was called in this turn" : endCall === "required" && !endedCall ? "end_call was not called" : endCall === "required" && !said ? "end_call without a spoken goodbye" : null;
+  const call = turns.flatMap((turn) => turn.tool_calls ?? []).find((one) => one.tool_name === END_INTERVIEW_TOOL);
+  const endedCall = Boolean(call);
+  const endReason = call ? reasonOf(call.params_as_json) : null;
+  const asksRoom = endTool === "time_up" || endTool === "candidate_confirmed";
+  const broken =
+    endTool === "forbidden" && endedCall
+      ? "end_interview was called in this turn"
+      : asksRoom && !endedCall
+        ? "end_interview was not called"
+        : asksRoom && endReason !== endTool
+          ? `end_interview was called with reason ${endReason ?? "(none)"}, not ${endTool}`
+          : // The room hangs up when this turn has been spoken: it must be the goodbye, and nothing the candidate would have to answer.
+            asksRoom && !saidGoodbye([{ role: "agent", message: said }])
+            ? "end_interview without the spoken goodbye"
+            : asksRoom && /[?？]/.test(said)
+              ? "the turn that asks the room to hang up also asked something"
+              : null;
   const judged = run.condition_result?.rationale?.summary ?? null;
   return {
     said,
@@ -98,6 +126,7 @@ function toRun(run: WireRun, endCall: NextTurnCheck["endCall"]): NextTurnRun {
     why: broken ? `${broken}${judged ? `; the judge: ${judged}` : ""}` : judged,
     credits: typeof run.credits_used === "number" ? run.credits_used : null,
     endedCall,
+    endReason,
     model: turns.find((turn) => typeof turn.producing_llm === "string" && turn.producing_llm)?.producing_llm ?? null,
   };
 }
@@ -111,6 +140,15 @@ function noteTurns(text: string, index: number) {
   ];
 }
 
+/** An end_interview call and the room's answer, the way a call records a client tool. */
+function endToolTurns(reason: EndToolReason, result: string, index: number) {
+  const id = `end_interview_${String(index).padStart(8, "0")}`;
+  return [
+    { role: "agent", message: null, tool_calls: [{ type: "client", request_id: id, tool_name: END_INTERVIEW_TOOL, params_as_json: JSON.stringify({ reason }), tool_has_been_called: true }] },
+    { role: "agent", message: null, tool_results: [{ type: "client", request_id: id, tool_name: END_INTERVIEW_TOOL, result_value: result, is_error: false, tool_has_been_called: true, tool_latency_secs: 0 }] },
+  ];
+}
+
 /** Runs the check and returns one result per repeat. Spends credits (the agent's LLM and the judge's). */
 export async function checkNextTurn(check: NextTurnCheck, env: Record<string, string | undefined> = process.env, wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms))): Promise<NextTurnRun[]> {
   const created = await call(
@@ -121,7 +159,10 @@ export async function checkNextTurn(check: NextTurnCheck, env: Record<string, st
       name: check.name,
       dynamic_variables: check.variables,
       chat_history: check.history.flatMap((turn, index) =>
-        (turn.role === "note" ? noteTurns(turn.message, index) : [{ role: turn.role, message: turn.message }]).map((wire) => ({ ...wire, time_in_call_secs: index * 8 })),
+        (turn.role === "note" ? noteTurns(turn.message, index) : turn.role === "tool" ? endToolTurns(turn.reason, turn.result, index) : [{ role: turn.role, message: turn.message }]).map((wire) => ({
+          ...wire,
+          time_in_call_secs: index * 8,
+        })),
       ),
       success_condition: `Return True when: ${check.condition} Return False otherwise.`,
       success_examples: [{ response: check.passExample, type: "success" }],
@@ -143,7 +184,7 @@ export async function checkNextTurn(check: NextTurnCheck, env: Record<string, st
       invocation = await call("GET", `/v1/convai/test-invocations/${encodeURIComponent(invocationId)}`, undefined, env);
     }
     if (runs().some((run) => run.status === "pending")) throw new Error("the test run did not finish in three minutes");
-    return runs().map((run) => toRun(run, check.endCall));
+    return runs().map((run) => toRun(run, check.endTool));
   } finally {
     // Best effort: a test left behind costs nothing and is named, so it can be deleted by hand.
     await call("DELETE", `/v1/convai/agent-testing/${encodeURIComponent(testId)}`, undefined, env).catch(() => undefined);

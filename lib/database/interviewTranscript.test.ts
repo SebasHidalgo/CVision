@@ -442,3 +442,86 @@ describe("markSessionLost", () => {
     });
   });
 });
+
+describe("storeConversationTranscript: only the room hangs up", () => {
+  const CLIENT_LEFT = "Client disconnected: 1005";
+  const ALLOWED = "ALLOWED: the room hangs up when you finish speaking.";
+  // The interviewer's request and the room's answer, as the record carries them.
+  const askedRoom = (answer: string, at: number) => [
+    { role: "agent", message: null, time_in_call_secs: at, tool_calls: [{ tool_name: "end_interview", params_as_json: JSON.stringify({ reason: "time_up" }), request_id: "req_1" }] },
+    { role: "agent", message: null, time_in_call_secs: at, tool_results: [{ tool_name: "end_interview", result_value: answer, request_id: "req_1" }] },
+  ];
+  const turns = (askedAt: number) => [
+    { role: "agent", message: "Hi.", time_in_call_secs: 0, agent_metadata: { agent_id: "agent_1" }, interrupted: false },
+    { role: "user", message: "Hello.", time_in_call_secs: 3, source_medium: "audio" },
+    { role: "agent", message: "What did you build last?", time_in_call_secs: 6, llm_override: "gpt-4o" },
+    { role: "user", message: "A billing service.", time_in_call_secs: askedAt - 8 },
+    ...askedRoom(ALLOWED, askedAt),
+    { role: "agent", message: "Thanks for practicing. Your feedback will appear on your screen in a moment.", time_in_call_secs: askedAt + 2 },
+  ];
+  const trial = (overrides: Record<string, unknown> = {}) => row({ tier: "TRIAL", startCount: 1, issuedConversationIds: ["conv_2"], callAllowedSeconds: 300, ...overrides });
+  const infoLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("call end"));
+  const store = (seconds: number) =>
+    storeConversationTranscript({ data: toCallRecord(payload({ transcript: turns(seconds - 10), metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: seconds, termination_reason: CLIENT_LEFT } })), eventTimestamp: null });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("scores a call the room ended inside the grace, logs why with both clocks and the backup model's turns, and reports no overrun", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 320) * 1000));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    findFirst.mockResolvedValueOnce(trial({ callEnd: { reason: "interviewer", detail: "time_up", roomSeconds: 317.6, recorded: false } }) as never);
+
+    expect(await store(318)).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
+
+    const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Record<string, unknown>[]; callEnd: unknown; durationSeconds: number } };
+    expect(data.callEnd).toEqual({ reason: "interviewer", detail: "time_up", roomSeconds: 317.6, recorded: true, backupTurns: 1 });
+    expect(data.durationSeconds).toBe(318);
+    // Stored turns: the five spoken ones, each with who, what and when and nothing else.
+    expect(data.transcript.map((turn) => Object.keys(turn).sort().join(","))).toEqual(Array.from({ length: 5 }, () => "message,role,time_in_call_secs"));
+    expect(JSON.stringify(data.transcript)).not.toContain("end_interview");
+    expect(infoLines(info)).toEqual(["[CVision][voice] call end interview=int_1 conversation=conv_2 reason=interviewer/time_up platform=318s room=317.6s status=FEEDBACK_PENDING backup=1 (gpt-4o)"]);
+    // 18 s past the paid length is the grace at work, not an overrun.
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(error.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("CALL OVERRUN"))).toEqual([]);
+    info.mockRestore();
+    error.mockRestore();
+  });
+
+  it("today's shape: an end allowed at 3:54 of 5:00 is not scored: resumable, the start given back, the unit kept", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 240) * 1000));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    findFirst.mockResolvedValueOnce(trial() as never);
+
+    expect(await store(234)).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
+
+    const { data } = updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(data).toMatchObject({ status: "IN_PROGRESS", startCount: { decrement: 1 }, callEnd: { reason: "interviewer", detail: "time_up" } });
+    expect(data.resumableUntil).toEqual(new Date((1_760_000_000 + 234 + 600) * 1000));
+    // The candidate spoke: the interview keeps its unit, to be continued.
+    expect(refundUsageIn).not.toHaveBeenCalled();
+    expect(infoLines(info)[0]).toContain("reason=interviewer/time_up platform=234s room=? status=IN_PROGRESS backup=1 (gpt-4o) EARLY END: resumable, start given back");
+    info.mockRestore();
+  });
+
+  it("reports an overrun only past the grace and its margin", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 380) * 1000));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const overruns = () => error.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("CALL OVERRUN"));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    findFirst.mockResolvedValueOnce(trial() as never);
+    await store(375);
+    expect(overruns()).toEqual([]);
+    findFirst.mockResolvedValueOnce(trial() as never);
+    await store(376);
+    expect(overruns()).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=300s recorded=376s over=76s; overruns by this user: 2"]);
+    error.mockRestore();
+    info.mockRestore();
+  });
+});

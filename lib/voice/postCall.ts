@@ -1,7 +1,8 @@
 import type { InterviewStatus } from "@prisma/client";
 import { addSegment, mergeSegments, MIN_RESUME_SECONDS, RESUME_WINDOW_MS, segmentsSeconds, type CallSegment } from "./segments";
 import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
-import { isEarlyEnd, settleCallEnd, type CallEnd, type PlatformEnd } from "./callEnd";
+import { endToolFromClaim, isEarlyEnd, settleCallEnd, type CallEnd, type EndToolCall, type PlatformEnd } from "./callEnd";
+import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 
 /**
  * A finished call, and what to do with it. Pure: the adapter verifies and
@@ -29,8 +30,13 @@ export type CallRecord = {
   variables: Record<string, unknown> | null;
   /** Who ended the call, as the platform recorded it (lib/voice/callEnd.ts). */
   endedBy: PlatformEnd;
-  /** The reason the interviewer gave its end_call tool. */
+  /** The reason the interviewer gave the platform's old end_call tool. */
   endCallReason?: string | null;
+  /** The last end_interview call: what the interviewer asked the room for, and whether it was refused. */
+  endTool?: EndToolCall | null;
+  /** Turns the backup model answered, and which models. */
+  backupTurns?: number;
+  backupModels?: string[];
   /** The platform's own wording of the end. */
   terminationReason?: string | null;
 };
@@ -130,8 +136,8 @@ export function isStranded(
   return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
 }
 
-/** A call may run this far past the time it was allowed before it is reported. */
-export const CALL_OVERRUN_TOLERANCE_SECONDS = 15;
+/** A call may run this far past its paid time before it is reported: the grace, plus a margin. */
+export const CALL_OVERRUN_TOLERANCE_SECONDS = INTERVIEW_GRACE_SECONDS + 15;
 
 /** Seconds a recorded call ran past its allowance; 0 inside the tolerance or when either is unknown. */
 export function callOverrunSeconds(allowedSeconds: number | null | undefined, recordedSeconds: number | null | undefined): number {
@@ -242,7 +248,7 @@ export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | 
 
 /** The record's own account of its end, with what the room claimed for the cases only the room can tell. */
 export function callEndOf(data: CallRecord, claim: CallEnd | null = null): CallEnd {
-  return settleCallEnd({ endedBy: data.endedBy, endCallReason: data.endCallReason ?? null, terminationReason: data.terminationReason ?? null, claim });
+  return settleCallEnd({ endedBy: data.endedBy, endTool: data.endTool ?? null, endCallReason: data.endCallReason ?? null, terminationReason: data.terminationReason ?? null, claim, backupTurns: data.backupTurns ?? 0 });
 }
 
 /**
@@ -342,10 +348,14 @@ export function decidePostCallOutcome({
   const endedOrNow = endedAt ?? now;
   const windowOver = endedOrNow.getTime() + RESUME_WINDOW_MS <= now.getTime();
   // The interviewer or the platform cut it short: the time left is the candidate's.
-  const earlyEnd = !platformFailed && isEarlyEnd({ endedBy: data.endedBy, secondsLeft: plannedSeconds - used, finishRequested: Boolean(row.finishRequestedAt), turns: data.turns });
+  // The record's tool call; when the client left and the record has none, what the room said it allowed.
+  const endTool = data.endTool ?? (data.endedBy === "client" ? endToolFromClaim(row.callEnd) : null);
+  const earlyEnd = !platformFailed && isEarlyEnd({ endedBy: data.endedBy, endTool, secondsLeft: plannedSeconds - used, finishRequested: Boolean(row.finishRequestedAt), turns: data.turns });
+  // The interviewer's goodbye: the old end_call, or the tool the room allowed.
+  const interviewerEnded = data.endedBy === "agent" || Boolean(endTool && !endTool.refused);
   const final =
     !platformFailed &&
-    (((data.endedBy === "agent" || data.endedBy === "platform") && !earlyEnd) ||
+    (((interviewerEnded || data.endedBy === "platform") && !earlyEnd) ||
       data.endedBy === "limit" ||
       Boolean(row.finishRequestedAt) ||
       used >= plannedSeconds - MIN_RESUME_SECONDS ||

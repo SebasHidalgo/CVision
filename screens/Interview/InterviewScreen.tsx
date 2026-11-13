@@ -141,6 +141,7 @@ export default async function InterviewScreen({
         entry={entry}
         counts={counts}
         offer={offer}
+        devHooks={devToolsAllowed()}
       />
     </ClientMessages>
   );

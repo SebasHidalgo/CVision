@@ -131,25 +131,41 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
     expect(INTERVIEWER_AGENT_PROMPT).not.toContain("gaps_to_cover");
   });
 
-  it("ends the call only on the room's signal or the candidate's request, never because topics are covered", () => {
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("The call ends in only two ways, and you start neither on your own");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("In every other case you never close and never call end_call");
+  it("fills the whole time: it keeps asking until the room says the time is up, never because topics are covered", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The interview fills its whole time: you keep asking until a [time] line says the interview time is up");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("about half the time, about two minutes or about one minute remaining changes nothing");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("in the last minute, only short questions or short follow-ups");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("short answers, covered topics and a quiet candidate are all reasons to ask the next question");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Never say that you have covered everything");
+    // None of the pacing lines may be announced.
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("never call a question the last one");
     expect(INTERVIEWER_AGENT_PROMPT).not.toContain("hiring-side");
   });
 
-  it("never ends over a pending question, never without a spoken goodbye, and confirms before ending on request", () => {
-    // The mechanism, so no model attaches end_call to a turn that asks something.
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("it hangs up the moment the reply it is called with has been spoken");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("must never call end_call");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never end the call while a question of yours is unanswered");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("their silence is thinking time, not the end");
+  it("cannot hang up: it asks the room in the goodbye's own turn, and goes on asking when the room refuses", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("only the room can hang up");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("called in the same turn as the spoken goodbye");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("the candidate can never answer anything said in that turn");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("end_interview goes with the goodbye and with nothing else");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("If the room answers REFUSED, the interview is not over and the candidate is still on the call");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Sigamos un poco más.");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("ask your next interview question");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Never ask or request anything in the turn that says goodbye");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("a goodbye left only in the tool is never heard");
+    // The platform's own hang-up tool is gone from the agents and from the prompt.
+    expect(INTERVIEWER_AGENT_PROMPT).not.toContain("end_call");
+  });
+
+  it("ends in two ways only: the time is up and the last answer was heard, or the candidate confirmed a stop", () => {
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("The call ends in only two ways, and you start neither on your own");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain('(a) TIME IS UP (end_interview with reason "time_up")');
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("their silence is thinking time, not the end");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("Not yet, and they are answering: let them finish.");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain('(b) THE CANDIDATE ASKS TO STOP (end_interview with reason "candidate_confirmed")');
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Never close on the request alone");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("¿Quieres terminar la entrevista ahora?");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("it is never a yes by itself");
-    // The half-time and two-minute lines must not be announced.
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("never call a question the last one");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("In every other case you never say goodbye and never call end_interview");
   });
 
   it("speaks as one interviewer, with no organization behind the practice", () => {
