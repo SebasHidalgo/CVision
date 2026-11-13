@@ -24,6 +24,8 @@ export type VoiceCallEnd = {
   finished: boolean;
   /** The platform refused the call because every interviewer was taken. */
   busy: boolean;
+  /** The platform's time limit ended it. */
+  limit: boolean;
 };
 
 export type VoiceCallHandlers = {
@@ -58,13 +60,11 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     onConnect: handlers.onConnect,
     onDisconnect: (details) => {
       // The platform hard limit arrives as an error event; it is the agent ending the call.
-      const finished =
-        details.reason === "user" ||
-        details.reason === "agent" ||
-        (details.reason === "error" && details.context.type === "max_duration_exceeded");
+      const limit = details.reason === "error" && details.context.type === "max_duration_exceeded";
+      const finished = details.reason === "user" || details.reason === "agent" || limit;
       const text = details.reason === "user" ? "" : [details.reason === "error" ? details.message : "", details.closeReason, details.context?.reason].join(" ");
       const busy = details.reason !== "user" && (details.closeCode === BUSY_CLOSE_CODE || details.context?.code === BUSY_CLOSE_CODE || BUSY_TEXT.test(text));
-      handlers.onEnd({ reason: details.reason, finished, busy });
+      handlers.onEnd({ reason: details.reason, finished, busy, limit });
     },
     onError: handlers.onError,
     onMessage: ({ role, message }) => handlers.onLine({ role, text: message }),

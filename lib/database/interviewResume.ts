@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
 import { hasCandidateTurns, finalizeFromStored } from "@/lib/voice/postCall";
+import { readCallEnd } from "@/lib/voice/callEnd";
 import { readSegments, RESUME_WINDOW_MS, type CallSegment } from "@/lib/voice/segments";
 import { transcriptTurnSchema } from "@/lib/voice/transcript";
 import { z } from "zod";
@@ -31,6 +32,7 @@ const resumeSelect = {
   endedAt: true,
   lastSessionAt: true,
   resumableUntil: true,
+  callEnd: true,
 } satisfies Prisma.InterviewSelect;
 
 type ResumeRow = Prisma.InterviewGetPayload<{ select: typeof resumeSelect }>;
@@ -48,6 +50,7 @@ function latestSegment(row: ResumeRow): CallSegment | null {
     turns: turns.data,
     durationSeconds,
     startTimeSeconds: row.endedAt ? Math.round(row.endedAt.getTime() / 1000) - durationSeconds : null,
+    ...(readCallEnd(row.callEnd) ? { end: readCallEnd(row.callEnd)! } : {}),
   };
 }
 

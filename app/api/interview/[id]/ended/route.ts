@@ -49,10 +49,11 @@ export async function POST(
     const parsed = interviewEndedRequestSchema.safeParse(body ?? {});
     if (!parsed.success) throw new ValidationError("Invalid end-of-call report");
 
-    const mark = await markInterviewEnded({ interviewId: id, endedAt: new Date() });
+    const { end, elapsedSeconds } = parsed.data;
+    const mark = await markInterviewEnded({ interviewId: id, endedAt: new Date(), ...(end ? { claim: { reason: end, roomSeconds: elapsedSeconds ?? null } } : {}) });
     const early = mark.recorded && mark.sessionAgeMs !== null && mark.sessionAgeMs <= EARLY_END_WINDOW_MS;
     console.info(
-      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} recorded=${mark.recorded}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
+      `${LOG} interview=${id} reason=${parsed.data.reason ?? "(none)"} end=${end ?? "(none)"} room=${typeof elapsedSeconds === "number" ? `${Math.round(elapsedSeconds)}s` : "?"} recorded=${mark.recorded}${early ? ` early (${Math.round(mark.sessionAgeMs! / 1000)} s after the session): fetching the conversation now` : ""}`,
     );
 
     if (early) {

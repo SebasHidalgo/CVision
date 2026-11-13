@@ -49,7 +49,7 @@ const record = (overrides: Record<string, unknown> = {}) => ({
   transcript: [
     { role: "agent", message: "Hi Ana.", time_in_call_secs: 0, interrupted: false },
     { role: "user", message: "Hello.", time_in_call_secs: 3 },
-    { role: "agent", message: null, time_in_call_secs: 9 },
+    { role: "agent", message: null, time_in_call_secs: 9, tool_calls: [{ type: "system", request_id: "r1", tool_name: "end_call", params_as_json: JSON.stringify({ reason: "Time is up." }), tool_has_been_called: true }] },
   ],
   metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 200.4, termination_reason: "end_call tool" },
   conversation_initiation_client_data: { dynamic_variables: { interview_id: "int_1", system__time: "x" } },
@@ -83,12 +83,15 @@ describe("fetchConversation", () => {
         turns: [
           { role: "agent", message: "Hi Ana.", time_in_call_secs: 0 },
           { role: "user", message: "Hello.", time_in_call_secs: 3 },
-          { role: "agent", message: null, time_in_call_secs: 9 },
+          { role: "agent", message: null, time_in_call_secs: 9, tool_calls: [{ tool_name: "end_call", params_as_json: JSON.stringify({ reason: "Time is up." }) }] },
         ],
         startTimeSeconds: 1_760_000_000,
         durationSeconds: 200.4,
         variables: { interview_id: "int_1", system__time: "x" },
         endedBy: "agent",
+        // The interviewer stated its reason in the tool call; the API keeps it as the webhook does.
+        endCallReason: "Time is up.",
+        terminationReason: "end_call tool",
       },
     });
   });

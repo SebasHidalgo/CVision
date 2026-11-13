@@ -99,6 +99,35 @@ describe("initiationDataMatches", () => {
   });
 });
 
+describe("toCallRecord: how the call ended", () => {
+  const endedBy = (reason: string | null) => toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: 10, termination_reason: reason } })).endedBy;
+
+  it("tells the interviewer, the limit and the client apart, and takes any other wording as the platform's own end", () => {
+    expect(endedBy("end_call tool was called.")).toBe("agent");
+    expect(endedBy("Maximum duration exceeded")).toBe("limit");
+    expect(endedBy("Client disconnected: 1005")).toBe("client");
+    expect(endedBy("Call ended due to silence timeout")).toBe("platform");
+    expect(endedBy("")).toBe("unknown");
+    expect(endedBy(null)).toBe("unknown");
+  });
+
+  it("reads the reason the interviewer gave end_call from the webhook's tool turn", () => {
+    const record = toCallRecord(
+      payload({
+        transcript: [
+          { role: "agent", message: "Thanks.", time_in_call_secs: 0 },
+          { role: "agent", message: null, time_in_call_secs: 2, tool_calls: [{ tool_name: "contextual_update", params_as_json: "{}" }] },
+          { role: "agent", message: null, time_in_call_secs: 3, tool_calls: [{ tool_name: "end_call", params_as_json: JSON.stringify({ reason: " The time is up. ", system__message_to_speak: "Bye" }) }] },
+        ],
+      }),
+    );
+    expect(record.endCallReason).toBe("The time is up.");
+    expect(record.terminationReason).toBe("end_call tool was called.");
+    // A tool call with unreadable parameters says nothing rather than throwing.
+    expect(toCallRecord(payload({ transcript: [{ role: "agent", message: null, tool_calls: [{ tool_name: "end_call", params_as_json: "{" }] }] })).endCallReason).toBeNull();
+  });
+});
+
 describe("decidePostCallOutcome", () => {
   it("stores a transcript with candidate turns and hands off to feedback", () => {
     expect(decide(row(), payload())).toMatchObject({
@@ -113,42 +142,72 @@ describe("decidePostCallOutcome", () => {
     });
   });
 
-  it("keeps an interview resumable when the interviewer hangs up before the room's wrap-up line, and scores it after", () => {
-    const early = (seconds: number) =>
-      decidePostCallOutcome({
-        row: row(),
-        data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: seconds, termination_reason: "end_call tool was called." } })),
-        eventTimestamp: START + 500,
-        maxStarts: 3,
-        plannedSeconds: 300,
-        now: new Date((START + seconds + 5) * 1000),
-      });
-    // 178 s of 300: 122 s left, so the interviewer closed before the wrap-up line.
-    expect(early(178)).toMatchObject({ status: "IN_PROGRESS", counted: true, startRefunded: true });
-    expect((early(178) as { resumableUntil: Date | null }).resumableUntil).not.toBeNull();
-    // 240 s of 300: 60 s left, after the line: the interview is over.
-    expect(early(240)).toMatchObject({ status: "FEEDBACK_PENDING", resumableUntil: null });
-    // The platform's own limit always ends it.
-    const limit = decidePostCallOutcome({
-      row: row(),
-      data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: 120, termination_reason: "Maximum duration exceeded" } })),
+  // A five-minute call that ended after `seconds`, with these last turns and this end.
+  const ended = (seconds: number, last: PostCallTranscription["transcript"], reason = "end_call tool was called.", r: PostCallRow = row()) =>
+    decidePostCallOutcome({
+      row: r,
+      data: toCallRecord(payload({ transcript: [...payload().transcript, ...last], metadata: { start_time_unix_secs: START, call_duration_secs: seconds, termination_reason: reason } })),
       eventTimestamp: START + 500,
       maxStarts: 3,
       plannedSeconds: 300,
+      now: new Date((START + seconds + 5) * 1000),
     });
-    expect(limit).toMatchObject({ status: "FEEDBACK_PENDING" });
+  const GOODBYE = { role: "agent", message: "Thanks for practicing, Ana. Your feedback will appear on your screen in a moment.", time_in_call_secs: 230 };
+  const QUESTION = { role: "agent", message: "To finish, tell me about a project you led, and what your part in it was.", time_in_call_secs: 218 };
+  const END_CALL = { role: "agent", message: null, time_in_call_secs: 220, tool_calls: [{ tool_name: "end_call", params_as_json: JSON.stringify({ reason: "The interview is reaching its conclusion.", system__message_to_speak: "Thanks." }) }] };
+
+  it("keeps the owner's first trial resumable: a last request with no answer, end_call at 235 s of 300", () => {
+    const outcome = ended(235, [QUESTION, END_CALL]);
+    expect(outcome).toMatchObject({ status: "IN_PROGRESS", counted: true, startRefunded: true, earlyEnd: true, callEnd: { reason: "interviewer", detail: "The interview is reaching its conclusion.", recorded: true } });
+    expect((outcome as { resumableUntil: Date | null }).resumableUntil).toEqual(new Date((START + 235 + 600) * 1000));
   });
 
-  it("gives the start back on an early interviewer end, so even the last start can be continued", () => {
-    const outcome = decidePostCallOutcome({
-      row: row({ startCount: 3 }),
-      data: toCallRecord(payload({ metadata: { start_time_unix_secs: START, call_duration_secs: 100, termination_reason: "end_call tool was called." } })),
-      eventTimestamp: START + 500,
-      maxStarts: 3,
-      plannedSeconds: 300,
-      now: new Date((START + 105) * 1000),
-    });
-    expect(outcome).toMatchObject({ status: "IN_PROGRESS", startRefunded: true });
+  it("scores an interview the interviewer closed with a goodbye inside the wrap-up time", () => {
+    expect(ended(250, [GOODBYE])).toMatchObject({ status: "FEEDBACK_PENDING", resumableUntil: null, earlyEnd: false, startRefunded: false, callEnd: { reason: "interviewer" } });
+  });
+
+  it("keeps it resumable when the interviewer hangs up without a goodbye, or says one with minutes left unasked", () => {
+    // The candidate spoke last and the call just ended.
+    expect(ended(240, [])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true });
+    // A clean goodbye at 178 s of 300 that nobody asked for.
+    expect(ended(178, [GOODBYE])).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true });
+    // The same goodbye after the candidate confirmed they wanted to end.
+    const confirmed = [
+      { role: "agent", message: "Do you want to end the interview now?", time_in_call_secs: 170 },
+      { role: "user", message: "Yes, let's stop.", time_in_call_secs: 174 },
+      GOODBYE,
+    ];
+    expect(ended(178, confirmed)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false });
+  });
+
+  it("lets any interviewer end stand with 30 s or less left, and the platform's limit always", () => {
+    expect(ended(271, [QUESTION, END_CALL])).toMatchObject({ status: "FEEDBACK_PENDING" });
+    expect(ended(120, [QUESTION], "Maximum duration exceeded")).toMatchObject({ status: "FEEDBACK_PENDING", callEnd: { reason: "limit" } });
+  });
+
+  it("treats a platform-side end over a pending question as early, and records the platform's wording", () => {
+    const outcome = ended(150, [QUESTION], "Call ended due to silence timeout");
+    expect(outcome).toMatchObject({ status: "IN_PROGRESS", earlyEnd: true, startRefunded: true, callEnd: { reason: "platform", detail: "Call ended due to silence timeout" } });
+  });
+
+  it("settles a client-side end by what the room reported: End, its own hang-up, or a drop", () => {
+    const left = "Client disconnected: 1005";
+    const finished = row({ finishRequestedAt: new Date(), callEnd: { reason: "user", roomSeconds: 148.2 } });
+    expect(ended(150, [QUESTION], left, finished)).toMatchObject({ status: "FEEDBACK_PENDING", earlyEnd: false, callEnd: { reason: "user", roomSeconds: 148.2 } });
+    // A drop is resumable as before: the start is not given back.
+    expect(ended(150, [QUESTION], left, row({ callEnd: { reason: "disconnect" } }))).toMatchObject({ status: "IN_PROGRESS", earlyEnd: false, startRefunded: false, callEnd: { reason: "disconnect" } });
+    expect(ended(150, [QUESTION], left)).toMatchObject({ callEnd: { reason: "disconnect" } });
+  });
+
+  it("gives the start back on an early end, so even the last start can be continued", () => {
+    expect(ended(100, [QUESTION, END_CALL], "end_call tool was called.", row({ startCount: 3 }))).toMatchObject({ status: "IN_PROGRESS", startRefunded: true });
+  });
+
+  it("keeps each call's end on its segment when the interview is scored", () => {
+    const first = { conversationId: "conv_0", turns: [{ role: "user", message: "First call.", time_in_call_secs: 3 }], durationSeconds: 100, startTimeSeconds: START - 400, end: { reason: "disconnect" as const, recorded: true } };
+    const outcome = ended(190, [GOODBYE], "end_call tool was called.", row({ segments: [first] }));
+    expect(outcome).toMatchObject({ status: "FEEDBACK_PENDING" });
+    expect((outcome as { segments: { end?: { reason: string } }[] }).segments.map((segment) => segment.end?.reason)).toEqual(["disconnect", "interviewer"]);
   });
 
   it("ignores a replay: same conversation, transcript already stored", () => {

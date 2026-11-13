@@ -1,3 +1,4 @@
+import type { RoomEndClaim } from "@/lib/voice/callEnd";
 import type { ErrorCode } from "@/lib/error/errors";
 import {
   interviewSessionResponseSchema,
@@ -63,12 +64,14 @@ export async function reportInterviewEnded(
   fetchImpl: typeof fetch = fetch,
   /** How the room read the end: the candidate finished, or the call dropped and may resume. */
   outcome?: "finish" | "drop",
+  /** Why the call ended as the room saw it, and the room's own count of the call. */
+  call?: { end: RoomEndClaim; elapsedSeconds: number },
 ): Promise<void> {
   try {
     await fetchImpl(`/api/interview/${encodeURIComponent(interviewId)}/ended`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(outcome ? { reason, outcome } : { reason }),
+      body: JSON.stringify({ reason, ...(outcome ? { outcome } : {}), ...(call ?? {}) }),
       keepalive: true,
     });
   } catch {

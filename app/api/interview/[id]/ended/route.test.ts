@@ -58,7 +58,7 @@ describe("POST /api/interview/[id]/ended", () => {
       interviewId: INTERVIEW_ID,
       endedAt: new Date("2026-10-13T12:00:00Z"),
     });
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("reason=agent recorded=true"));
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("reason=agent end=(none) room=? recorded=true"));
     // Five minutes into a call is an ordinary end: the webhook gets its grace.
     expect(after).not.toHaveBeenCalled();
     expect(reconcileStrandedInterview).not.toHaveBeenCalled();
@@ -143,6 +143,18 @@ describe("POST /api/interview/[id]/ended", () => {
 
     expect((await post(JSON.stringify({ reason: "agent" }))).status).toBe(200);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("early reconcile interview="), expect.any(Error));
+  });
+
+  it("stores why the room saw the call end, and the room's own count of it", async () => {
+    expect(await post(JSON.stringify({ reason: "agent", end: "interviewer", elapsedSeconds: 233.4 }))).toMatchObject({ status: 200 });
+    expect(markInterviewEnded).toHaveBeenCalledWith({
+      interviewId: INTERVIEW_ID,
+      endedAt: new Date("2026-10-13T12:00:00Z"),
+      claim: { reason: "interviewer", roomSeconds: 233.4 },
+    });
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining("end=interviewer room=233s"));
+    // A reason the room cannot know is refused, not stored.
+    expect(await post(JSON.stringify({ reason: "agent", end: "platform" }))).toMatchObject({ status: 400 });
   });
 
   it("tolerates an empty or non-JSON body: the reason is for the log", async () => {

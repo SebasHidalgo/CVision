@@ -88,6 +88,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     resumableUntil: null,
     finishRequestedAt: null,
     callAllowedSeconds: null,
+    callEnd: null,
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {
@@ -116,6 +117,7 @@ function callState(overrides: Partial<CallState> = {}): CallState {
     resumableUntil: null,
     startCount: 0,
     language: null,
+    callEnd: null,
     ...overrides,
   };
 }

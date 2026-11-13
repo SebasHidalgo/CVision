@@ -1,7 +1,7 @@
 import type { InterviewStatus } from "@prisma/client";
 import { addSegment, mergeSegments, MIN_RESUME_SECONDS, RESUME_WINDOW_MS, segmentsSeconds, type CallSegment } from "./segments";
 import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
-import { INTERVIEW_WRAP_UP_SECONDS } from "@/lib/interviewLimits";
+import { isEarlyEnd, settleCallEnd, type CallEnd, type PlatformEnd } from "./callEnd";
 
 /**
  * A finished call, and what to do with it. Pure: the adapter verifies and
@@ -27,12 +27,12 @@ export type CallRecord = {
   durationSeconds: number | null;
   /** The variables the browser handed the agent, when the record carries them. */
   variables: Record<string, unknown> | null;
-  /**
-   * Who ended the call, as the platform recorded it: the interviewer (its
-   * end_call tool), the hard time limit, the client (End, a closed tab or a
-   * lost connection look the same from there), or unknown.
-   */
-  endedBy: "agent" | "limit" | "client" | "unknown";
+  /** Who ended the call, as the platform recorded it (lib/voice/callEnd.ts). */
+  endedBy: PlatformEnd;
+  /** The reason the interviewer gave its end_call tool. */
+  endCallReason?: string | null;
+  /** The platform's own wording of the end. */
+  terminationReason?: string | null;
 };
 
 /** `failureReason` when the candidate never spoke. */
@@ -193,6 +193,8 @@ export type PostCallRow = {
   /** The candidate asked to finish (End, or "Finish and get feedback"). */
   finishRequestedAt?: Date | null;
   resumableUntil?: Date | null;
+  /** What the room reported about the latest call's end, before this record. */
+  callEnd?: CallEnd | null;
 };
 
 export type PostCallOutcome =
@@ -221,16 +223,26 @@ export type PostCallOutcome =
       resumableUntil: Date | null;
       /** The candidate spoke in some call of the interview: the unit stays spent. */
       counted: boolean;
+      /** Why this call ended; null for a call the platform could not run. */
+      callEnd: CallEnd | null;
+      /** The interviewer or the platform ended it too soon: resumable, the start given back. */
+      earlyEnd: boolean;
     };
 
 /** A recorded call as a segment. */
-export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | "durationSeconds" | "startTimeSeconds">): CallSegment {
+export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | "durationSeconds" | "startTimeSeconds">, end?: CallEnd | null): CallSegment {
   return {
     conversationId: record.conversationId,
     turns: record.turns,
     durationSeconds: Math.max(0, record.durationSeconds ?? 0),
     startTimeSeconds: record.startTimeSeconds,
+    ...(end ? { end } : {}),
   };
+}
+
+/** The record's own account of its end, with what the room claimed for the cases only the room can tell. */
+export function callEndOf(data: CallRecord, claim: CallEnd | null = null): CallEnd {
+  return settleCallEnd({ endedBy: data.endedBy, endCallReason: data.endCallReason ?? null, terminationReason: data.terminationReason ?? null, claim });
 }
 
 /**
@@ -246,11 +258,11 @@ export function toSegment(record: Pick<CallRecord, "conversationId" | "turns" | 
  *   the platform reports the call failed (the agent never joined, or every
  *   interviewer was busy), the start is given back too.
  * - The candidate has spoken, in this call or an earlier one. How the call
- *   ended decides: an end_call after the wrap-up line, the time limit, the
+ *   ended decides: the interviewer's goodbye, the time limit, the
  *   candidate's request to finish, the interview length used up, the last
  *   start, or a resume window already over make it final, and every call
- *   is merged for the feedback. Anything else (a lost connection, a closed
- *   tab) leaves it resumable for `RESUME_WINDOW_MS`.
+ *   is merged for the feedback. An early end (lib/voice/callEnd.ts), a lost
+ *   connection or a closed tab leave it resumable for `RESUME_WINDOW_MS`.
  */
 export function decidePostCallOutcome({
   row,
@@ -277,7 +289,7 @@ export function decidePostCallOutcome({
   const spoke = hasCandidateTurns(data.turns);
   // The row has moved on to a newer session: this is an earlier call's record, late.
   if (!latest && row.conversationId !== null) {
-    return spoke ? { kind: "segment", segments: addSegment(earlier, toSegment(data)) } : { kind: "duplicate" };
+    return spoke ? { kind: "segment", segments: addSegment(earlier, toSegment(data, callEndOf(data))) } : { kind: "duplicate" };
   }
 
   const attemptsLeft = row.startCount < maxStarts;
@@ -298,11 +310,14 @@ export function decidePostCallOutcome({
 
   const failed = data.failed;
   const platformFailed = !spoke && failed;
+  const callEnd = failed ? null : callEndOf(data, row.callEnd ?? null);
   const base = {
     kind: "store" as const,
     contextMismatch: matches === false,
     endedAt,
     startRefunded: platformFailed,
+    callEnd,
+    earlyEnd: false,
   };
 
   // Nobody has spoken in any call of this interview.
@@ -322,20 +337,20 @@ export function decidePostCallOutcome({
 
   // The interview counts, and so does every call of it the platform ran: a resumed call in
   // which the candidate said nothing is still part of what happened. A failed one is not.
-  const all = platformFailed ? earlier : addSegment(earlier, toSegment(data));
+  const all = platformFailed ? earlier : addSegment(earlier, toSegment(data, callEnd));
   const used = segmentsSeconds(all);
-  const callEnd = endedAt ?? now;
-  const windowOver = callEnd.getTime() + RESUME_WINDOW_MS <= now.getTime();
-  // An end_call before the wrap-up line is the agent's mistake: the time left is the candidate's.
-  const agentEndedEarly = data.endedBy === "agent" && Number.isFinite(plannedSeconds) && plannedSeconds - used > INTERVIEW_WRAP_UP_SECONDS;
+  const endedOrNow = endedAt ?? now;
+  const windowOver = endedOrNow.getTime() + RESUME_WINDOW_MS <= now.getTime();
+  // The interviewer or the platform cut it short: the time left is the candidate's.
+  const earlyEnd = !platformFailed && isEarlyEnd({ endedBy: data.endedBy, secondsLeft: plannedSeconds - used, finishRequested: Boolean(row.finishRequestedAt), turns: data.turns });
   const final =
     !platformFailed &&
-    ((data.endedBy === "agent" && !agentEndedEarly) ||
+    (((data.endedBy === "agent" || data.endedBy === "platform") && !earlyEnd) ||
       data.endedBy === "limit" ||
       Boolean(row.finishRequestedAt) ||
       used >= plannedSeconds - MIN_RESUME_SECONDS ||
       // An early end gives its start back (below), so even the last start can be continued.
-      (!attemptsLeft && !agentEndedEarly) ||
+      (!attemptsLeft && !earlyEnd) ||
       windowOver);
 
   if (final) {
@@ -355,15 +370,16 @@ export function decidePostCallOutcome({
 
   return {
     ...base,
-    // The interviewer's early hang-up is not the candidate's: the connection it used comes back.
-    startRefunded: base.startRefunded || agentEndedEarly,
+    // An early end is not the candidate's: the connection it used comes back.
+    startRefunded: base.startRefunded || earlyEnd,
+    earlyEnd,
     status: "IN_PROGRESS",
     failureReason: null,
     startedAt: earlier.length === 0 ? startedAt : null,
     durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
     transcript: data.turns,
     segments: null,
-    resumableUntil: row.resumableUntil ?? new Date(callEnd.getTime() + RESUME_WINDOW_MS),
+    resumableUntil: row.resumableUntil ?? new Date(endedOrNow.getTime() + RESUME_WINDOW_MS),
     counted: true,
   };
 }

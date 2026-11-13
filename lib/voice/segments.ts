@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { callEndSchema } from "./callEnd";
 import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
 
 /**
@@ -24,6 +25,8 @@ export const callSegmentSchema = z.object({
   turns: z.array(transcriptTurnSchema),
   durationSeconds: z.number().nonnegative(),
   startTimeSeconds: z.number().nullable(),
+  /** Why the call ended; absent on calls stored before M10-E. */
+  end: callEndSchema.optional(),
 });
 export type CallSegment = z.infer<typeof callSegmentSchema>;
 

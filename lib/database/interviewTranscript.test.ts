@@ -48,6 +48,7 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   segments: null,
   finishRequestedAt: null,
   resumableUntil: null,
+  callEnd: null,
   ...overrides,
 });
 
@@ -90,32 +91,37 @@ describe("storeConversationTranscript: one interview, several calls", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("the resumed call's end_call closes it: every call merged in order, with the marker between them, and the time summed", async () => {
+  const GOODBYE = { role: "agent", message: "Thanks for practicing. Your feedback will appear on your screen in a moment.", time_in_call_secs: 470 };
+
+  it("the resumed call's goodbye closes it: every call merged in order, with the marker between them, the time summed and each end kept", async () => {
     vi.setSystemTime(new Date((1_760_000_000 + 540) * 1000));
-    findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
-    // 180 + 480 s of a 720-s interview: the end_call came inside the wrap-up window.
+    findFirst.mockResolvedValueOnce(row({ segments: [earlier], callEnd: { reason: "interviewer", roomSeconds: 478.6, recorded: false } }) as never);
+    // 180 + 480 s of a 720-s interview: the goodbye came inside the wrap-up time.
     const closing = { start_time_unix_secs: 1_760_000_000, call_duration_secs: 480, termination_reason: "end_call tool was called." };
 
-    const result = await storeConversationTranscript({ data: toCallRecord(payload({ metadata: closing })), eventTimestamp: null });
+    const result = await storeConversationTranscript({ data: toCallRecord(payload({ transcript: [...payload().transcript, GOODBYE], metadata: closing })), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "FEEDBACK_PENDING" });
-    const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Array<{ role: string; message: string; time_in_call_secs: number }>; durationSeconds: number; segments: unknown[]; resumableUntil: unknown } };
-    expect(data.transcript.map((turn) => `${turn.role}@${turn.time_in_call_secs}`)).toEqual(["agent@0", "user@5", "system@180", "agent@180", "user@183"]);
+    const { data } = updateMany.mock.calls[0][0] as { data: { transcript: Array<{ role: string; message: string; time_in_call_secs: number }>; durationSeconds: number; segments: Array<{ end?: unknown }>; resumableUntil: unknown; callEnd: unknown } };
+    expect(data.transcript.map((turn) => `${turn.role}@${turn.time_in_call_secs}`)).toEqual(["agent@0", "user@5", "system@180", "agent@180", "user@183", "agent@650"]);
     expect(data.transcript[2].message).toBe("[call resumed]");
     expect(data.durationSeconds).toBe(660);
     expect(data.segments).toHaveLength(2);
     expect(data.resumableUntil).toBeNull();
+    // Why the call ended, with the room's own count beside the platform's.
+    expect(data.callEnd).toEqual({ reason: "interviewer", detail: null, roomSeconds: 478.6, recorded: true });
+    expect(data.segments[1].end).toEqual(data.callEnd);
   });
 
-  it("an end_call with minutes left keeps the interview resumable and gives its start back", async () => {
+  it("an end_call that leaves the candidate without a goodbye keeps the interview resumable and gives its start back", async () => {
     findFirst.mockResolvedValueOnce(row({ segments: [earlier] }) as never);
 
-    // 180 + 200 s of 720: the interviewer closed with 340 s left, before the wrap-up line.
+    // 180 + 200 s of 720: the interviewer hung up with 340 s left and no goodbye.
     const result = await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
 
     expect(result).toEqual({ outcome: "stored", interviewId: "int_1", status: "IN_PROGRESS" });
     const { where, data } = updateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
-    expect(data).toMatchObject({ status: "IN_PROGRESS", startCount: { decrement: 1 } });
+    expect(data).toMatchObject({ status: "IN_PROGRESS", startCount: { decrement: 1 }, callEnd: { reason: "interviewer", recorded: true } });
     expect(where).toMatchObject({ startCount: { gt: 0 } });
     expect(data.resumableUntil).toEqual(new Date((1_760_000_000 + 200 + 600) * 1000));
   });

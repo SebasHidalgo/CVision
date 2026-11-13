@@ -329,6 +329,10 @@ model Interview {
   /// Seconds the latest call was allowed when its session was issued: the
   /// tier's length, or what was left of it for a resumed call.
   callAllowedSeconds Int?
+  /// Why the latest call ended: { reason, detail, roomSeconds, recorded }. The
+  /// room's claim first, then the platform's record; earlier calls keep theirs
+  /// in `segments`. Cleared when a new session is issued.
+  callEnd            Json?
   /// Feedback generation claims so far; the generator gives up after two.
   feedbackAttempts  Int       @default(0)
   /// When the current GENERATING claim was taken, to detect a dead worker.

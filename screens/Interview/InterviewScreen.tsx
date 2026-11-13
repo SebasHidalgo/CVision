@@ -15,6 +15,7 @@ import { formatMoney } from "@/lib/format";
 import { getLocale } from "@/lib/i18n/server";
 import { interviewPhase } from "@/lib/interviewStatus";
 import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
+import { readCallEnd } from "@/lib/voice/callEnd";
 import { voiceEntryStatus } from "@/lib/voice/health";
 import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { readSegments, resumeState } from "@/lib/voice/segments";
@@ -85,7 +86,9 @@ export default async function InterviewScreen({
         new Date(),
       )
     : null;
-  const resume = resumed && calls?.resumableUntil ? { usedSeconds: resumed.usedSeconds, resumable: resumed.resumable } : null;
+  // Why the latest call ended: an interviewer's or the platform's early end is not shown as a dropped call.
+  const lastEnd = readCallEnd(calls?.callEnd)?.reason;
+  const resume = resumed && calls?.resumableUntil ? { usedSeconds: resumed.usedSeconds, resumable: resumed.resumable, early: lastEnd === "interviewer" || lastEnd === "platform" } : null;
 
   // What the room offers on entry, from the same entitlement the session endpoint runs; Start stays its authority.
   // Voice health is asked for the agent a start (or a purchase) would use, from the minute-long cache.

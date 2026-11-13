@@ -20,6 +20,7 @@ import {
   remainingSeconds,
 } from "../utils/countdown";
 import { reportInterviewEnded, requestInterviewSession } from "../utils/session";
+import { isEarlyEnd, type RoomEndClaim } from "@/lib/voice/callEnd";
 import { dueTimeNote, type TimeNoteId } from "@/lib/voice/timeNotes";
 import { useVoiceCall, VoiceCallProvider } from "./elevenlabs/VoiceCall";
 import RoomOffer, { type RoomOfferFacts } from "./RoomOffer";
@@ -46,7 +47,7 @@ export type InterviewAgentProps = {
   /** The language the room proposes: the interview's when one was chosen, the posting's otherwise. */
   language: InterviewLanguage;
   /** Set when an earlier call of this interview dropped: how much of its length is used, and whether a reconnect continues it. */
-  resume: { usedSeconds: number; resumable: boolean } | null;
+  resume: { usedSeconds: number; resumable: boolean; early?: boolean } | null;
   /** What the room offers on entry (the server's reading of the entitlement and voice health); Start stays the authority. */
   entry: RoomEntry;
   /** The entitlement's counts, for the line that says what a start uses; null when the interview already holds its unit. */
@@ -113,10 +114,10 @@ async function requestMicrophone(): Promise<MicProblem | null> {
 /** The call always reports its end after endCall; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
 
-/** Past its length by this much, the room hangs up itself: a resumed call is shorter than the agent's own limit. */
+/** A resumed call is shorter than the platform's limit: past its length by this much, the room hangs up. */
 const OVERTIME_SECONDS = 3;
-/** An interviewer hang-up with more than this left, before the wrap-up line, is treated as early. */
-const EARLY_END_MIN_LEFT_SECONDS = 60;
+/** A first call ends at the platform's own limit, with its spoken line: the room only steps in well after it. */
+const PLATFORM_LIMIT_GRACE_SECONDS = 15;
 /** Less than this left after a drop is not worth a call (the server refuses it too). */
 const MIN_RESUME_SECONDS = 30;
 
@@ -140,7 +141,7 @@ function InterviewRoom({
   const router = useRouter();
   const { t } = useTranslation("interview");
   const errorCopy = useErrorCopy();
-  const [phase, setPhase] = useState<Phase>(preview ? { kind: "live" } : resume ? { kind: "dropped" } : { kind: "idle" });
+  const [phase, setPhase] = useState<Phase>(preview ? { kind: "live" } : resume ? { kind: "dropped", early: resume.early === true } : { kind: "idle" });
   const [language, setLanguage] = useState<InterviewLanguage>(proposedLanguage);
   // Seconds of the interview used by earlier calls; the clock after a drop starts from what is left.
   const [usedBefore, setUsedBefore] = useState(resume?.usedSeconds ?? 0);
@@ -167,6 +168,13 @@ function InterviewRoom({
   // The candidate has spoken in some call of this interview: only then does a drop use up time.
   const spoke = useRef(resume !== null);
   const startsUsedRef = useRef(startCount);
+  // The live lines, for the end-of-call callback.
+  const linesRef = useRef<TranscriptLine[]>([]);
+  useEffect(() => {
+    linesRef.current = lines;
+  }, [lines]);
+  // Who hangs up when the room does: the candidate's End, or the room's own clock.
+  const endingBy = useRef<"user" | "room">("user");
 
   const endFallback = useRef<number | null>(null);
   useEffect(() => {
@@ -204,17 +212,21 @@ function InterviewRoom({
       const neverBegan = current === "starting";
       // The candidate pressed End, or the SDK says they hung up: their decision to finish.
       const finished = current === "ending" || end.reason === "user";
-      // An agent hang-up before the wrap-up line is not the end (the server agrees).
+      // An end by the interviewer that cut the candidate off is not the end (the server runs the same rule).
       const { connectedAt: began, callSeconds } = callRef.current;
-      const elapsed = began === null ? 0 : Math.max(0, Math.floor((Date.now() - began) / 1000));
+      const elapsedExact = began === null ? 0 : Math.max(0, (Date.now() - began) / 1000);
+      const elapsed = Math.floor(elapsedExact);
       const early =
-        current === "live" && end.reason === "agent" && !notesSent.current.has("wrap") && spoke.current && callSeconds - elapsed > EARLY_END_MIN_LEFT_SECONDS;
+        current === "live" &&
+        end.reason === "agent" &&
+        spoke.current &&
+        isEarlyEnd({ endedBy: "agent", secondsLeft: callSeconds - elapsed, finishRequested: false, turns: linesRef.current.map((line) => ({ role: line.role, message: line.text })) });
       const dropped = early || (!neverBegan && !finished && !end.finished);
+      const claim: RoomEndClaim =
+        current === "ending" ? endingBy.current : end.reason === "user" ? "user" : end.reason === "agent" ? "interviewer" : end.limit ? "limit" : "disconnect";
 
-      // Whatever ended it, the server learns the call is over now rather
-      // than when the transcript lands, and how the room read the end. Not
-      // awaited: nothing here depends on it.
-      void reportInterviewEnded(interviewId, end.reason, fetch, finished ? "finish" : dropped ? "drop" : undefined);
+      // The server learns now that the call is over, why the room thinks so and how long it ran. Not awaited.
+      void reportInterviewEnded(interviewId, end.reason, fetch, finished ? "finish" : dropped ? "drop" : undefined, { end: claim, elapsedSeconds: Math.round(elapsedExact * 10) / 10 });
 
       if (neverBegan) {
         failStart(errorCopy(end.busy || at.step === "queued" ? "VOICE_BUSY" : "VOICE_UNAVAILABLE"));
@@ -316,6 +328,7 @@ function InterviewRoom({
   };
 
   const handleEnd = () => {
+    endingBy.current = "user";
     setPhase({ kind: "ending" });
     endCall();
     endFallback.current = window.setTimeout(() => {
@@ -346,7 +359,10 @@ function InterviewRoom({
   // A tab closed mid-call: tell the server on the way out, so the interview is resumable at once.
   useEffect(() => {
     if (phase.kind !== "live" || preview) return;
-    const leave = () => void reportInterviewEnded(interviewId, "pagehide", fetch, "drop");
+    const leave = () => {
+      const began = callRef.current.connectedAt;
+      void reportInterviewEnded(interviewId, "pagehide", fetch, "drop", { end: "disconnect", elapsedSeconds: began === null ? 0 : Math.max(0, Math.round((Date.now() - began) / 100) / 10) });
+    };
     window.addEventListener("pagehide", leave);
     return () => window.removeEventListener("pagehide", leave);
   }, [phase.kind, interviewId, preview]);
@@ -411,11 +427,13 @@ function InterviewRoom({
       notesSent.current.add(note.id);
       notify(note.text);
     }
-    if (elapsedLive >= callSeconds + OVERTIME_SECONDS) {
+    // The platform enforces a first call's length itself; the room enforces what is left of a resumed one.
+    if (elapsedLive >= callSeconds + (session?.resumed ? OVERTIME_SECONDS : PLATFORM_LIMIT_GRACE_SECONDS)) {
+      endingBy.current = "room";
       setPhase({ kind: "ending" });
       endCall();
     }
-  }, [live, preview, elapsedLive, callSeconds, notify, endCall]);
+  }, [live, preview, elapsedLive, callSeconds, notify, endCall, session?.resumed]);
 
   const orbState: VoiceOrbState =
     phase.kind === "ending" || phase.kind === "ended"

@@ -13,6 +13,7 @@ import { refundUsage, reserveInterview, resolveInterviewEntitlement, type Interv
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { startVoiceSession } from "@/lib/voice";
 import { assertVoiceCapacity } from "@/lib/voice/health";
+import { readCallEnd } from "@/lib/voice/callEnd";
 import { STARTABLE_STATUSES, toSegment } from "@/lib/voice/postCall";
 import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { addSegment, continuityRecord, mergeSegments, MIN_RESUME_SECONDS, readSegments, usedSeconds } from "@/lib/voice/segments";
@@ -146,7 +147,7 @@ export async function POST(
               turns: storedTurns.data,
               durationSeconds: state.durationSeconds,
               startTimeSeconds: state.endedAt ? Math.round(state.endedAt.getTime() / 1000) - (state.durationSeconds ?? 0) : null,
-            }),
+            }, readCallEnd(state.callEnd)),
           )
         : earlier;
     // A reconnect continues the interview when a call of it counted, or when the room reported a drop whose record is still on its way.

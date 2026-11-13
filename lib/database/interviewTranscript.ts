@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS } from "@/lib/plans";
+import { readCallEnd } from "@/lib/voice/callEnd";
 import { readSegments, RESUME_WINDOW_MS } from "@/lib/voice/segments";
 import {
   AT_CAPACITY,
@@ -42,6 +43,7 @@ const postCallSelect = {
   segments: true,
   finishRequestedAt: true,
   resumableUntil: true,
+  callEnd: true,
 } satisfies Prisma.InterviewSelect;
 
 export type StoreTranscriptResult =
@@ -76,7 +78,7 @@ export async function storeConversationTranscript({
 
     const now = new Date();
     const outcome = decidePostCallOutcome({
-      row: { ...row, segments: readSegments(row.segments) },
+      row: { ...row, segments: readSegments(row.segments), callEnd: readCallEnd(row.callEnd) },
       data,
       eventTimestamp,
       maxStarts: MAX_INTERVIEW_STARTS,
@@ -115,6 +117,7 @@ export async function storeConversationTranscript({
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
         resumableUntil: outcome.resumableUntil,
+        ...(outcome.callEnd ? { callEnd: outcome.callEnd as Prisma.InputJsonValue } : {}),
         ...(outcome.segments ? { segments: outcome.segments as Prisma.InputJsonValue } : {}),
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
         ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
@@ -124,6 +127,13 @@ export async function storeConversationTranscript({
     });
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
+    if (outcome.callEnd) {
+      // Ids, the reason and the two clocks; the interviewer's own wording stays in the row.
+      const room = outcome.callEnd.roomSeconds;
+      console.info(
+        `[CVision][voice] call end interview=${row.id} conversation=${data.conversationId} reason=${outcome.callEnd.reason} platform=${data.durationSeconds ?? "?"}s room=${typeof room === "number" ? `${room}s` : "?"} status=${outcome.status}${outcome.earlyEnd ? " EARLY END: resumable, start given back" : ""}`,
+      );
+    }
 
     // Nothing was heard in any call (the candidate never spoke, or the
     // platform could not run the call): the unit goes back, whatever paid

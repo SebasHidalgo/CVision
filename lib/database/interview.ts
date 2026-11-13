@@ -7,6 +7,7 @@ import { handleError } from "@/lib/error/handleError";
 import { z } from "zod";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
+import type { CallEnd, RoomEndClaim } from "@/lib/voice/callEnd";
 import type { CallSegment } from "@/lib/voice/segments";
 import type { InterviewTierId } from "@/lib/plans";
 import type { Interview, InterviewFeedback } from "@/types/interview";
@@ -242,6 +243,8 @@ export async function reserveInterviewSession(
         contextMismatch: false,
         endedAt: null,
         durationSeconds: null,
+        // The previous call's end went with its segment.
+        callEnd: Prisma.DbNull,
         // The previous session's throttle must not delay this one's first check.
         reconcileCheckedAt: null,
       },
@@ -274,6 +277,7 @@ export async function fetchInterviewCallState(interviewId: string) {
         resumableUntil: true,
         startCount: true,
         language: true,
+        callEnd: true,
       },
     });
   } catch (error) {
@@ -386,6 +390,8 @@ export type InterviewEndedMark =
 export async function markInterviewEnded(params: {
   interviewId: string;
   endedAt: Date;
+  /** How the room saw the call end, and its own count of it. */
+  claim?: { reason: RoomEndClaim; roomSeconds: number | null };
 }): Promise<InterviewEndedMark> {
   try {
     const userId = await requireUserId();
@@ -393,7 +399,10 @@ export async function markInterviewEnded(params: {
     try {
       const row = await prisma.interview.update({
         where: { id: params.interviewId, userId, status: "IN_PROGRESS", endedAt: null },
-        data: { endedAt: params.endedAt },
+        data: {
+          endedAt: params.endedAt,
+          ...(params.claim ? { callEnd: { reason: params.claim.reason, roomSeconds: params.claim.roomSeconds, recorded: false } satisfies CallEnd } : {}),
+        },
         select: { lastSessionAt: true },
       });
       return {

@@ -112,6 +112,8 @@ function respond(body: unknown, status = 200) {
 /** The requests made so far, as [url, init] pairs. */
 const requests = () => vi.mocked(fetch).mock.calls as unknown as [string, RequestInit | undefined][];
 const endedReports = () => requests().filter(([url]) => url === ENDED_URL);
+/** One end report, parsed: the reason, how the room read it, why it ended and the room's own clock. */
+const report = (index = 0) => JSON.parse(String(endedReports()[index][1]?.body)) as Record<string, unknown>;
 
 const startButton = () => screen.getByRole("button", { name: /start the interview|reconnect/i });
 
@@ -476,6 +478,27 @@ describe("InterviewAgent: during the call", () => {
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
   });
 
+  it("leaves a first call's end to the platform's own limit and its spoken line, and only steps in well after it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+    respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
+    render(<InterviewAgent {...props} />);
+    await clickStart();
+    await act(async () => {
+      callbacks().onConnect?.({ conversationId: "conv_1" });
+    });
+
+    // Past the length by more than a resumed call would get: the platform is saying its line.
+    act(() => {
+      vi.advanceTimersByTime(310_000);
+    });
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(6_000);
+    });
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
+  });
+
   it("hangs up by itself when a call runs past its length, and reports it as finished", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
@@ -498,7 +521,8 @@ describe("InterviewAgent: during the call", () => {
     await act(async () => {
       callbacks().onDisconnect?.({ reason: "user" });
     });
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "user", outcome: "finish" }));
+    // The room's own hang-up, not the candidate's End.
+    expect(report()).toMatchObject({ reason: "user", outcome: "finish", end: "room" });
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
   });
 
@@ -545,7 +569,8 @@ describe("InterviewAgent: ending", () => {
     // One session request, one end-of-call report with the SDK's reason, kept alive past the navigation.
     expect(fetch).toHaveBeenCalledTimes(2);
     const [, init] = endedReports()[0];
-    expect(init).toMatchObject({ method: "POST", keepalive: true, body: JSON.stringify({ reason: "user", outcome: "finish" }) });
+    expect(init).toMatchObject({ method: "POST", keepalive: true });
+    expect(report()).toEqual({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: 0 });
   });
 
   it.each<DisconnectionDetails>([
@@ -560,10 +585,10 @@ describe("InterviewAgent: ending", () => {
     });
 
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: details.reason }));
+    expect(report()).toEqual({ reason: details.reason, end: details.reason === "agent" ? "interviewer" : "limit", elapsedSeconds: 0 });
   });
 
-  it("when the interviewer hangs up early, before the wrap-up line, keeps the time: Continue or Finish, nothing scored yet", async () => {
+  it("when the interviewer hangs up with minutes left and no goodbye, keeps the time: Continue or Finish, nothing scored yet", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
     respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
@@ -585,12 +610,13 @@ describe("InterviewAgent: ending", () => {
     expect(screen.getByText("The interview ended early. You still have 2:03.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^continue$/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "agent", outcome: "drop" }));
+    expect(report()).toEqual({ reason: "agent", outcome: "drop", end: "interviewer", elapsedSeconds: 177 });
     // The interviewer's mistake does not cost a connection: all three are still there.
     expect(screen.getByText("Continue — 3 starts left")).toBeTruthy();
   });
 
-  it("after the wrap-up line, an interviewer hang-up is the end: the feedback page opens", async () => {
+  // A five-minute call, 235 s in (65 s left, the wrap-up line already sent), ending on these interviewer words.
+  async function endAt235(lastWords: string) {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
     respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 300 } });
@@ -603,12 +629,35 @@ describe("InterviewAgent: ending", () => {
     act(() => {
       vi.advanceTimersByTime(235_000);
     });
-
+    await act(async () => {
+      callbacks().onMessage?.({ role: "agent", message: lastWords });
+    });
     await act(async () => {
       callbacks().onDisconnect?.({ reason: "agent", context: { type: "end_call" } });
     });
+  }
+
+  it("after the wrap-up line, a hang-up over the interviewer's own unanswered request is still early (the owner's first trial)", async () => {
+    await endAt235("Don't worry. To close, tell me about a project you led, and what your part in it was.");
+
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText("The interview ended early. You still have 1:05.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^continue$/i })).toBeTruthy();
+    expect(report()).toEqual({ reason: "agent", outcome: "drop", end: "interviewer", elapsedSeconds: 235 });
+    expect(screen.getByText("Continue — 3 starts left")).toBeTruthy();
+  });
+
+  it("after the wrap-up line, an interviewer hang-up after the goodbye is the end: the feedback page opens", async () => {
+    await endAt235("Thanks for practicing, Ana. Your feedback will appear on your screen in a moment.");
 
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+    expect(report()).toEqual({ reason: "agent", end: "interviewer", elapsedSeconds: 235 });
+  });
+
+  it("opens on the early-end panel, not on a dropped call, when the stored end was the interviewer's", () => {
+    render(<InterviewAgent {...props} startCount={0} resume={{ usedSeconds: 235, resumable: true, early: true }} maxDurationSeconds={300} entry={{ kind: "continue" }} />);
+    expect(screen.getByText("The interview ended early. You still have 1:05.")).toBeTruthy();
+    expect(screen.queryByText(/Your call dropped at/)).toBeNull();
   });
 
   it("shows no hint about the questions when there is nothing to start", () => {
@@ -661,7 +710,7 @@ describe("InterviewAgent: ending", () => {
     expect(screen.getByRole("button", { name: /finish and get feedback/i })).toBeTruthy();
     // The clock shows what is left of the interview, not its full length.
     expect(screen.getByLabelText("Interview length").textContent).toBe("8:48");
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "error", outcome: "drop" }));
+    expect(report()).toMatchObject({ reason: "error", outcome: "drop", end: "disconnect" });
 
     respond({ ok: true, data: { ...SESSION, maxDurationSeconds: 528, resumed: true } });
     await clickStart();
@@ -739,7 +788,8 @@ describe("InterviewAgent: a tab closed mid-call", () => {
     });
 
     const [, init] = endedReports()[0];
-    expect(init).toMatchObject({ keepalive: true, body: JSON.stringify({ reason: "pagehide", outcome: "drop" }) });
+    expect(init).toMatchObject({ keepalive: true });
+    expect(report()).toMatchObject({ reason: "pagehide", outcome: "drop", end: "disconnect" });
   });
 
   it("reports nothing when the page is left before or after a call", async () => {
@@ -812,7 +862,8 @@ describe("InterviewAgent: a full house", () => {
     expect(screen.getByRole("status").textContent).toBe("All interviewers are busy right now. Try again in a minute. Nothing was charged.");
     expect(screen.getByRole("button", { name: /start the interview/i })).toBeTruthy();
     // Reported as an end, with no outcome: nothing to resume and nothing finished.
-    expect(endedReports()[0][1]?.body).toBe(JSON.stringify({ reason: "agent" }));
+    expect(report()).toMatchObject({ reason: "agent", end: "interviewer" });
+    expect(report()).not.toHaveProperty("outcome");
   });
 
   it("says so when the platform refuses the call for capacity before it connects", async () => {
@@ -861,7 +912,8 @@ describe("InterviewAgent: a call that drops before the candidate said anything",
     // What the server will give the next start: the whole interview.
     expect(screen.getByLabelText("Interview length").textContent).toBe("12:00");
     expect(push).not.toHaveBeenCalled();
-    expect(endedReports().map(([, init]) => init?.body)).toEqual([JSON.stringify({ reason: "error", outcome: "drop" })]);
+    expect(endedReports()).toHaveLength(1);
+    expect(report()).toMatchObject({ reason: "error", outcome: "drop", end: "disconnect" });
 
     respond({ ok: true, data: { ...SESSION, resumed: false } });
     await act(async () => {
