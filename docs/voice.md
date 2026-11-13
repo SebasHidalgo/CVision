@@ -30,9 +30,21 @@ placeholders (a test pins that list). `npm run agent:sync` pushes both
 (create when the tier's id is unset, update when it is), reads them back
 and flags any difference that is not an intended one; a change made in the
 dashboard is overwritten on the next sync. Hard limits 12 and 5 minutes,
-daily caps 100 and 25 calls, silence cut at 60 s, auth required, the only
-browser override is `agent.language`, no audio kept, 30-day transcript
-retention on the platform, one system tool (`end_call`).
+daily caps 100 and 25 calls, auth required, the only browser override is
+`agent.language`, no audio kept, 30-day transcript retention on the
+platform, one system tool (`end_call`, with its own description of when it
+may be used).
+
+What can end a call by itself, and what is set (M10-E):
+
+| Setting | Value | What it does |
+|---|---|---|
+| `conversation.maxDurationSeconds` | 720 / 300 | The platform's hard limit, counted from its own start of the call; it speaks the cutoff line. |
+| `turn.turnTimeout` | 20 s (was 15) | After this much silence the interviewer speaks again (one short "take your time"). It never ends the call. |
+| `turn.silenceEndCallTimeout` | 120 s (was 60) | Ends an abandoned call. Counted from the candidate's last words, so a long question plus time to think must fit. |
+| `prompt.backupLlmConfig` | `override: ["gpt-4o"]` (was the platform default) | The model that answers a turn when the primary fails. Named, so it can be tested. |
+| `prompt.cascadeTimeoutSeconds` | 4 | How long the primary gets before the backup answers. |
+| `maxDurationSecondsAfterLastAgentMessage`, soft timeout | unset | Not used. |
 
 The platform ties the default TTS model to the agent's language: an
 English agent must use `eleven_flash_v2` and Spanish goes as a language
@@ -187,10 +199,66 @@ The prompt speaks `{{language_name}}` for everything it says and names requireme
 **It uses the whole time (M10-D).** The owner's 5-minute trial of 2026-11-12 ended at 2:58, the interviewer saying its planned questions were done: the trial tier was briefed on two gaps (`gapsToCover: 2`, which also left no room for strengths), and the prompt said to close "when the gaps and the strengths that fit are covered". There is no question count any more:
 
 - **One pool for every tier**, sized for the longest interview: up to 30 requirement lines (`MAX_CONTEXT_REQUIREMENTS`), gaps first, then met requirements, then not-shown topics; past the byte budget, not-shown lines go first, then met, then gaps. The prompt adds two sources that never run dry: the job description's responsibilities as situational questions, and follow-ups on the candidate's own answers. Short answers mean more questions, never an earlier end; it never says the planned questions are done.
-- **Closing rule.** The interviewer may end only after the room's wrap-up line or when the candidate clearly asks to stop; otherwise it never calls `end_call`, and the platform's hard limit ends the call.
-- **Pacing** (`lib/voice/timeNotes.ts`): the agent has no clock, so the room sends silent `[time]` lines as contextual updates (they never make it speak): at half time (calls of 4 minutes or more), with two minutes left (keep follow-ups short, open nothing large) and the wrap-up with 75 s left (finish the exchange, close, `end_call`). A line that would land within 15 s of the next is skipped. 75 s was checked against the owner's M10-C trial: answers ran 15–43 s and interviewer turns 15–25 s.
-- **Safety net.** An interviewer hang-up before the wrap-up line is not the end: on the server (`decidePostCallOutcome`) an `end_call` with more than `INTERVIEW_WRAP_UP_SECONDS` (75) of the interview left keeps it resumable instead of scoring it, and the room, which knows whether it sent the line, shows "The interview ended early. You still have 2:03." with **Continue** (a reconnect: no unit, and the start the early call used is given back, so even the last one can be continued) and **Finish and get feedback**. A candidate who asked to stop presses Finish. It cannot loop: each call still uses interview time, and once 75 s or less remain an interviewer end is final.
-- **Checked** with agent tests on both agents in both languages (`npm run voice:simulate -- --fixture closing-es|closing-en --case covered|signal|stop|contact [--tier trial]`, fixtures in `scripts/voice/fixtures/`): every topic answered briefly and no signal, the next turn is a question (8/8); after the wrap-up line it closes saying the feedback appears on screen (4/4); the candidate asks to stop, it closes (4/4); asked when they will hear back, it says it is practice (1/1). 646 credits. The feedback harness scores a nine-question trial with brief answers (`long-trial-many-questions`) without calling it short, 8/8 assertions.
+- **Pacing** (`lib/voice/timeNotes.ts`): the agent has no clock, so the room sends silent `[time]` lines as contextual updates (they never make it speak): at half time (calls of 4 minutes or more), with two minutes left and the wrap-up with 75 s left. A line that would land within 15 s of the next is skipped. 75 s was checked against the owner's M10-C trial: answers ran 15–43 s and interviewer turns 15–25 s.
+- **How it ends** is its own section below (M10-E): never over a pending question, never without a spoken goodbye, a confirmation before ending on request, and any early end resumable.
+- **Checked in M10-D** with agent tests (every topic answered briefly and no signal: the next turn is a question, 8/8; asked when they will hear back, it says it is practice). The feedback harness scores a nine-question trial with brief answers (`long-trial-many-questions`) without calling it short, 8/8 assertions.
+
+### How a call ends (M10-E)
+
+**What happened.** The owner's first 5-minute trial of 2026-11-13 ended by itself at 3:55 with a request just made and no goodbye heard. The platform's record of that call says:
+
+- Termination: "end_call tool was called." No timeout was involved.
+- At 3:38 the interviewer said a comforting line and asked for one more thing ("to close…"). **In that same generation** it called `end_call`, with the goodbye in the tool's `system__message_to_speak` and the reason "The interview is reaching its conclusion…". The platform spoke the reply (about 15 s) and then hung up, at 3:55. The tool's message was never spoken.
+- That one turn was written by **gpt-4o**, not by the agent's Gemini model: the record marks it `llm_override: "gpt-4o"`. The agents had `backup_llm_config: default`, so the platform swapped models for a turn the primary failed. Every other turn of both trials is Gemini's.
+- The room's wrap-up line (sent at 3:45 by the room's clock) is recorded next to that turn. A contextual update is stamped with the turn it lands in, not with its arrival, so the record does not say whether the line was in that generation's context. By the clocks it arrived about 7 s after the generation began; the two-minute line was in context for certain.
+- The app scored it: an interviewer end with 65 s left was final under the M10-D rule (75 s).
+
+The second trial ran to the end: the wrap-up line arrived while the interviewer was asking, the candidate answered, and the goodbye and `end_call` came together at 4:35 to 4:53.
+
+The same mechanism shows with the configured model. With the first M10-E wording, Gemini asked "¿Quieres terminar la entrevista ahora?" and called `end_call` in the same turn, and said goodbye over an unanswered question when a turn timeout fired after the wrap-up line. Any turn may carry `end_call`; the platform then hangs up as soon as that turn has been spoken.
+
+**The rules** (the prompt, the wrap-up line and the tool's own description all say them):
+
+- `end_call` hangs up the moment the reply it comes with has been spoken, so it goes with the goodbye and nothing else: never with a question, the confirmation question or "take your time".
+- Never end while a question of the interviewer's is unanswered. After the wrap-up line: ask nothing new; if the candidate still owes an answer, wait (one short "take your time" on silence); say the goodbye after the answer, or in the next turn when nothing was pending.
+- The goodbye is spoken in the reply itself (thanks, and that the feedback will appear on the screen); the tool's message is never heard.
+- When the candidate asks to stop, or says something that may mean it ("I think that's it"), the reply is only "Do you want to end the interview now?" / "¿Quieres terminar la entrevista ahora?". The goodbye comes after a clear yes; anything else continues the interview.
+- The half-time and two-minute lines change nothing and must not be announced: no "to close", no "last question".
+- It speaks as one interviewer: no "with us", "our team", "we appreciate" ("con nosotros", "agradecemos").
+
+**Why every call ended is stored** (`Interview.callEnd` for the latest call, `end` on each earlier call's segment): `{ reason, detail, roomSeconds, recorded }`.
+
+| Reason | Who says so |
+|---|---|
+| `user` | The room: End, or the candidate hanging up. |
+| `interviewer` | The platform's record ("end_call tool was called."); `detail` is the reason the interviewer gave the tool. |
+| `limit` | The platform's record: its hard time limit. |
+| `room` | The room: it hung up a call that ran past its length. |
+| `disconnect` | The client left and the room did not claim it (a lost connection, a closed tab). |
+| `platform` | Any other wording in the record: the platform ended it (a silence timeout, an error); `detail` keeps the wording. |
+
+The room reports its claim and its own count of the call with the end report (`end`, `elapsedSeconds`); the record settles it (`settleCallEnd`, `lib/voice/callEnd.ts`): the platform cannot tell End from a closed tab, so there the room's word stands, and everywhere else the record's does. One log line per stored call: `[CVision][voice] call end interview=… reason=… platform=…s room=…s status=…`, with `EARLY END` when it applies.
+
+**The classification** (`isEarlyEnd`, pure, run by the server on the record and by the room on its live lines). A call the interviewer or the platform ended is an early end when:
+
+1. more than 30 s of the interview are left, and
+2. the candidate did not press End or Finish, and
+3. the interviewer spoke last and it was not the goodbye, or no goodbye was spoken at all; or, with more than 75 s left, a goodbye the candidate did not ask for (no yes to the confirmation question).
+
+Whether or not the wrap-up line was sent. The goodbye is recognised by what the prompt requires of it: the feedback and the screen named in the interviewer's last line. An early end is not scored: the interview stays resumable for ten minutes, keeps its unit, and the start that call used is given back. The room shows "The interview ended early. You still have 1:05." with **Continue** and **Finish and get feedback**, also after a reload (the stored reason tells an early end from a dropped call). It cannot loop: every call uses interview time, and with 30 s or less left any end stands. A lost connection is still a drop: resumable, its start used.
+
+**The clocks.** The platform's limit counts from its own start of the call (`start_time_unix_secs`); the room's countdown starts when the SDK reports the connection. On the owner's two trials the platform's start came within about 3 s of the session token being issued; the room's start is not in those records. Measured on the voice e2e call of 2026-11-13: the room counted 3.1 s of a call the platform recorded as 4 s, so the room starts about a second later and shows about a second more than the platform will give. Each call now logs both. The room no longer hangs up over the platform's own ending: on a first call, whose length the platform enforces and announces, it steps in only 15 s past it; on a resumed call, which is shorter than the platform's limit, 3 s past as before.
+
+**Checked** with agent tests (`npm run voice:simulate -- --fixture closing-es|closing-en --case <name,name|all> [--tier trial] [--llm gpt-4o] [--local]`). A fixture turn with role `note` is sent as the `contextual_update` tool turn a real call records (the test API accepts it), not as a candidate line; a turn timeout cannot be triggered, so "the candidate is silent" is the next generation after the question and the note, which is what a timeout produces. Whether `end_call` was called is checked in code from the run's tool calls; the judge only reads the words. Cases: `two-minute` (the first trial's shape: must keep asking), `silent`, `answer`, `signal`, `ambiguous`, `stop`, `stop-yes`, `stop-no`, `covered`, `contact`.
+
+| Run | Result |
+|---|---|
+| Spanish, trial agent, first wording: two-minute, silent, answer, ambiguous, stop, stop-yes, stop-no | 5/7: `silent` said goodbye and hung up; `stop` asked the confirmation and hung up in the same turn |
+| Spanish, trial agent, final wording: silent, stop, answer | 3/3 |
+| English, full agent, final wording: all seven | 7/7 |
+| The backup model (gpt-4o), final wording, the first trial's shape | 1/1: asks another question, no `end_call` |
+
+788 credits. Not run for lack of credits: the full cross of languages and agents (the two agents share the prompt, the tool and the model and differ in length), and the Spanish `two-minute`, `ambiguous`, `stop-yes` and `stop-no` cases on the final wording (they passed on the first, which only differed in forbidding `end_call` more).
 
 **Closing honestly.** It is practice: no company, team or person reviews the call or contacts the candidate, and there is no next stage. The prompt says so and forbids implying otherwise (no "we'll be in touch", no "we'll analyze the information", no stages or next steps); the goodbye thanks the candidate and says the feedback appears on their screen in a moment, and a candidate who asks when they will hear back gets that answer. The platform's cutoff line says the same in both languages. Checked with agent tests on an end-of-interview history (M10-C): the agent before the change said "El equipo de selección se pondrá en contacto contigo" (0/1); after it, 9/9 runs closed honestly; re-run in M10-D after the new opening. In Spanish the goodbye uses the app's word, "feedback", not "retroalimentación".
 
@@ -229,13 +297,14 @@ A call that drops after the candidate spoke does not end the interview.
 
 | How the call ended | What happens |
 |---|---|
-| The interviewer's `end_call`, or the hard time limit | Final: scored. |
+| The hard time limit, or the interviewer's goodbye and `end_call` | Final: scored. |
+| The interviewer or the platform ending it early (see "How a call ends") | Resumable for ten minutes, the start given back. |
 | End in the room, or "Finish and get feedback" after a drop | Final: scored (at once when the call's record is stored, on its arrival otherwise). |
-| A lost connection, a closed tab, anything else | Resumable for ten minutes (`resumableUntil`). |
+| A lost connection or a closed tab | Resumable for ten minutes (`resumableUntil`). |
 | Resumable and nobody came back | A lazy sweep (`finalizeLapsedInterviews`, run where interviews are read: the status poll, the analysis page, the lists, the room and the feedback page) scores it with what exists. |
 | The interview's length used up across calls (under 30 s left), or the last of the three starts | Final. |
 
-The platform's record decides: its termination reason is mapped to `endedBy` ("end_call tool was called." → agent; "Client disconnected: 1005" → client, the same for End, a closed tab and a lost connection, which is why the room also reports `finish` or `drop` to `POST /api/interview/[id]/ended`).
+The platform's record decides: its termination reason is mapped to `endedBy` ("end_call tool was called." → agent; "Client disconnected: 1005" → client, the same for End, a closed tab and a lost connection, which is why the room also reports `finish` or `drop`, and why it thinks the call ended, to `POST /api/interview/[id]/ended`; any other wording → platform).
 
 Storage: `Interview.transcript` holds the latest call until the interview is final. A reconnect moves that call into `Interview.segments` in the same guarded write that issues the session. When final, every call is merged in order (`mergeSegments`): each later call's offsets continue where the previous ended, with a marker turn between two calls (`role: "system"`, `[call resumed]`). The feedback prompt shows the marker as a neutral line and explains it only when one is present, so a single-call prompt is byte for byte what it was; the stats sum every call and do not count the marker. A call in which nobody spoke, before any counted, is still the old silent path (the unit goes back). A resumed call the platform could not run gives its start back and leaves the interview resumable.
 

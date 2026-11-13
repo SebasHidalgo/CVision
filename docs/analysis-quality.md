@@ -365,7 +365,56 @@ phase's 0.40 cap.
   in every run of both arms.
 - **The model behind the alias moves.** The interview fixture
   `dodges-two-of-three` scores 70 against its cap of 69 with M8-D, M8-F and
-  M8-G code alike. The canary reference is `m8h-final-s7`, captured live on
-  the standard tier on 2026-11-10 and confirmed unchanged by a second call
-  on the free tier.
+  M8-G code alike. See "The model change of 2026-11-13" below; the canary
+  reference is now `m10e-final-s7`.
+
+## The model change of 2026-11-13
+
+Between 23:38 UTC on 2026-11-12 and 00:38 UTC on 2026-11-13 the output of
+`gemini-3.5-flash-lite` changed, with the same API version string
+(`3.5-flash-lite-07-2026`). The canary `m8h-final-s7` reported CHANGED in
+every section; replaying its stored answer through the code of that day
+gave the reference byte for byte, so the code did not move.
+
+**No pinned id exists.** The API's model list (`GET /v1beta/models`, read
+2026-11-13) offers `gemini-3.5-flash-lite` and nothing dated for it;
+`gemini-3.5-flash-lite-07-2026`, `-001` and `-preview-07-2026` answer 404.
+Only `gemini-2.5-flash-lite` lists a stable version (`001`). Silent changes
+cannot be prevented by naming a version; the canary is what notices them.
+
+**Measured** (M10-E; old answers replayed through today's code so both
+sides are scored alike; new answers live, synthetic fixtures on the free
+key, real postings on Flex, seed 7 plus unseeded reruns):
+
+| | Before (answers of 2026-11-10) | After (2026-11-13) |
+|---|---|---|
+| Quick set, seed 7: recall, precision, kind | 97 % / 100 % / 100 % | the same |
+| Encora posting (real), status | 10/10 | 10/10 at seed 7; 30/30 in three unseeded runs, key terms 24/24 |
+| Microsoft posting (real), the cloud item (gold: partial) | partial 3/3 (current prompt); partial 4/6, missing 2/6 (M8-G prompt) | partial 4/6, missing 2/6 |
+| `es-cv-en-job`, "another European language is a plus" (gold: met) | met 7/7 | met 3/6, partial 3/6 |
+| `es-cv-en-job`, statistics and experiment design (gold: met) | partial (the M8-H relation label) | partial 6/6 |
+| `hidden-in-responsibilities`, Kubernetes and Go merged | 4/6 (M8-G prompt) | 2/4 |
+| Coverage repair fired, stored runs | 1 of 22 (5 %) | 3 of 19 (16 %) |
+| Coverage repair, dev database daily aggregate | 0 on Nov 10, 11 and 12 | 4 on Nov 13, all the browser suite's posting |
+| Cost per analysis at the standard price, same fixtures | USD 0.0124 | USD 0.0123 |
+
+What changed for a user: one preferred item of one synthetic fixture now
+reads "partly met" half the time. The model started naming "Another
+European language" as a key term (it named none before) and labels the
+CV's Portuguese `related` in half the runs, which the M8-H rule caps at
+partial. That is the relation-label weakness already listed above, on one
+more item. The Microsoft cloud item flips at the rate it already had. The
+repair fires more often and recovers the line it is for (in the suite's
+posting it merges it into the listed item); the analysis got no dearer,
+because the first answer got shorter (the suite's posting: 5,624 output
+tokens in one call before, 3,906 plus a repair after).
+
+**Decision: re-baselined.** Recall, precision and kind are unchanged, there
+is no false met and no met/missing swap, both real postings hold within the
+variance already measured, and the one new loss is an instance of a known,
+recorded weakness. The canary reference is `m10e-final-s7` (the
+`es-posting` fixture, seed 7), captured live on the standard tier on
+2026-11-13 and confirmed byte for byte by a second standard call. Runs:
+`m10d-drift-q`, `m10e-u1` to `u8`, `m10e-enc1` to `enc3` (after);
+`m10d-q2-replay`, `m10e-pre-*`, `m10e-preg-*` (before, replayed).
 

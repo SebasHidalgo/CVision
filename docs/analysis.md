@@ -642,12 +642,14 @@ captured on both sides of UTC midnight (the prompt states the date). After
 an intended change of the output, capture a new seed-7 reference and point
 `npm run eval -- canary` at it; the canary replays its reference's date, so
 a difference means the model behind the alias moved. The reference is
-`m8h-final-s7` (the `es-posting` fixture read from its PDF, which exercises
+`m10e-final-s7` (the `es-posting` fixture read from its PDF, which exercises
 the English-only rule, the stated language levels, the years statement,
 the outcome sentences, key-term relations and posting-word titles): `npm
-run eval -- canary m8h-final-s7`. It was captured live on the paid standard
-tier on 2026-11-10, the tier production uses, and a second call on the free
-tier (`--tier free`, no cost) matched it byte for byte; the canary runs on
+run eval -- canary m10e-final-s7`. It was captured live on the paid standard
+tier on 2026-11-13, after the model change of that day
+(docs/analysis-quality.md), and a second standard call matched it byte for
+byte (the reference before it, `m8h-final-s7`, also matched on the free
+tier, `--tier free`, at no cost); the canary runs on
 the tier its reference was captured on unless `--tier` says otherwise, so
 by default it costs one standard call (about USD 0.014).
 
