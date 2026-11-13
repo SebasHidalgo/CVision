@@ -105,6 +105,15 @@ test("the checks catch a heading that runs behind the illustration beside it", a
   expect(await layoutViolations(page, "hero")).toEqual([]);
 });
 
+test("settling fails fast on a page that keeps reloading itself", async ({ page }) => {
+  // A dev-server reload loop's shape: the page never stays loaded, so the network is never idle.
+  await page.route("http://reload-loop.test/", (route) => route.fulfill({ contentType: "text/html", body: "<p>Loading</p><script>setTimeout(() => location.reload(), 300)</script>" }));
+  await page.goto("http://reload-loop.test/");
+  const startedAt = Date.now();
+  await expect(settle(page, { idleTimeoutMs: 5_000 })).rejects.toThrow(/reloaded itself \d+ times/);
+  expect(Date.now() - startedAt).toBeLessThan(10_000);
+});
+
 test("the main pages hold their layout from 375 to 1920 px", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
   await page.emulateMedia({ reducedMotion: "reduce" });

@@ -336,9 +336,18 @@ export async function openDetails(page: Page): Promise<void> {
 }
 
 /** Waits until the page is still: fonts loaded, no translation skeleton left, the network quiet. */
-export async function settle(page: Page, { skeletonTimeoutMs = 60_000 } = {}): Promise<void> {
-  await page.waitForLoadState("networkidle").catch(() => {});
-  await page.evaluate(() => document.fonts.ready.then(() => true));
-  await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: skeletonTimeoutMs });
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+export async function settle(page: Page, { skeletonTimeoutMs = 60_000, idleTimeoutMs = 15_000 } = {}): Promise<void> {
+  let loads = 0;
+  const onLoad = () => loads++;
+  page.on("load", onLoad);
+  try {
+    // Bounded: a page that keeps reloading is never network-idle.
+    await page.waitForLoadState("networkidle", { timeout: idleTimeoutMs }).catch(() => {});
+    if (loads > 2) throw new Error(`${page.url()} reloaded itself ${loads} times while settling: restart the e2e server`);
+    await page.evaluate(() => document.fonts.ready.then(() => true));
+    await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: skeletonTimeoutMs });
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  } finally {
+    page.off("load", onLoad);
+  }
 }
