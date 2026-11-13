@@ -1,17 +1,19 @@
 // Puts an account in a usage state without spending voice credits, to see each state of the interview room.
 // Usage: npm run dev:usage -- --email <e> [--interviews-used <n>] [--trial-used] [--credits <n>] [--plan free|pro]
+//        npm run dev:usage -- --email <e> --reset-trial   (the free trial again; interviews and feedback stay)
 // Refuses unless ALLOW_DEV_TOOLS=1 and PADDLE_ENV=sandbox, and only against a Clerk development instance.
 import { parseArgs } from "node:util";
 import { PrismaClient } from "@prisma/client";
 import { resolvePlanStanding } from "@/lib/database/billing";
 import { devToolsAllowed } from "@/lib/devTools";
-import { applyDevUsage, type DevUsageTarget } from "./usageState";
+import { applyDevUsage, resetDevTrial, type DevUsageTarget } from "./usageState";
 
 const { values: args } = parseArgs({
   options: {
     email: { type: "string" },
     "interviews-used": { type: "string" },
     "trial-used": { type: "boolean" },
+    "reset-trial": { type: "boolean" },
     credits: { type: "string" },
     plan: { type: "string" },
   },
@@ -39,7 +41,10 @@ async function userIdForEmail(email: string): Promise<string> {
 
 async function main() {
   if (!devToolsAllowed()) throw new Error("refused: set ALLOW_DEV_TOOLS=1 and PADDLE_ENV=sandbox to use dev tools");
-  if (!args.email) throw new Error("usage: npm run dev:usage -- --email <e> [--interviews-used <n>] [--trial-used] [--credits <n>] [--plan free|pro]");
+  if (!args.email) throw new Error("usage: npm run dev:usage -- --email <e> [--interviews-used <n>] [--trial-used] [--credits <n>] [--plan free|pro] | --reset-trial");
+  if (args["reset-trial"] && (args["trial-used"] || args["interviews-used"] !== undefined || args.credits !== undefined)) {
+    throw new Error("--reset-trial runs on its own (it may be combined with --plan free)");
+  }
   const plan = args.plan?.toUpperCase();
   if (plan !== undefined && plan !== "FREE" && plan !== "PRO") throw new Error("--plan must be free or pro");
   const target: DevUsageTarget = {
@@ -53,6 +58,15 @@ async function main() {
   const db = new PrismaClient({ datasourceUrl: process.env.DIRECT_URL?.trim() || process.env.DATABASE_URL });
   try {
     await db.user.upsert({ where: { id: userId }, create: { id: userId }, update: {} });
+    if (args["reset-trial"]) {
+      if (plan) await db.user.update({ where: { id: userId }, data: { compPlan: plan === "PRO" ? "PRO" : null } });
+      const reset = await resetDevTrial(db, userId, (id, now) => resolvePlanStanding(id, now));
+      const next = reset.entitlement;
+      console.log(`${userId}: ${reset.trialsReset} trial unit(s) given back, ${reset.interviewsReleased} unfinished interview(s) released; interviews and feedback kept`);
+      console.log(`  next start: ${next.source === "none" ? `nothing (${next.reason})` : `${next.source}, ${next.maxDurationSeconds / 60} min`} on plan ${next.plan}`);
+      for (const note of reset.notes) console.log(`  note: ${note}`);
+      return;
+    }
     const report = await applyDevUsage(db, userId, target, (id, now) => resolvePlanStanding(id, now));
     console.log(`${userId}: plan ${report.plan}, period ends ${report.periodEnd.toISOString()}`);
     console.log(`  interviews used this period ${report.interviewsUsed}, trial used ${report.trialUsed ? "yes" : "no"}, credits ${report.credits}`);

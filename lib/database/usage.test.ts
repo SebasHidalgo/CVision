@@ -11,6 +11,7 @@ import {
   analysisQuotaView,
   billingStatus,
   interviewQuotaView,
+  isLiveTrialConflict,
   refundUsage,
   reserveInterview,
   reserveUsage,
@@ -251,6 +252,22 @@ describe("reserveInterview: the entitlement decided inside the transaction", () 
     factsIn(tx, { fullEver: 1 }); // a full interview while comped
     await expect(reserveInterview("user_1", "int_4", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED" });
     expect(tx.usageEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("two starts racing for the trial cannot both take it: the database's one-live-trial index refuses the second, as the quota refusal", async () => {
+    // The loser read "no trial used" before the winner's row was visible; the partial unique index on userId stops its insert.
+    factsIn(tx, {});
+    tx.usageEvent.create.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("unique", { code: "P2002", clientVersion: "test", meta: { modelName: "UsageEvent", target: ["userId"] } }));
+    await expect(reserveInterview("user_1", "int_other", NOW)).rejects.toMatchObject({ code: "INTERVIEW_QUOTA_EXCEEDED", meta: { plan: "FREE" } });
+  });
+
+  it("keeps a (kind, refId) collision an error: an active reservation under the same interview is not a quota refusal", async () => {
+    factsIn(tx, {});
+    tx.usageEvent.create.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("unique", { code: "P2002", clientVersion: "test", meta: { modelName: "UsageEvent", target: ["kind", "refId"] } }));
+    const error = await reserveInterview("user_1", "int_1", NOW).catch((e) => e);
+    expect(error.code).not.toBe("INTERVIEW_QUOTA_EXCEEDED");
+    expect(isLiveTrialConflict(new Prisma.PrismaClientKnownRequestError("unique", { code: "P2002", clientVersion: "test", meta: { target: ["userId"] } }))).toBe(true);
+    expect(isLiveTrialConflict(new Prisma.PrismaClientKnownRequestError("race", { code: "P2034", clientVersion: "test" }))).toBe(false);
   });
 
   it("spends a pack credit on the full agent for a Free account before any trial: paid credits are usable on any plan", async () => {

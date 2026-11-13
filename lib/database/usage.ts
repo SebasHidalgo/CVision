@@ -92,6 +92,14 @@ function refusal(plan: PlanId, kind: UsageKind, allowance: Allowance): never {
   throw new InterviewQuotaExceededError(meta);
 }
 
+/** The unique index "UsageEvent_one_live_trial" refused the insert; the (kind, refId) unique is a different collision. */
+export function isLiveTrialConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  const target = error.meta?.target;
+  const names = Array.isArray(target) ? target.map(String) : typeof target === "string" ? [target] : [];
+  return names.length > 0 && !names.includes("refId");
+}
+
 /** Runs a serializable transaction, retrying the loser of a serialization race. */
 async function serializable<T>(run: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   for (let round = 0; round < RESERVE_ATTEMPTS; round += 1) {
@@ -258,10 +266,16 @@ export async function reserveInterview(userId: string, interviewId: string, now 
       const kind = USAGE_KIND_BY_SOURCE[entitlement.source];
       const tier = tierOfAgent(entitlement.agent ?? "main");
       const refunded = await tx.usageEvent.count({ where: { kind, refId: { startsWith: interviewId }, refundedAt: { not: null } } });
-      const event = await tx.usageEvent.create({
-        data: { userId, kind, refId: refunded === 0 ? interviewId : `${interviewId}#${refunded + 1}`, createdAt: now },
-        select: { id: true },
-      });
+      const event = await tx.usageEvent
+        .create({
+          data: { userId, kind, refId: refunded === 0 ? interviewId : `${interviewId}#${refunded + 1}`, createdAt: now },
+          select: { id: true },
+        })
+        .catch((error: unknown) => {
+          // The database holds one live trial per account (a partial unique index): a second one is a refusal, not a crash.
+          if (kind === "INTERVIEW_TRIAL" && isLiveTrialConflict(error)) throw new InterviewQuotaExceededError({ plan: entitlement.plan });
+          throw error;
+        });
       return { eventId: event.id, kind, tier, seconds: INTERVIEW_TIERS[tier].seconds, source: entitlement.source };
     });
   } catch (error) {

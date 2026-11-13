@@ -139,8 +139,9 @@ test("with voice down, the room says so and sells nothing (the server's dev-only
 test("an interview that already holds its unit continues, whatever the counts", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
   const id = freeRoom.split("/").pop()!;
-  // The trial is used and nothing is left, but this interview reserved its unit at its first start.
-  const event = await db.usageEvent.create({ data: { userId: free.id, kind: "INTERVIEW_TRIAL", refId: `e2e-held:${id}` } });
+  // The trial is used and nothing is left, and this interview is what used it: it reserved the unit at its first start.
+  // An account holds one live trial unit at most (a database index), so the interview points at that one.
+  const event = await db.usageEvent.findFirstOrThrow({ where: { userId: free.id, kind: "INTERVIEW_TRIAL", refundedAt: null } });
   await db.interview.update({ where: { id }, data: { usageEventId: event.id, tier: "TRIAL", paidBy: "TRIAL", startCount: 1, status: "IN_PROGRESS", lastSessionAt: new Date() } });
   try {
     await signIn(page, free);
@@ -149,7 +150,6 @@ test("an interview that already holds its unit continues, whatever the counts", 
     await expect(startButton(page, t)).toBeVisible();
   } finally {
     await db.interview.update({ where: { id }, data: { usageEventId: null, tier: null, paidBy: null, startCount: 0, status: "SCHEDULED", lastSessionAt: null } });
-    await db.usageEvent.delete({ where: { id: event.id } });
   }
 });
 
