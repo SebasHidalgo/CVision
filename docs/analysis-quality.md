@@ -89,7 +89,7 @@ M8-D 1.35, M8-E 1.56, M8-F 1.38; with the earlier phases, USD 14.60 over
   prints it by UTC day, phase and tier.
 - A command prints its estimate (each fixture's largest past run), refuses
   to start when the estimate crosses a cap, and stops between fixtures:
-  `EVAL_BUDGET_PER_RUN_USD` (0.50) and `EVAL_BUDGET_PER_DAY_USD` (1.00, all
+  `EVAL_BUDGET_PER_RUN_USD` (0.50) and `EVAL_BUDGET_PER_DAY_USD` (0.30 since M10-H; 1.00 before, all
   processes of the UTC day; a control worktree writes to the same ledger
   through `EVAL_SPEND_LEDGER`).
 - Invented data runs free: the committed fixtures go to

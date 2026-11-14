@@ -30,7 +30,7 @@ placeholders (a test pins that list). `npm run agent:sync` pushes both
 (create when the tier's id is unset, update when it is), reads them back
 and flags any difference that is not an intended one; a change made in the
 dashboard is overwritten on the next sync. Paid lengths 12 and 5 minutes
-(the platform's hard limits are a minute longer, the grace), daily caps 100
+(the platform's hard limits are 90 s longer, the grace), daily caps 100
 and 25 calls, auth required, the only browser override is
 `agent.language`, no audio kept, 30-day transcript retention on the
 platform. No system tool: the platform's `end_call` is off (sent as
@@ -64,7 +64,7 @@ What can end a call by itself, and what is set (M10-F):
 
 | Setting | Value | What it does |
 |---|---|---|
-| `conversation.maxDurationSeconds` | 780 / 360 | The paid length plus 60 s of grace. The platform's hard limit, counted from its own start of the call; it speaks the cutoff line. |
+| `conversation.maxDurationSeconds` | 810 / 390 | The paid length plus 90 s of grace (60 until M10-H). The platform's hard limit, counted from its own start of the call; it speaks the cutoff line. |
 | `turn.turnTimeout` | 12 s (was 20) | After this much silence the interviewer speaks again (one short "take your time"). It never ends the call. In the owner's calls an answer began within about 5 s of the question; 12 s is more than double that, and 20 s left a silent candidate waiting a third of a minute for a sign of life. |
 | `turn.silenceEndCallTimeout` | 120 s (was 60) | Ends an abandoned call. Counted from the candidate's last words, so a long question plus time to think must fit. |
 | `prompt.backupLlmConfig` | `override: ["gpt-4o"]` (was the platform default) | The model that answers a turn when the primary fails. Named, so it can be tested. |
@@ -124,26 +124,28 @@ and refuses every start while the reachable credits (the remainder plus
 any usage-based extension) are below the floor of the agent that start
 would use:
 
-    floor = minutes of the agent's hard limit (paid length + 60 s) x credits a minute x 1.25
+    floor = minutes of the agent's hard limit (paid length + 90 s) x credits a minute x 1.25
 
-- **Credits a minute** is measured, not assumed: `VOICE_CREDITS_PER_MINUTE`
-  in `lib/voice/balance.ts`, 451 on the owner's Starter plan
-  (`npm run voice:cost`, 2026-11-12: 398 for the call, 53 for the LLM).
+- **Credits a minute** is `VOICE_CREDITS_PER_MINUTE` in
+  `lib/voice/balance.ts`: 465 on the owner's Starter plan since M10-H, the
+  measured call share (about 400) plus the LLM share estimated for a
+  12-minute call (65; see "What a minute costs"). It was 451, measured on
+  calls of up to 6 minutes (`npm run voice:cost`, 2026-11-12).
   The rate belongs to the plan (the Free plan charged about 790), so a
   workspace on another plan sets its own measured number in
   `ELEVENLABS_CREDITS_PER_MINUTE`.
-- **The margin** is for the LLM share, the only part that moves: 47 to 74
-  a minute across the measured calls, against a call share of 397 to 398
-  in every one. A quarter on top covers an LLM share three times the
-  measured one.
-- **Values on Starter:** 7,329 for the 12-minute interview (it costs at
-  most 5,863 with the grace used in full) and 3,383 for the 5-minute trial
-  (at most 2,706). The grace adds up to 451 credits to a call; a goodbye
-  that starts within a few seconds of 0:00 adds 100 to 200. A reconnect uses
+- **The margin** is for the LLM share, the only part that moves: 27 to 91
+  a minute across the measured calls, against a call share of 376 to 401.
+  A quarter on top is about twice the estimated LLM share.
+- **Values on Starter:** 7,847 for the 12-minute interview (it costs at
+  most 6,278 with the grace used in full) and 3,779 for the 5-minute trial
+  (at most 3,023). The grace adds up to 698 credits to a call; in the
+  owner's two calls that ended on the goodbye it used 22 and 49 s (about
+  170 and 380 credits). A reconnect uses
   its interview's tier; a first start reads the entitlement, read-only,
   before reserving.
 - **Bursting is not in the floor.** A call past the plan's concurrency
-  limit is charged twice the rate (10,824 for a full interview). A call
+  limit is charged twice the rate (12,556 for a full interview). A call
   bursts only while more calls than the plan allows run at once, each
   drawing on the same balance, so near the floor it is the number of
   calls that empties it; a floor for one start cannot hold that. Size the
@@ -234,7 +236,7 @@ The prompt speaks `{{language_name}}` for everything it says and names requireme
 
 **The rule.** The interview covers its whole paid length and asks as many questions as fit; it never ends with paid time left. The one exception is a candidate who confirmed they want to stop. Until M10-F the interviewer closed at 75 s left (the wrap-up line): the owner's M10-E trial ended with about a minute unused.
 
-**The grace.** The platform's limit is the paid length plus `INTERVIEW_GRACE_SECONDS` = 60 (`lib/interviewLimits.ts`): 360 s for the trial, 780 s for the full interview. The grace is for the answer under way at 0:00 and the goodbye: the longest answer in the owner's calls ran 43 s and a goodbye takes about 15. It is not interview time: nothing new is asked in it.
+**The grace.** The platform's limit is the paid length plus `INTERVIEW_GRACE_SECONDS` = 90 (`lib/interviewLimits.ts`): 390 s for the trial, 810 s for the full interview. The grace is for the answer under way at 0:00 and the goodbye. M10-F sized it at 60 s on the longest answer then measured (43 s). M10-H measured every answer in the owner's recorded calls (66 answers in 18 calls, from the candidate's first words to the interviewer's next spoken turn): median 23 s, p90 42 s, p95 45 s, longest 60 s (the M10-G check, whose 4:24 question had two parts). That call ended 11 s from the 60 s limit. 90 s holds the longest answer plus a 15 s goodbye with 15 s to spare. It is not interview time: nothing new is asked in it.
 
 **The room's lines to the interviewer** (`lib/voice/timeNotes.ts`, silent contextual updates, never spoken):
 
@@ -242,8 +244,8 @@ The prompt speaks `{{language_name}}` for everything it says and names requireme
 |---|---|
 | half time (calls of 4 min or more) | keep asking as before; do not mention the time |
 | 2:00 left (calls of 3 min or more) | keep the interview going as before, short follow-ups, no large new topic; do not mention the time |
-| 1:00 left | keep the interview going as before, only short questions or follow-ups; do not mention the time |
-| 0:00 | the time is up: ask nothing new; let the candidate finish the answer under way (or answer the question just asked; one short "take your time" on silence); then say the goodbye and call `end_interview` |
+| 1:00 left | keep the interview going as before; from now on each question asks one thing only, with no second part, and asks for a brief answer (M10-H: the longest answer measured followed a two-part question at 4:24); do not mention the time |
+| 0:00 | the time is up: ask no question at all, not even a follow-up; let the candidate finish the answer under way (or answer the question just asked; one short "take your time" on silence); then say the goodbye and call `end_interview` |
 
 A line that would land within 15 s of the next is skipped; nothing is sent after the 0:00 line. Since M10-G no line before 0:00 names the goodbye, the closing or the tool, not even to forbid them. In the owner's M10-F trial the backup model called `end_interview` 23 s after a 1:00 line that said "do not say goodbye … and do not call end_interview" (a unit test now pins the absence of those words). The platform's record dates a `[time]` line at the interviewer's previous turn, not when it arrived: in that call the half and two-minute lines both read 133 s, because the interviewer last spoke then.
 
@@ -261,7 +263,7 @@ A line that would land within 15 s of the next is skipped; nothing is sent after
   - **The candidate's answer.** A new candidate line arrives. The room then expects one short goodbye of the interviewer's own; if none is heard within 3 s it answers the held call with `END_ALLOWED_AFTER_ANSWER`, "thank them for the answer, feedback on screen". It hangs up 2 s after that goodbye, or 8 s after the answer.
   - **15 s of silence** (`ANSWER_WAIT_MS`). The room hangs up.
 
-  While the candidate's microphone carries sound (`getInputVolume` at 0.05 or more, an estimate not measured on calls), the silence count restarts, so a long answer is not cut. All of this happens inside the grace: the platform's limit, paid length plus 60 s, stays the backstop. The logic is a pure step function, `stepClosing` in `screens/Interview/utils/closing.ts`, unit-tested on its own and through the room.
+  While the candidate's microphone carries sound (`getInputVolume` at 0.05 or more, an estimate not measured on calls), the silence count restarts, so a long answer is not cut. All of this happens inside the grace: the platform's limit, paid length plus 90 s, stays the backstop. The logic is a pure step function, `stepClosing` in `screens/Interview/utils/closing.ts`, unit-tested on its own and through the room.
 - After the 0:00 line, a goodbye said without the tool ends the call the same way, with the same wait when a question is pending.
 - A handler that throws answers `REFUSED`: a bug in the room must not end a call.
 
@@ -288,7 +290,7 @@ The tool runs `immediate`. `post_tool_speech` (deliver the call once the turn wa
 | `disconnect` | The client left and nothing says why (a lost connection, a closed tab). |
 | `platform` | The platform ended it (a silence timeout, an error); `detail` keeps its wording. |
 
-The room reports its claim, the allowed tool's detail and its own count of the call (`end`, `endDetail`, `elapsedSeconds`); the record settles it (`settleCallEnd`). The room answers every refusal at once, so a last `end_interview` call with no `REFUSED` result is one the room allowed. A report that lands after the record still adds what only the room knows (`applyLateEndClaim`). One log line per stored call: `[CVision][voice] call end interview=… reason=interviewer/time_up platform=…s room=…s status=… backup=N (models)`, with `EARLY END` when it applies.
+The room reports its claim, the allowed tool's detail and its own count of the call (`end`, `endDetail`, `elapsedSeconds`); the record settles it (`settleCallEnd`). The room answers every refusal at once, so a last `end_interview` call with no `REFUSED` result is one the room allowed. A report that lands after the record still adds what only the room knows (`applyLateEndClaim`). One log line per stored call: `[CVision][voice] call end interview=… reason=interviewer/time_up platform=…s room=…s status=… backup=N (models)`, with `cut at limit` and `EARLY END` when they apply.
 
 **The classification** (`isEarlyEnd`). An end is early, and the interview is not scored, when more than 30 s of paid time are left, the candidate did not press End or Finish, and:
 
@@ -298,7 +300,9 @@ The room reports its claim, the allowed tool's detail and its own count of the c
 
 A confirmed stop stands whatever time is left. End and Finish stand. With 30 s or less left any end stands: a call that short cannot be resumed (`MIN_RESUME_SECONDS`). An early end stays resumable for ten minutes, keeps its unit, and the start it used is given back; the room shows "The interview ended early. You still have 1:05." with **Continue** and **Finish and get feedback**. A lost connection is still a drop: resumable, its start used. The shape of the M10-E trial is a unit test at three levels: a `time_up` request at 3:54 of 5:00 is refused, and a record that somehow ended there is early, not scored.
 
-**Overruns.** A call's record is reported as an overrun when it ran more than the grace plus 15 s past its paid time (`CALL_OVERRUN_TOLERANCE_SECONDS` = 75).
+**Overruns.** A call's record is reported as an overrun when it ran more than the grace plus 15 s past its paid time (`CALL_OVERRUN_TOLERANCE_SECONDS` = 105).
+
+**Cut at limit (M10-H).** A call that a clock ended instead of the goodbye is marked: the stored end gets `cutAtLimit: true` and the `call end` line ends in `cut at limit`. A clock is the platform's limit (`reason=limit`), the room's own hang-up (`reason=room`), or any end other than the candidate's or the interviewer's that came within 2 s of the call's hard limit (its paid seconds plus the grace), because the platform's wording for its own cut has not been seen (`cutAtLimit` in `lib/voice/callEnd.ts`). `voice:doctor` counts it in its recent-calls summary, read from each record alone ("N of the latest M call(s) ran into the agent's hard limit"); a resumed call cut by the room's clock shows only in the server's line. A cut call is still scored: it is a sign the grace or the last-minute rule is too short, not a failure of the interview.
 
 **The backup model.** The platform answers a turn with the backup model (`gpt-4o`) when the primary fails it, and marks the turn (`llm_override`). The server counts those turns per call (`backupModelTurns` in `wire.ts`: a run of flagged entries is one turn, whether it holds words or only a tool call), stores the count on the call's end and prints it in the `call end` line. `voice:doctor` reads the latest ten calls with the same function. Before M10-G the doctor counted only flagged entries with words, so a backup turn that only called a tool, like the owner's 4:24, was invisible to it. Its denominator is the interviewer's turns, each stretch of agent entries between the candidate's lines (`interviewerTurnCount`).
 
@@ -333,6 +337,56 @@ None of the three was latency: the primary's text arrived well inside 4 s, so a 
 The `silent` failure is the test's shape as much as the model: the test forces a reply right after the 0:00 line, which in a call does not happen ("do not reply to this line"); in a call the next reply comes from the 12 s turn timeout, and re-asking then is a nudge, not the defect the owner heard. It is open: the rule says "take your time". The other English cases were not run on the full agent.
 
 **M10-F (history). Not run: English on the full agent, and anything on the backup model.** The budget for agent tests was 800 credits and the phase used 4,083 (41 + 283 on the first wording, 3,759 on the final one, of which 3,648 were the two looping runs). After that no more were run. The final wording restores the M10-E rules for the `silent` case, which passed 3/3 in M10-E with `end_call`; with `end_interview` it is unverified. If the interviewer does say goodbye over a pending question after 0:00, the room allows it (the time is up); since M10-G it then waits for the answer or 15 s of silence before hanging up, so the candidate keeps the chance to answer. Before 0:00 the room refuses.
+
+### The 12-minute interview (M10-H)
+
+Every live check from M10-D to M10-G ran on the 5-minute trial agent. Nothing in the ending is written for one length:
+
+| Behavior | Where it lives | On the 12-minute agent |
+|---|---|---|
+| Asking until 0:00, from the question pool | The shared prompt (`INTERVIEWER_AGENT_PROMPT`, one string for both agents) and a pool of up to 30 lines (`MAX_CONTEXT_REQUIREMENTS`, sized for 12 minutes) plus situational questions and follow-ups, which never run out | Same text; `interview_minutes` is 12 |
+| The `[time]` notes | The room: `dueTimeNote(callSeconds)` on the session's length | Half at 6:00, 2 minutes at 10:00, 1 minute at 11:00, up at 12:00 (unit test) |
+| The grace | Per agent: `maxDurationSeconds` = paid length + `INTERVIEW_GRACE_SECONDS` | 810 s |
+| The room's own hang-up | `roomHangUpSeconds(callSeconds, resumed)` | 825 s on a first call; time left + 93 s on a resumed one (unit tests at 720 and 470 s) |
+| The veto, silent and spoken refusals, the wait for the turn's text | One workspace tool on both agents; `decideEndTool` on the session's paid time | Same code |
+| Confirming before a requested stop | Shared prompt and `candidateConfirmedStop` | Same |
+| The 12 s nudge | `turnTimeout`, one value from the shared builder | 12 s |
+| The early-end classification | `isEarlyEnd`, on the interview's paid time left | Same 30 s threshold |
+| Resuming with the time left | The session endpoint: tier seconds minus what the calls used; minutes rounded down; the continuity record | Unit tests on 720 s (8:48 left is "about 8 and a half minutes") |
+| End reasons, backup count, cut at limit, overrun | `settleCallEnd`, `backupModelTurns`, `cutAtLimit`, `callOverrunSeconds`: no tier in them | Limit 810 s; overrun past 825 s |
+| The balance floor | `voiceBalanceFloor(paid seconds)` | 7,847 credits |
+
+The two agents differ in name and tags, hard limit (810/390 s), daily cap (100/25), and the dashboard's `interview_minutes` and `opening_line` placeholders. `EXPECTED_TIER_DIFFERENCES` pins that list, and `agent:sync` flags any other difference it reads back. What depends on length depends on the session's seconds, not on the tier: the half note needs a call of 4 minutes, the 2-minute note 3, so a short resumed call skips them.
+
+What a 12-minute call has that no checked call had: a longer history. Every turn resends the conversation, so late turns carry about 3,000 more input tokens than early ones (below), and a late turn's model has more to keep track of (not to repeat questions). Text tests can show the rules hold with a long history; only a call shows the timing.
+
+**Agent tests on the full agent with long histories** (`--fixture long-es|long-en`: an invented posting, nine answered questions, then the case's turns; the synced agent). Budget 350 credits.
+
+| Case | Spanish | English |
+|---|---|---|
+| `two-minute`: the 2:00 note after nine answers; a new question that repeats none of the nine | pass, 47 credits (a follow-up on the last answer) | not run |
+| `one-minute`: the 1:00 note; one short, one-part question | pass, 48 (one question, no second part) | not run |
+| `up-answering`: the 0:00 note while the candidate answers; then the goodbye and `end_interview(time_up)` | pass, 75 | **no verdict: the run looped**, 2,119 credits |
+| `refused-question`: the call came with a question; silent refusal | not run (passed on the full agent in English in M10-G) | not run |
+
+The looping run made about 55 generations (254,764 input tokens, 36 output tokens, nothing committed) and ended "Simulation did not complete successfully". The Spanish run of the same case, a minute earlier, was a normal 75-credit run. Its cost reached the account's balance only after it ended, so the harness's cap, which read the balance, saw nothing. M10-H spent 2,289 credits on agent tests against a budget of 350. The harness now also reads the run's own `credits_used` while it is pending, cancels the invocation (`POST /v1/convai/test-invocations/{id}/cancel`) past the cap or when the run is still pending after the last poll, and prints a line when a finished run went past it. Whether `credits_used` grows while a run is pending has not been seen: if it does not, a loop cannot be stopped from outside, and the safe rule is to run no case that ends in an allowed `end_interview` call.
+
+**What a long call costs.** The LLM share is billed per turn on its input. Measured on the eleven November calls of 85 s or more: a turn's input is about 2,700 + 6.2 x t tokens (t = seconds into the call), and the LLM charge is 6.3 to 12.4 credits per 1,000 input tokens (lower in longer calls, where more of the prompt is read from the cache). The LLM share per minute did not grow visibly up to 6 minutes (27 to 91 a minute). With a turn every 40 s (31 to 55 s measured), a 12-minute call that runs into its grace makes about 20 turns and about 100,000 input tokens: 620 to 1,000 LLM credits, 50 to 80 a minute, against 45 to 50 measured on the long trials. A backup turn adds about 60 (gpt-4o reads the whole prompt uncached). Estimate for a 12-minute interview: about 400 a minute for the call and 65 for the LLM, so 465 a minute, which is now `VOICE_CREDITS_PER_MINUTE`: 6,278 credits at most with the grace used in full, about 5,800 for a typical one.
+
+**The empty turn (M10-G check, 3:05).** The record shows the 12 s nudge ("Take your time…"), interrupted by the candidate before its first word was spoken; the platform stores such a turn as `...`. It was not the backup, a tool call or a refusal. A turn with no letter or digit (`hasWords` in `lib/voice/transcript.ts`) is not stored, not shown in the room (a line the SDK corrects to `...` is removed) or on the feedback page, and not sent to feedback generation (rows stored before are filtered when read).
+
+**The refusal's ordering.** The same check repeated the 4:24 shape: Gemini wrote a question, the backup wrote only `end_interview(time_up)` 35 s before 0:00, and the room's answer was the spoken refusal. The tool reached the room before the question's text (the record has the tool's request at 0.86 s and the text's last sentence at 1.05 s), so the room saw the candidate's line last and nothing pending. The candidate was already answering and the question was not repeated, but that was luck. Now a refusal that would be spoken while the candidate has the last line waits up to 1.5 s (`TURN_TEXT_WAIT_MS`) for the interviewer's text, and decides silent or spoken on what arrived. A silent refusal, an allowed end, and a refusal after the interviewer's own line are answered at once.
+
+**The spoken title.** When the interview's language is not the posting's, the title the interviewer says is translated once into the interview's language and stored with the analysis' translations (`ContentTranslation`, locale `title-en` or `title-es`; `lib/interviewSpokenRole.ts`, `lib/ai/spokenRoleTitle.ts`). The posting's spoken form goes first (seniority said in full, one gender form); acronyms, technology names, numbers and the company are checked in code; one retry with what broke; anything that fails keeps the posting's title. One call per analysis and language, inside the session request (6 s timeout, a retry only within 8 s). Checked on six invented titles on the free key: 0.7 to 1.9 s each; "Desarrollador/a Jr." became "Junior Developer", "Sr. Frontend Engineer (React)" "Ingeniero Frontend Senior (React)" (after the prompt asked for every ordinary word and the target's word order: the first wording kept English titles as they were), but "Product Manager, Payments" came back half translated ("Product Manager de Payments"), which no check in code can see. The page still shows the posting's title.
+
+**The owner's 12-minute live check**, after the December 11 reset (one call costs about 6,300 credits):
+
+1. `npm run voice:doctor`: the balance clears 7,847; the agents read 810 and 390 s.
+2. A Pro account with an interview left (`npm run dev:usage -- --email <e> --plan pro --interviews-used 0`), an English interface and a posting in Spanish, interview language English: the opening line says the title in English.
+3. Answer normally. At 6:00, 10:00 and 11:00 nothing is said about time. Never the same question twice. After 11:00, each question asks one thing.
+4. At about 11:50 start an answer and keep talking past 12:00 (the room shows "Time's up · closing…"). The interviewer waits, says the goodbye, and the call ends by itself before 13:30.
+5. The feedback page appears without a reload; the transcript shows no "..." lines.
+6. The terminal's line: `[CVision][voice] call end … reason=interviewer/time_up platform=7xx-8xx s room=… s status=FEEDBACK_PENDING backup=N`, with no `cut at limit` and no `EARLY END`. `voice:doctor` afterwards: "0 of the latest … call(s) ran into the agent's hard limit".
 
 ### How a call ended before M10-F (history)
 
@@ -471,12 +525,12 @@ Before a new start, and before the room is drawn, the server asks the platform f
 
 ### The time cap and overruns
 
-The time cap is not enforced by the platform per session. The only per-session length is a client override (`conversation.max_duration_seconds`), which the agents keep locked: a browser allowed to shorten a call could lengthen one. So: the room hangs up when a call passes its paid length and the grace, the interviewer is told the remaining time, and the server refuses a start when under 30 s are left by the platform's own measured durations. A modified browser can still let each call run to the agent's hard limit: worst case just under two full lengths per interview plus the grace of each call (about 25.5 minutes on the full agent, 11.5 on the trial), never more than three calls.
+The time cap is not enforced by the platform per session. The only per-session length is a client override (`conversation.max_duration_seconds`), which the agents keep locked: a browser allowed to shorten a call could lengthen one. So: the room hangs up when a call passes its paid length and the grace, the interviewer is told the remaining time, and the server refuses a start when under 30 s are left by the platform's own measured durations. A modified browser can still let each call run to the agent's hard limit: worst case just under two full lengths per interview plus the grace of each call (each call up to the agent's hard limit: 13.5 minutes on the full agent, 6.5 on the trial), never more than three calls.
 
-That worst case is accepted for now, and detected: the session stores what each call is allowed (`Interview.callAllowedSeconds`: the tier's paid length, or what was left of it), and when a call's record says it ran more than the grace plus 15 seconds past that (75 s), the server writes one error line, `[CVision][voice] CALL OVERRUN user=… interview=… conversation=… allowed=…s recorded=…s over=…s`, and adds one to `User.callOverruns`. Nobody is blocked. Only the latest call's allowance is on the row, so an earlier call's late record is not judged.
+That worst case is accepted for now, and detected: the session stores what each call is allowed (`Interview.callAllowedSeconds`: the tier's paid length, or what was left of it), and when a call's record says it ran more than the grace plus 15 seconds past that (105 s), the server writes one error line, `[CVision][voice] CALL OVERRUN user=… interview=… conversation=… allowed=…s recorded=…s over=…s`, and adds one to `User.callOverruns`. Nobody is blocked. Only the latest call's allowance is on the row, so an earlier call's late record is not judged.
 
 A call is stored once. The webhook and the API fetch can arrive together (seen in the voice e2e run of 2026-11-12: both stored the same silent call); the write goes through only on a row whose latest call has no transcript yet, and the other delivery is answered as a duplicate. Before that guard a failed call stored twice gave back two starts, and an overrun would have been counted twice.
 
 ## What a minute costs
 
-`npm run voice:cost [-- --since YYYY-MM-DD] [--plan-usd N]` reads recent conversations of both agents from the platform: duration, credits charged (call and LLM apart), credits per minute, and the cost of a 12-minute and a 5-minute interview at the plan's price (the next invoice over the plan's credits). Calls are grouped by the plan they were charged on. Measured: the free plan charged about 790 credits a minute (666 call + 124 LLM); Starter charges 451 (398 call + 53 LLM, the owner's interviews of 2026-11-12), so a 12-minute interview is about 5,412 credits (USD 1.08) and a 5-minute one 2,255, and the plan's 30,000 credits hold about five full interviews. The advertised "75 minutes for 30,000 credits" is the call alone. That rate is what the balance floor is built on (`VOICE_CREDITS_PER_MINUTE`): measure again and update it when the plan changes. A conversation deleted with its analysis or account is gone from the platform and is not counted.
+`npm run voice:cost [-- --since YYYY-MM-DD] [--plan-usd N]` reads recent conversations of both agents from the platform: duration, credits charged (call and LLM apart), credits per minute, and the cost of a 12-minute and a 5-minute interview at the plan's price (the next invoice over the plan's credits). Calls are grouped by the plan they were charged on. Measured: the free plan charged about 790 credits a minute (666 call + 124 LLM); Starter charges 451 (398 call + 53 LLM, the owner's interviews of 2026-11-12), so a 12-minute interview is about 5,412 credits (USD 1.08) and a 5-minute one 2,255, and the plan's 30,000 credits hold about five full interviews. The advertised "75 minutes for 30,000 credits" is the call alone. Since M10-H the floor's rate is 465, the call share plus the LLM share estimated for a 12-minute call ("The 12-minute interview" above): measure again on the first full interviews and when the plan changes. A conversation deleted with its analysis or account is gone from the platform and is not counted.

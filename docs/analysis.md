@@ -603,7 +603,7 @@ appended to `scripts/eval/runs/spend.jsonl` (gitignored). A command prints
 its estimate first (each fixture's largest past run in the ledger), refuses
 to start when the estimate crosses a cap, and stops between fixtures when
 the next one would: `EVAL_BUDGET_PER_RUN_USD` (default 0.50) and
-`EVAL_BUDGET_PER_DAY_USD` (default 1.00, live spend on the UTC day,
+`EVAL_BUDGET_PER_DAY_USD` (default 0.30 since M10-H, `scripts/eval/budget.json`, live spend on the UTC day,
 whichever process spent it; point a worktree's runs at the same ledger with
 `EVAL_SPEND_LEDGER`). The committed fixtures hold invented data and run on
 `GOOGLE_GENERATIVE_AI_API_KEY_FREE` when it is set (the free tier, where
