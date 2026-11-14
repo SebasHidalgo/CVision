@@ -20,12 +20,12 @@ import { INTERVIEW_GRACE_SECONDS, MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/i
 /** The longest a call of this paid length can run on the platform. */
 const hardLimitSeconds = (paidSeconds: number) => paidSeconds + INTERVIEW_GRACE_SECONDS;
 
-/** Credits a call minute costs: 451 on Starter (398 call + 53 LLM), measured with voice:cost on 2026-11-12. */
-export const VOICE_CREDITS_PER_MINUTE = 451;
+/** Credits a call minute costs on Starter: 400 call + 65 LLM, the LLM share estimated for a 12-minute call (each turn resends the history; docs/voice.md). */
+export const VOICE_CREDITS_PER_MINUTE = 465;
 
 export const VOICE_CREDITS_PER_MINUTE_ENV = "ELEVENLABS_CREDITS_PER_MINUTE";
 
-/** Headroom for the LLM share, the part that moves (47 to 74 a minute measured): covers three times it. */
+/** Headroom for the LLM share, the part that moves (27 to 91 a minute measured, a backup turn about 60 more): about twice the estimate. */
 export const VOICE_BALANCE_MARGIN = 1.25;
 
 /** What a call past the plan's concurrency limit costs: bursting charges twice the rate. */
@@ -48,7 +48,7 @@ export function burstInterviewCredits(maxDurationSeconds: number, env: Record<st
   return interviewCredits(maxDurationSeconds, env) * VOICE_BURST_RATE;
 }
 
-/** The floor for an agent of this paid length: its hard limit at the rate in force, plus the margin. On Starter, 12 min: 7,329 credits; the 5-minute trial: 3,383. */
+/** The floor for an agent of this paid length: its hard limit at the rate in force, plus the margin. On Starter, 12 min: 7,847 credits; the 5-minute trial: 3,779. */
 export function voiceBalanceFloor(maxDurationSeconds: number, env: Record<string, string | undefined> = process.env): number {
   return Math.ceil((hardLimitSeconds(maxDurationSeconds) / 60) * readCreditsPerMinute(env) * VOICE_BALANCE_MARGIN);
 }

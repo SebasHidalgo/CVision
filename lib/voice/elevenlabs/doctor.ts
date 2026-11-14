@@ -14,7 +14,9 @@ import {
 } from "@/lib/voice/balance";
 import { buildInterviewAgentDefinition, END_INTERVIEW_TOOL_CONFIG, INTERVIEW_AGENT_DAILY_CALL_LIMIT_ENV, INTERVIEW_AGENT_ID_ENV, interviewAgentVoices } from "./agentConfig";
 import { endToolProblem, findEndToolId } from "./sync";
-import { backupModelTurns, interviewerTurnCount } from "./wire";
+import { backupModelTurns, fromConversationApi, interviewerTurnCount, toCallRecord } from "./wire";
+import { cutAtLimit } from "@/lib/voice/callEnd";
+import { callEndOf } from "@/lib/voice/postCall";
 import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 
@@ -187,7 +189,7 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
     );
     // One floor per agent: the full interview's, and the 5-minute trial's.
     const rate = readCreditsPerMinute(env);
-    const rateSource = env[VOICE_CREDITS_PER_MINUTE_ENV]?.trim() && rate === Number(env[VOICE_CREDITS_PER_MINUTE_ENV]) ? VOICE_CREDITS_PER_MINUTE_ENV : "measured, lib/voice/balance.ts";
+    const rateSource = env[VOICE_CREDITS_PER_MINUTE_ENV]?.trim() && rate === Number(env[VOICE_CREDITS_PER_MINUTE_ENV]) ? VOICE_CREDITS_PER_MINUTE_ENV : "Starter: 400 call measured + 65 LLM estimated for 12 minutes, lib/voice/balance.ts";
     const overridden = Boolean(env[VOICE_BALANCE_FLOOR_ENV]?.trim());
     let reachable = 0;
     for (const tier of ["FULL", "TRIAL"] as const) {
@@ -331,11 +333,13 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
   try {
     const page = await client.conversationalAi.conversations.list({ pageSize: RECENT_CALLS_READ });
     checks.push(pass("permission conversations read", `${page.conversations.length ? "conversations listed" : "no conversations yet"}; the reconcile can fetch a call whose webhook was lost`));
-    const own = new Set(TIERS.map((tier) => agentIds[tier]).filter((id): id is string => id !== null));
-    const recent = page.conversations.filter((conversation) => own.has(conversation.agentId));
+    const tierOf = new Map(TIERS.flatMap((tier) => (agentIds[tier] ? [[agentIds[tier] as string, tier] as const] : [])));
+    const recent = page.conversations.filter((conversation) => tierOf.has(conversation.agentId));
     let turns = 0;
     let backupTurns = 0;
     const callsWithBackup: string[] = [];
+    // Calls a clock ended at the agent's hard limit instead of the goodbye: the grace was too short for that call.
+    const cutCalls: string[] = [];
     const models = new Set<string>();
     // A record that cannot be read is counted and said: it must not look like a missing permission.
     const unread: string[] = [];
@@ -353,6 +357,12 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
       backupTurns += backup.count;
       for (const model of backup.models) models.add(model);
       if (backup.count > 0) callsWithBackup.push(`${conversation.conversationId} (${backup.count} of ${agentTurns})`);
+      const call = toCallRecord(fromConversationApi(record));
+      const tier = tierOf.get(conversation.agentId) as InterviewTierId;
+      // The record alone: a resumed call the room cut by its own clock shows only in the server's call end line.
+      if (cutAtLimit({ reason: callEndOf(call).reason, recordedSeconds: call.durationSeconds, limitSeconds: INTERVIEW_TIERS[tier].seconds + INTERVIEW_GRACE_SECONDS })) {
+        cutCalls.push(`${conversation.conversationId} (${call.durationSeconds} s)`);
+      }
     }
     const read = recent.length - unread.length;
     const unreadNote = unread.length ? ` ${unread.length} record(s) could not be read (${unread.join(", ")}).` : "";
@@ -366,6 +376,14 @@ export async function runVoiceDoctor({ webhookUrl, env = process.env }: VoiceDoc
               `the latest ${read} call(s): ${backupTurns} of ${turns} interviewer turn(s) were answered by the backup model${models.size ? ` (${[...models].join(", ")})` : ""}${callsWithBackup.length ? `, in ${callsWithBackup.join(", ")}` : ""}.${unreadNote} The server log has a line per call: [CVision][voice] call end … backup=N`,
             ),
     );
+    if (read > 0) {
+      checks.push(
+        pass(
+          "cut at limit (recent calls)",
+          `${cutCalls.length} of the latest ${read} call(s) ran into the agent's hard limit (paid length + ${INTERVIEW_GRACE_SECONDS} s) instead of ending on the goodbye${cutCalls.length ? `: ${cutCalls.join(", ")}` : ""}. The server log marks each one: [CVision][voice] call end … cut at limit`,
+        ),
+      );
+    }
   } catch (error) {
     checks.push(failFrom("permission conversations read", error, "conversations read (ConvAI)"));
   }

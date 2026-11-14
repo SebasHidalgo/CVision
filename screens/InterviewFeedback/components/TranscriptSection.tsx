@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import Eyebrow from "@/components/layout/Eyebrow";
 import type { TranscriptTurn } from "@/lib/voice/postCall";
 import { isResumeMarker } from "@/lib/voice/segments";
+import { hasWords } from "@/lib/voice/transcript";
 import { cn } from "@/lib/utils";
 
 type TranscriptSectionProps = {
@@ -22,9 +23,8 @@ function stamp(seconds: number | null | undefined): string | null {
  * it, and the candidate can check any quote against the whole exchange.
  */
 export default function TranscriptSection({ turns, t }: TranscriptSectionProps) {
-  const spoken = turns.filter(
-    (turn) => typeof turn.message === "string" && turn.message.trim() !== "",
-  );
+  // A cut-off turn is stored as "...": it is not a line anyone said.
+  const spoken = turns.filter((turn) => hasWords(turn.message));
   if (spoken.length === 0) return null;
 
   return (

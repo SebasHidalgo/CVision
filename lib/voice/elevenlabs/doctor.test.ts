@@ -176,11 +176,11 @@ describe("voice:doctor", () => {
 
     expect(checks.filter((check) => check.outcome === "fail")).toEqual([]);
     expect(byName(checks, "permission user_read")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("71000 of 121000 credits left") });
-    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 7329 (12 min + 60 s of grace x 451 credits a minute x 1.25): starts are allowed" });
+    expect(byName(checks, "balance floor")).toMatchObject({ outcome: "pass", detail: "71000 credits reachable, floor 7847 (12 min + 90 s of grace x 465 credits a minute x 1.25): starts are allowed" });
     expect(byName(checks, "end tool")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${TOOL_ID} "end_interview" is in the workspace`) });
     // The platform's limit is the paid length plus the grace.
-    expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 780 s, daily cap 100") });
-    expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 360 s, daily cap 25") });
+    expect(byName(checks, "agent FULL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 810 s, daily cap 100") });
+    expect(byName(checks, "agent TRIAL")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("hard limit 390 s, daily cap 25") });
     expect(byName(checks, "permission conversations read").outcome).toBe("pass");
     expect(byName(checks, "backup model (recent calls)")).toMatchObject({ outcome: "skip", detail: "no call of these agents among the latest conversations" });
     expect(byName(checks, "webhook")).toMatchObject({ outcome: "pass", detail: expect.stringContaining(`${WEBHOOK_ID} "${INTERVIEW_WEBHOOK_NAME}" -> ${WEBHOOK_URL} (hmac; 2 of the 2 agent(s) read point at it)`) });
@@ -225,14 +225,14 @@ describe("voice:doctor", () => {
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000 }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({
       outcome: "fail",
-      detail: "1000 credits reachable, floor 7329 (12 min + 60 s of grace x 451 credits a minute x 1.25): the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
+      detail: "1000 credits reachable, floor 7847 (12 min + 90 s of grace x 465 credits a minute x 1.25): the session endpoint refuses every full interview start as VOICE_UNAVAILABLE",
     });
 
     // Enough for the 5-minute trial, not for a full interview.
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 115_000 }) } });
     const trialOnly = await runVoiceDoctor({ webhookUrl: null, env: env() });
     expect(byName(trialOnly, "balance floor").outcome).toBe("fail");
-    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 3383 (5 min + 60 s of grace x 451 credits a minute x 1.25): starts are allowed" });
+    expect(byName(trialOnly, "balance floor (trial)")).toMatchObject({ outcome: "pass", detail: "6000 credits reachable, floor 3779 (5 min + 90 s of grace x 465 credits a minute x 1.25): starts are allowed" });
 
     serve({ ...healthy(), "GET /v1/user/subscription": { body: subscription({ character_count: 120_000, max_credit_limit_extension: "unlimited" }) } });
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "balance floor")).toMatchObject({ outcome: "pass", detail: expect.stringContaining("unlimited credits reachable") });
@@ -351,6 +351,29 @@ describe("voice:doctor", () => {
     expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "backup model (recent calls)").detail).toContain("the latest 1 call(s): 0 of 1 interviewer turn(s) were answered by the backup model.");
   });
 
+  it("counts the recent calls a clock cut at the agent's hard limit instead of the goodbye", async () => {
+    const words = (role: string, message: string) => ({ role, message, time_in_call_secs: 1 });
+    const lasting = (id: string, agentId: string, seconds: number, transcript: Record<string, unknown>[]) => {
+      const record = conversation(id, agentId, transcript);
+      return { ...record, metadata: { ...record.metadata, call_duration_secs: seconds, termination_reason: "Client disconnected: 1000" } };
+    };
+    const allowedEnd = { role: "agent", message: null, time_in_call_secs: 380, tool_calls: [{ tool_name: "end_interview", params_as_json: '{"reason":"time_up"}', request_id: "r1", type: "client", tool_has_been_called: true }] };
+    serve({
+      ...healthy(),
+      "GET /v1/convai/conversations": { body: { conversations: [listed("conv_a", FULL_ID), listed("conv_b", TRIAL_ID), listed("conv_c", TRIAL_ID)], has_more: false, next_cursor: null } },
+      // Full agent: 809 s of an 810 s limit, no goodbye: cut.
+      "GET /v1/convai/conversations/conv_a": { body: lasting("conv_a", FULL_ID, 809, [words("agent", "Welcome."), words("user", "Hello.")]) },
+      // Trial: ended on the goodbye 41 s before its limit.
+      "GET /v1/convai/conversations/conv_b": { body: lasting("conv_b", TRIAL_ID, 349, [words("agent", "Welcome."), words("user", "Hello.")]) },
+      // Trial at its limit, but the room hung up on an end it allowed: not a cut.
+      "GET /v1/convai/conversations/conv_c": { body: lasting("conv_c", TRIAL_ID, 390, [words("agent", "Welcome."), words("user", "Hello."), allowedEnd]) },
+    });
+    expect(byName(await runVoiceDoctor({ webhookUrl: WEBHOOK_URL, env: env() }), "cut at limit (recent calls)")).toMatchObject({
+      outcome: "pass",
+      detail: expect.stringContaining("1 of the latest 3 call(s) ran into the agent's hard limit (paid length + 90 s) instead of ending on the goodbye: conv_a (809 s)."),
+    });
+  });
+
   it("stops at the environment when the key is missing, and names unset agent ids without calling out", async () => {
     serve(healthy());
     const noKey = await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_API_KEY: "" }) });
@@ -381,12 +404,12 @@ it("says how many interviews the balance pays for, and what the burst rate would
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env() }), "interviews covered")).toMatchObject({
       outcome: "pass",
       detail:
-        "at 451 credits a minute (measured, lib/voice/balance.ts) the balance pays for 12 full interview(s) of 12 min (5863 credits each, the 60 s of grace included) or 26 trial(s) of 5 min (2706 each). A call past the plan's concurrency limit is charged at the burst rate: 11726 credits for a full interview; the floor does not include it",
+        "at 465 credits a minute (Starter: 400 call measured + 65 LLM estimated for 12 minutes, lib/voice/balance.ts) the balance pays for 11 full interview(s) of 12 min (6278 credits each, the 90 s of grace included) or 23 trial(s) of 5 min (3023 each). A call past the plan's concurrency limit is charged at the burst rate: 12556 credits for a full interview; the floor does not include it",
     });
 
     // Another plan's rate, from the environment: the floors and the count follow it.
     const other = await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_CREDITS_PER_MINUTE: "790" }) });
-    expect(byName(other, "balance floor").detail).toBe("71000 credits reachable, floor 12838 (12 min + 60 s of grace x 790 credits a minute x 1.25): starts are allowed");
+    expect(byName(other, "balance floor").detail).toBe("71000 credits reachable, floor 13332 (12 min + 90 s of grace x 790 credits a minute x 1.25): starts are allowed");
     expect(byName(other, "interviews covered").detail).toContain("at 790 credits a minute (ELEVENLABS_CREDITS_PER_MINUTE) the balance pays for 6 full interview(s)");
     expect(byName(await runVoiceDoctor({ webhookUrl: null, env: env({ ELEVENLABS_BALANCE_FLOOR_CREDITS: "9000" }) }), "balance floor").detail).toBe("71000 credits reachable, floor 9000 (ELEVENLABS_BALANCE_FLOOR_CREDITS): starts are allowed");
   });

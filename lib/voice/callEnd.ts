@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { TranscriptTurn } from "./transcript";
+import { hasWords, type TranscriptTurn } from "./transcript";
 
 // Why a call ended and whether that end may stand. Pure: the server and the room share it.
 
@@ -39,6 +39,8 @@ export const callEndSchema = z.object({
   recorded: z.boolean().optional(),
   /** Turns of this call the backup model answered. */
   backupTurns: z.number().int().nonnegative().optional(),
+  /** A clock ended the call (the platform's limit or the room's), not the goodbye: the last answer or the goodbye may have been cut. */
+  cutAtLimit: z.boolean().optional(),
 });
 export type CallEnd = z.infer<typeof callEndSchema>;
 
@@ -90,6 +92,25 @@ export function settleCallEnd({
   return settled("disconnect", clipDetail(terminationReason));
 }
 
+/** A call this close to its hard limit ended at it: the platform's wording for its own cut has not been seen. */
+export const CUT_AT_LIMIT_SLACK_SECONDS = 2;
+
+/** A clock ended the call, not the interviewer after its goodbye nor the candidate. */
+export function cutAtLimit({
+  reason,
+  recordedSeconds,
+  limitSeconds,
+}: {
+  reason: CallEndReason;
+  recordedSeconds: number | null | undefined;
+  /** The call's hard limit: its paid seconds plus the grace. */
+  limitSeconds: number | null | undefined;
+}): boolean {
+  if (reason === "limit" || reason === "room") return true;
+  if (reason === "user" || reason === "interviewer") return false;
+  return typeof recordedSeconds === "number" && typeof limitSeconds === "number" && recordedSeconds >= limitSeconds - CUT_AT_LIMIT_SLACK_SECONDS;
+}
+
 /** A room report that lands after the record: it still says what only the room knows. Null when nothing changes. */
 export function withLateClaim(stored: CallEnd | null, claim: { reason: RoomEndClaim; detail?: string | null; roomSeconds: number | null }): CallEnd | null {
   if (!stored?.recorded) return null;
@@ -102,7 +123,7 @@ export function withLateClaim(stored: CallEnd | null, claim: { reason: RoomEndCl
 type Spoken = { role: string; text: string };
 
 const spokenTurns = (turns: TranscriptTurn[]): Spoken[] =>
-  turns.flatMap((turn) => ((turn.role === "agent" || turn.role === "user") && typeof turn.message === "string" && turn.message.trim() !== "" ? [{ role: turn.role, text: turn.message }] : []));
+  turns.flatMap((turn) => ((turn.role === "agent" || turn.role === "user") && hasWords(turn.message) ? [{ role: turn.role, text: turn.message }] : []));
 
 const FEEDBACK_WORD = /\b(feedback|retroalimentaci[oó]n|comentarios|devoluci[oó]n)\b/i;
 const SCREEN_WORD = /\b(pantalla|screen)\b/i;

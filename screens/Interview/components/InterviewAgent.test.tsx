@@ -172,12 +172,18 @@ function tick(ms: number) {
 
 /** The interviewer calls end_interview: what the room answers. */
 /** The interviewer's tool call as the platform delivers it: a refusal is answered at once, as a string. */
-function askToEnd(reason: unknown): string {
+async function askToEnd(reason: unknown): Promise<string> {
   let result: unknown;
   act(() => {
     result = sdk.tools.end_interview?.({ reason });
   });
-  return String(result);
+  if (!(result instanceof Promise)) return String(result);
+  // A spoken refusal first waits for the turn's own text: none comes here.
+  let answer = "";
+  void (result as Promise<string>).then((text) => (answer = text));
+  tick(1_500);
+  await settled();
+  return answer;
 }
 
 /** A call the room allows is held open while the goodbye is spoken: what it answers, if and when it does. */
@@ -452,6 +458,21 @@ describe("InterviewAgent: during the call", () => {
     expect(screen.queryByText("Tell me about Kubernetes, and also about Docker.")).toBeNull();
     expect(screen.getByText("Tell me about Kubernetes,")).toBeTruthy();
 
+    // A nudge cut off before its first word is corrected to "...": the line goes, it was never said.
+    await act(async () => {
+      callbacks().onMessage?.({ role: "agent", message: "Take your time, Ana. I am interested in" });
+    });
+    await act(async () => {
+      callbacks().onAgentResponseCorrection?.({ original_agent_response: "Take your time, Ana. I am interested in", corrected_agent_response: "..." });
+    });
+    expect(screen.queryByText(/Take your time/)).toBeNull();
+    expect(screen.queryByText("...")).toBeNull();
+    // A line with no words never shows.
+    await act(async () => {
+      callbacks().onMessage?.({ role: "agent", message: "…" });
+    });
+    expect(screen.queryByText("…")).toBeNull();
+
     // Nothing in the transcript was posted anywhere: the one request was the session.
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -541,7 +562,7 @@ describe("InterviewAgent: during the call", () => {
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(3);
     tick(2_000);
     expect(sdk.sendContextualUpdate).toHaveBeenCalledTimes(4);
-    expect(sdk.sendContextualUpdate.mock.calls[3][0]).toMatch(/^\[time\] The interview time is up\. Ask nothing new/);
+    expect(sdk.sendContextualUpdate.mock.calls[3][0]).toMatch(/^\[time\] The interview time is up\. Ask no question at all/);
 
     // Through the grace nothing more is sent.
     tick(50_000);
@@ -551,8 +572,8 @@ describe("InterviewAgent: during the call", () => {
   it("leaves a first call's end to the platform's limit (paid length plus the grace), and only steps in well after it", async () => {
     await liveCall(300);
 
-    // Past the paid length and the 60 s of grace: the platform is cutting the call.
-    tick(370_000);
+    // Past the paid length and the 90 s of grace: the platform is cutting the call.
+    tick(400_000);
     expect(sdk.endSession).not.toHaveBeenCalled();
     tick(6_000);
     expect(sdk.endSession).toHaveBeenCalledTimes(1);
@@ -569,9 +590,9 @@ describe("InterviewAgent: during the call", () => {
     // 0:00 came and went: the grace is the candidate's last answer and the goodbye.
     tick(92_000);
     expect(sdk.endSession).not.toHaveBeenCalled();
-    tick(60_000);
+    tick(88_000);
     expect(sdk.endSession).not.toHaveBeenCalled();
-    tick(2_000);
+    tick(4_000);
     expect(sdk.endSession).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -581,6 +602,53 @@ describe("InterviewAgent: during the call", () => {
     expect(report()).toMatchObject({ reason: "user", outcome: "finish", end: "room" });
     expect(report()).not.toHaveProperty("endDetail");
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+  });
+
+  it("runs the 12-minute interview on the same clock: notes at 6:00, 10:00, 11:00 and 12:00, time up at 12:00, the room's hang-up at 13:45", async () => {
+    await liveCall(720);
+    expect(clock()).toBe("12:00");
+    const sent = () => sdk.sendContextualUpdate.mock.calls.map(([text]) => String(text));
+
+    tick(359_000);
+    expect(sent()).toHaveLength(0);
+    tick(1_000);
+    expect(sent()[0]).toMatch(/^\[time\] Half of the interview time has passed; about 6 minutes remain/);
+    tick(239_000);
+    expect(sent()).toHaveLength(1);
+    tick(1_000);
+    expect(sent()[1]).toMatch(/^\[time\] About two minutes remain/);
+    tick(60_000);
+    expect(sent()[2]).toMatch(/^\[time\] About one minute remains\..*asks one thing only/);
+    expect(clock()).toBe("1:00");
+    tick(60_000);
+    expect(sent()[3]).toMatch(/^\[time\] The interview time is up\./);
+    expect(clock()).toBe("Time's up · closing…");
+
+    // The grace (90 s) is the platform's; the room steps in 15 s after its limit.
+    tick(104_000);
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    expect(sent()).toHaveLength(4);
+    tick(1_000);
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs a resumed 12-minute interview on what is left: 7:50 gets its notes and the room's hang-up at 7:50 + 93 s", async () => {
+    await liveCall(470, { resumed: true });
+    expect(clock()).toBe("7:50");
+    const sent = () => sdk.sendContextualUpdate.mock.calls.map(([text]) => String(text));
+
+    tick(235_000);
+    expect(sent()[0]).toMatch(/about 3 minutes remain/);
+    tick(115_000);
+    expect(sent()[1]).toMatch(/^\[time\] About two minutes remain/);
+    tick(60_000);
+    expect(sent()[2]).toMatch(/^\[time\] About one minute remains/);
+    tick(60_000);
+    expect(sent()[3]).toMatch(/^\[time\] The interview time is up\./);
+    tick(92_000);
+    expect(sdk.endSession).not.toHaveBeenCalled();
+    tick(1_000);
+    expect(sdk.endSession).toHaveBeenCalledTimes(1);
   });
 
   it("speaks the interface's Spanish while the session keeps the language the server issued", async () => {
@@ -619,18 +687,19 @@ describe("InterviewAgent: only the room hangs up", () => {
     await answer();
     tick(120_000);
 
-    const result = askToEnd("time_up");
+    const result = await askToEnd("time_up");
 
     expect(result).toMatch(/^REFUSED: the call continues\./);
-    expect(result).toContain("3 min 0 s remain");
+    // The candidate spoke last: the room first waits 1.5 s for the turn's own text, then answers.
+    expect(result).toContain("2 min 59 s remain");
     expect(result).toMatch(/Do not say goodbye/);
     expect(result).toMatch(/ask your next interview question now, one you have not asked before\.$/);
     expect(sdk.endSession).not.toHaveBeenCalled();
     expect(endedReports()).toHaveLength(0);
     expect(screen.getByRole("button", { name: /end the interview/i })).toBeTruthy();
-    expect(clock()).toBe("3:00");
+    expect(clock()).toBe("2:59");
     // For support: the reason and the clocks, never what was said.
-    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=120s left=180s: refused (spoken)");
+    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=122s left=179s: refused (spoken)");
   });
 
   it("an answer that ends at 3:54 of a five-minute trial does not lead to a goodbye: the room refuses and the interview goes on", async () => {
@@ -639,16 +708,16 @@ describe("InterviewAgent: only the room hangs up", () => {
     tick(234_000);
     await say("user", "I led the move of our billing jobs to a queue, and wrote most of the workers.");
 
-    const result = askToEnd("time_up");
+    const result = await askToEnd("time_up");
 
     expect(result).toMatch(/^REFUSED/);
-    expect(result).toContain("1 min 6 s remain");
+    expect(result).toContain("1 min 5 s remain");
     // No goodbye state, no hang-up, then or later.
     tick(20_000);
     expect(sdk.endSession).not.toHaveBeenCalled();
     expect(endedReports()).toHaveLength(0);
     expect(push).not.toHaveBeenCalled();
-    expect(clock()).toBe("0:46");
+    expect(clock()).toBe("0:45");
     expect(screen.getByRole("status").textContent).toBe("Last minute. The interviewer keeps asking until the time is up.");
     expect(screen.getByRole("button", { name: /end the interview/i })).toBeTruthy();
   });
@@ -661,7 +730,7 @@ describe("InterviewAgent: only the room hangs up", () => {
     tick(14_000);
     await say("agent", "Interesting. What broke the first time it went to production?");
 
-    const result = askToEnd("time_up");
+    const result = await askToEnd("time_up");
 
     expect(result).toMatch(/^REFUSED: the call continues\. The interview time is not up: 36 s remain\./);
     expect(result).toContain("say nothing now: reply with no words at all");
@@ -670,12 +739,58 @@ describe("InterviewAgent: only the room hangs up", () => {
     expect(sdk.endSession).not.toHaveBeenCalled();
   });
 
+  it("the tool before its turn's question (seen live): the room waits for the text and refuses without a word", async () => {
+    await liveCall(300, { source: "trial" });
+    await say("agent", "What part of the inventory service was yours?");
+    tick(250_000);
+    await say("user", "The stock alerts and the reorder screen.");
+    tick(14_000);
+
+    let result: unknown;
+    act(() => {
+      result = sdk.tools.end_interview?.({ reason: "time_up" });
+    });
+    expect(result).toBeInstanceOf(Promise);
+    let answered = "";
+    void (result as Promise<string>).then((text) => (answered = text));
+    tick(400);
+    await settled();
+    expect(answered).toBe("");
+
+    // The question arrives 0.4 s after the call: the refusal is silent, at once.
+    await say("agent", "Interesting. What broke the first time it went to production?");
+    await settled();
+    expect(answered).toContain("say nothing now: reply with no words at all");
+    expect(console.info).toHaveBeenCalledWith("[CVision][room] end_interview reason=time_up at=264s left=36s: refused (silent)");
+  });
+
+  it("the tool with no text after it: after 1.5 s the refusal is spoken", async () => {
+    await liveCall(300, { source: "trial" });
+    await say("agent", "What part of the inventory service was yours?");
+    tick(250_000);
+    await say("user", "The stock alerts and the reorder screen.");
+
+    let result: unknown;
+    act(() => {
+      result = sdk.tools.end_interview?.({ reason: "time_up" });
+    });
+    let answered = "";
+    void (result as Promise<string>).then((text) => (answered = text));
+    tick(1_400);
+    await settled();
+    expect(answered).toBe("");
+    tick(100);
+    await settled();
+    expect(answered).toMatch(/Say one short bridging phrase/);
+    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/: refused \(spoken\)$/));
+  });
+
   it("reads a call with no known reason as time_up: refused while paid time is left", async () => {
     await liveCall(300);
     tick(60_000);
 
-    expect(askToEnd(undefined)).toMatch(/^REFUSED: the call continues\. The interview time is not up/);
-    expect(askToEnd("the candidate seems done")).toMatch(/^REFUSED/);
+    expect(await askToEnd(undefined)).toMatch(/^REFUSED: the call continues\. The interview time is not up/);
+    expect(await askToEnd("the candidate seems done")).toMatch(/^REFUSED/);
     expect(sdk.endSession).not.toHaveBeenCalled();
   });
 
@@ -852,7 +967,7 @@ describe("InterviewAgent: only the room hangs up", () => {
     await say("user", "I think that's it.");
     tick(100_000);
 
-    const result = askToEnd("candidate_confirmed");
+    const result = await askToEnd("candidate_confirmed");
 
     expect(result).toMatch(/^REFUSED: the call continues\./);
     expect(result).toContain('"Do you want to end the interview now?"');
@@ -866,7 +981,7 @@ describe("InterviewAgent: only the room hangs up", () => {
     await say("agent", "Do you want to end the interview now?");
     await say("user", "No, let's keep going.");
 
-    expect(askToEnd("candidate_confirmed")).toMatch(/^REFUSED/);
+    expect(await askToEnd("candidate_confirmed")).toMatch(/^REFUSED/);
     expect(sdk.endSession).not.toHaveBeenCalled();
   });
 

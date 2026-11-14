@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { END_ALLOWED_AFTER_ANSWER, END_ALLOWED_QUIET } from "@/lib/voice/callEnd";
-import { ANSWER_WAIT_MS, GOODBYE_MAX_MS, GOODBYE_PROMPT_MS, GOODBYE_SETTLE_MS, GOODBYE_START_MS, stepClosing, type ClosingState } from "./closing";
+import { ANSWER_WAIT_MS, GOODBYE_MAX_MS, GOODBYE_PROMPT_MS, GOODBYE_SETTLE_MS, GOODBYE_START_MS, roomHangUpSeconds, stepClosing, waitsForTurnText, type ClosingState } from "./closing";
 
 const START = 1_000_000;
 const closing = (over: Partial<ClosingState> = {}): ClosingState => ({
@@ -120,5 +120,23 @@ describe("stepClosing: a goodbye over a question the candidate has not answered 
     ]);
     expect(steps[0]).toMatchObject({ release: true, hangUp: false });
     expect(steps.at(-1)).toMatchObject({ hangUp: true });
+  });
+});
+
+describe("the room's own clock", () => {
+  it("hangs up a first call 15 s after the platform's limit and a resumed one 3 s after its own, for both lengths", () => {
+    expect(roomHangUpSeconds(300, false)).toBe(405);
+    expect(roomHangUpSeconds(720, false)).toBe(825);
+    expect(roomHangUpSeconds(470, true)).toBe(563);
+  });
+});
+
+describe("waitsForTurnText", () => {
+  it("holds only a spoken refusal while the candidate has the last line", () => {
+    expect(waitsForTurnText({ allow: false, silent: false }, "user")).toBe(true);
+    expect(waitsForTurnText({ allow: false, silent: false }, "agent")).toBe(false);
+    expect(waitsForTurnText({ allow: false, silent: true }, "user")).toBe(false);
+    expect(waitsForTurnText({ allow: true }, "user")).toBe(false);
+    expect(waitsForTurnText({ allow: false, silent: false }, undefined)).toBe(false);
   });
 });

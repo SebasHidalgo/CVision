@@ -9,9 +9,9 @@ describe("interview limits", () => {
     expect(MAX_INTERVIEW_STARTS).toBe(3);
   });
 
-  it("give every call a grace of a minute past its paid length, for the last answer and the goodbye", () => {
-    expect(INTERVIEW_GRACE_SECONDS).toBe(60);
-    expect(MAX_CALL_SECONDS).toBe(13 * 60);
+  it("give every call a grace of 90 s past its paid length, for the last answer and the goodbye", () => {
+    expect(INTERVIEW_GRACE_SECONDS).toBe(90);
+    expect(MAX_CALL_SECONDS).toBe(13.5 * 60);
     // The platform's limit is the paid length plus the grace, for both tiers.
     for (const tier of ["FULL", "TRIAL"] as const) {
       const limit = buildInterviewAgentDefinition({ postCallWebhookId: null, tier }).conversationConfig.conversation?.maxDurationSeconds;

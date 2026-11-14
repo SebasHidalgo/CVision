@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { STORED_TURN_FIELDS, trimStoredTurns } from "./transcript";
+import { hasWords, STORED_TURN_FIELDS, trimStoredTurns } from "./transcript";
+
+describe("hasWords", () => {
+  it("is a line with a letter or a digit: a turn cut off before its first word is not", () => {
+    expect(hasWords("Take your time.")).toBe(true);
+    expect(hasWords("¿Sí?")).toBe(true);
+    expect(hasWords("42")).toBe(true);
+    for (const empty of ["...", "…", " ", "", "—", null, undefined, 3]) expect(hasWords(empty)).toBe(false);
+  });
+
+  it("drops the interrupted interviewer turn the platform stores as \"...\"", () => {
+    const turns = trimStoredTurns([
+      { role: "user", message: "Uh,", time_in_call_secs: 184 },
+      { role: "agent", message: "...", time_in_call_secs: 185, interrupted: true },
+      { role: "user", message: "So the API layer was mine.", time_in_call_secs: 185 },
+    ]);
+    expect(turns.map((turn) => turn.message)).toEqual(["Uh,", "So the API layer was mine."]);
+  });
+});
 
 describe("trimStoredTurns: what the app keeps of a call's turns", () => {
   it("keeps who spoke, what and when, and nothing else the platform sent", () => {

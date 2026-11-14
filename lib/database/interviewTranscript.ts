@@ -2,9 +2,9 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { INTERVIEW_GRACE_SECONDS, MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS } from "@/lib/plans";
-import { readCallEnd } from "@/lib/voice/callEnd";
+import { cutAtLimit, readCallEnd } from "@/lib/voice/callEnd";
 import { readSegments, RESUME_WINDOW_MS } from "@/lib/voice/segments";
 import {
   AT_CAPACITY,
@@ -100,6 +100,14 @@ export async function storeConversationTranscript({
       return kept.count === 1 ? { outcome: "stored", interviewId: row.id, status: "IN_PROGRESS" } : { outcome: "duplicate", interviewId: row.id };
     }
 
+    const latestSession = data.conversationId === row.conversationId;
+    // A clock, not the goodbye, ended it: marked on the stored end and in the log line, per call.
+    const cut =
+      outcome.callEnd !== null &&
+      latestSession &&
+      cutAtLimit({ reason: outcome.callEnd.reason, recordedSeconds: data.durationSeconds, limitSeconds: typeof row.callAllowedSeconds === "number" ? row.callAllowedSeconds + INTERVIEW_GRACE_SECONDS : null });
+    const callEnd = outcome.callEnd && cut ? { ...outcome.callEnd, cutAtLimit: true } : outcome.callEnd;
+
     // Two concurrent deliveries of the same call (the webhook and the API fetch) write once:
     // the second finds the row past the startable states, or its transcript already stored.
     // Times only when the delivery carries them: a payload without metadata
@@ -117,7 +125,7 @@ export async function storeConversationTranscript({
         failureReason: outcome.failureReason,
         contextMismatch: outcome.contextMismatch,
         resumableUntil: outcome.resumableUntil,
-        ...(outcome.callEnd ? { callEnd: outcome.callEnd as Prisma.InputJsonValue } : {}),
+        ...(callEnd ? { callEnd: callEnd as Prisma.InputJsonValue } : {}),
         ...(outcome.segments ? { segments: outcome.segments as Prisma.InputJsonValue } : {}),
         ...(outcome.startedAt ? { startedAt: outcome.startedAt } : {}),
         ...(outcome.endedAt ? { endedAt: outcome.endedAt } : {}),
@@ -127,11 +135,11 @@ export async function storeConversationTranscript({
     });
 
     if (updated.count === 0) return { outcome: "duplicate", interviewId: row.id };
-    if (outcome.callEnd) {
+    if (callEnd) {
       // Ids, the reason and the two clocks; the interviewer's own wording stays in the row.
-      const room = outcome.callEnd.roomSeconds;
+      const room = callEnd.roomSeconds;
       console.info(
-        `[CVision][voice] call end interview=${row.id} conversation=${data.conversationId} reason=${outcome.callEnd.reason}${outcome.callEnd.reason === "interviewer" && outcome.callEnd.detail ? `/${outcome.callEnd.detail}` : ""} platform=${data.durationSeconds ?? "?"}s room=${typeof room === "number" ? `${room}s` : "?"} status=${outcome.status} backup=${data.backupTurns ?? 0}${data.backupModels?.length ? ` (${data.backupModels.join(", ")})` : ""}${outcome.earlyEnd ? " EARLY END: resumable, start given back" : ""}`,
+        `[CVision][voice] call end interview=${row.id} conversation=${data.conversationId} reason=${callEnd.reason}${callEnd.reason === "interviewer" && callEnd.detail ? `/${callEnd.detail}` : ""} platform=${data.durationSeconds ?? "?"}s room=${typeof room === "number" ? `${room}s` : "?"} status=${outcome.status} backup=${data.backupTurns ?? 0}${data.backupModels?.length ? ` (${data.backupModels.join(", ")})` : ""}${cut ? " cut at limit" : ""}${outcome.earlyEnd ? " EARLY END: resumable, start given back" : ""}`,
       );
     }
 
@@ -145,7 +153,6 @@ export async function storeConversationTranscript({
     // call's unit). With no start left the interview is FAILED and the
     // reservation stays on the row, refunded, for support to read. An
     // interview in which the candidate spoke keeps its unit: it is scored.
-    const latestSession = data.conversationId === row.conversationId;
     // Only the latest call's allowance is on the row; an earlier call's late record is not judged.
     const overrun = latestSession ? callOverrunSeconds(row.callAllowedSeconds, data.durationSeconds) : 0;
     if (overrun > 0) await recordCallOverrun({ userId: row.userId, interviewId: row.id, conversationId: data.conversationId, allowedSeconds: row.callAllowedSeconds, recordedSeconds: data.durationSeconds, overrun });

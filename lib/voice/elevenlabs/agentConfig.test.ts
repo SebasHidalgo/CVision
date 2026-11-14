@@ -24,12 +24,12 @@ describe("the two interview agents", () => {
     expect(trial.name).toBe(INTERVIEW_AGENT_NAMES.TRIAL);
     expect(trial.name).not.toBe(full.name);
     // The platform's limit is the paid length plus the grace, for both tiers.
-    expect(INTERVIEW_GRACE_SECONDS).toBe(60);
+    expect(INTERVIEW_GRACE_SECONDS).toBe(90);
     expect(INTERVIEW_TIERS.TRIAL.seconds).toBe(300);
     expect(INTERVIEW_TIERS.FULL.seconds).toBe(720);
     expect(trial.conversationConfig.conversation?.maxDurationSeconds).toBe(INTERVIEW_TIERS.TRIAL.seconds + INTERVIEW_GRACE_SECONDS);
-    expect(trial.conversationConfig.conversation?.maxDurationSeconds).toBe(360);
-    expect(full.conversationConfig.conversation?.maxDurationSeconds).toBe(780);
+    expect(trial.conversationConfig.conversation?.maxDurationSeconds).toBe(390);
+    expect(full.conversationConfig.conversation?.maxDurationSeconds).toBe(810);
     expect(full.conversationConfig.conversation?.maxDurationSeconds).toBe(MAX_CALL_SECONDS);
     expect(trial.platformSettings.callLimits?.dailyLimit).toBe(INTERVIEW_AGENT_DAILY_CALL_LIMITS.TRIAL);
     expect(trial.platformSettings.callLimits?.dailyLimit).toBeLessThan(INTERVIEW_AGENT_DAILY_CALL_LIMITS.FULL);

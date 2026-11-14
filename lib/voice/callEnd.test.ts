@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   candidateConfirmedStop,
+  cutAtLimit,
   decideEndTool,
   END_TOOL_ALLOWED,
   END_TOOL_REFUSED,
@@ -329,5 +330,21 @@ describe("settleCallEnd: the interviewer's tool, the room's claim, the backup mo
     // Without a known detail the claim only adds the room's clock.
     expect(withLateClaim(dropped, { reason: "interviewer", roomSeconds: 90 })).toEqual({ ...dropped, roomSeconds: 90 });
     expect(withLateClaim(dropped, { reason: "interviewer", detail: "anything", roomSeconds: 90 })).toEqual({ ...dropped, roomSeconds: 90 });
+  });
+});
+
+describe("cutAtLimit", () => {
+  it("is a clock's end: the platform's limit or the room's hang-up, never the goodbye or the candidate", () => {
+    expect(cutAtLimit({ reason: "limit", recordedSeconds: 810, limitSeconds: 810 })).toBe(true);
+    expect(cutAtLimit({ reason: "room", recordedSeconds: 563, limitSeconds: 560 })).toBe(true);
+    expect(cutAtLimit({ reason: "interviewer", recordedSeconds: 810, limitSeconds: 810 })).toBe(false);
+    expect(cutAtLimit({ reason: "user", recordedSeconds: 809, limitSeconds: 810 })).toBe(false);
+  });
+
+  it("reads a disconnect at the hard limit as the platform's cut, whatever it was called", () => {
+    expect(cutAtLimit({ reason: "disconnect", recordedSeconds: 389, limitSeconds: 390 })).toBe(true);
+    expect(cutAtLimit({ reason: "platform", recordedSeconds: 808, limitSeconds: 810 })).toBe(true);
+    expect(cutAtLimit({ reason: "disconnect", recordedSeconds: 349, limitSeconds: 390 })).toBe(false);
+    expect(cutAtLimit({ reason: "disconnect", recordedSeconds: null, limitSeconds: 390 })).toBe(false);
   });
 });

@@ -20,10 +20,10 @@ import {
   remainingSeconds,
 } from "../utils/countdown";
 import { reportInterviewEnded, requestInterviewSession } from "../utils/session";
-import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
-import { decideEndTool, END_ALLOWED_QUIET, isEarlyEnd, questionPending, saidGoodbye, type RoomEndClaim } from "@/lib/voice/callEnd";
-import { stepClosing, type ClosingState } from "../utils/closing";
+import { decideEndTool, END_ALLOWED_QUIET, isEarlyEnd, questionPending, saidGoodbye, type EndToolDecision, type RoomEndClaim } from "@/lib/voice/callEnd";
+import { roomHangUpSeconds, stepClosing, TURN_TEXT_WAIT_MS, waitsForTurnText, type ClosingState } from "../utils/closing";
 import { dueTimeNote, type TimeNoteId } from "@/lib/voice/timeNotes";
+import { hasWords } from "@/lib/voice/transcript";
 import { useVoiceCall, VoiceCallProvider } from "./elevenlabs/VoiceCall";
 import RoomOffer, { type RoomOfferFacts } from "./RoomOffer";
 import Transcript, { type TranscriptLine } from "./Transcript";
@@ -118,10 +118,6 @@ async function requestMicrophone(): Promise<MicProblem | null> {
 /** The call always reports its end after endCall; this is the belt for a hook that never fires. */
 const END_FALLBACK_MS = 5_000;
 
-/** A resumed call is shorter than the platform's limit: past its length and the grace by this much, the room hangs up. */
-const OVERTIME_SECONDS = 3;
-/** A first call ends at the platform's own limit (paid length plus grace): the room only steps in well after it. */
-const PLATFORM_LIMIT_GRACE_SECONDS = 15;
 const userLineCount = (lines: TranscriptLine[]) => lines.filter((line) => line.role === "user").length;
 
 /** Less than this left after a drop is not worth a call (the server refuses it too). */
@@ -192,6 +188,36 @@ function InterviewRoom({
   }, []);
   const [closingAt, setClosingAt] = useState<number | null>(null);
   const modeRef = useRef<string>("listening");
+  // End requests waiting for the interviewer's next line.
+  const lineWaiters = useRef(new Set<() => void>());
+
+  // The room's answer to end_interview once it has decided; an allowed end is held until the goodbye was heard.
+  const answerEndRequest = (reason: unknown, { elapsed, callSeconds, decision }: { elapsed: number; callSeconds: number; decision: EndToolDecision }): string | Promise<string> => {
+    // For support: never the candidate's words.
+    const verdict = decision.allow ? `allowed (${decision.detail}${decision.awaitAnswer ? ", after the answer" : ""})` : `refused (${decision.silent ? "silent" : "spoken"})`;
+    console.info(`[CVision][room] end_interview reason=${typeof reason === "string" ? reason : "?"} at=${Math.round(elapsed)}s left=${Math.round(callSeconds - elapsed)}s: ${verdict}`);
+    if (!decision.allow || phaseRef.current.kind !== "live") return decision.result;
+    // Allowed: the room hangs up once the goodbye that came with the call has been spoken, and answers only if none is heard.
+    const speaking = modeRef.current === "speaking";
+    return new Promise<string>((resolve) => {
+      // Already closing (the goodbye's line came first, or a second call): held with the first.
+      if (closing.current) {
+        closing.current.held.push(resolve);
+        return;
+      }
+      closing.current = {
+        detail: decision.detail,
+        at: Date.now(),
+        spoke: decision.goodbyeSaid || speaking,
+        quietSince: decision.goodbyeSaid && !speaking ? Date.now() : null,
+        held: [resolve],
+        result: decision.result,
+        awaitAnswer: decision.awaitAnswer,
+        userLines: userLineCount(linesRef.current),
+      };
+      setClosingAt(Date.now());
+    });
+  };
 
   const endFallback = useRef<number | null>(null);
   useEffect(() => {
@@ -296,34 +322,27 @@ function InterviewRoom({
       setPhase({ kind: "live" });
     },
     onEndRequest: (reason) => {
-      const { connectedAt: began, callSeconds } = callRef.current;
-      const elapsed = began === null ? 0 : (Date.now() - began) / 1000;
-      // Once the time-up line went out the paid time is over, whatever a late tick says.
-      const paidSecondsLeft = notesSent.current.has("up") ? 0 : callSeconds - elapsed;
-      const decision = decideEndTool({ reason, paidSecondsLeft, turns: linesRef.current.map((line) => ({ role: line.role, message: line.text })) });
-      // For support: never the candidate's words.
-      const verdict = decision.allow ? `allowed (${decision.detail}${decision.awaitAnswer ? ", after the answer" : ""})` : `refused (${decision.silent ? "silent" : "spoken"})`;
-      console.info(`[CVision][room] end_interview reason=${typeof reason === "string" ? reason : "?"} at=${Math.round(elapsed)}s left=${Math.round(callSeconds - elapsed)}s: ${verdict}`);
-      if (!decision.allow || phaseRef.current.kind !== "live") return decision.result;
-      // Allowed: the room hangs up once the goodbye that came with the call has been spoken, and answers only if none is heard.
-      const speaking = modeRef.current === "speaking";
+      const decide = () => {
+        const { connectedAt: began, callSeconds } = callRef.current;
+        const elapsed = began === null ? 0 : (Date.now() - began) / 1000;
+        // Once the time-up line went out the paid time is over, whatever a late tick says.
+        const paidSecondsLeft = notesSent.current.has("up") ? 0 : callSeconds - elapsed;
+        return { elapsed, callSeconds, decision: decideEndTool({ reason, paidSecondsLeft, turns: linesRef.current.map((line) => ({ role: line.role, message: line.text })) }) };
+      };
+      const first = decide();
+      if (!waitsForTurnText(first.decision, linesRef.current.at(-1)?.role)) return answerEndRequest(reason, first);
+      // The question this call came with may not have arrived yet: choose silent or spoken once it has, or after the wait.
       return new Promise<string>((resolve) => {
-        // Already closing (the goodbye's line came first, or a second call): held with the first.
-        if (closing.current) {
-          closing.current.held.push(resolve);
-          return;
-        }
-        closing.current = {
-          detail: decision.detail,
-          at: Date.now(),
-          spoke: decision.goodbyeSaid || speaking,
-          quietSince: decision.goodbyeSaid && !speaking ? Date.now() : null,
-          held: [resolve],
-          result: decision.result,
-          awaitAnswer: decision.awaitAnswer,
-          userLines: userLineCount(linesRef.current),
+        const finish = () => {
+          window.clearTimeout(timer);
+          lineWaiters.current.delete(arrived);
+          resolve(answerEndRequest(reason, decide()));
         };
-        setClosingAt(Date.now());
+        const arrived = () => {
+          if (linesRef.current.at(-1)?.role === "agent") finish();
+        };
+        const timer = window.setTimeout(finish, TURN_TEXT_WAIT_MS);
+        lineWaiters.current.add(arrived);
       });
     },
     onError: (message) => {
@@ -332,9 +351,12 @@ function InterviewRoom({
       if (phaseRef.current.kind === "starting") failStart(errorCopy("VOICE_UNAVAILABLE"));
     },
     onLine: ({ role: speaker, text }) => {
-      if (!text.trim()) return;
+      if (!hasWords(text)) return;
       if (speaker === "user") spoke.current = true;
       setLines((prev) => [...prev, { role: speaker, text }]);
+      // A refusal waiting for this turn's text reads the ref before React renders.
+      linesRef.current = [...linesRef.current, { role: speaker, text }];
+      for (const wake of [...lineWaiters.current]) wake();
     },
     // An interrupted agent line is reported as what was planned, then
     // corrected to what was actually said.
@@ -342,6 +364,8 @@ function InterviewRoom({
       setLines((prev) => {
         const index = prev.findLastIndex((line) => line.role === "agent" && line.text === original);
         if (index < 0) return prev;
+        // Cut off before its first word ("..."): nothing was said, so the line goes.
+        if (!hasWords(corrected)) return prev.filter((_, at) => at !== index);
         const next = prev.slice();
         next[index] = { role: "agent", text: corrected };
         return next;
@@ -504,7 +528,7 @@ function InterviewRoom({
       notify(note.text);
     }
     // The platform cuts a first call at the tier's length plus the grace; the room enforces what is left of a resumed one.
-    if (elapsedLive >= callSeconds + INTERVIEW_GRACE_SECONDS + (session?.resumed ? OVERTIME_SECONDS : PLATFORM_LIMIT_GRACE_SECONDS)) hangUp("room");
+    if (elapsedLive >= roomHangUpSeconds(callSeconds, session?.resumed === true)) hangUp("room");
   }, [live, preview, elapsedLive, callSeconds, notify, hangUp, session?.resumed]);
 
   // The end the room allowed: it hangs up once the goodbye has been spoken.

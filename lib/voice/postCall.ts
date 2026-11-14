@@ -1,6 +1,6 @@
 import type { InterviewStatus } from "@prisma/client";
 import { addSegment, mergeSegments, MIN_RESUME_SECONDS, RESUME_WINDOW_MS, segmentsSeconds, type CallSegment } from "./segments";
-import { transcriptTurnSchema, type TranscriptTurn } from "./transcript";
+import { hasWords, transcriptTurnSchema, type TranscriptTurn } from "./transcript";
 import { endToolFromClaim, isEarlyEnd, settleCallEnd, type CallEnd, type EndToolCall, type PlatformEnd } from "./callEnd";
 import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 
@@ -156,9 +156,7 @@ export const STARTABLE_STATUSES: ReadonlySet<InterviewStatus> = new Set([
 ]);
 
 export function hasCandidateTurns(turns: TranscriptTurn[]): boolean {
-  return turns.some(
-    (turn) => turn.role === "user" && typeof turn.message === "string" && turn.message.trim() !== "",
-  );
+  return turns.some((turn) => turn.role === "user" && hasWords(turn.message));
 }
 
 /** The `interview_id` the browser passed, if the payload carries initiation data. */

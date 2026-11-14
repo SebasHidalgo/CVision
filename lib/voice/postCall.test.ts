@@ -273,12 +273,13 @@ describe("decidePostCallOutcome", () => {
 
 describe("callOverrunSeconds: a call that ran past what its session allowed", () => {
   it("reports only what passes the tolerance: the grace and a margin", () => {
-    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(75);
+    expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(105);
     // A resumed call allowed 284 s that used its grace and was hung up three seconds late.
     expect(callOverrunSeconds(284, 287)).toBe(0);
     expect(callOverrunSeconds(284, 347)).toBe(0);
     expect(callOverrunSeconds(284, 359)).toBe(0);
-    expect(callOverrunSeconds(284, 359.6)).toBe(76);
+    expect(callOverrunSeconds(284, 389)).toBe(0);
+    expect(callOverrunSeconds(284, 389.6)).toBe(106);
     // A browser that never hung up: the agent's own limit ended it.
     expect(callOverrunSeconds(284, 780)).toBe(496);
   });
@@ -491,15 +492,19 @@ describe("toCallRecord: what the tool turns say, and what is kept of a turn", ()
 
 describe("the grace: a call may run past its paid length", () => {
   it("reports an overrun only past the grace plus fifteen seconds", () => {
-    expect(INTERVIEW_GRACE_SECONDS).toBe(60);
+    expect(INTERVIEW_GRACE_SECONDS).toBe(90);
     expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(INTERVIEW_GRACE_SECONDS + 15);
     // A five-minute trial that used its grace in full, and the platform's own cut a second later.
-    expect(callOverrunSeconds(300, 360)).toBe(0);
-    expect(callOverrunSeconds(300, 361)).toBe(0);
-    expect(callOverrunSeconds(300, 375)).toBe(0);
-    expect(callOverrunSeconds(300, 376)).toBe(76);
+    expect(callOverrunSeconds(300, 390)).toBe(0);
+    expect(callOverrunSeconds(300, 391)).toBe(0);
+    expect(callOverrunSeconds(300, 405)).toBe(0);
+    expect(callOverrunSeconds(300, 406)).toBe(106);
+    // The 12-minute interview: its platform limit (810 s) is inside the tolerance, the room's own hang-up (825 s) too.
+    expect(callOverrunSeconds(720, 810)).toBe(0);
+    expect(callOverrunSeconds(720, 825)).toBe(0);
+    expect(callOverrunSeconds(720, 826)).toBe(106);
     // A resumed call allowed 120 s that the room never hung up: the platform's limit ended it.
-    expect(callOverrunSeconds(120, 360)).toBe(240);
+    expect(callOverrunSeconds(120, 390)).toBe(270);
   });
 });
 

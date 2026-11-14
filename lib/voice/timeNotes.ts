@@ -10,11 +10,11 @@ const MIN_GAP_SECONDS = 15;
 
 /** The paid time is over: the last answer is heard out, then the goodbye and the tool. */
 export const UP_TEXT =
-  "[time] The interview time is up. Ask nothing new. If the candidate is answering or still owes you an answer to your last question, wait for it; if they stay silent, say only a short \"take your time\" in the call's language. Once they have answered, or if no question was pending, say the goodbye (thank them, and say their feedback will appear on their screen in a moment) and call end_interview with reason time_up in that same turn. Do not reply to this line.";
+  "[time] The interview time is up. Ask no question at all, not even a follow-up. If the candidate is answering or still owes you an answer to your last question, wait for it; if they stay silent, say only a short \"take your time\" in the call's language. Once they have answered, or if no question was pending, say the goodbye (thank them, and say their feedback will appear on their screen in a moment) and call end_interview with reason time_up in that same turn. Do not reply to this line.";
 // The notes before 0:00 never name the goodbye or the tool, even to forbid them: the backup model called end_interview right after such a line.
-/** The last minute is still interview: short questions. */
+/** The last minute is still interview: one-part questions that ask for a brief answer, so the last answer fits the grace. */
 export const ONE_TEXT =
-  "[time] About one minute remains. Keep the interview going as before: ask short questions or short follow-ups, and do not mention the time. Another [time] line will say when the time is up. Do not reply to this line.";
+  "[time] About one minute remains. Keep the interview going as before, and do not mention the time. From now on each question asks one thing only, with no second part, and asks for a brief answer. Another [time] line will say when the time is up. Do not reply to this line.";
 /** Nothing in it may be announced to the candidate. */
 export const TWO_TEXT =
   "[time] About two minutes remain. Keep the interview going as before, with short follow-ups and no large new topic, and do not mention the time. Another [time] line will say when the time is up. Do not reply to this line.";

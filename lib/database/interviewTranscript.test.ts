@@ -209,13 +209,13 @@ describe("storeConversationTranscript: a call that ran past the time it was allo
 
   it("logs an error with the user and interview ids and counts it on the user, and still stores the call", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    // A resumed call allowed 120 s whose record says 200 s.
-    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 120 }) as never);
+    // A resumed call allowed 90 s whose record says 200 s.
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 90 }) as never);
 
     expect(await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null })).toMatchObject({ outcome: "stored" });
 
     expect(prisma.user.updateMany).toHaveBeenCalledWith({ where: { id: "user_1" }, data: { callOverruns: { increment: 1 } } });
-    expect(overrunLines(error)).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=120s recorded=200s over=80s; overruns by this user: 2"]);
+    expect(overrunLines(error)).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=90s recorded=200s over=110s; overruns by this user: 2"]);
     error.mockRestore();
   });
 
@@ -237,7 +237,7 @@ describe("storeConversationTranscript: a call that ran past the time it was allo
   it("a count that cannot be written does not lose the transcript", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(prisma.user.updateMany).mockRejectedValueOnce(new Error("db down"));
-    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 120 }) as never);
+    findFirst.mockResolvedValueOnce(row({ callAllowedSeconds: 90 }) as never);
     expect(await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null })).toMatchObject({ outcome: "stored" });
     expect(overrunLines(error)).toHaveLength(1);
     error.mockRestore();
@@ -509,18 +509,31 @@ describe("storeConversationTranscript: only the room hangs up", () => {
     info.mockRestore();
   });
 
+  it("marks a call the platform's limit cut, in the stored end and in the call end line", async () => {
+    vi.setSystemTime(new Date((1_760_000_000 + 400) * 1000));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    findFirst.mockResolvedValueOnce(trial() as never);
+
+    await storeConversationTranscript({ data: toCallRecord(payload({ metadata: { start_time_unix_secs: 1_760_000_000, call_duration_secs: 389, termination_reason: CLIENT_LEFT } })), eventTimestamp: null });
+
+    const { data } = updateMany.mock.calls[0][0] as { data: { callEnd: Record<string, unknown> } };
+    expect(data.callEnd).toMatchObject({ reason: "disconnect", cutAtLimit: true });
+    expect(infoLines(info)[0]).toMatch(/platform=389s .* cut at limit$/);
+    info.mockRestore();
+  });
+
   it("reports an overrun only past the grace and its margin", async () => {
-    vi.setSystemTime(new Date((1_760_000_000 + 380) * 1000));
+    vi.setSystemTime(new Date((1_760_000_000 + 410) * 1000));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const overruns = () => error.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("CALL OVERRUN"));
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     findFirst.mockResolvedValueOnce(trial() as never);
-    await store(375);
+    await store(405);
     expect(overruns()).toEqual([]);
     findFirst.mockResolvedValueOnce(trial() as never);
-    await store(376);
-    expect(overruns()).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=300s recorded=376s over=76s; overruns by this user: 2"]);
+    await store(406);
+    expect(overruns()).toEqual(["[CVision][voice] CALL OVERRUN user=user_1 interview=int_1 conversation=conv_2 allowed=300s recorded=406s over=106s; overruns by this user: 2"]);
     error.mockRestore();
     info.mockRestore();
   });

@@ -134,7 +134,7 @@ describe("buildInterviewerContext: every placeholder has a value", () => {
   it("fills the whole time: it keeps asking until the room says the time is up, never because topics are covered", () => {
     expect(INTERVIEWER_AGENT_PROMPT).toContain("The interview fills its whole time: you keep asking until a [time] line says the interview time is up");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("about half the time, about two minutes or about one minute remaining changes nothing");
-    expect(INTERVIEWER_AGENT_PROMPT).toContain("in the last minute, only short questions or short follow-ups");
+    expect(INTERVIEWER_AGENT_PROMPT).toContain("in the last minute, each question asks one thing only, with no second part");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("short answers, covered topics and a quiet candidate are all reasons to ask the next question");
     expect(INTERVIEWER_AGENT_PROMPT).toContain("Never say that you have covered everything");
     // None of the pacing lines may be announced.

@@ -24,11 +24,11 @@ export const MAX_INTERVIEW_STARTS = 3;
  */
 export const INTERVIEW_ABANDON_MS = 2 * 60 * 60_000;
 
-/** Time past the paid length for the last answer and the goodbye: the longest answer measured (43 s) plus a goodbye (15 s). */
-export const INTERVIEW_GRACE_SECONDS = 60;
+/** Time past the paid length for the last answer and the goodbye: the longest answer in the owner's calls (60 s; p95 45 s, 66 answers) plus a goodbye (15 s) and a margin. */
+export const INTERVIEW_GRACE_SECONDS = 90;
 
 /** The longest any call may run on the platform: the full interview plus the grace. */
 export const MAX_CALL_SECONDS = MAX_INTERVIEW_DURATION_SECONDS + INTERVIEW_GRACE_SECONDS;
 
-/** With this much paid time left the interviewer keeps asking, but only short questions. */
+/** With this much paid time left the interviewer keeps asking, but only short one-part questions. */
 export const INTERVIEW_LAST_MINUTE_SECONDS = 60;

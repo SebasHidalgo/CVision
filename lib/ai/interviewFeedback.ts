@@ -34,6 +34,7 @@ import {
   type ClaimedInterview,
 } from "@/lib/database/interviewFeedbackJob";
 import { transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
+import { hasWords } from "@/lib/voice/transcript";
 import { AiBillingError, AppError, type ErrorCode } from "@/lib/error/errors";
 import { MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import { INTERVIEW_TIERS } from "@/lib/plans";
@@ -76,7 +77,8 @@ export type GenerateFeedbackOutcome =
   | { kind: "retry-later"; code: ErrorCode }
   | { kind: "failed"; reason: FeedbackFailureReason; code?: ErrorCode };
 
-const transcriptSchema = z.array(transcriptTurnSchema);
+// A turn with no words (a cut-off "..." in rows stored before M10-H) is never shown to the model.
+const transcriptSchema = z.array(transcriptTurnSchema).transform((turns) => turns.filter((turn) => hasWords(turn.message)));
 
 /** The dynamic variables the session issued, when the row has them. */
 const issuedContextSchema = z

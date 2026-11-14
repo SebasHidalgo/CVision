@@ -66,10 +66,10 @@ When the lists are used up, keep alternating 4 and 5. Short answers mean you ask
 
 TIME AND ENDING THE CALL
 - You have no clock. The room sends lines that start with [time]: they are the call clock, not the candidate. Never read one aloud and never answer one out loud: take note and carry on with the conversation.
-- The interview fills its whole time: you keep asking until a [time] line says the interview time is up. A [time] line about half the time, about two minutes or about one minute remaining changes nothing: keep asking exactly as before (in the last minute, only short questions or short follow-ups). Before the goodbye itself, never tell the candidate that the interview is ending, never call a question the last one, and never say "to close", "to finish" or "to wrap up".
+- The interview fills its whole time: you keep asking until a [time] line says the interview time is up. A [time] line about half the time, about two minutes or about one minute remaining changes nothing: keep asking exactly as before (in the last minute, each question asks one thing only, with no second part such as "and how did you…", and asks for a brief answer). Before the goodbye itself, never tell the candidate that the interview is ending, never call a question the last one, and never say "to close", "to finish" or "to wrap up".
 - HOW THE CALL ENDS: only the room can hang up. You ask it to with the end_interview tool, called in the same turn as the spoken goodbye. The room acts once that turn has been spoken: it hangs up, so the candidate can never answer anything said in that turn; or, when the interview is not over, it refuses. So end_interview goes with the goodbye and with nothing else: a reply that asks or requests anything (an interview question, the confirmation question below, "take your time") must never call end_interview.
 - The call ends in only two ways, and you start neither on your own:
-  (a) TIME IS UP (end_interview with reason "time_up"). A [time] line says the interview time is up. From then on, ask nothing new. What you do next depends on one thing: has the candidate answered your last question?
+  (a) TIME IS UP (end_interview with reason "time_up"). A [time] line says the interview time is up. From then on, ask no question at all, not even a follow-up. What you do next depends on one thing: has the candidate answered your last question?
      - Not yet, and they are silent: their silence is thinking time, not the end. Say only one short line such as "Take your time" and wait. No goodbye, no end_interview, no other question.
      - Not yet, and they are answering: let them finish. After the answer, or after they clearly say they would rather not answer, say the goodbye and call end_interview.
      - Yes, and you have asked nothing since: say the goodbye and call end_interview in your next turn.
@@ -139,6 +139,8 @@ export type InterviewerContextInput = {
   /** Clerk first name; null when the account has none. */
   candidateFirstName: string | null;
   role: string;
+  /** The title translated into the interview's language, when the posting is in the other one. */
+  spokenRole?: string;
   company: string;
   jobDescription: string;
   /** `overall.summaryText` of the stored analysis. */
@@ -271,7 +273,7 @@ export function buildInterviewerContext(input: InterviewerContextInput): Intervi
   const seconds = input.resume ? Math.min(input.resume.remainingSeconds, input.maxDurationSeconds) : input.maxDurationSeconds;
   const name = singleLine(input.candidateFirstName ?? "") || (language === "es" ? "candidato" : "there");
   // What the interviewer says: the posting's inclusive forms ("Desarrollador/a") are not speakable.
-  const role = spokenTitle(singleLine(input.role), language);
+  const role = spokenTitle(singleLine(input.spokenRole?.trim() || input.role), language);
   const company = singleLine(input.company);
   // A resumed call plans on whole minutes it really has: rounded down, never up.
   const minutes = Math.max(1, input.resume ? Math.floor(seconds / 60) : Math.round(seconds / 60));

@@ -1,4 +1,15 @@
+import { INTERVIEW_GRACE_SECONDS } from "@/lib/interviewLimits";
 import { END_ALLOWED_AFTER_ANSWER, type EndDetail } from "@/lib/voice/callEnd";
+
+/** A resumed call is shorter than the platform's limit: past its length and the grace by this much, the room hangs up. */
+export const OVERTIME_SECONDS = 3;
+/** A first call ends at the platform's own limit (paid length plus grace): the room only steps in well after it. */
+export const PLATFORM_LIMIT_GRACE_SECONDS = 15;
+
+/** Seconds into a call of this paid length at which the room hangs up by its own clock. */
+export function roomHangUpSeconds(callSeconds: number, resumed: boolean): number {
+  return callSeconds + INTERVIEW_GRACE_SECONDS + (resumed ? OVERTIME_SECONDS : PLATFORM_LIMIT_GRACE_SECONDS);
+}
 
 // The end the room allowed, step by step: when it answers the held tool call and when it hangs up. Pure.
 
@@ -12,6 +23,13 @@ export const GOODBYE_SETTLE_MS = 2_000;
 export const GOODBYE_MAX_MS = 30_000;
 /** A goodbye over an unanswered question: the candidate's silence this long after it is their answer. */
 export const ANSWER_WAIT_MS = 15_000;
+/** The tool can reach the room before the text of its own turn (seen live): a spoken refusal waits this long for it. */
+export const TURN_TEXT_WAIT_MS = 1_500;
+
+/** A refusal that would be spoken while the candidate has the last line: the interviewer's words may still be on their way. */
+export function waitsForTurnText(decision: { allow: boolean; silent?: boolean }, lastSpeaker: string | undefined): boolean {
+  return !decision.allow && decision.silent !== true && lastSpeaker === "user";
+}
 
 export type ClosingState = {
   detail: EndDetail;

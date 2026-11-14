@@ -84,7 +84,7 @@ describe("dueTimeNote", () => {
     const one = dueTimeNote(300, 240, new Set(["half", "two"]))?.text ?? "";
     expect(one).toBe(ONE_TEXT);
     expect(one).toContain("About one minute remains");
-    expect(one).toContain("ask short questions or short follow-ups");
+    expect(one).toContain("each question asks one thing only, with no second part, and asks for a brief answer");
     expect(one).toContain("Another [time] line will say when the time is up");
   });
 
@@ -94,7 +94,7 @@ describe("dueTimeNote", () => {
 
   it("at 0:00 hears the pending answer out, then says the goodbye and asks the room in that same turn", () => {
     const up = dueTimeNote(300, 300, new Set(["half", "two", "one"]))?.text ?? "";
-    expect(up).toContain("The interview time is up. Ask nothing new.");
+    expect(up).toContain("The interview time is up. Ask no question at all, not even a follow-up.");
     expect(up).toContain("If the candidate is answering or still owes you an answer to your last question, wait for it");
     expect(up).toContain('say only a short "take your time"');
     expect(up).toContain("say the goodbye");
