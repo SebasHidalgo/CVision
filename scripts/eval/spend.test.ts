@@ -8,6 +8,7 @@ import {
   failureFrom,
   phaseOf,
   planTier,
+  readBudget,
   retryAfter,
   routeRequest,
   SpendGuard,
@@ -234,5 +235,18 @@ describe("the eval fetch", () => {
     spend.installEvalFetch();
     await fetch("https://generativelanguage.googleapis.com/v1beta/models/x?key=k");
     expect(fake).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the day cap's default", () => {
+  it("is 0.30 without the env var, and the env var changes it", () => {
+    expect(readBudget({})).toEqual({ perRunUsd: 0.5, perDayUsd: 0.3 });
+    expect(readBudget({ EVAL_BUDGET_PER_DAY_USD: "0.1" }).perDayUsd).toBe(0.1);
+  });
+
+  it("is the same file the browser suite's preload reads", () => {
+    const preload = readFileSync(path.join(process.cwd(), "e2e", "support", "gemini-ledger.cjs"), "utf8");
+    expect(preload).toContain('"budget.json"');
+    expect(preload).not.toMatch(/EVAL_BUDGET_PER_DAY_USD \|\| "\d/);
   });
 });

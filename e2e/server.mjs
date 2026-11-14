@@ -65,7 +65,8 @@ const child = spawn(process.execPath, [next, dev ? "dev" : "start", "-p", "3000"
 });
 // The specs check this marker: this launcher's pid lives exactly as long as the server it started.
 mkdirSync(path.dirname(marker), { recursive: true });
-writeFileSync(marker, `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`);
+// voiceFloor "off": the tier runner's server, which would let a real call start on any balance.
+writeFileSync(marker, `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString(), voiceFloor: process.env.ELEVENLABS_BALANCE_FLOOR_CREDITS?.trim() === "0" ? "off" : "on" })}\n`);
 const stop = () => {
   rmSync(marker, { force: true });
   child.kill();

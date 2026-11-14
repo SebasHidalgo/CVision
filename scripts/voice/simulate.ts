@@ -1,5 +1,5 @@
 // Checks the interviewer's next turn in text, with no call (about 40 credits a run).
-// Flags: --fixture pending-question|closing-es|closing-en, --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local, --list, --max-credits N (per run, default 150).
+// Flags: --fixture pending-question|closing-es|closing-en|long-es|long-en (nine answered questions, for the 12-minute agent), --case <name,name|all>, --tier trial, --repeat N, --llm <model>, --local, --list, --max-credits N (per run, default 150).
 // --llm runs this checkout's definition on another model (the backup); --local runs it unsynced.
 // Exit code 1 when a run fails. Never prints the key.
 import { readFileSync } from "node:fs";
@@ -57,7 +57,7 @@ type CaseFixture = Base & {
 };
 
 const AGENT_ENV = { full: "ELEVENLABS_AGENT_ID", trial: "ELEVENLABS_TRIAL_AGENT_ID" } as const;
-const FIXTURES = new Set(["pending-question", "closing-es", "closing-en"]);
+const FIXTURES = new Set(["pending-question", "closing-es", "closing-en", "long-es", "long-en"]);
 
 async function main() {
   const tier = args.tier === "trial" ? "trial" : "full";

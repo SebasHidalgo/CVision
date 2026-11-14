@@ -1,0 +1,79 @@
+{
+  "about": "Primera llamada inventada de la entrevista de 12 minutos en español, nueve preguntas respondidas, para los finales tarde en una llamada larga. Casos: two-minute, one-minute, up-answering, refused-question.",
+  "candidateFirstName": "Lucía",
+  "role": "Ingeniera de Datos",
+  "company": "Puerto Analítica",
+  "language": "es",
+  "jobDescription": "Puerto Analítica busca una Ingeniera o un Ingeniero de Datos para su plataforma de datos de logística.\n\nResponsabilidades:\n- Construir y operar pipelines batch y de streaming para eventos de envíos.\n- Modelar datos en el warehouse para el equipo de analítica.\n- Mantener los chequeos de calidad de datos y sus alertas.\n- Trabajar con producto en nuevas fuentes de datos.\n\nRequisitos:\n- Tres años construyendo pipelines de datos en Python.\n- SQL sólido y modelado de warehouse.\n- Experiencia con Airflow u otro orquestador.\n- Deseable: streaming con Kafka.\n- Comodidad para presentar resultados a personas no técnicas.",
+  "analysisSummary": "El CV muestra pipelines en Python y modelado en SQL; Airflow aparece en parte y no muestra Kafka.",
+  "requirements": [
+    { "requirement": "Tres años construyendo pipelines de datos en Python", "kind": "required", "status": "met", "evidence": "Construí el pipeline nocturno de facturación en Python", "note": "Shown in the resume." },
+    { "requirement": "SQL sólido y modelado de warehouse", "kind": "required", "status": "met", "evidence": "Diseñé el esquema estrella del warehouse de ventas", "note": "Shown in the resume." },
+    { "requirement": "Experiencia con Airflow u otro orquestador", "kind": "required", "status": "partial", "evidence": "Programé tareas con cron", "note": "Only cron is named." },
+    { "requirement": "Streaming con Kafka", "kind": "preferred", "status": "missing", "evidence": "", "note": "Not in the resume." },
+    { "requirement": "Comodidad para presentar resultados a personas no técnicas", "kind": "required", "status": "not_evident", "evidence": "", "note": "" }
+  ],
+  "history": [
+    { "role": "user", "message": "Claro. Llevo cuatro años como ingeniera de datos, primero en un retail y ahora en una empresa de pagos, sobre todo armando pipelines en Python que alimentan el warehouse. Me atrajo que el puesto sea de datos de logística, que todavía no conozco." },
+    { "role": "agent", "message": "Gracias, Lucía. ¿Usaste Airflow u otro orquestador para esos pipelines?" },
+    { "role": "user", "message": "Más que nada cron, la verdad. El año pasado empezamos a pasar tareas a Airflow y escribí los primeros DAGs de facturación, con reintentos y alertas, pero la migración no terminó." },
+    { "role": "agent", "message": "¿Qué fue lo difícil de esos primeros DAGs?" },
+    { "role": "user", "message": "Los backfills. Las tareas no eran idempotentes y volver a correr un día duplicaba filas. Las cambié para escribir a una tabla de staging y reemplazar la partición, así un rerun reemplaza el día en vez de sumarlo." },
+    { "role": "agent", "message": "¿Trabajaste con Kafka o con algún otro sistema de streaming?" },
+    { "role": "user", "message": "En producción no. Hice un curso y armé un consumidor chico que leía eventos de tarjetas a Postgres, pero en el trabajo todo fue batch." },
+    { "role": "agent", "message": "Cuéntame del pipeline de facturación que construiste en Python. ¿Qué parte fue tuya?" },
+    { "role": "user", "message": "Todo el paso de transformación. Lee las transacciones del día, aplica las reglas de comisión por comercio y escribe la tabla de facturas. También agregué una conciliación contra el libro contable que marca cualquier comercio cuyos totales difieran en más de un centavo." },
+    { "role": "agent", "message": "¿Cómo diseñaste el esquema estrella del warehouse de ventas?" },
+    { "role": "user", "message": "Partimos de las preguntas que más hacían los analistas: ventas por tienda, por producto y por semana. Una tabla de hechos con las líneas de venta y dimensiones de tienda, producto y fecha, con historia de los precios de producto." },
+    { "role": "agent", "message": "Supón que los eventos de envíos empiezan a llegar tarde o desordenados. ¿Cómo lo manejarías en un pipeline diario?" },
+    { "role": "user", "message": "Cargaría por fecha del evento con una ventana de algunos días, para que lo tardío caiga en su partición, y recalcularía los últimos días en cada corrida. Y alertaría cuando la proporción de eventos tardíos pase un umbral, porque suele ser un problema de la fuente." },
+    { "role": "agent", "message": "¿Cómo decides qué chequeos de calidad necesita una tabla nueva?" },
+    { "role": "user", "message": "Empiezo por los que harían mal un reporte: cantidad de filas contra la fuente, claves sin nulos, claves únicas y totales que deberían conciliar. Después sumo chequeos tras cada incidente, así la lista crece con lo que de verdad se rompió." },
+    { "role": "agent", "message": "Cuéntame de una vez que saltó una alerta de calidad. ¿Qué pasó y qué hiciste?" },
+    { "role": "user", "message": "Las comisiones de un comercio bajaron a cero de un día para otro. El chequeo lo vio antes de que salieran las facturas. Un cambio de configuración había borrado su regla; la restauré, volví a correr el día y agregamos un chequeo de que todo comercio activo tenga regla." },
+    { "role": "agent", "message": "¿Cómo explicaste un resultado técnico a gente fuera del equipo de datos?" },
+    { "role": "user", "message": "Cuando encontramos las filas duplicadas de los backfills tuve que explicarle a finanzas por qué cambiaron los números del trimestre. Les mostré un comercio antes y después, con los días duplicados marcados, y después el impacto total. Sobre todo querían saber que no iba a volver a pasar." }
+  ],
+  "cases": {
+    "two-minute": {
+      "extra": [{ "role": "note", "note": "two" }],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply, in Spanish, asks one new interview question. The question is not the same as, and not a rephrasing of, any question the interviewer already asked in this conversation (Airflow or orchestrators; what was hard about the first DAGs; Kafka or streaming; the billing pipeline; the star schema; late or out-of-order events; choosing data quality checks; a data quality alert; explaining results outside the data team). It does not announce that the interview is ending (no 'para cerrar', 'para terminar', 'última pregunta' or similar), does not say goodbye and does not mention the time or the feedback.",
+      "passExample": "Gracias. Si producto te pidiera los datos de seguimiento de un transportista nuevo, ¿por dónde empezarías?",
+      "failExample": "Gracias. ¿Usaste Airflow u otro orquestador?"
+    },
+    "one-minute": {
+      "extra": [
+        { "role": "agent", "message": "Supón que producto pide los datos de seguimiento de un transportista nuevo. ¿Qué querrías saber primero?" },
+        { "role": "note", "note": "one" },
+        { "role": "user", "message": "Cómo los mandan, si son archivos o una API, cada cuánto, y qué identifica a un envío, para poder cruzarlo con los nuestros." }
+      ],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply, in Spanish, asks exactly one short question that asks one thing only (no second part joined by 'y', no list of things to cover) and invites a brief answer. It does not announce that the interview is ending (no 'para cerrar', 'para terminar', 'última pregunta' or similar), does not say goodbye and does not mention the time or the feedback.",
+      "passExample": "Tiene sentido. ¿Cuál de esas cosas te preocuparía más?",
+      "failExample": "Tiene sentido. ¿Cómo modelarías esos datos en el warehouse y cómo los probarías antes de que los usen los analistas?"
+    },
+    "up-answering": {
+      "extra": [
+        { "role": "agent", "message": "¿Cuál de esas cosas te preocuparía más?" },
+        { "role": "note", "note": "up" },
+        { "role": "user", "message": "El identificador, creo. Si sus ids de envío no coinciden con los nuestros, cada cruce es una adivinanza, así que lo resolvería con ellos antes de construir nada." }
+      ],
+      "endTool": "time_up",
+      "condition": "The candidate has just answered the last question after the time ran out. The interviewer's reply, in Spanish, is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing. It speaks as one person (no 'con nosotros', 'nuestro equipo' or 'agradecemos') and does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "Es un buen punto de partida. Gracias por practicar conmigo, Lucía; tu feedback aparecerá en tu pantalla en un momento.",
+      "failExample": "Es un buen punto de partida. ¿Y cómo probarías ese cruce?"
+    },
+    "refused-question": {
+      "extra": [
+        { "role": "agent", "message": "Supón que producto pide los datos de seguimiento de un transportista nuevo. ¿Qué querrías saber primero?" },
+        { "role": "tool", "reason": "time_up", "answer": "refused", "secondsLeft": 40 }
+      ],
+      "endTool": "forbidden",
+      "silent": true,
+      "condition": "The interviewer says nothing at all: its reply has no words. Any words fail, including repeating or rephrasing the question, a bridging phrase or a goodbye.",
+      "passExample": "(no reply)",
+      "failExample": "Sigamos un poco más. ¿Qué querrías saber primero de los datos del transportista nuevo?"
+    }
+  }
+}

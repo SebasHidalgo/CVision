@@ -264,7 +264,7 @@ Spend (M8-G). Every call is priced from the tokens the API reports
 (scripts/eval/pricing.ts) and appended to runs/spend.jsonl. A command prints
 its estimate first, refuses to start when the estimate crosses a cap, and
 stops between fixtures when the next one would: EVAL_BUDGET_PER_RUN_USD
-(default 0.50) and EVAL_BUDGET_PER_DAY_USD (default 1.00, live spend on
+(default 0.50) and EVAL_BUDGET_PER_DAY_USD (default 0.30, live spend on
 the UTC day). Committed fixtures hold invented data and run on
 GOOGLE_GENERATIVE_AI_API_KEY_FREE when it is set (free tier; Google may use
 what it is sent); fixtures.local/ always runs on the paid key, at Flex

@@ -26,6 +26,7 @@ function serve(answers: { invocations: unknown[]; createStatus?: number; used?: 
       polls += 1;
       return Response.json(answers.invocations[Math.min(polls, answers.invocations.length - 1)]);
     }
+    if (method === "POST" && url.pathname === "/v1/convai/test-invocations/inv_1/cancel") return Response.json({});
     if (method === "DELETE" && url.pathname === "/v1/convai/agent-testing/test_1") return Response.json({});
     return Response.json({ detail: "no stub" }, { status: 404 });
   });
@@ -134,7 +135,7 @@ describe("checkNextTurn: the interviewer's next turn, in text", () => {
     expect(await checkNextTurn({ ...check, repeat: 1, endTool: "forbidden" }, env, noWait)).toMatchObject([{ passed: true, endedCall: false }]);
   });
 
-  it("abandons a run whose spend passes its cap, read from the balance while it runs, and deletes the test", async () => {
+  it("cancels a run whose spend passes its cap, read from the balance while it runs, and deletes the test", async () => {
     const calls = serve({ invocations: [pending, pending, pending, finished], used: [1_000, 1_040, 1_160] });
     await expect(checkNextTurn({ ...check, repeat: 1, maxCredits: 150 }, env, noWait)).rejects.toThrow(CreditCapError);
     expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
@@ -142,6 +143,7 @@ describe("checkNextTurn: the interviewer's next turn, in text", () => {
       "POST /v1/convai/agents/agent_full/run-tests",
       "GET /v1/convai/test-invocations/inv_1",
       "GET /v1/convai/test-invocations/inv_1",
+      "POST /v1/convai/test-invocations/inv_1/cancel",
       "DELETE /v1/convai/agent-testing/test_1",
     ]);
     // Under the cap the run finishes as usual; with no balance to read there is no cap.
@@ -149,6 +151,21 @@ describe("checkNextTurn: the interviewer's next turn, in text", () => {
     await expect(checkNextTurn({ ...check, repeat: 1, maxCredits: 150 }, env, noWait)).resolves.toHaveLength(2);
     serve({ invocations: [pending, pending, finished] });
     await expect(checkNextTurn({ ...check, repeat: 1 }, env, noWait)).resolves.toHaveLength(2);
+  });
+
+  it("also reads the run's own credits while it runs: a loop the balance does not show yet is cancelled", async () => {
+    const looping = { id: "inv_1", test_runs: [{ status: "pending", credits_used: 40 }] };
+    const past = { id: "inv_1", test_runs: [{ status: "pending", credits_used: 400 }] };
+    // The balance does not move while the run loops (seen 2026-11-14): only the run's own count does.
+    const calls = serve({ invocations: [looping, looping, past, finished], used: [1_000] });
+    await expect(checkNextTurn({ ...check, repeat: 1, maxCredits: 150 }, env, noWait)).rejects.toThrow(/cap of 150 credits \(400 so far\): cancelled/);
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toContain("POST /v1/convai/test-invocations/inv_1/cancel");
+  });
+
+  it("cancels a run still pending after the last poll", async () => {
+    const calls = serve({ invocations: [pending] });
+    await expect(checkNextTurn({ ...check, repeat: 1 }, env, noWait)).rejects.toThrow(/did not finish in three minutes: cancelled/);
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toContain("POST /v1/convai/test-invocations/inv_1/cancel");
   });
 
   it("passes a silent check only when the turn has no words and no tool call, whatever the judge said", () => {
@@ -214,7 +231,7 @@ describe("agentConfigOverride", () => {
     expect(wire.conversation_config.agent.prompt.tool_ids).toEqual(["tool_end_1"]);
     // Sent as null: an agent update merges, and leaving end_call out would keep it.
     expect(wire.conversation_config.agent.prompt.built_in_tools).toEqual({ end_call: null });
-    expect(wire.conversation_config.conversation.max_duration_seconds).toBe(360);
+    expect(wire.conversation_config.conversation.max_duration_seconds).toBe(390);
     expect(wire.conversation_config.turn.turn_timeout).toBe(12);
     // Another model for this run only; without the tool id the override would detach the tool.
     const backup = agentConfigOverride("FULL", { llm: "gpt-4o", endToolId: "tool_end_1" }) as typeof wire;

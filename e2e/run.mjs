@@ -30,7 +30,8 @@ const up = async () => {
 let server = null;
 if (!process.env.E2E_NO_SERVER && !(await up())) {
   console.log("[e2e] starting the suite's server (e2e/server.mjs)");
-  server = spawn(process.execPath, [path.resolve("e2e/server.mjs")], { stdio: ["ignore", "inherit", "inherit"] });
+  // No spec in these tiers starts a call: the rooms must not depend on the account's voice balance (the voice spec refuses this server).
+  server = spawn(process.execPath, [path.resolve("e2e/server.mjs")], { stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, ELEVENLABS_BALANCE_FLOOR_CREDITS: process.env.ELEVENLABS_BALANCE_FLOOR_CREDITS ?? "0" } });
   // It builds first: a few minutes.
   const deadline = Date.now() + 600_000;
   while (!(await up())) {

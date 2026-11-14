@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
@@ -45,6 +47,10 @@ let account: TestAccount;
 
 test.beforeAll(async () => {
   assertSandbox();
+  // A real Start is only safe behind the balance floor: never against the tier runner's server, which turns it off.
+  const marker = path.resolve("e2e/.artifacts/gemini-ledger.json");
+  const floor = existsSync(marker) ? (JSON.parse(readFileSync(marker, "utf8")) as { voiceFloor?: string }).voiceFloor : undefined;
+  if (floor === "off") throw new Error("the running suite server has the voice balance floor off; stop it and run npm run e2e:voice on its own");
   await warmRoutes();
   account = await createAccount("voice");
 });

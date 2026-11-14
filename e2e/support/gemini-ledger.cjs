@@ -5,7 +5,9 @@ const { randomUUID } = require("node:crypto");
 
 const GENERATE = /generativelanguage\.googleapis\.com\/.*:(generateContent|streamGenerateContent)/;
 const LEDGER = (process.env.EVAL_SPEND_LEDGER && process.env.EVAL_SPEND_LEDGER.trim()) || path.join(process.cwd(), "scripts", "eval", "runs", "spend.jsonl");
-const CAP = Number(process.env.EVAL_BUDGET_PER_DAY_USD || "1");
+// The eval's day cap: the same default file, the same env var.
+const DEFAULT_CAP = JSON.parse(readFileSync(path.join(process.cwd(), "scripts", "eval", "budget.json"), "utf8")).perDayUsd;
+const CAP = Number(process.env.EVAL_BUDGET_PER_DAY_USD || DEFAULT_CAP);
 const TIER = process.env.E2E_GEMINI_TIER === "flex" ? "flex" : "standard";
 const PRICES = JSON.parse(readFileSync(path.join(process.cwd(), "scripts", "eval", "prices.json"), "utf8"));
 const RUN_ID = `e2e-${randomUUID()}`;

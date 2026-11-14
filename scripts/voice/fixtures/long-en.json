@@ -1,0 +1,79 @@
+{
+  "about": "Invented English first call of the 12-minute interview, nine questions answered, for the endings late in a long call. Cases: two-minute, one-minute, up-answering, refused-question.",
+  "candidateFirstName": "Daniel",
+  "role": "Data Engineer",
+  "company": "Harbor Analytics",
+  "language": "en",
+  "jobDescription": "Harbor Analytics is hiring a Data Engineer for its logistics data platform.\n\nResponsibilities:\n- Build and run batch and streaming pipelines for shipment events.\n- Model data in the warehouse for the analytics team.\n- Keep data quality checks and alerts healthy.\n- Work with product managers on new data sources.\n\nRequirements:\n- Three years building data pipelines in Python.\n- Strong SQL and warehouse modelling.\n- Experience with Airflow or a similar orchestrator.\n- Nice to have: streaming with Kafka.\n- Comfortable presenting results to non-technical people.",
+  "analysisSummary": "The resume shows Python pipelines and SQL modelling; Airflow appears in part, and it does not show Kafka.",
+  "requirements": [
+    { "requirement": "Three years building data pipelines in Python", "kind": "required", "status": "met", "evidence": "Built the nightly billing pipeline in Python", "note": "Shown in the resume." },
+    { "requirement": "Strong SQL and warehouse modelling", "kind": "required", "status": "met", "evidence": "Designed the star schema for the sales warehouse", "note": "Shown in the resume." },
+    { "requirement": "Experience with Airflow or a similar orchestrator", "kind": "required", "status": "partial", "evidence": "Scheduled jobs with cron", "note": "Only cron is named." },
+    { "requirement": "Streaming with Kafka", "kind": "preferred", "status": "missing", "evidence": "", "note": "Not in the resume." },
+    { "requirement": "Comfortable presenting results to non-technical people", "kind": "required", "status": "not_evident", "evidence": "", "note": "" }
+  ],
+  "history": [
+    { "role": "user", "message": "Sure. I've been a data engineer for four years, first at a retailer and now at a payments company, mostly building Python pipelines that feed the warehouse. I liked that this role is about logistics data, which I haven't worked with yet." },
+    { "role": "agent", "message": "Thanks, Daniel. Have you used Airflow or another orchestrator for those pipelines?" },
+    { "role": "user", "message": "Mostly cron, to be honest. At the payments company we started moving jobs to Airflow last year, and I wrote the first DAGs for the billing jobs, with retries and alerts on failure, but the migration isn't finished." },
+    { "role": "agent", "message": "What made those first DAGs hard to get right?" },
+    { "role": "user", "message": "Backfills. Our jobs weren't idempotent, so rerunning a day doubled rows. I changed them to write to a staging table and swap partitions, so a rerun replaces the day instead of adding to it." },
+    { "role": "agent", "message": "Have you worked with Kafka or any other streaming system?" },
+    { "role": "user", "message": "Not in production. I did a course and built a small consumer that read card events into Postgres, but at work everything has been batch." },
+    { "role": "agent", "message": "Tell me about the billing pipeline you built in Python. What part of it was yours?" },
+    { "role": "user", "message": "All of the transform step. It reads the day's transactions, applies the fee rules per merchant, and writes the invoices table. I also added a reconciliation check against the ledger that flags any merchant whose totals differ by more than a cent." },
+    { "role": "agent", "message": "How did you design the star schema for the sales warehouse?" },
+    { "role": "user", "message": "We started from the questions the analysts asked most, which were sales by store, by product and by week. So one fact table of sales lines, and dimensions for store, product and date, with slowly changing history on product prices." },
+    { "role": "agent", "message": "Suppose shipment events start arriving late or out of order. How would you handle that in a daily pipeline?" },
+    { "role": "user", "message": "I'd load by event date with a window of a few days, so late events land in the right partition, and recompute the last few days on each run. And I'd alert when the share of late events goes over some threshold, because that usually means a source problem." },
+    { "role": "agent", "message": "How do you decide which data quality checks a new table needs?" },
+    { "role": "user", "message": "I start with the ones that would make a report wrong: row counts against the source, no nulls in keys, unique keys, and totals that should reconcile. Then I add checks after incidents, so the list grows with what actually broke." },
+    { "role": "agent", "message": "Tell me about a time a data quality alert fired. What happened, and what did you do?" },
+    { "role": "user", "message": "A merchant's fees dropped to zero overnight. The check caught it before the invoices went out. It turned out a config change had removed their fee rule, so I restored it, reran the day, and we added a check that every active merchant has a rule." },
+    { "role": "agent", "message": "How have you explained a technical result to people outside the data team?" },
+    { "role": "user", "message": "When we found the duplicate rows from the backfills, I had to explain to finance why last quarter's numbers changed. I showed them one merchant before and after, with the doubled days marked, and then the total impact. They mostly wanted to know it wouldn't happen again." }
+  ],
+  "cases": {
+    "two-minute": {
+      "extra": [{ "role": "note", "note": "two" }],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply asks one new interview question. The question is not the same as, and not a rephrasing of, any question the interviewer already asked in this conversation (Airflow or orchestrators; what made the first DAGs hard; Kafka or streaming; the billing pipeline; the star schema; late or out-of-order events; choosing data quality checks; a data quality alert; explaining results outside the data team). It does not announce that the interview is ending (no 'to close', 'to wrap up', 'last question' or similar), does not say goodbye and does not mention the time or the feedback.",
+      "passExample": "Thanks. How would you decide what to bring in first if the product team asked for a new carrier's tracking data?",
+      "failExample": "Thanks. Have you used Airflow or another orchestrator?"
+    },
+    "one-minute": {
+      "extra": [
+        { "role": "agent", "message": "Suppose product asks for a new carrier's tracking data. What would you want to know first?" },
+        { "role": "note", "note": "one" },
+        { "role": "user", "message": "How they send it, whether it's files or an API, how often, and what identifies a shipment, so I can join it to ours." }
+      ],
+      "endTool": "forbidden",
+      "condition": "The interviewer's reply asks exactly one short question that asks one thing only (no second part joined by 'and', no list of things to cover) and invites a brief answer. It does not announce that the interview is ending (no 'to close', 'to wrap up', 'last question' or similar), does not say goodbye and does not mention the time or the feedback.",
+      "passExample": "Makes sense. Which of those would worry you most?",
+      "failExample": "Makes sense. How would you model that data in the warehouse, and how would you test it before the analysts use it?"
+    },
+    "up-answering": {
+      "extra": [
+        { "role": "agent", "message": "Which of those would worry you most?" },
+        { "role": "note", "note": "up" },
+        { "role": "user", "message": "The identifier, I think. If their shipment ids don't match ours, every join is a guess, so I'd sort that out with them before building anything." }
+      ],
+      "endTool": "time_up",
+      "condition": "The candidate has just answered the last question after the time ran out. The interviewer's reply is the goodbye: it thanks the candidate for practicing and says their feedback will appear on their screen. It asks nothing. It speaks as one person (no 'with us', 'our team' or 'we appreciate') and does not say anyone will contact the candidate or that there are next steps.",
+      "passExample": "That's a good place to start. Thank you for practicing with me, Daniel; your feedback will appear on your screen in a moment.",
+      "failExample": "That's a good place to start. And how would you test the join?"
+    },
+    "refused-question": {
+      "extra": [
+        { "role": "agent", "message": "Suppose product asks for a new carrier's tracking data. What would you want to know first?" },
+        { "role": "tool", "reason": "time_up", "answer": "refused", "secondsLeft": 40 }
+      ],
+      "endTool": "forbidden",
+      "silent": true,
+      "condition": "The interviewer says nothing at all: its reply has no words. Any words fail, including repeating or rephrasing the question, a bridging phrase or a goodbye.",
+      "passExample": "(no reply)",
+      "failExample": "Let's keep going a little longer. What would you want to know first about the new carrier's data?"
+    }
+  }
+}

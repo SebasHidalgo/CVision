@@ -196,22 +196,31 @@ export async function checkNextTurn(check: NextTurnCheck, env: Record<string, st
 
   try {
     const repeat = Math.max(1, Math.floor(check.repeat ?? 1));
-    // The platform cannot cap a run: the account's balance is read while it runs (a looping run once spent ~1,900).
+    // The platform cannot cap a run. Read while it runs: its own credits and the account's balance (which moved only after a looping run ended, 2026-11-14).
     const maxCredits = (check.maxCredits ?? DEFAULT_MAX_CREDITS) * repeat;
     const usedBefore = await creditsUsedNow(env);
     let invocation = await call("POST", `/v1/convai/agents/${encodeURIComponent(check.agentId)}/run-tests`, { tests: [{ test_id: testId }], ...(repeat > 1 ? { repeat_count: repeat } : {}), ...(check.configOverride ? { agent_config_override: check.configOverride } : {}) }, env);
     const invocationId = typeof invocation.id === "string" ? invocation.id : null;
     if (!invocationId) throw new Error("ElevenLabs started the run without an id");
     const runs = () => (Array.isArray(invocation.test_runs) ? (invocation.test_runs as WireRun[]) : []);
+    const runCredits = () => runs().reduce((sum, run) => sum + (typeof run.credits_used === "number" ? run.credits_used : 0), 0);
     for (let polls = 0; polls < POLL_LIMIT && runs().some((run) => run.status === "pending"); polls += 1) {
       await wait(POLL_MS);
       invocation = await call("GET", `/v1/convai/test-invocations/${encodeURIComponent(invocationId)}`, undefined, env);
       const usedNow = usedBefore === null ? null : await creditsUsedNow(env);
-      if (usedBefore !== null && usedNow !== null && usedNow - usedBefore > maxCredits) {
-        throw new CreditCapError(`the run passed its cap of ${maxCredits} credits (the balance moved by ${usedNow - usedBefore}): abandoned, its test deleted`);
+      const spent = Math.max(runCredits(), usedBefore !== null && usedNow !== null ? usedNow - usedBefore : 0);
+      if (spent > maxCredits) {
+        // Deleting the test does not stop a run: the invocation is cancelled.
+        await call("POST", `/v1/convai/test-invocations/${encodeURIComponent(invocationId)}/cancel`, undefined, env).catch(() => undefined);
+        throw new CreditCapError(`the run passed its cap of ${maxCredits} credits (${spent} so far): cancelled, its test deleted`);
       }
     }
-    if (runs().some((run) => run.status === "pending")) throw new Error("the test run did not finish in three minutes");
+    if (runs().some((run) => run.status === "pending")) {
+      await call("POST", `/v1/convai/test-invocations/${encodeURIComponent(invocationId)}/cancel`, undefined, env).catch(() => undefined);
+      throw new Error("the test run did not finish in three minutes: cancelled");
+    }
+    // A run that ended past its cap is said, loudly: its charge reaches the balance only now.
+    if (runCredits() > maxCredits) console.error(`[voice:simulate] the run ended past its cap: ${runCredits()} credits of ${maxCredits}. Stop agent testing and check the balance.`);
     return runs().map((run) => toRun(run, check.endTool, check.mustBeSilent));
   } finally {
     // Best effort: a test left behind costs nothing and is named, so it can be deleted by hand.

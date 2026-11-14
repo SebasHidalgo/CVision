@@ -18,7 +18,8 @@ import { fail, RUNS_DIR } from "./shared";
 type Env = Record<string, string | undefined>;
 
 export const FREE_KEY_ENV = "GOOGLE_GENERATIVE_AI_API_KEY_FREE";
-export const DEFAULT_BUDGET = { perRunUsd: 0.5, perDayUsd: 1 } as const;
+// One file for the eval and the browser suite's preload; the env vars change it.
+export const DEFAULT_BUDGET: Budget = JSON.parse(readFileSync(path.join(process.cwd(), "scripts", "eval", "budget.json"), "utf8")) as Budget;
 // Free-tier limits for this model are not published; one call every 6 s stays under 10 RPM.
 export const FREE_MIN_INTERVAL_MS = 6_000;
 export const MAX_ATTEMPTS = 3;
