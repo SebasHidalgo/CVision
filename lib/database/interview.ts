@@ -28,6 +28,7 @@ import { isVisible, visibleAnalysisIds } from "./visibility";
 const interviewDetailInclude = {
   resumeAnalysis: {
     select: {
+      id: true,
       jobDescription: true,
       jobTitle: true,
       companyName: true,

@@ -15,6 +15,7 @@ import { assertVoiceCapacity } from "@/lib/voice/health";
 import { InterviewQuotaExceededError, RateLimitedError, UnauthorizedError, VoiceUnavailableError } from "@/lib/error/errors";
 import type { InterviewSessionResponse } from "@/types/interview";
 import { settlePreviousCall } from "@/lib/voice/reconcile";
+import { spokenRoleTitle } from "@/lib/interviewSpokenRole";
 import { POST } from "./route";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(), getUserProfile: vi.fn() }));
@@ -37,6 +38,7 @@ vi.mock("@/lib/database/usage", () => ({
 }));
 vi.mock("@/lib/database/interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 vi.mock("@/lib/voice/health", () => ({ assertVoiceCapacity: vi.fn(async () => {}) }));
+vi.mock("@/lib/interviewSpokenRole", () => ({ spokenRoleTitle: vi.fn(async () => null) }));
 
 const INTERVIEW_ID = "3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b7c";
 const RESUME_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
@@ -92,6 +94,7 @@ function interview(overrides: Partial<InterviewWithResume> = {}): InterviewWithR
     resumeAnalysisId: RESUME_ID,
     attemptNumber: 1,
     resumeAnalysis: {
+      id: RESUME_ID,
       jobDescription: "We are looking for a frontend engineer to own the checkout flow with React.",
       jobTitle: "Frontend Engineer",
       companyName: "Northwind",
@@ -451,6 +454,22 @@ describe("POST /api/interview/[id]/session: the language of the call", () => {
     expect(data.dynamicVariables.language_name).toBe("Spanish");
     expect(data.dynamicVariables.opening_line).toContain("Hola Ana");
     expect(vi.mocked(reserveInterviewSession).mock.calls[0][0]).toMatchObject({ language: "es" });
+  });
+
+  it("says the title in the interview's language when the posting is in the other one; the stored role stays", async () => {
+    stubElevenLabs(tokenResponse);
+    vi.mocked(spokenRoleTitle).mockResolvedValueOnce("Ingeniero Frontend");
+    const { body } = await post({ language: "es" });
+    const data = (body as { data: InterviewSessionResponse }).data;
+    expect(vi.mocked(spokenRoleTitle).mock.calls[0][0]).toMatchObject({ analysisId: RESUME_ID, title: "Frontend Engineer", company: "Northwind", from: "en", to: "es" });
+    expect(data.dynamicVariables.role).toBe("Ingeniero Frontend");
+    expect(data.dynamicVariables.opening_line).toContain("el puesto de Ingeniero Frontend en Northwind");
+  });
+
+  it("keeps the posting's title when the translation is not there", async () => {
+    stubElevenLabs(tokenResponse);
+    const { body } = await post({ language: "es" });
+    expect((body as { data: InterviewSessionResponse }).data.dynamicVariables.role).toBe("Frontend Engineer");
   });
 
   it("keeps the interview's language on a later start that names none", async () => {

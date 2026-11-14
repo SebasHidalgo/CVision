@@ -1,5 +1,6 @@
 import { buildInterviewerContext } from "@/lib/ai/prompts/interviewer.agent";
 import { getUserProfile, requireUserId } from "@/lib/auth";
+import { spokenRoleTitle } from "@/lib/interviewSpokenRole";
 import { detectPostingLanguage } from "@/lib/ai/postingLanguage";
 import {
   fetchInterviewById,
@@ -34,7 +35,7 @@ import { interviewContextSchema } from "@/lib/schemas/interviewSchema";
 import { interviewSessionRequestSchema } from "@/lib/schemas/interviewSessionSchema";
 import type { InterviewSessionResponse } from "@/types/interview";
 
-// Two database round trips, one Clerk profile read and a 10 s token call.
+// Two database round trips, one Clerk profile read, a 10 s token call, and once per analysis and language an 8 s title call.
 export const maxDuration = 30;
 
 const LOG = "[CVision][session]";
@@ -170,12 +171,16 @@ export async function POST(
 
     const profile = await getUserProfile();
 
-    const chosen = requested.data.language ?? (state.language === "en" || state.language === "es" ? state.language : detectPostingLanguage(analysis.jobDescription));
+    const postingLanguage = detectPostingLanguage(analysis.jobDescription);
+    const chosen = requested.data.language ?? (state.language === "en" || state.language === "es" ? state.language : postingLanguage);
+    // Said in the interview's language when the posting is in the other one; translated once and stored.
+    const spokenRole = await spokenRoleTitle({ userId, analysisId: analysis.id, title: interview.role, company: analysis.companyName, from: postingLanguage, to: chosen });
 
     const { dynamicVariables, language } = buildInterviewerContext({
       interviewId: interview.id,
       candidateFirstName: profile.firstName,
       role: interview.role,
+      ...(spokenRole ? { spokenRole } : {}),
       company: analysis.companyName,
       jobDescription: analysis.jobDescription,
       analysisSummary: context.data.overall.summaryText,
