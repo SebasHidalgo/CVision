@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import proxy from "./proxy";
+import proxy, { config } from "./proxy";
 
 /**
  * Clerk's wrapper is replaced by the handler itself, and its matcher by a
@@ -85,5 +85,19 @@ describe("proxy", () => {
     const response = await run("/admin/users", null);
     expect(response?.status).toBe(307);
     expect(response?.headers.get("location")).toBe("https://cvision.test/");
+  });
+});
+
+describe("the proxy's matcher", () => {
+  // Next reads the first pattern as a whole-path expression.
+  const runsOn = (path: string) => new RegExp(`^${config.matcher[0]}$`).test(path);
+
+  it("skips static files, the landing's audio included, and runs on pages", () => {
+    expect(runsOn("/landing/voice/es/01.mp3")).toBe(false);
+    expect(runsOn("/landing/silk-still.webp")).toBe(false);
+    expect(runsOn("/favicon.ico")).toBe(false);
+    expect(runsOn("/")).toBe(true);
+    expect(runsOn("/pricing")).toBe(true);
+    expect(runsOn("/resume/analyses")).toBe(true);
   });
 });

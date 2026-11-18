@@ -12,15 +12,22 @@ import { localeOf, type SpecLocale } from "./support/copy";
 const CAP_MS = 2_500;
 const other = (locale: SpecLocale): SpecLocale => (locale === "es" ? "en" : "es");
 
-/** Records when <html> gains and loses data-loading, from before the page's own scripts run. */
+/**
+ * Records each change of data-loading on <html>, from before the page's own scripts run: `loading` is the value the
+ * change left (null = removed). An init script runs before <html> exists, so it watches the document's subtree.
+ */
 async function watchLoader(page: Page) {
   await page.addInitScript(() => {
     const log: { at: number; loading: string | null }[] = [];
     (window as unknown as { __loaderLog: typeof log }).__loaderLog = log;
-    new MutationObserver(() => log.push({ at: performance.now(), loading: document.documentElement.getAttribute("data-loading") })).observe(
-      document.documentElement,
-      { attributes: true, attributeFilter: ["data-loading"] },
-    );
+    new MutationObserver((records) => {
+      const at = performance.now();
+      records.forEach((record, i) => {
+        // The value a change left is the next change's old value, or the current one for the last.
+        const next = records[i + 1];
+        log.push({ at, loading: next ? next.oldValue : (record.target as Element).getAttribute("data-loading") });
+      });
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-loading"], attributeOldValue: true });
   });
 }
 
@@ -102,9 +109,14 @@ test("switching the language on the landing reloads it; elsewhere it switches in
 
 test("the example call is muted by default, asks for no audio until sound is on, and works from the keyboard", async ({ page }) => {
   const audio: string[] = [];
+  const problems: string[] = [];
   page.on("request", (request) => {
     if (/\/landing\/voice\//.test(request.url())) audio.push(request.url());
   });
+  page.on("response", (response) => {
+    if (/\/landing\/voice\//.test(response.url()) && response.status() >= 400) problems.push(`${response.status()} ${response.url()}`);
+  });
+  page.on("console", (message) => message.type() === "error" && problems.push(message.text().slice(0, 200)));
   await page.goto("/");
   await revealed(page);
   const section = page.locator("#interview");
@@ -115,9 +127,10 @@ test("the example call is muted by default, asks for no audio until sound is on,
   expect(audio, "no audio before sound is on").toEqual([]);
   await sound.focus();
   await page.keyboard.press("Enter");
-  await expect(sound).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => audio.length, { timeout: 10_000 }).toBeGreaterThan(0);
   expect(audio.every((url) => /\/landing\/voice\/(en|es)\/0\d\.mp3/.test(url))).toBe(true);
+  expect(problems, "audio responses and console errors").toEqual([]);
+  await expect(sound).toHaveAttribute("aria-pressed", "true");
 });
 
 test("under reduced motion the page appears at once, with no 3D scene", async ({ page }) => {
