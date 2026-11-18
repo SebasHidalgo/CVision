@@ -27,8 +27,8 @@ export function AnalysisSection() {
       <div className="ed-wrap">
         <SectionHeading n="02" id="analysis-heading" title={t("title")} lede={<p>{t("lede")}</p>} />
         <div className="ed-grid gap-y-8">
-          <VerdictCard tone={caseVerdict(tally)} tally={tally} className="lg:col-[1/span_3]" />
-          <RequirementTable requirements={example.requirements} className="lg:col-[4/span_9]" />
+          <VerdictCard tone={caseVerdict(tally)} tally={tally} className="xl:col-[1/span_3]" />
+          <RequirementTable requirements={example.requirements} className="xl:col-[4/span_9]" />
         </div>
         {proof && <ProofQuote requirement={proof} candidate={example.candidate} />}
         <Readings />
