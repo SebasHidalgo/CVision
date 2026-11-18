@@ -53,6 +53,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Runs before first paint: CSS that hides content for an entrance applies only under html[data-js],
+// so a page without JavaScript is never hidden.
+const MARK_JS = `document.documentElement.dataset.js=""`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -63,8 +67,11 @@ export default async function RootLayout({
     // Base appearance for anything Clerk renders without an explicit one;
     // modals opened from the client pass the themed variant themselves.
     <ClerkProvider appearance={clerkAppearance("light")} localization={clerkLocalization(locale)}>
-      {/* next-themes sets the class on <html> before hydration. */}
+      {/* next-themes' class and MARK_JS's data-js change <html> before hydration. */}
       <html lang={locale} suppressHydrationWarning>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: MARK_JS }} />
+        </head>
         <body
           className={`${fraunces.variable} ${schibsted.variable} ${plexMono.variable} flex min-h-dvh flex-col`}
         >

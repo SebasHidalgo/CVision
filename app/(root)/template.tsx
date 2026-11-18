@@ -1,7 +1,9 @@
-import PageTransition from "@/components/motion/PageTransition";
-
-// A template remounts on every navigation, which is what gives each page
-// its entrance.
+// A template remounts on every navigation, so each page replays its CSS entrance
+// (`data-page-enter` in globals.css), which only runs once a script marked <html>.
 export default function Template({ children }: { children: React.ReactNode }) {
-  return <PageTransition>{children}</PageTransition>;
+  return (
+    <div data-page-enter="" className="flex flex-1 flex-col">
+      {children}
+    </div>
+  );
 }
