@@ -7,6 +7,8 @@ import type errors from "@/locales/en/errors.json";
 import type feedback from "@/locales/en/feedback.json";
 import type interview from "@/locales/en/interview.json";
 import type landing from "@/locales/en/landing.json";
+import type analyses from "@/locales/en/analyses.json";
+import type notFound from "@/locales/en/notFound.json";
 import type landingHero from "@/locales/en/landingHero.json";
 import type landingStory from "@/locales/en/landingStory.json";
 import type landingAnalysis from "@/locales/en/landingAnalysis.json";
@@ -26,6 +28,8 @@ declare module "i18next" {
       common: typeof common;
       errors: typeof errors;
       landing: typeof landing;
+      analyses: typeof analyses;
+      notFound: typeof notFound;
       landingHero: typeof landingHero;
       landingStory: typeof landingStory;
       landingAnalysis: typeof landingAnalysis;

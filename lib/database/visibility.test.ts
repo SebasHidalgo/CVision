@@ -26,7 +26,7 @@ vi.mock("@/lib/prisma", () => ({
 
 const standing = (plan: "FREE" | "PRO") => ({ plan, source: "free", subscription: null, everSubscribed: false }) as never;
 /** Five analyses, newest first. */
-const ALL = ["a5", "a4", "a3", "a2", "a1"].map((id) => ({ id }));
+const ALL = ["a5", "a4", "a3", "a2", "a1"].map((id) => ({ id, jobTitle: "", companyName: "", createdAt: new Date(0) }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,7 +41,7 @@ describe("visibleAnalysisIds", () => {
     expect(await visibleAnalysisIds("user_1")).toEqual(new Set(["a5", "a4", "a3"]));
     expect(prisma.resumeAnalysis.findMany).toHaveBeenCalledWith({
       where: { userId: "user_1" },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: PLANS.FREE.historyLimit,
       select: { id: true },
     });

@@ -23,13 +23,36 @@ export async function visibleAnalysisIds(userId: string, now = new Date()): Prom
 
     const rows = await prisma.resumeAnalysis.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit,
       select: { id: true },
     });
     return new Set(rows.map((row) => row.id));
   } catch (error) {
     handleError(error, `Failed to resolve the visible analyses (user=${userId})`);
+  }
+}
+
+/**
+ * The analyses beyond the plan's history, newest first; none when every
+ * analysis is visible. One read that skips past the visible ones, never a
+ * second read against `visibleAnalysisIds`: an analysis created between the
+ * two would read as hidden, and a delete of "the hidden ones" would take it.
+ */
+export async function hiddenAnalysisRows(userId: string, now = new Date()) {
+  try {
+    const { plan } = await resolvePlanStanding(userId, now);
+    const limit = PLANS[plan].historyLimit;
+    if (limit === null) return [];
+
+    return await prisma.resumeAnalysis.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: limit,
+      select: { id: true, jobTitle: true, companyName: true, createdAt: true },
+    });
+  } catch (error) {
+    handleError(error, `Failed to read the hidden analyses (user=${userId})`);
   }
 }
 

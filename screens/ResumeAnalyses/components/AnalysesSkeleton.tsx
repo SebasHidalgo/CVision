@@ -1,29 +1,33 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/design-system/Surface";
+import { cn } from "@/lib/utils";
+import { ROW_GRID } from "./AnalysisRow";
 
-const ROWS = [0, 1, 2, 3];
+const ROWS = [0, 1, 2];
+const BLOCK = "rounded-[3px] bg-ed-raise animate-pulse motion-reduce:animate-none";
 
-/** Mirrors IndexRow's grid so the list doesn't jump when data lands. */
+/** Mirrors AnalysisRow's grid so the ledger doesn't jump when the data lands. Decorative: the page announces loading. */
 export function AnalysesListSkeleton() {
   return (
-    <ol className="divide-y divide-line border-b border-line" aria-hidden>
+    <Surface as="ol" aria-hidden className="mt-10 divide-y divide-ed-line overflow-hidden">
       {ROWS.map((row) => (
-        <li
-          key={row}
-          className="grid grid-cols-[2.25rem_1fr_1.5rem] gap-x-4 gap-y-4 py-5 md:grid-cols-[3rem_1fr_8.5rem_15rem_2rem] md:items-center md:gap-x-6 md:py-6"
-        >
-          <Skeleton className="h-3 w-6" />
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-2/5" />
-            <Skeleton className="h-3.5 w-3/5" />
+        <li key={row} className={ROW_GRID}>
+          <span className={cn(BLOCK, "mt-1 h-3 w-5 [grid-area:n]")} />
+          <div className="grid gap-2.5 [grid-area:title]">
+            <span className={cn(BLOCK, "h-3 w-24")} />
+            <span className={cn(BLOCK, "h-5 w-3/5")} />
+            <span className={cn(BLOCK, "h-4 w-2/5")} />
           </div>
-          <Skeleton className="size-4 justify-self-end md:order-last" />
-          <Skeleton className="col-span-2 col-start-2 h-3 w-24 md:col-span-1 md:col-start-auto md:order-3" />
-          <div className="col-span-2 col-start-2 flex items-center gap-4 md:col-span-1 md:col-start-auto md:order-4">
-            <Skeleton className="h-7 w-10" />
-            <Skeleton className="h-2.5 flex-1" />
+          <div className="grid gap-3 [grid-area:fit]">
+            <span className={cn(BLOCK, "h-6 w-28")} />
+            <span className={cn(BLOCK, "h-3 w-36")} />
+            <span className={cn(BLOCK, "h-3 w-4/5")} />
+          </div>
+          <div className="grid gap-2.5 [grid-area:int]">
+            <span className={cn(BLOCK, "h-3 w-20")} />
+            <span className={cn(BLOCK, "h-4 w-32")} />
           </div>
         </li>
       ))}
-    </ol>
+    </Surface>
   );
 }

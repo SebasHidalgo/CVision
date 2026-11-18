@@ -9,7 +9,7 @@ import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { recordGuardStatsDaily } from "./guardStats";
 import { mapDbResume, resumeInclude } from "./mappers";
-import { isVisible, visibleAnalysisIds } from "./visibility";
+import { hiddenAnalysisRows, isVisible, visibleAnalysisIds } from "./visibility";
 
 export type CreateResumeData = {
   /** Minted by the action before the usage unit is reserved, so the ledger can name the analysis. */
@@ -73,14 +73,34 @@ export async function createResume(data: CreateResumeData, now = new Date()): Pr
 }
 
 
+/**
+ * What the list shows of an analysis the plan hides: enough to tell it apart
+ * and delete it, nothing of its content (opening it stays a Pro feature).
+ */
+export type HiddenResume = {
+  id: string;
+  jobTitle: string;
+  companyName: string;
+  createdAt: string;
+};
+
+const toHiddenResume = (row: { id: string; jobTitle: string; companyName: string; createdAt: Date }): HiddenResume => ({
+  id: row.id,
+  jobTitle: row.jobTitle,
+  companyName: row.companyName,
+  createdAt: row.createdAt.toISOString(),
+});
+
 export type VisibleResumes = {
   /** The analyses the plan shows, newest first. */
   analyses: ResumeAnalysis[];
   /** Older ones the plan hides (Free's history rule); zero for Pro. */
   hidden: number;
+  /** Those same hidden ones, newest first, as `HiddenResume`; empty for Pro. */
+  hiddenAnalyses: HiddenResume[];
 };
 
-/** The caller's analyses within the plan's history, and how many are hidden beyond it. */
+/** The caller's analyses within the plan's history, and the ones hidden beyond it. */
 export async function fetchVisibleResumes(): Promise<VisibleResumes> {
   try {
     const userId = await requireUserId();
@@ -89,15 +109,30 @@ export async function fetchVisibleResumes(): Promise<VisibleResumes> {
       prisma.resumeAnalysis.findMany({
         where: { userId },
         include: resumeInclude,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       }),
       visibleAnalysisIds(userId),
     ]);
     const shown = dbResumes.filter((row) => isVisible(visible, row.id));
+    const hidden = dbResumes.filter((row) => !isVisible(visible, row.id));
 
-    return { analyses: shown.map(mapDbResume), hidden: dbResumes.length - shown.length };
+    return { analyses: shown.map(mapDbResume), hidden: hidden.length, hiddenAnalyses: hidden.map(toHiddenResume) };
   } catch (error) {
     handleError(error, "Failed to retrieve the resume analysis records");
+  }
+}
+
+/**
+ * The caller's analyses beyond the plan's history, read now, newest first:
+ * what a delete of "the hidden ones" may act on. Empty for Pro.
+ */
+export async function fetchHiddenResumes(): Promise<HiddenResume[]> {
+  try {
+    const userId = await requireUserId();
+    const rows = await hiddenAnalysisRows(userId);
+    return rows.map(toHiddenResume);
+  } catch (error) {
+    handleError(error, "Failed to retrieve the hidden resume analyses");
   }
 }
 

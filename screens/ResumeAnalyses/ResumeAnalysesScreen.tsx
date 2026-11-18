@@ -1,94 +1,89 @@
-import { HistoryLine } from "@/components/billing/HistoryNotice";
-import EmptyState from "@/components/layout/EmptyState";
-import IndexRow from "@/components/layout/IndexRow";
-import PageIntro from "@/components/layout/PageIntro";
+import { fontText } from "@/components/design-system/fonts";
+import { Surface } from "@/components/design-system/Surface";
+import ClientMessages from "@/components/i18n/ClientMessages";
 import { fetchVisibleResumes } from "@/lib/database/resume";
+import { currentInterviewEntitlement } from "@/lib/database/usage";
 import { formatDate, ordinal } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
-import { tallyCopy } from "@/lib/i18n/tally";
+import { PLANS } from "@/lib/plans";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
-import { TONE_CLASS, toneKey } from "@/lib/score";
+import { cn } from "@/lib/utils";
+import { AnalysisRow } from "./components/AnalysisRow";
+import { EmptyRecord } from "./components/EmptyRecord";
+import { HiddenAnalyses, type HiddenItem } from "./components/HiddenAnalyses";
+import { PageHeading } from "./components/PageHeading";
+import { anyWaiting } from "./utils/attemptSummary";
+
+const HEADING_ID = "analyses-title";
+const HISTORY_LIMIT = PLANS.FREE.historyLimit ?? 0;
 
 export default async function ResumeAnalysesScreen() {
-  // Within the plan's history: Free sees its last three, Pro everything.
-  const [{ analyses, hidden }, t, common, locale] = await Promise.all([fetchVisibleResumes(), getT("analysis"), getT("common"), getLocale()]);
+  // Within the plan's history: Free sees its last three, Pro everything; the hidden ones come apart, to delete.
+  const [{ analyses, hiddenAnalyses }, t, common, locale] = await Promise.all([fetchVisibleResumes(), getT("analyses"), getT("common"), getLocale()]);
+  // A waiting rehearsal reads as its room does: only then is the entitlement worth reading.
+  const entitlement = anyWaiting(analyses.map((analysis) => analysis.interviews)) ? await currentInterviewEntitlement() : null;
 
-  // Rows whose stored feedback no longer matches the schema come back with
-  // null feedback and have no verdict to derive.
-  const verdicts = analyses.map((analysis) =>
-    analysis.feedback ? deriveFitVerdict(analysis.feedback) : null,
-  );
-  // There is no average to take any more: fit is a verdict, not a number. The
-  // count of strong fits is the honest summary of the same thing.
-  const strongCount = verdicts.filter((verdict) => verdict?.tone === "strong").length;
+  // Fit is a verdict, not a number: the count of strong fits is the honest summary. Unreadable rows have none.
+  const strongCount = analyses.filter((analysis) => analysis.feedback && deriveFitVerdict(analysis.feedback).tone === "strong").length;
+  // Numbered after the visible ones: the same history, folded away.
+  const hiddenItems: HiddenItem[] = hiddenAnalyses.map((analysis, i) => ({
+    id: analysis.id,
+    n: ordinal(analyses.length + i),
+    jobTitle: analysis.jobTitle,
+    companyName: analysis.companyName,
+    date: formatDate(analysis.createdAt, locale),
+    dateTime: analysis.createdAt,
+  }));
 
   return (
-    <div className="wrap py-12 lg:py-16">
-      <PageIntro
-        eyebrow={t("list.eyebrow")}
-        title={t("list.title")}
-        aside={
-          analyses.length > 0 && (
-            <dl className="flex gap-10 md:gap-14">
-              <div>
-                <dt className="eyebrow">{t("list.count")}</dt>
-                <dd className="figure mt-3 text-5xl text-ink">
-                  {analyses.length}
-                </dd>
-              </div>
-              <div>
-                <dt className="eyebrow">{t("list.strongFits")}</dt>
-                <dd className="figure mt-3 flex items-baseline gap-1.5 text-5xl text-ink">
-                  {strongCount}
-                  <span className="eyebrow">/{analyses.length}</span>
-                </dd>
-              </div>
-            </dl>
-          )
-        }
-      />
-
-      {analyses.length === 0 && hidden === 0 ? (
-        <EmptyState
-          title={t("list.emptyTitle")}
-          body={t("list.emptyBody")}
-          action={{ href: "/resume/upload", label: t("list.emptyAction") }}
+    <div className={cn("ed-root flex-1", fontText.variable)}>
+      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+        <PageHeading
+          id={HEADING_ID}
+          title={t("page.title")}
+          aside={
+            analyses.length > 0 && (
+              <dl className="flex flex-wrap gap-x-8 gap-y-2">
+                <div className="flex items-baseline gap-2.5">
+                  <dt className="text-ed-small text-ed-ink-2">{t("page.count")}</dt>
+                  <dd className="ed-mono text-[17px] text-ed-ink">{analyses.length}</dd>
+                </div>
+                <div className="flex items-baseline gap-2.5">
+                  <dt className="text-ed-small text-ed-ink-2">{t("page.strongFits")}</dt>
+                  <dd className="ed-mono text-[17px] text-ed-ink">
+                    {strongCount}
+                    <span className="text-ed-ink-2">/{analyses.length}</span>
+                  </dd>
+                </div>
+              </dl>
+            )
+          }
         />
-      ) : (
-        <ol className="divide-y divide-line border-b border-line">
-          {analyses.map((analysis, i) => {
-            const verdict = verdicts[i];
 
-            return (
-              <IndexRow
-                key={analysis.id}
-                index={ordinal(i)}
-                href={verdict ? `/resume/analysis/${analysis.id}` : undefined}
-                title={analysis.companyName}
-                subtitle={analysis.jobTitle}
-                meta={formatDate(analysis.createdAt, locale)}
-                reading={
-                  verdict ? (
-                    <div className="sm:text-right">
-                      <p
-                        className={`text-lg font-medium ${TONE_CLASS[verdict.tone].text}`}
-                      >
-                        {common(toneKey("fit", verdict.tone))}
-                      </p>
-                      <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-                        {tallyCopy(common, verdict.tally)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-signal">{t("list.unreadable")}</p>
-                  )
-                }
-              />
-            );
-          })}
-        </ol>
-      )}
-      <HistoryLine hidden={hidden} what="analyses" />
+        <ClientMessages ns={["analyses"]}>
+          {analyses.length === 0 ? (
+            hiddenItems.length === 0 && (
+              <EmptyRecord title={t("empty.title")} body={t("empty.body")} action={{ href: "/resume/upload", label: t("empty.action") }} />
+            )
+          ) : (
+            <Surface as="ol" aria-label={t("page.listLabel")} className="mt-10 divide-y divide-ed-line overflow-hidden">
+              {analyses.map((analysis, i) => (
+                <AnalysisRow
+                  key={analysis.id}
+                  analysis={analysis}
+                  n={ordinal(i)}
+                  locale={locale}
+                  t={t}
+                  common={common}
+                  entitlement={entitlement}
+                  headingId={HEADING_ID}
+                />
+              ))}
+            </Surface>
+          )}
+          <HiddenAnalyses items={hiddenItems} limit={HISTORY_LIMIT} />
+        </ClientMessages>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,8 @@ import enErrors from "@/locales/en/errors.json";
 import enFeedback from "@/locales/en/feedback.json";
 import enInterview from "@/locales/en/interview.json";
 import enLanding from "@/locales/en/landing.json";
+import enAnalyses from "@/locales/en/analyses.json";
+import enNotFound from "@/locales/en/notFound.json";
 import enLandingHero from "@/locales/en/landingHero.json";
 import enLandingStory from "@/locales/en/landingStory.json";
 import enLandingAnalysis from "@/locales/en/landingAnalysis.json";
@@ -26,6 +28,8 @@ import esErrors from "@/locales/es/errors.json";
 import esFeedback from "@/locales/es/feedback.json";
 import esInterview from "@/locales/es/interview.json";
 import esLanding from "@/locales/es/landing.json";
+import esAnalyses from "@/locales/es/analyses.json";
+import esNotFound from "@/locales/es/notFound.json";
 import esLandingHero from "@/locales/es/landingHero.json";
 import esLandingStory from "@/locales/es/landingStory.json";
 import esLandingAnalysis from "@/locales/es/landingAnalysis.json";
@@ -46,6 +50,8 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     common: enCommon,
     errors: enErrors,
     landing: enLanding,
+    analyses: enAnalyses,
+    notFound: enNotFound,
     landingHero: enLandingHero,
     landingStory: enLandingStory,
     landingAnalysis: enLandingAnalysis,
@@ -66,6 +72,8 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     common: esCommon,
     errors: esErrors,
     landing: esLanding,
+    analyses: esAnalyses,
+    notFound: esNotFound,
     landingHero: esLandingHero,
     landingStory: esLandingStory,
     landingAnalysis: esLandingAnalysis,

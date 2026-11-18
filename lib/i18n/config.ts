@@ -16,6 +16,8 @@ export const NAMESPACES = [
   "common",
   "errors",
   "landing",
+  "analyses",
+  "notFound",
   "landingHero",
   "landingStory",
   "landingAnalysis",
