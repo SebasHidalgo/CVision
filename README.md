@@ -91,7 +91,7 @@ which step fills it:
 | `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_INTERVIEW_PACK`, `PADDLE_WEBHOOK_SECRET` | the catalog's price ids and the webhook destination's secret | printed by `npm run billing:sync` | 8 |
 | `E2E_BASE_URL`, `E2E_PUBLIC_URL` | optional: where the browser suite goes (default localhost) and the tunnel the webhooks reach | you | 10 |
 | `CSP_MODE` | optional: `report-only` to try a Content-Security-Policy change without enforcing it | you | — |
-| `CRON_SECRET` | production only: the bearer Vercel sends to the collector's cron route | — | — |
+| `CRON_SECRET` | production only: the bearer Vercel sends to the cron routes (the storage collector and the account reconcile) | — | — |
 
 ### 3. Database (a Supabase development project)
 
@@ -316,6 +316,7 @@ call's webhook round trip. Then:
 | `npm run storage:setup [-- --check]` | create or correct the private CV bucket and verify it (`--check`: verify only) |
 | `npm run storage:gc [-- --delete]` | the orphan collector: report, or delete |
 | `npm run user:set-plan -- <clerkUserId> <free\|pro>` | a manual comp, outside billing |
+| `npm run users:reconcile [-- --apply] [--max-delete <n>]` | accounts Clerk no longer has (a lost `user.deleted`): report, or delete them with the account cascade |
 | `npm run report:guards [-- --from … --to …]` | the guardrails' daily tallies |
 | `npm run agent:sync [-- --webhook-url … --replace-webhook --dry-run]` | push both ElevenLabs agents and the post-call webhook from code |
 | `npm run ai:doctor` | one minimal Gemini call: OK, rate limited, billing exhausted or misconfigured, and the model version |
