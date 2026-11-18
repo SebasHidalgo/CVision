@@ -6,7 +6,8 @@ import type { Locale, Namespace } from "@/lib/i18n/config";
 import { tFor } from "@/lib/i18n/testing";
 import NotFoundScreen from "./NotFoundScreen";
 
-const request = vi.hoisted(() => ({ locale: "en" as Locale }));
+const request = vi.hoisted(() => ({ locale: "en" as Locale, userId: "user_1" as string | null }));
+vi.mock("@/lib/auth", () => ({ getOptionalUserId: async () => request.userId }));
 
 // Server components: getT reads the real locale files, in the language the test sets.
 vi.mock("@/lib/i18n/server", async () => {
@@ -28,6 +29,7 @@ vi.mock("@/components/layout/Footer", () => ({ Footer: () => <footer /> }));
 afterEach(() => {
   cleanup();
   request.locale = "en";
+  request.userId = "user_1";
 });
 
 describe("the 404 page", () => {
@@ -43,6 +45,13 @@ describe("the 404 page", () => {
     expect(screen.getByTestId("site-header")).toBeTruthy();
     expect(screen.getByRole("contentinfo")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/\{\{|\}\}/);
+  });
+
+  it("offers the analyses only to a signed-in visitor", async () => {
+    request.userId = null;
+    render(await NotFoundScreen());
+    expect(screen.queryByRole("link", { name: tFor("notFound", "en")("analyses") })).toBeNull();
+    expect(screen.getByRole("link", { name: tFor("notFound", "en")("home") })).toBeTruthy();
   });
 
   it.each(["en", "es"] as const)("titles the document in %s", async (locale) => {
