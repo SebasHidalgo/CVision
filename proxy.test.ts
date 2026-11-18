@@ -51,7 +51,7 @@ describe("proxy", () => {
     expect(protect).not.toHaveBeenCalled();
   });
 
-  it.each(["/api/webhooks/elevenlabs", "/api/webhooks/clerk"])(
+  it.each(["/api/webhooks/elevenlabs", "/api/webhooks/clerk", "/api/cron/users-reconcile"])(
     "keeps the webhook %s public: no session is read and nothing is answered",
     async (path) => {
       const auth = authFor(null);
@@ -81,6 +81,47 @@ describe("proxy", () => {
     expect(protect).not.toHaveBeenCalled();
   });
 
+  it.each(["/robots.txt", "/pricing", "/terms", "/privacy", "/refunds", "/api/webhooks/paddle", "/api/cron/storage-gc", "/api/cron/users-reconcile"])(
+    "keeps %s public: nothing protected, nothing answered",
+    async (path) => {
+      expect(await run(path, null)).toBeUndefined();
+      expect(protect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("answers 401 JSON for a cron or API path that is not in the table, never a 404 page", async () => {
+    expect((await run("/api/cron/other", null))?.status).toBe(401);
+    expect((await run("/api/nope", null))?.status).toBe(401);
+    expect(protect).not.toHaveBeenCalled();
+  });
+
+  it.each(["/nope", "/wp-login.php", "/resume", "/interview/abc/extra", "/.well-known/security.txt"])(
+    "lets a signed-out visit to %s, which no page serves, through to Next's not-found",
+    async (path) => {
+      expect(await run(path, null)).toBeUndefined();
+      expect(protect).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "/resume/upload",
+    "/resume/analyses",
+    "/resume/analysis/abc",
+    "/interview/abc",
+    "/interview/abc/feedback",
+    "/account/billing",
+    "/dev/room-preview",
+    "/interview%73",
+    "/INTERVIEWS",
+    "/interviews/",
+    "/interviews.rsc",
+    "/resume/analysis/abc.segments/_tree.segment.rsc",
+    "/interviews%E0%A4%A",
+  ])("keeps %s, a page or anything that might reach one, behind Clerk's protection", async (path) => {
+    expect(await run(path, null)).toBeUndefined();
+    expect(protect).toHaveBeenCalledTimes(1);
+  });
+
   it("sends a signed-out admin visit home", async () => {
     const response = await run("/admin/users", null);
     expect(response?.status).toBe(307);
@@ -91,6 +132,11 @@ describe("proxy", () => {
 describe("the proxy's matcher", () => {
   // Next reads the first pattern as a whole-path expression.
   const runsOn = (path: string) => new RegExp(`^${config.matcher[0]}$`).test(path);
+
+  it("runs on robots.txt and on unknown paths, so neither is left to chance", () => {
+    expect(runsOn("/robots.txt")).toBe(true);
+    expect(runsOn("/nope")).toBe(true);
+  });
 
   it("skips static files, the landing's audio included, and runs on pages", () => {
     expect(runsOn("/landing/voice/es/01.mp3")).toBe(false);
