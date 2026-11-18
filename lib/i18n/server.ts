@@ -4,7 +4,7 @@ import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import type { TFunction } from "i18next";
 import { savedLocale } from "@/lib/database/locale";
-import { LOCALE_COOKIE, NAMESPACES, type Locale, type Namespace } from "./config";
+import { LOCALE_COOKIE, type Locale, type Namespace } from "./config";
 import { createI18n, type LocaleResources } from "./instance";
 import { pickResources, RESOURCES } from "./resources";
 import { resolveLocale } from "./resolve";
@@ -43,4 +43,3 @@ export async function clientResources(namespaces: readonly Namespace[]): Promise
   return { locale, resources: pickResources(locale, namespaces) };
 }
 
-export { NAMESPACES };

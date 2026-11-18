@@ -3,7 +3,7 @@ import "server-only";
 
 import type { IEventName, NotificationSettings, Price, Product } from "@paddle/paddle-node-sdk";
 import { CATALOG, CATALOG_CURRENCY, type CatalogProduct } from "@/lib/billing/catalog";
-import { CHECKOUT_ITEMS, type CatalogSyncReport, type PriceKey } from "@/lib/billing/types";
+import { CHECKOUT_ITEMS, type CatalogSyncReport } from "@/lib/billing/types";
 import { PADDLE_FORBIDDEN, paddleCall, paddleClient, paddleErrorCode } from "./client";
 
 /**
@@ -280,4 +280,3 @@ export function priceDiffers(
   );
 }
 
-export type { PriceKey };

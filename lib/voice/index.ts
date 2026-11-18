@@ -11,7 +11,7 @@ import * as provider from "./elevenlabs/client";
  * is in ./admin.
  */
 
-export type { FetchedConversation, VoiceBalanceRead, VoiceWebhookEvent } from "./elevenlabs/client";
+export type { VoiceBalanceRead, VoiceWebhookEvent } from "./elevenlabs/client";
 export { WebhookRejectedError } from "./elevenlabs/client";
 
 export type VoiceSession = {
