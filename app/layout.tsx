@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import I18nProvider from "@/components/providers/I18nProvider";
 import Providers from "@/components/providers/Providers";
+import { BOOT_SCRIPT } from "@/lib/bootScript";
 import { appUrl, BRAND } from "@/lib/brand";
 import { clerkAppearance } from "@/lib/clerkAppearance";
 import { clerkLocalization } from "@/lib/clerkLocalization";
@@ -51,10 +52,6 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Runs before first paint: CSS that hides content for an entrance applies only under html[data-js],
-// so a page without JavaScript is never hidden.
-const MARK_JS = `document.documentElement.dataset.js=""`;
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -65,10 +62,10 @@ export default async function RootLayout({
     // One appearance for everything Clerk renders, its modals included.
     // No telemetry: a development instance would send it to a host the CSP blocks (lib/securityHeaders.ts).
     <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization(locale)} telemetry={false}>
-      {/* MARK_JS adds data-js to <html> before hydration. */}
+      {/* BOOT_SCRIPT adds data-js (and, on the landing, data-loading) to <html> before hydration. */}
       <html lang={locale} suppressHydrationWarning>
         <head>
-          <script dangerouslySetInnerHTML={{ __html: MARK_JS }} />
+          <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
         </head>
         <body
           className={`${fraunces.variable} ${schibsted.variable} ${plexMono.variable} flex min-h-dvh flex-col`}

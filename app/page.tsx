@@ -1,13 +1,9 @@
-import { Header } from "@/components/navbar/Header";
+import type { Viewport } from "next";
 import HomeScreen from "@/screens/Home/HomeScreen";
 
+// The landing is on the design system's dark ground.
+export const viewport: Viewport = { themeColor: "#0c0d0f" };
+
 export default function HomePage() {
-  return (
-    <>
-      <Header />
-      <main className="flex flex-1 flex-col">
-        <HomeScreen />
-      </main>
-    </>
-  );
+  return <HomeScreen />;
 }

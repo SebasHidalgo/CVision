@@ -16,7 +16,6 @@ test.describe.configure({ mode: "serial" });
 
 let account: TestAccount;
 const other = (locale: SpecLocale): SpecLocale => (locale === "es" ? "en" : "es");
-const withoutTags = (text: string) => text.replace(/<\/?\w+>/g, "");
 
 test.beforeAll(async ({}, testInfo) => {
   assertSandbox();
@@ -36,7 +35,7 @@ test("the landing and pricing pages follow the browser's language", async ({ pag
   const t = copyFor(locale);
   await page.goto("/");
   expect(await page.locator("html").getAttribute("lang")).toBe(locale);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(literal(withoutTags(t("landing:hero.title"))));
+  await expect(page.getByRole("banner").getByRole("button", { name: literal(t("landing:header.createAccount")) })).toBeVisible();
   await page.goto("/pricing");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(literal(t("pricing:intro.title")));
 });

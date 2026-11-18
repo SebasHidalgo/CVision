@@ -11,7 +11,7 @@ export const SIGNED_IN_NAV: readonly NavItem[] = [
 ];
 
 export const SIGNED_OUT_NAV: readonly NavItem[] = [
-  { href: "/#how", labelKey: "nav.howItWorks", section: [] },
+  { href: "/#how-it-works", labelKey: "nav.howItWorks", section: [] },
   { href: "/pricing", labelKey: "nav.pricing", section: ["/pricing"] },
 ];
 

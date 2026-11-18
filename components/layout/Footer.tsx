@@ -22,7 +22,7 @@ export async function Footer() {
         </div>
 
         <nav aria-label={t("footer.label")} className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
-          <Link href="/#how" className="link-rule text-ink-2">
+          <Link href="/#how-it-works" className="link-rule text-ink-2">
             {t("footer.howItWorks")}
           </Link>
           <Link href="/pricing" className="link-rule text-ink-2">

@@ -346,6 +346,8 @@ export async function settle(page: Page, { skeletonTimeoutMs = 60_000, idleTimeo
     if (loads > 2) throw new Error(`${page.url()} reloaded itself ${loads} times while settling: restart the e2e server`);
     await page.evaluate(() => document.fonts.ready.then(() => true));
     await page.waitForFunction(() => !document.querySelector("[data-prose-pending]"), undefined, { timeout: skeletonTimeoutMs });
+    // The landing's loader comes down by its cap at the latest.
+    await page.waitForFunction(() => !document.documentElement.hasAttribute("data-loading"), undefined, { timeout: 10_000 });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   } finally {
     page.off("load", onLoad);

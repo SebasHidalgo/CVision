@@ -40,8 +40,9 @@ function ensureBundles(i18n: I18n, locale: Locale): Promise<void> {
 /**
  * Switches the interface language in place: client strings at once (their bundles are prefetched on
  * intent), then the server's re-render of the page in the action's response, with no reload, so scroll and form state stay.
+ * `reload` (the landing only): saves the choice first, then reloads the page so its entrance plays again.
  */
-export function useLocaleSwitch() {
+export function useLocaleSwitch({ reload = false }: { reload?: boolean } = {}) {
   const { i18n } = useTranslation();
   const current = useLocale();
   const errorCopy = useErrorCopy();
@@ -65,6 +66,24 @@ export function useLocaleSwitch() {
         document.documentElement.lang = previous;
       };
       setTarget(locale);
+      if (reload) {
+        startTransition(async () => {
+          try {
+            const result = await setLocaleAction({ locale });
+            if (!result.ok) {
+              toast.error(errorCopy(result.code, result.meta));
+            } else {
+              window.location.reload();
+              // Stays pending until the page goes away.
+              return await new Promise<void>(() => undefined);
+            }
+          } catch {
+            toast.error(errorCopy("REQUEST_FAILED"));
+          }
+          setTarget(null);
+        });
+        return;
+      }
       startTransition(async () => {
         try {
           await ensureBundles(i18n, locale);
@@ -86,7 +105,7 @@ export function useLocaleSwitch() {
         }
       });
     },
-    [i18n, target, errorCopy],
+    [i18n, target, errorCopy, reload],
   );
 
   return { current, pending: isPending ? target : null, switchTo, prefetch };
