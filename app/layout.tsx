@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Mono, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Header } from "@/components/navbar/Header";
 import I18nProvider from "@/components/providers/I18nProvider";
 import Providers from "@/components/providers/Providers";
 import { appUrl, BRAND } from "@/lib/brand";
@@ -71,10 +70,7 @@ export default async function RootLayout({
         >
           {/* Not keyed by locale: a language switch keeps the client tree (and its form state). */}
           <I18nProvider locale={locale} resources={pickResources(locale, GLOBAL_CLIENT_NAMESPACES)}>
-            <Providers>
-              <Header />
-              <main className="flex flex-1 flex-col">{children}</main>
-            </Providers>
+            <Providers>{children}</Providers>
           </I18nProvider>
         </body>
       </html>
