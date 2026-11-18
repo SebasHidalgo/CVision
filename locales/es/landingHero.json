@@ -1,0 +1,48 @@
+{
+  "title": {
+    "asks": "Qué pide el puesto.",
+    "proves": "Qué prueba tu CV."
+  },
+  "lede": "Sube tu CV y la oferta: cada requisito vuelve marcado con la línea que lo prueba. Luego ensaya la entrevista por voz con una IA.",
+  "start": "Crear cuenta gratis",
+  "startSignedIn": "Analizar mi CV",
+  "example": "Ver un análisis",
+  "free_one": "Gratis: {{count}} análisis al mes, sin tarjeta.",
+  "free_many": "Gratis: {{count}} análisis al mes, sin tarjeta.",
+  "free_other": "Gratis: {{count}} análisis al mes, sin tarjeta.",
+  "anyField": "Para cualquier área.",
+  "figure": {
+    "posting": "Oferta · {{company}}",
+    "cv": "CV · {{name}}",
+    "requirements_one": "{{count}} requisito",
+    "requirements_many": "{{count}} requisitos",
+    "requirements_other": "{{count}} requisitos",
+    "pages_one": "{{count}} página",
+    "pages_many": "{{count}} páginas",
+    "pages_other": "{{count}} páginas",
+    "listLabel": "Los seis requisitos de la oferta de ejemplo",
+    "line": "L{{line}}",
+    "lineSr": "línea {{line}} del CV",
+    "noLineSr": "sin línea en el CV",
+    "sceneHead": "Oferta · requisitos"
+  },
+  "caption": {
+    "fig": "Fig. 1",
+    "summary": "La oferta de {{role}} de {{company}}, leída contra un CV inventado: {{met}}, {{partial}}, {{missing}} y {{notshown}}.",
+    "met_one": "{{count}} cumplido",
+    "met_many": "{{count}} cumplidos",
+    "met_other": "{{count}} cumplidos",
+    "partial_one": "{{count}} en parte",
+    "partial_many": "{{count}} en parte",
+    "partial_other": "{{count}} en parte",
+    "missing_one": "{{count}} no cumplido",
+    "missing_many": "{{count}} no cumplidos",
+    "missing_other": "{{count}} no cumplidos",
+    "notshown_one": "{{count}} que un CV no puede mostrar",
+    "notshown_many": "{{count}} que un CV no puede mostrar",
+    "notshown_other": "{{count}} que un CV no puede mostrar",
+    "withEvidence": "{{text}}. «{{evidence}}» {{note}}",
+    "withoutEvidence": "{{text}}. {{note}}",
+    "replay": "Repetir la lectura"
+  }
+}

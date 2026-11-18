@@ -1,0 +1,41 @@
+{
+  "title": {
+    "asks": "What the job asks for.",
+    "proves": "What your CV proves."
+  },
+  "lede": "Upload your CV and the posting: each requirement comes back marked with the line that proves it. Then practice the interview out loud with an AI.",
+  "start": "Start free",
+  "startSignedIn": "Analyze my CV",
+  "example": "See an analysis",
+  "free_one": "Free: {{count}} analysis a month, no card needed.",
+  "free_other": "Free: {{count}} analyses a month, no card needed.",
+  "anyField": "Works for any field.",
+  "figure": {
+    "posting": "Posting · {{company}}",
+    "cv": "CV · {{name}}",
+    "requirements_one": "{{count}} requirement",
+    "requirements_other": "{{count}} requirements",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "listLabel": "The example posting's six requirements",
+    "line": "L{{line}}",
+    "lineSr": "CV line {{line}}",
+    "noLineSr": "no line in the CV",
+    "sceneHead": "Posting · requirements"
+  },
+  "caption": {
+    "fig": "Fig. 1",
+    "summary": "The {{role}} posting at {{company}}, read against an invented CV: {{met}}, {{partial}}, {{missing}} and {{notshown}}.",
+    "met_one": "{{count}} met",
+    "met_other": "{{count}} met",
+    "partial_one": "{{count}} partly met",
+    "partial_other": "{{count}} partly met",
+    "missing_one": "{{count}} not met",
+    "missing_other": "{{count}} not met",
+    "notshown_one": "{{count}} a CV can't show",
+    "notshown_other": "{{count}} a CV can't show",
+    "withEvidence": "{{text}}. “{{evidence}}” {{note}}",
+    "withoutEvidence": "{{text}}. {{note}}",
+    "replay": "Replay the reading"
+  }
+}
