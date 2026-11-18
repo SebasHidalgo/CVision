@@ -1,0 +1,7 @@
+{
+  // The browser suite's production build (E2E_BUILD=1, distDir .next-e2e): its own generated
+  // types only, never .next or a dev server's. Same reasoning as tsconfig.build.json.
+  "extends": "./tsconfig.json",
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next-e2e/types/**/*.ts"],
+  "exclude": ["node_modules", "scripts/eval/runs", ".next", ".next-e2e/dev"]
+}

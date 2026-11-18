@@ -37,8 +37,13 @@
     ".next-e2e/types/**/*.ts",
     ".next-e2e/dev/types/**/*.ts"
   ],
+  // The editor and `npx tsc --noEmit`: sources only. Next adds the generated-type globs above
+  // (and would re-add them), but a stale .next/dev or .next-e2e must not fail the check, so the
+  // folders are excluded; each build checks its own (tsconfig.build.json, tsconfig.e2e-build.json).
   "exclude": [
     "node_modules",
-    "scripts/eval/runs"
+    "scripts/eval/runs",
+    ".next",
+    ".next-e2e"
   ]
 }

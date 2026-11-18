@@ -21,6 +21,11 @@ const e2eBuild = process.env.E2E_BUILD === "1";
 
 const nextConfig: NextConfig = {
   distDir: e2eBuild ? ".next-e2e" : ".next",
+  // A build type-checks the sources and its own generated types: a stale .next/dev, or the other
+  // build's folder, never fails it. Dev keeps tsconfig.json (also the editor's).
+  typescript: {
+    tsconfigPath: process.env.NODE_ENV !== "production" ? "tsconfig.json" : e2eBuild ? "tsconfig.e2e-build.json" : "tsconfig.build.json",
+  },
   // Dev-only pages are page.dev.tsx: a production build doesn't know the extension.
   pageExtensions: process.env.NODE_ENV === "production" && !e2eBuild ? ["tsx", "ts", "jsx", "js"] : ["dev.tsx", "tsx", "ts", "jsx", "js"],
   experimental: {

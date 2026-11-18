@@ -1,0 +1,8 @@
+{
+  // `next build` (next.config.ts, typescript.tsconfigPath): the sources and this build's own
+  // generated types. Never .next/dev or the browser suite's build, which may name moved routes.
+  // `extends` also stops Next from rewriting this file.
+  "extends": "./tsconfig.json",
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "scripts/eval/runs", ".next/dev", ".next-e2e"]
+}
