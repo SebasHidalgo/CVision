@@ -20,9 +20,9 @@
     },
     "interviews": {
       "label": "Entrevista de voz",
-      "trial_one": "Una de práctica de {{minutes}} minutos, una vez por cuenta",
-      "trial_many": "{{count}} de práctica de {{minutes}} minutos por cuenta",
-      "trial_other": "{{count}} de práctica de {{minutes}} minutos por cuenta",
+      "trial_one": "Una de práctica de {{minutes}} minutos, una vez, para cuentas que nunca tuvieron Pro",
+      "trial_many": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
+      "trial_other": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
       "perMonth_one": "{{count}} al mes, de hasta {{minutes}} minutos",
       "perMonth_many": "{{count}} al mes, de hasta {{minutes}} minutos",
       "perMonth_other": "{{count}} al mes, de hasta {{minutes}} minutos"

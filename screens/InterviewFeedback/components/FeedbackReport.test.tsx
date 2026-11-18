@@ -92,7 +92,7 @@ describe("FeedbackReport", () => {
     expect(html).toContain("moved the six orders services to a managed Kubernetes cluster");
 
     // Notable answers with their verdicts.
-    expect(html).toContain("Answers worth hearing again");
+    expect(html).toContain("Answers that stood out");
     expect(html).toContain("Worked");
     expect(html).toContain("Didn&#x27;t land");
 
@@ -137,7 +137,7 @@ describe("FeedbackReport", () => {
       date: "October 11, 2026",
     });
     expect(html).not.toContain("Clear ownership.");
-    expect(html).not.toContain("Answers worth hearing again");
+    expect(html).not.toContain("Answers that stood out");
     expect(html).not.toContain("“”");
   });
 

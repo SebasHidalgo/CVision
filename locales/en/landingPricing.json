@@ -18,8 +18,8 @@
     },
     "interviews": {
       "label": "Voice interview",
-      "trial_one": "One {{minutes}}-minute practice interview, once per account",
-      "trial_other": "{{count}} practice interviews of {{minutes}} minutes, per account",
+      "trial_one": "One {{minutes}}-minute practice interview, once, for accounts that never had Pro",
+      "trial_other": "{{count}} practice interviews of {{minutes}} minutes, for accounts that never had Pro",
       "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
       "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
     }

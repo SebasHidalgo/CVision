@@ -105,7 +105,7 @@
           "partially": "Partly addressed"
         },
         "answers": {
-          "eyebrow": "Answers worth hearing again",
+          "eyebrow": "Answers that stood out",
           "title": "In your own words.",
           "worked": "Worked",
           "didntLand": "Didn't land"
@@ -167,7 +167,7 @@
   "facts": {
     "length": {
       "term": "Length",
-      "body": "Up to {{full}} minutes with Pro. The free trial lasts {{trial}}, once per account."
+      "body": "Up to {{full}} minutes with Pro. The free trial lasts {{trial}}, once, for accounts that never had Pro."
     },
     "language": {
       "term": "Language",

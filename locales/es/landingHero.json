@@ -10,7 +10,7 @@
   "free_one": "Gratis: {{count}} análisis al mes, sin tarjeta.",
   "free_many": "Gratis: {{count}} análisis al mes, sin tarjeta.",
   "free_other": "Gratis: {{count}} análisis al mes, sin tarjeta.",
-  "anyField": "Para cualquier área.",
+  "anyField": "Con cualquier oferta que pegues.",
   "figure": {
     "posting": "Oferta · {{company}}",
     "cv": "CV · {{name}}",

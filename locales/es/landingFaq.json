@@ -3,7 +3,7 @@
   "items": {
     "anyJob": {
       "q": "¿Sirve para cualquier puesto?",
-      "a": "Sí. El ejemplo de esta página es de software, pero {{brand}} lee la oferta que pegues, de cualquier área: ventas, salud, logística, administración, educación. Los requisitos salen de esa oferta, no de una lista fija."
+      "a": "Lee cualquier oferta que pegues y saca los requisitos de esa oferta, no de una lista fija, así que no está atado a un área. Lo probamos sobre todo con ofertas de tecnología, datos y marketing. En cualquier área, cada requisito muestra la línea de la oferta junto a lo que dice tu CV, para que puedas revisar cada fila."
     },
     "reads": {
       "q": "¿Qué lee {{brand}} de mi CV?",
@@ -15,11 +15,11 @@
     },
     "listens": {
       "q": "¿Alguien escucha mi entrevista?",
-      "a": "No. Es práctica, para ti: el entrevistador es una IA, nadie revisa la llamada y nadie te va a contactar. La transcripción sirve para armar tu feedback."
+      "a": "Ninguna persona la escucha. El entrevistador es una IA: ElevenLabs procesa la llamada de voz y Gemini, de Google, lee la transcripción para escribir tu feedback. Es práctica, para ti, y nadie te va a contactar."
     },
     "afterwards": {
       "q": "¿Qué pasa con mi CV después?",
-      "a": "Se guarda en un almacenamiento privado mientras exista su análisis. Si borras el análisis, se borran el PDF y sus entrevistas."
+      "a": "Se guarda en un almacenamiento privado mientras exista su análisis. Si borras el análisis, se borran el PDF y sus entrevistas. En el plan Gratis, los análisis más viejos quedan ocultos en tu lista, no borrados, y puedes borrarlos desde ahí."
     },
     "language": {
       "q": "¿En qué idioma funciona?",

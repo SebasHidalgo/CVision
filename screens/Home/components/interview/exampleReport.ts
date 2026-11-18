@@ -30,7 +30,7 @@ export const EXAMPLE_REPORT = {
     { id: "confidenceAndClarity", score: 70 },
   ] satisfies readonly { id: CategoryId; score: number }[],
   gaps: ANSWERED_GAPS.map((g) => ({ req: g.req, line: answerLineAt(g.at), outcome: OUTCOME[g.req] })),
-  /** "Answers worth hearing again". */
+  /** "Answers that stood out". */
   answers: [
     { id: "a1", line: 3, worked: true },
     { id: "a2", line: 7, worked: false },

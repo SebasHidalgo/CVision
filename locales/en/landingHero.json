@@ -9,7 +9,7 @@
   "example": "See an analysis",
   "free_one": "Free: {{count}} analysis a month, no card needed.",
   "free_other": "Free: {{count}} analyses a month, no card needed.",
-  "anyField": "Works for any field.",
+  "anyField": "Any posting you paste.",
   "figure": {
     "posting": "Posting · {{company}}",
     "cv": "CV · {{name}}",

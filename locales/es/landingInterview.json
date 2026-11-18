@@ -108,7 +108,7 @@
           "partially": "Abordada en parte"
         },
         "answers": {
-          "eyebrow": "Respuestas que vale la pena repasar",
+          "eyebrow": "Respuestas que destacaron",
           "title": "En tus propias palabras.",
           "worked": "Funcionó",
           "didntLand": "No convenció"
@@ -174,7 +174,7 @@
   "facts": {
     "length": {
       "term": "Duración",
-      "body": "Hasta {{full}} minutos con Pro. La prueba gratis dura {{trial}}, una vez por cuenta."
+      "body": "Hasta {{full}} minutos con Pro. La prueba gratis dura {{trial}}, una vez, para cuentas que nunca tuvieron Pro."
     },
     "language": {
       "term": "Idioma",

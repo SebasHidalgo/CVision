@@ -3,7 +3,7 @@
   "items": {
     "anyJob": {
       "q": "Does it work for any job?",
-      "a": "Yes. The example on this page is a software job, but {{brand}} reads whatever posting you paste, in any field: sales, healthcare, logistics, administration, teaching. The requirements come from that posting, not from a fixed list."
+      "a": "It reads any posting you paste and takes the requirements from that posting, not from a fixed list, so it isn't tied to one field. We've tested it most on tech, data and marketing postings. In every field, each requirement shows the posting's own line next to what your CV says, so you can check every row yourself."
     },
     "reads": {
       "q": "What does {{brand}} read from my CV?",
@@ -15,11 +15,11 @@
     },
     "listens": {
       "q": "Does anyone listen to my interview?",
-      "a": "No. It's practice, just for you: the interviewer is an AI, no one reviews the call, and no one will contact you. The transcript is only used to put together your feedback."
+      "a": "No person listens to it. The interviewer is an AI: ElevenLabs runs the voice call, and Google's Gemini reads the transcript to write your feedback. It's practice, just for you, and no one will contact you."
     },
     "afterwards": {
       "q": "What happens to my CV afterwards?",
-      "a": "It's kept in private storage for as long as its analysis exists. Delete the analysis, and the PDF and its interviews are deleted with it."
+      "a": "It's kept in private storage for as long as its analysis exists. Delete the analysis, and the PDF and its interviews are deleted with it. On Free, older analyses are hidden from your list, not deleted, and you can still delete them there."
     },
     "language": {
       "q": "Which languages does it work in?",
