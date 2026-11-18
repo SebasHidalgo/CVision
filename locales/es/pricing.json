@@ -27,7 +27,7 @@
     "signUp": "Crea tu cuenta y hazte Pro",
     "checkout": "Hazte Pro · {{price}} al mes",
     "promises": {
-      "unlimited": "Análisis de CV ilimitados",
+      "analyses": "Hasta {{limit}} análisis al mes",
       "interviews_one": "{{count}} entrevista por voz al mes, de hasta {{minutes}} minutos",
       "interviews_many": "{{count}} entrevistas por voz al mes, de hasta {{minutes}} minutos",
       "interviews_other": "{{count}} entrevistas por voz al mes, de hasta {{minutes}} minutos",

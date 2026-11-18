@@ -21,13 +21,13 @@
     },
     "plans": {
       "heading": "3. Planes, precios y facturación",
-      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos para una cuenta que nunca tuvo Pro ni una entrevista completa, y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye análisis de CV ilimitados (sujetos a un uso razonable), {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica de hasta {{fullMinutes}} minutos cada una y se pueden comprar mientras Pro esté activo. Los créditos del paquete no vencen y se pueden usar en cualquier plan, Gratis o Pro, incluso después de que termine Pro.",
+      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos para una cuenta que nunca tuvo Pro ni una entrevista completa, y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye hasta {{proAnalyses}} análisis de CV al mes, {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica de hasta {{fullMinutes}} minutos cada una y se pueden comprar mientras Pro esté activo. Los créditos del paquete no vencen y se pueden usar en cualquier plan, Gratis o Pro, incluso después de que termine Pro.",
       "p2": "Las compras se hacen a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} se encarga del pago, la factura, los impuestos que correspondan y los reembolsos, y es quien aparece en tu estado de cuenta. Los precios se muestran antes de pagar. Una suscripción se renueva en cada período hasta que la canceles; puedes cancelarla cuando quieras desde la página de tu cuenta, y Pro sigue activo hasta el final del período que pagaste.",
       "p3": "[PLACEHOLDER: cambios de precio y cómo se avisan.]"
     },
     "fairUse": {
       "heading": "4. Uso razonable",
-      "p1": "Los análisis de CV de Pro son ilimitados para una persona que revisa sus propias postulaciones. Podemos limitar las cuentas que automatizan el servicio, lo comparten entre varias personas o lo usan para algo que no sea su propia búsqueda de empleo."
+      "p1": "Los {{proAnalyses}} análisis al mes de Pro son para una persona que revisa sus propias postulaciones. Podemos limitar las cuentas que automatizan el servicio, lo comparten entre varias personas o lo usan para algo que no sea su propia búsqueda de empleo."
     },
     "ai": {
       "heading": "5. La IA y sus límites",

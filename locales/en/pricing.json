@@ -25,7 +25,7 @@
     "signUp": "Sign up for Pro",
     "checkout": "Get Pro · {{price}} a month",
     "promises": {
-      "unlimited": "Unlimited CV analyses",
+      "analyses": "Up to {{limit}} analyses a month",
       "interviews_one": "{{count}} voice interview per month, up to {{minutes}} minutes",
       "interviews_other": "{{count}} voice interviews per month, up to {{minutes}} minutes",
       "packs": "Interview packs: {{credits}} more for {{price}}",

@@ -126,7 +126,7 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
             {pro ? "∞" : summary.analyses.left}
             {!pro && <span className="eyebrow ml-2">{t("analyses.ofMonth", { limit: PLANS.FREE.analysesPerMonth })}</span>}
           </dd>
-          <p className="mt-2 text-sm text-ink-2">{pro ? t("analyses.pro") : t("analyses.free", { limit: PLANS.FREE.historyLimit ?? 0 })}</p>
+          <p className="mt-2 text-sm text-ink-2">{pro ? t("analyses.pro", { limit: PLANS.PRO.analysesPerMonth }) : t("analyses.free", { limit: PLANS.FREE.historyLimit ?? 0 })}</p>
         </div>
       </dl>
 

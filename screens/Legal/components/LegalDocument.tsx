@@ -34,6 +34,7 @@ const VALUES = {
   merchant: MERCHANT_OF_RECORD,
   freeAnalyses: PLANS.FREE.analysesPerMonth,
   freeHistory: PLANS.FREE.historyLimit,
+  proAnalyses: PLANS.PRO.analysesPerMonth,
   proInterviews: PLANS.PRO.interviewsPerMonth,
   packCredits: INTERVIEW_PACK_CREDITS,
   trialMinutes: INTERVIEW_TIERS.TRIAL.seconds / 60,

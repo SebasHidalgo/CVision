@@ -43,7 +43,7 @@
   "analyses": {
     "label": "Análisis",
     "ofMonth": "de {{limit}} este mes",
-    "pro": "Análisis de CV ilimitados.",
+    "pro": "Hasta {{limit}} análisis al mes.",
     "free": "El plan Gratis muestra tus últimos {{limit}} análisis."
   },
   "actions": {

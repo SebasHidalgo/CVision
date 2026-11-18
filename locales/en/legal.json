@@ -21,13 +21,13 @@
     },
     "plans": {
       "heading": "3. Plans, prices and billing",
-      "p1": "Free includes {{freeAnalyses}} CV checks per month, one {{trialMinutes}}-minute practice interview for an account that has never had Pro or a full interview, and your last {{freeHistory}} analyses. Pro is a monthly subscription that includes unlimited CV checks (subject to fair use), {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each, and your full history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
+      "p1": "Free includes {{freeAnalyses}} CV checks per month, one {{trialMinutes}}-minute practice interview for an account that has never had Pro or a full interview, and your last {{freeHistory}} analyses. Pro is a monthly subscription that includes up to {{proAnalyses}} CV analyses a month, {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each, and your full history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
       "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from your account page, and Pro stays active until the end of the period you paid for.",
       "p3": "[PLACEHOLDER: price changes and how they are notified.]"
     },
     "fairUse": {
       "heading": "4. Fair use",
-      "p1": "Pro's CV checks are unlimited for a person checking their own applications. We may limit accounts that automate the service, share it between people, or use it for something other than their own job search."
+      "p1": "Pro's {{proAnalyses}} analyses a month are for a person checking their own applications. We may limit accounts that automate the service, share it between people, or use it for something other than their own job search."
     },
     "ai": {
       "heading": "5. The AI, and its limits",

@@ -22,8 +22,8 @@ export type PlanLimits = {
   /** Analyses per period. */
   analysesPerMonth: number;
   /**
-   * Whether the UI says how many analyses are left. PRO's number is a
-   * fair-use cap sold as "unlimited": shown only once it is hit.
+   * Whether the upload page counts analyses down. PRO's cap is announced as
+   * "up to" on the plan pages; the upload page names it only once it is hit.
    */
   announceAnalyses: boolean;
   /** Full interviews per period. */
@@ -108,7 +108,7 @@ export type AnalysisQuotaView = {
   plan: PlanId;
   left: number;
   limit: number;
-  /** False for PRO: its number is a fair-use cap, not an announced quota. */
+  /** False for PRO: the upload page counts down only the Free allowance. */
   announce: boolean;
   /** ISO date of the next reset. */
   resetsAt: string;

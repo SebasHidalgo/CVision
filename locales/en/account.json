@@ -42,7 +42,7 @@
   "analyses": {
     "label": "Analyses",
     "ofMonth": "of {{limit}} this month",
-    "pro": "Unlimited CV analyses.",
+    "pro": "Up to {{limit}} analyses a month.",
     "free": "Free shows your last {{limit}} analyses."
   },
   "actions": {

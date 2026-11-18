@@ -8,7 +8,7 @@ and nothing else hard-codes one.
 
 | | Free | Pro ($15 a month) |
 |---|---|---|
-| Analyses | 3 a month, counted down on the upload page | 50 a month as a fair-use cap; sold as unlimited, the UI never shows the number, only the refusal when it is hit |
+| Analyses | 3 a month, counted down on the upload page | up to 50 a month, said that way on the landing, pricing, account, terms and the Paddle catalog; the upload page counts down only Free, so Pro sees the number again only in the refusal when it is hit |
 | Voice interviews | one 5-minute trial, once, for an account that never had voice | 4 per billing period, 12 minutes each, then pack credits |
 | Interview pack | — | $9 one-time, 4 credits, bought while Pro is in force; each credit is a full 12-minute interview, usable on any plan, never expires |
 | History | the last 3 analyses; older ones are hidden, never deleted | everything |

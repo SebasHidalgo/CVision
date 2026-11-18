@@ -26,7 +26,6 @@ export function usePricing() {
         id: "analyses",
         label: t("rows.analyses.label"),
         free: t("rows.analyses.free", { count: PLANS.FREE.analysesPerMonth }),
-        // The owner's call for the landing: Pro's fair-use cap is said as "up to".
         pro: t("rows.analyses.pro", { count: PLANS.PRO.analysesPerMonth }),
       },
       { id: "history", label: t("rows.history.label"), free: history("FREE"), pro: history("PRO") },

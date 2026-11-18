@@ -24,8 +24,8 @@ const BILLING_CLIENT_NS = ["billing"] as const;
  * Free and Pro side by side, with exactly the promises the plans make and
  * the prices the catalog sells at: one source, so the page and the checkout
  * cannot disagree. A visitor is sent to sign up; a Free member to the
- * checkout; a Pro member to the portal. Pro's analyses are "unlimited":
- * the fair-use cap is never shown here.
+ * checkout; a Pro member to the portal. Pro's analyses are "up to" its
+ * monthly cap, as on every page that names the plan.
  */
 export default async function PricingScreen() {
   const userId = await getOptionalUserId();
@@ -48,7 +48,7 @@ export default async function PricingScreen() {
       : t("free.promises.history", { count: PLANS.FREE.historyLimit }),
   ];
   const proPromises = [
-    t("pro.promises.unlimited"),
+    t("pro.promises.analyses", { limit: PLANS.PRO.analysesPerMonth }),
     t("pro.promises.interviews", { count: PLANS.PRO.interviewsPerMonth, minutes: INTERVIEW_TIERS.FULL.seconds / 60 }),
     t("pro.promises.packs", { credits: INTERVIEW_PACK_CREDITS, price: price("interview_pack") }),
     t("pro.promises.history"),
