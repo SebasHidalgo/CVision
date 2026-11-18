@@ -9,13 +9,13 @@ const actionErrorCopy = (code: ErrorCode, meta?: ErrorMeta) => copyIn(en, "en", 
 const spanish = (code: ErrorCode, meta?: ErrorMeta) => copyIn(es, "es", code, meta);
 
 describe("actionErrorCopy for the limits", () => {
-  it("names the Free allowance and its reset, and Pro's fair-use cap without a number", () => {
+  it("names the Free allowance and its reset, and Pro's monthly cap with its number", () => {
     expect(actionErrorCopy("ANALYSIS_QUOTA_EXCEEDED", { plan: "FREE", resetsAt: "2026-11-01T00:00:00.000Z" })).toBe(
       "You've used this month's analyses. Resets Nov 1.",
     );
     const pro = actionErrorCopy("ANALYSIS_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: "2026-11-01T00:00:00.000Z" });
-    expect(pro).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
-    expect(pro).not.toMatch(/50/);
+    expect(pro).toBe("You've used your 50 analyses for this period. They reset Nov 1.");
+    expect(spanish("ANALYSIS_QUOTA_EXCEEDED", { plan: "PRO" })).toBe("Usaste tus 50 análisis de este período.");
   });
 
   it("sends a Free account to Pro for interviews, and tells a Pro account when its interviews return", () => {

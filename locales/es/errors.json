@@ -42,8 +42,8 @@
   "analysisQuota": {
     "free": "Ya usaste los análisis de este mes.",
     "freeResets": "Ya usaste los análisis de este mes. Se reinician el {{date}}.",
-    "pro": "Llegaste al límite de uso razonable de este mes.",
-    "proResets": "Llegaste al límite de uso razonable de este mes. Se reinicia el {{date}}."
+    "pro": "Usaste tus {{limit}} análisis de este período.",
+    "proResets": "Usaste tus {{limit}} análisis de este período. Se reinician el {{date}}."
   },
   "interviewQuota": {
     "pro": "Ya usaste las entrevistas de este período.",

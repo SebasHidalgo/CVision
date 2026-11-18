@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { INTL_LOCALE, type Locale } from "@/lib/i18n/config";
+import { PLANS } from "@/lib/plans";
 import { MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import type { ErrorCode, ErrorMeta } from "./errors";
 
@@ -15,13 +16,14 @@ export function resetDateCopy(resetsAt: string, locale: Locale): string {
 /**
  * The copy for a code, with the few blanks `meta` fills: the reset date of
  * a quota, the wait of a rate limit, and the plan, which decides whether a
- * used-up analysis quota is the Free allowance or Pro's fair-use cap.
+ * used-up analysis quota is the Free allowance or Pro's monthly cap.
  */
 export function actionErrorCopy(t: TFunction<"errors">, locale: Locale, code: ErrorCode, meta?: ErrorMeta): string {
   if (code === "ANALYSIS_QUOTA_EXCEEDED") {
     const pro = meta?.plan === "PRO";
-    if (!meta?.resetsAt) return t(pro ? "analysisQuota.pro" : "analysisQuota.free");
-    return t(pro ? "analysisQuota.proResets" : "analysisQuota.freeResets", { date: resetDateCopy(meta.resetsAt, locale) });
+    const limit = PLANS.PRO.analysesPerMonth;
+    if (!meta?.resetsAt) return t(pro ? "analysisQuota.pro" : "analysisQuota.free", { limit });
+    return t(pro ? "analysisQuota.proResets" : "analysisQuota.freeResets", { date: resetDateCopy(meta.resetsAt, locale), limit });
   }
   if (code === "INTERVIEW_QUOTA_EXCEEDED" && meta?.plan === "PRO") {
     return meta.resetsAt ? t("interviewQuota.proResets", { date: resetDateCopy(meta.resetsAt, locale) }) : t("interviewQuota.pro");

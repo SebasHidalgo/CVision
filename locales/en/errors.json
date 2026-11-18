@@ -42,8 +42,8 @@
   "analysisQuota": {
     "free": "You've used this month's analyses.",
     "freeResets": "You've used this month's analyses. Resets {{date}}.",
-    "pro": "You've reached this month's fair-use limit.",
-    "proResets": "You've reached this month's fair-use limit. Resets {{date}}."
+    "pro": "You've used your {{limit}} analyses for this period.",
+    "proResets": "You've used your {{limit}} analyses for this period. They reset {{date}}."
   },
   "interviewQuota": {
     "pro": "You've used this period's interviews.",
