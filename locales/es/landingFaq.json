@@ -1,0 +1,33 @@
+{
+  "title": "Preguntas.",
+  "items": {
+    "anyJob": {
+      "q": "¿Sirve para cualquier puesto?",
+      "a": "Sí. El ejemplo de esta página es de software, pero {{brand}} lee la oferta que pegues, de cualquier área: ventas, salud, logística, administración, educación. Los requisitos salen de esa oferta, no de una lista fija."
+    },
+    "reads": {
+      "q": "¿Qué lee {{brand}} de mi CV?",
+      "a": "La capa de texto de tu PDF, la misma que lee un sistema de seguimiento de postulaciones (ATS). Si el PDF es un escaneo sin texto, te lo decimos y no gasta ninguno de tus análisis."
+    },
+    "score": {
+      "q": "¿Me dan un puntaje de compatibilidad?",
+      "a": "No. Recibes un veredicto (compatibilidad baja, parcial o alta) que sale de contar los requisitos que cumples, y puedes revisar esa cuenta fila por fila. Los puntajes son otra cosa: la calidad de tu CV por sí solo, tres de sus lecturas y tu entrevista."
+    },
+    "listens": {
+      "q": "¿Alguien escucha mi entrevista?",
+      "a": "No. Es práctica, para ti: el entrevistador es una IA, nadie revisa la llamada y nadie te va a contactar. La transcripción sirve para armar tu feedback."
+    },
+    "afterwards": {
+      "q": "¿Qué pasa con mi CV después?",
+      "a": "Se guarda en un almacenamiento privado mientras exista su análisis. Si borras el análisis, se borran el PDF y sus entrevistas."
+    },
+    "language": {
+      "q": "¿En qué idioma funciona?",
+      "a": "La app está en español y en inglés. La entrevista puede ser en cualquiera de los dos: la sala te propone el idioma de la oferta y puedes cambiarlo antes de empezar."
+    },
+    "cancel": {
+      "q": "¿Puedo cancelar Pro?",
+      "a": "Cuando quieras, desde tu cuenta. Pro sigue activo hasta el final del período que pagaste, y las entrevistas de paquetes que compraste no vencen."
+    }
+  }
+}

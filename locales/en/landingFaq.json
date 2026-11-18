@@ -1,0 +1,33 @@
+{
+  "title": "Questions.",
+  "items": {
+    "anyJob": {
+      "q": "Does it work for any job?",
+      "a": "Yes. The example on this page is a software job, but {{brand}} reads whatever posting you paste, in any field: sales, healthcare, logistics, administration, teaching. The requirements come from that posting, not from a fixed list."
+    },
+    "reads": {
+      "q": "What does {{brand}} read from my CV?",
+      "a": "The text layer of your PDF, the same one an applicant tracking system (ATS) reads. If the PDF is a scan with no text, we tell you, and it doesn't use up any of your analyses."
+    },
+    "score": {
+      "q": "Do I get a score for how well I match?",
+      "a": "No. You get a verdict (weak, partial or strong fit) counted from the requirements you meet, and you can check that count row by row. The scores are something else: the quality of your CV on its own, three of its readings, and your interview."
+    },
+    "listens": {
+      "q": "Does anyone listen to my interview?",
+      "a": "No. It's practice, just for you: the interviewer is an AI, no one reviews the call, and no one will contact you. The transcript is only used to put together your feedback."
+    },
+    "afterwards": {
+      "q": "What happens to my CV afterwards?",
+      "a": "It's kept in private storage for as long as its analysis exists. Delete the analysis, and the PDF and its interviews are deleted with it."
+    },
+    "language": {
+      "q": "Which languages does it work in?",
+      "a": "The app is in English and Spanish. The interview can be in either one: the room suggests the language of the posting, and you can change it before you start."
+    },
+    "cancel": {
+      "q": "Can I cancel Pro?",
+      "a": "Any time, from your account. Pro stays active until the end of the period you paid for, and interviews from packs you bought never expire."
+    }
+  }
+}

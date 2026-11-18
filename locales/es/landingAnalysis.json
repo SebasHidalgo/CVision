@@ -1,0 +1,86 @@
+{
+  "title": "Cada requisito, con la línea que lo prueba.",
+  "lede": "El veredicto no es un puntaje: sale de contar los requisitos que cumples. Abre cualquier fila y revisa la cuenta.",
+  "verdict": {
+    "label": "Veredicto del ejemplo",
+    "cap": "Veredicto",
+    "required": "Obligatorios",
+    "preferred": "Deseables",
+    "notShown_one": "No aparece en tu CV",
+    "notShown_many": "No aparecen en tu CV",
+    "notShown_other": "No aparecen en tu CV",
+    "count": "{{met}} de {{total}}",
+    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte",
+    "rule": "<b>Baja:</b> te falta un obligatorio, o dos o más están solo en parte. <b>Parcial:</b> cumples los obligatorios (uno puede estar en parte) y menos de dos deseables. <b>Alta:</b> lo mismo, con dos deseables o más; uno en parte cuenta como medio. Lo que un CV no puede mostrar queda fuera de la cuenta."
+  },
+  "requirements": {
+    "listLabel": "Requisitos de la oferta de ejemplo",
+    "columns": {
+      "n": "N.º",
+      "requirement": "Requisito de la oferta",
+      "kind": "Tipo",
+      "status": "Estado",
+      "evidence": "Evidencia en tu CV"
+    },
+    "hint": "Abre una fila para ver la nota y los términos que nombra la oferta.",
+    "noLine": "Ninguna línea",
+    "line": "L{{line}}",
+    "lineSr": "Línea {{n}}:",
+    "quote": "«{{text}}»",
+    "termsLabel": "Términos que nombra la oferta",
+    "or": "o",
+    "orBeforeO": "u",
+    "termShown": ", aparece en tu CV",
+    "termMissing": ", no está en tu CV"
+  },
+  "proof": {
+    "source": "CV de {{candidate}} · línea {{line}}",
+    "note": "Prueba {{n}}, {{label}}: nombra las herramientas y lo que hizo con ellas. Una línea así vale más que «React» en una lista de habilidades."
+  },
+  "readings": {
+    "title": "Las otras lecturas",
+    "body": "Miran tu CV por sí solo y no cambian el veredicto. Tres tienen puntaje; todas muestran en qué se basaron.",
+    "quality": "Calidad del CV, por sí sola",
+    "noScore": "Sin puntaje: hechos",
+    "found": "En el ejemplo",
+    "items": {
+      "ats": {
+        "name": "Lo que lee un ATS",
+        "reads": "Qué secciones puede ver un sistema de seguimiento de postulaciones (ATS) y si algún carácter de tu PDF salió mal.",
+        "found": "Ve Experiencia, Formación e Idiomas. La capa de texto está limpia."
+      },
+      "experience": {
+        "name": "Experiencia e impacto",
+        "reads": "Si tus viñetas muestran resultados o solo tareas, con reescrituras sugeridas que no inventan cifras.",
+        "found": "Ya pones cifras a dos resultados: 120 restaurantes y 15 clientes."
+      },
+      "skills": {
+        "name": "Habilidades",
+        "reads": "Qué habilidades que pide la oferta demuestras con una línea de tu CV, y cuáles solo nombras.",
+        "found": "React, TypeScript y Node.js, cada una con su línea."
+      },
+      "education": {
+        "name": "Formación y certificaciones",
+        "reads": "Si tu formación cuenta para este puesto y si se ve bien en tu CV.",
+        "found": "Si terminaste cursos de bases de datos, agrégalos con su año."
+      },
+      "tone": {
+        "name": "Tono y claridad",
+        "reads": "Tiempos verbales, jerga y qué tan rápido quien lee entiende lo importante.",
+        "found": "Viñetas en primera persona, con verbos de acción: se leen rápido."
+      }
+    }
+  },
+  "fixes": {
+    "title": "Arregla esto primero",
+    "impact": {
+      "high": "Impacto alto",
+      "medium": "Impacto medio"
+    },
+    "items": {
+      "database": "Nombra la base de datos en la viñeta de la API de pagos, con lo que hiciste en ella.",
+      "aws": "Si desplegaste algo en AWS, agrega una línea con qué desplegaste y cómo.",
+      "dashboard": "Ponle una cifra al panel de pedidos: cuántos pedidos mueve o cuánto tiempo ahorra."
+    }
+  }
+}

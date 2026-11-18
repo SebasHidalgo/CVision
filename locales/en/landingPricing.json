@@ -1,0 +1,41 @@
+{
+  "title": "Check for free. Rehearse with Pro.",
+  "lede": "Two plans, and a pack for when you need more interviews. Prices in {{currency}}.",
+  "perMonth": "a month",
+  "plansLabel": "Free and Pro compared",
+  "rows": {
+    "analyses": {
+      "label": "CV analyses",
+      "free_one": "{{count}} a month",
+      "free_other": "{{count}} a month",
+      "pro": "Up to {{count}} a month"
+    },
+    "history": {
+      "label": "History",
+      "last_one": "Your last analysis",
+      "last_other": "Your last {{count}} analyses",
+      "all": "Your full history"
+    },
+    "interviews": {
+      "label": "Voice interview",
+      "trial_one": "One {{minutes}}-minute practice interview, once per account",
+      "trial_other": "{{count}} practice interviews of {{minutes}} minutes, per account",
+      "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
+      "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
+    }
+  },
+  "cta": {
+    "rowLabel": "Get started",
+    "free": "Create a free account",
+    "freeSignedIn": "Analyze my CV",
+    "pro": "Subscribe to Pro",
+    "proSignedIn": "See the Pro plan"
+  },
+  "pack": {
+    "label": "Add-on pack",
+    "lead_one": "{{count}} more interview for {{price}}.",
+    "lead_other": "{{count}} more interviews for {{price}}.",
+    "body": "You buy it while Pro is active. The interviews never expire, and they still work after Pro ends."
+  },
+  "note": "Payments are handled by {{merchant}}, the merchant of record. Cancel any time from your account; Pro stays active until the end of the period you paid for. Read the <refunds>refund policy</refunds> and the <terms>terms</terms>."
+}

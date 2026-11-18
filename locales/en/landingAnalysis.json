@@ -1,0 +1,85 @@
+{
+  "title": "Every requirement, with the line that proves it.",
+  "lede": "The verdict isn't a score: it comes from counting the requirements you meet. Open any row and check the count yourself.",
+  "verdict": {
+    "label": "The example's verdict",
+    "cap": "Verdict",
+    "required": "Required",
+    "preferred": "Preferred",
+    "notShown_one": "Not shown in your CV",
+    "notShown_other": "Not shown in your CV",
+    "count": "{{met}} of {{total}}",
+    "countWithPartial": "{{met}} of {{total}}, {{partial}} partly",
+    "rule": "<b>Weak:</b> a required item is missing, or two or more are only partly met. <b>Partial:</b> you meet the required items (one may be partly met) and fewer than two preferred ones. <b>Strong:</b> the same, with two or more preferred; a partly met one counts as half. Whatever a CV can't show stays out of the count."
+  },
+  "requirements": {
+    "listLabel": "The example posting's requirements",
+    "columns": {
+      "n": "No.",
+      "requirement": "Posting requirement",
+      "kind": "Type",
+      "status": "Status",
+      "evidence": "Evidence in your CV"
+    },
+    "hint": "Open a row to see the note and the terms the posting names.",
+    "noLine": "No line",
+    "line": "L{{line}}",
+    "lineSr": "Line {{n}}:",
+    "quote": "“{{text}}”",
+    "termsLabel": "Terms the posting names",
+    "or": "or",
+    "orBeforeO": "or",
+    "termShown": ", shown in your CV",
+    "termMissing": ", not in your CV"
+  },
+  "proof": {
+    "source": "{{candidate}}'s CV · line {{line}}",
+    "note": "Proves {{n}}, {{label}}: it names the tools and what he built with them. A line like this is worth more than “React” in a skills list."
+  },
+  "readings": {
+    "title": "The other readings",
+    "body": "They look at your CV on its own and don't change the verdict. Three have a score; all of them show what they relied on.",
+    "quality": "Resume quality, on its own",
+    "noScore": "No score: facts",
+    "found": "In the example",
+    "items": {
+      "ats": {
+        "name": "What an ATS reads",
+        "reads": "Which sections an applicant tracking system (ATS) can see, and whether any character in your PDF came out wrong.",
+        "found": "It sees Experience, Education and Languages. The text layer is clean."
+      },
+      "experience": {
+        "name": "Experience & impact",
+        "reads": "Whether your bullets show results or only duties, with suggested rewrites that never invent numbers.",
+        "found": "You already put numbers on two results: 120 restaurants and 15 clients."
+      },
+      "skills": {
+        "name": "Skills",
+        "reads": "Which of the skills the posting asks for you prove with a line of your CV, and which you only name.",
+        "found": "React, TypeScript and Node.js, each with its own line."
+      },
+      "education": {
+        "name": "Education & certifications",
+        "reads": "Whether your education counts for this role, and whether it comes across on your CV.",
+        "found": "If you've finished any database courses, add them with the year."
+      },
+      "tone": {
+        "name": "Tone & clarity",
+        "reads": "Tense, jargon, and how fast a reader gets to what matters.",
+        "found": "Every bullet starts with an action verb: they read quickly."
+      }
+    }
+  },
+  "fixes": {
+    "title": "Fix these first",
+    "impact": {
+      "high": "High impact",
+      "medium": "Medium impact"
+    },
+    "items": {
+      "database": "Name the database in the payments API bullet, and what you did with it.",
+      "aws": "If you've deployed anything on AWS, add a line on what you deployed and how.",
+      "dashboard": "Put a number on the order dashboard: how many orders it handles, or how much time it saves."
+    }
+  }
+}
