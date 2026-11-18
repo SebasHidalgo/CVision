@@ -6,7 +6,6 @@ import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionBut
 import ClientMessages from "@/components/i18n/ClientMessages";
 import RichText from "@/components/i18n/RichText";
 import Eyebrow from "@/components/layout/Eyebrow";
-import { Footer } from "@/components/layout/Footer";
 import PageIntro from "@/components/layout/PageIntro";
 import { getOptionalUserId } from "@/lib/auth";
 import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
@@ -123,7 +122,6 @@ export default async function PricingScreen() {
           />
         </p>
       </div>
-      <Footer />
     </>
   );
 }

@@ -35,7 +35,7 @@ test("the landing and pricing pages follow the browser's language", async ({ pag
   const t = copyFor(locale);
   await page.goto("/");
   expect(await page.locator("html").getAttribute("lang")).toBe(locale);
-  await expect(page.getByRole("banner").getByRole("button", { name: literal(t("landing:header.createAccount")) })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("button", { name: literal(t("common:nav.startFree")) })).toBeVisible();
   await page.goto("/pricing");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(literal(t("pricing:intro.title")));
 });

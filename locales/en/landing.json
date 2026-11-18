@@ -86,18 +86,6 @@
       "partly": "Partly addressed"
     }
   },
-  "header": {
-    "sectionsLabel": "Sections",
-    "sections": {
-      "how": "How it works",
-      "analysis": "Analysis",
-      "interview": "Interview",
-      "pricing": "Pricing",
-      "faq": "FAQ"
-    },
-    "signIn": "Sign in",
-    "createAccount": "Start free"
-  },
   "skip": "Skip to the example analysis",
   "loader": {
     "label": "Loading"
@@ -108,12 +96,5 @@
     "body_other": "Paste the job posting and upload your CV as a PDF. A free account gives you {{count}} analyses a month.",
     "start": "Create a free account",
     "analyze": "Analyze my CV"
-  },
-  "footer": {
-    "about": "A CV self-assessment and interview practice tool for job seekers, with an AI interviewer.",
-    "legalLabel": "Legal",
-    "privacy": "Privacy",
-    "terms": "Terms",
-    "refunds": "Refunds"
   }
 }

@@ -19,12 +19,18 @@
     "menu": "Menu",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "home": "{{brand}} — home"
+    "home": "{{brand}} — home",
+    "sectionsLabel": "Sections",
+    "analysisSection": "Analysis",
+    "interviewSection": "Interview",
+    "faq": "FAQ"
   },
   "footer": {
     "label": "Footer",
-    "typeset": "Set in Fraunces, Schibsted Grotesk and IBM Plex Mono.",
-    "howItWorks": "How it works",
+    "about": "A CV self-assessment and interview practice tool for job seekers, with an AI interviewer.",
+    "product": "Product",
+    "legal": "Legal",
+    "support": "Support",
     "terms": "Terms",
     "privacy": "Privacy",
     "refunds": "Refunds"

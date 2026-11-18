@@ -20,14 +20,12 @@ type UserAvatarProps = {
   className?: string;
 };
 
-/** The account's picture, or its initials on ink. Decorative: the control around it carries the name. */
+/** The account's picture, or its initials on a raised ground. Decorative: the control around it carries the name. */
 export default function UserAvatar({ user, className }: UserAvatarProps) {
   return (
-    <Avatar className={cn("size-9 border border-line-strong", className)}>
+    <Avatar className={cn("size-9 border border-ed-line-2", className)}>
       <AvatarImage src={user.imageUrl} alt="" />
-      <AvatarFallback className="bg-ink font-mono text-xs font-medium text-paper">
-        {initialsFor(user)}
-      </AvatarFallback>
+      <AvatarFallback className="bg-ed-raise font-ed-mono text-[12px] font-medium text-ed-ink">{initialsFor(user)}</AvatarFallback>
     </Avatar>
   );
 }
@@ -42,9 +40,13 @@ export function UserIdentity({ user, fallback }: UserIdentityProps) {
   const email = user.primaryEmailAddress?.emailAddress;
   return (
     <div className="min-w-0">
-      <p data-truncate="account-name" className="truncate text-sm font-medium text-ink">{user.fullName ?? email ?? fallback}</p>
+      <p data-truncate="account-name" className="truncate text-[15px] font-medium text-ed-ink">
+        {user.fullName ?? email ?? fallback}
+      </p>
       {user.fullName && email && (
-        <p data-truncate="account-email" className="mt-0.5 truncate font-mono text-[11px] text-ink-3">{email}</p>
+        <p data-truncate="account-email" className="mt-0.5 truncate font-ed-mono text-[12px] text-ed-ink-3">
+          {email}
+        </p>
       )}
     </div>
   );

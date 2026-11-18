@@ -10,7 +10,7 @@
     "pricing": "Precios",
     "newAnalysis": "Nuevo análisis",
     "signIn": "Iniciar sesión",
-    "startFree": "Empieza gratis",
+    "startFree": "Crear cuenta gratis",
     "accountMenu": "Menú de la cuenta",
     "yourAccount": "Tu cuenta",
     "account": "Cuenta",
@@ -19,12 +19,18 @@
     "menu": "Menú",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
-    "home": "{{brand}}: inicio"
+    "home": "{{brand}}: inicio",
+    "sectionsLabel": "Secciones",
+    "analysisSection": "Análisis",
+    "interviewSection": "Entrevista",
+    "faq": "Preguntas"
   },
   "footer": {
     "label": "Pie de página",
-    "typeset": "Compuesto en Fraunces, Schibsted Grotesk e IBM Plex Mono.",
-    "howItWorks": "Cómo funciona",
+    "about": "Una herramienta de autoevaluación de CV y de práctica de entrevistas para quien busca trabajo, con un entrevistador de IA.",
+    "product": "Producto",
+    "legal": "Legal",
+    "support": "Soporte",
     "terms": "Términos",
     "privacy": "Privacidad",
     "refunds": "Reembolsos"

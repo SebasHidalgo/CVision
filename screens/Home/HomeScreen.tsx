@@ -1,13 +1,13 @@
 import { fontText } from "@/components/design-system/fonts";
 import ClientMessages from "@/components/i18n/ClientMessages";
+import { Footer } from "@/components/layout/Footer";
+import { SiteHeader } from "@/components/navbar/SiteHeader";
 import type { Namespace } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 import { AnalysisSection } from "./components/analysis/AnalysisSection";
 import { SilkBackground } from "./components/background/SilkBackground";
 import { ClosingCta } from "./components/closing/ClosingCta";
 import { FaqSection } from "./components/faq/FaqSection";
-import { LandingFooter } from "./components/footer/LandingFooter";
-import { LandingHeader } from "./components/header/LandingHeader";
 import { Hero } from "./components/hero/Hero";
 import { InterviewSection } from "./components/interview/InterviewSection";
 import { PageLoader } from "./components/loader/PageLoader";
@@ -38,7 +38,7 @@ export default async function HomeScreen() {
         >
           {t("skip")}
         </a>
-        <LandingHeader />
+        <SiteHeader variant="marketing" />
         <main className="relative z-[1] flex-1">
           <Hero />
           <Story />
@@ -48,7 +48,7 @@ export default async function HomeScreen() {
           <FaqSection />
           <ClosingCta />
         </main>
-        <LandingFooter />
+        <Footer className="mt-[clamp(80px,10vw,144px)]" />
       </div>
     </ClientMessages>
   );

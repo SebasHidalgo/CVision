@@ -86,18 +86,6 @@
       "partly": "Abordada en parte"
     }
   },
-  "header": {
-    "sectionsLabel": "Secciones",
-    "sections": {
-      "how": "Cómo funciona",
-      "analysis": "Análisis",
-      "interview": "Entrevista",
-      "pricing": "Precios",
-      "faq": "Preguntas"
-    },
-    "signIn": "Iniciar sesión",
-    "createAccount": "Crear cuenta gratis"
-  },
   "skip": "Saltar al análisis de ejemplo",
   "loader": {
     "label": "Cargando"
@@ -109,12 +97,5 @@
     "body_other": "Pegas la oferta y subes tu CV en PDF. Con la cuenta gratis tienes {{count}} análisis al mes.",
     "start": "Crear cuenta gratis",
     "analyze": "Analizar mi CV"
-  },
-  "footer": {
-    "about": "Una herramienta de autoevaluación de CV y de práctica de entrevistas para quien busca trabajo, con un entrevistador de IA.",
-    "legalLabel": "Legal",
-    "privacy": "Privacidad",
-    "terms": "Términos",
-    "refunds": "Reembolsos"
   }
 }

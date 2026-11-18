@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const SCOPES = ["screens/Home", "screens/Pricing", "screens/AccountBilling", "screens/Legal", "lib/billing/catalog.ts", "components/billing", "components/layout/Footer.tsx"];
+const SCOPES = ["screens/Home", "screens/Pricing", "screens/AccountBilling", "screens/Legal", "lib/billing/catalog.ts", "components/billing", "components/layout/Footer.tsx", "components/navbar", "screens/NotFound"];
 // The same pages' words, now in locales/: every namespace a buyer or a reviewer reads, in every language.
 const LOCALE_NAMESPACES = [
   "common",
@@ -27,6 +27,7 @@ const LOCALE_NAMESPACES = [
   "account",
   "billing",
   "legal",
+  "notFound",
 ];
 
 const FORBIDDEN = [
