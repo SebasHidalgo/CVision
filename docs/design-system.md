@@ -53,12 +53,11 @@ meanings. When the last page migrates, the old tokens go and the prefix can be d
 
 `HomeScreen.tsx` composes sections and nothing else. Each section lives in
 `components/<section>/`, with its strings in its own namespace
-(`landing<Section>`; the header, example case, loader, closing and footer in
-`landing`):
+(`landing<Section>`; the example case, loader and closing in `landing`). The
+header and the footer are the app shell's (below):
 
 | Folder | What it holds |
 |---|---|
-| `header/` | Signed out: section anchors, sign in, sign up. Signed in: the app's pages, a new analysis, the account menu. The language menu that reloads. |
 | `hero/` | Headline, lede, start action; the figure (requirements wired to CV lines): `HeroFigure` picks 3D or HTML, `FlatFigure` is the HTML one, `useHeroSequence` the timing. |
 | `hero/scene/` | The three.js scene, loaded with `next/dynamic` and no SSR: three, @react-three/fiber and drei exist only in this chunk. Desktop only; phones, reduced motion, no WebGL and software rendering get the HTML figure. |
 | `background/` | The silk ground: a shader that runs while the hero is on screen, clamped to a luminance ceiling, with a WebP still for every case it cannot draw. |
@@ -66,7 +65,7 @@ meanings. When the last page migrates, the old tokens go and the prefix can be d
 | `analysis/`, `pricing/`, `faq/` | The example analysis (verdict counted like the app's), plans with every figure from `lib/plans.ts` and the catalog, questions that open smoothly in every engine. |
 | `interview/` | Replicas of the room and the feedback page playing an eight-line call. Sound is off by default and no audio is requested until it is turned on. Audio in `public/landing/voice/{en,es}/`. |
 | `loader/` | The full-page loader (below). |
-| `closing/`, `footer/` | The last call to action and the footer. |
+| `closing/` | The last call to action. |
 
 `utils/exampleCase.ts` is the invented case as data (ids, statuses, line
 numbers); every word of it is under `landing:case.*`. `utils/readiness.ts`
@@ -91,11 +90,29 @@ On the landing, the language menu saves the choice (cookie and `User.locale`)
 and reloads, so the loader and the hero's entrance play again in the new
 language. Every other page switches in place.
 
-## Pages not migrated yet
+## The app shell (M11-C)
 
-They keep the old light look (paper, ink, red signal; Schibsted Grotesk) exactly as before, minus the dark theme.
-They do not load Host Grotesk. The app header, the toasts and Clerk's modals are still in the old style; a Clerk
-modal or a toast opened from the landing therefore shows light.
+- **One header**, `components/navbar/SiteHeader.tsx`, `variant="app" | "marketing"`. App (every page under
+  `app/(root)`): signed in, Analyses, Interviews, New analysis, the account menu; signed out, How it works and
+  Pricing. Marketing (the landing): the five sections as anchors. Both: sign in and start free when signed out; the
+  language menu (`LocaleSwitch`, in place, or by reload on the landing); a mobile sheet (a native modal `<dialog>`).
+  64 px plus a 1 px rule; the room depends on that height. It carries its own `ed-root ed-chrome` and font, so it
+  reads as a dark band over the pages not migrated yet.
+- **One footer**, `components/layout/Footer.tsx`, under every page; `FooterGate` hides it in the interview room,
+  which fills the viewport.
+- **Clerk** (`lib/clerkAppearance.ts`, applied once by the root `ClerkProvider`) and the **toasts** (sonner on its
+  dark theme, `components/providers/Providers.tsx`) are in the dark design. Clerk takes literal colours: they copy
+  `tokens.css` by hand.
+- **404**: `app/not-found.tsx` → `screens/NotFound`, with the shell's header and footer (the root not-found sits
+  above `app/(root)/layout.tsx`).
+- A migrated page under `app/(root)` makes its `ed-root` element `flex-1`, so the dark canvas reaches the footer.
+
+## Migrated pages and the rest
+
+Migrated: the landing (M11-B); the shell, the upload page, the analysis page, the analyses list and the 404
+(M11-C). Not yet: the interviews list, the room and the feedback page (M11-D); pricing, account and the legal pages
+(M11-E). Those keep the old light look (paper, ink, red signal; Schibsted Grotesk) under the dark header and
+footer until their phase.
 
 ## Verifying a page
 
