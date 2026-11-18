@@ -1,35 +1,40 @@
 {
   "intro": {
-    "eyebrow": "New analysis",
     "title": "Measure your CV against one job.",
     "lede": "One posting, one PDF. The verdict is back in seconds."
   },
-  "notes": {
-    "company": {
-      "title": "Company and title",
-      "body": "They name this analysis and frame the mock interview later."
+  "rows": {
+    "role": {
+      "title": "The role",
+      "body": "The company and the job title name this analysis, and later set the scene for the practice interview."
     },
-    "description": {
-      "title": "The description",
-      "body": "Paste all of it: requirements, responsibilities, nice-to-haves. The fuller the posting, the sharper the reading."
+    "posting": {
+      "title": "The posting",
+      "body": "Paste all of it: requirements, responsibilities, nice-to-haves. Every requirement is read from this text, so the fuller the posting, the more precise the read."
     },
     "cv": {
       "title": "Your CV",
-      "body": "A PDF with a text layer, not a scan. It stays attached to the analysis so you can revisit it."
+      "body": "A PDF with a text layer, not a scan: it's read the way an applicant tracking system (ATS) reads it. It stays attached to the analysis so you can open it again."
     }
   },
   "form": {
     "company": "Company",
-    "companyPlaceholder": "Northwind",
+    "companyPlaceholder": "e.g. Northwind",
     "jobTitle": "Job title",
-    "jobTitlePlaceholder": "Frontend Engineer",
-    "jobDescription": "Job description",
-    "jobDescriptionPlaceholder": "Paste the full posting: responsibilities, requirements, nice-to-haves.",
-    "cv": "Your CV",
-    "idle": "Runs while you wait · takes seconds",
+    "jobTitlePlaceholder": "e.g. Frontend Engineer",
+    "jobDescriptionPlaceholder": "Paste the full posting here.",
+    "characters": "Characters used:",
+    "idle": "Runs while you wait · usually under 20 seconds",
     "submit": "Run the analysis",
     "quota_one": "{{left}} of {{count}} analysis left this month · resets {{date}}",
-    "quota_other": "{{left}} of {{count}} analyses left this month · resets {{date}}"
+    "quota_other": "{{left}} of {{count}} analyses left this month · resets {{date}}",
+    "proOffer": "With Pro you get up to {{limit}} analyses a month.",
+    "seePro": "See Pro"
+  },
+  "failure": {
+    "uploading": "Stopped at the upload",
+    "analyzing": "Stopped at the analysis",
+    "kept": "Everything you entered is still here, your file included."
   },
   "validation": {
     "fileRequired": "A file is required",
@@ -45,6 +50,8 @@
   "file": {
     "details": "{{size}} · PDF",
     "remove": "Remove",
+    "removeNamed": "Remove {{name}}",
+    "replace": "Click or drop another PDF to replace it.",
     "dropHere": "Drop it here",
     "dropOrChoose": "Drop your CV here, or click to choose it",
     "limits": "PDF · up to {{size}}",
@@ -61,19 +68,38 @@
     "gb": "{{value}} GB",
     "tb": "{{value}} TB"
   },
-  "progress": {
-    "uploading": "Uploading",
-    "analyzing": "Analyzing",
-    "sending": "Sending your CV to storage",
-    "sendingWithSize": "Sending your CV to storage · {{size}}",
-    "uploadNote": "The analysis starts the moment it lands. Keep this tab open.",
-    "analysisNote": "Usually ready in seconds. Keep this tab open.",
-    "stages": {
-      "reading": "Reading the text layer of your PDF",
-      "comparing": "Comparing it with the posting, requirement by requirement",
-      "scoring": "Scoring your experience, skills and education",
-      "writing": "Writing the verdict and the priority fixes",
-      "slow": "Still working. Thoroughness takes a moment"
-    }
+  "run": {
+    "title": {
+      "uploading": "Uploading your CV",
+      "analyzing": "Analyzing your CV",
+      "opening": "Opening your analysis"
+    },
+    "sent": "What you sent",
+    "steps": {
+      "label": "Where your analysis is",
+      "uploading": {
+        "title": "Upload",
+        "detail": "Your PDF goes to private storage · {{size}}"
+      },
+      "analyzing": {
+        "title": "Analysis",
+        "detail": "Runs on our server as one request and comes back all at once, when it's done."
+      },
+      "opening": {
+        "title": "Your analysis",
+        "detail": "Opens on its own page as soon as it's saved."
+      }
+    },
+    "state": {
+      "done": "Done",
+      "now": "Now",
+      "next": "Next"
+    },
+    "now": {
+      "title": "What happens now",
+      "body": "Your PDF's text layer is read the way an applicant tracking system (ATS) reads it. The posting's requirements are listed, each with the phrase it came from, and each one is looked for in your CV. It usually takes under 20 seconds."
+    },
+    "slow": "This one is taking longer than usual. It's still running.",
+    "keepOpen": "Keep this tab open until your analysis opens."
   }
 }

@@ -1,136 +1,139 @@
 "use client";
 
-import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Surface } from "@/components/design-system/Surface";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
-import type { UploadStage } from "@/screens/ResumeUpload/utils/upload";
+import { clock, runSteps, type RunClock, type RunPhase, type StepState } from "@/screens/ResumeUpload/utils/runSteps";
+import CvSheet from "./CvSheet";
 
-// Wall-clock stages, not real progress: the analysis is one synchronous call
-// and the model reports nothing back until it is done. Timed for the usual
-// 7-9 s request; the last stage only shows when a call runs slow.
-const ANALYSIS_STAGES = [
-  { at: 0, key: "progress.stages.reading" },
-  { at: 2, key: "progress.stages.comparing" },
-  { at: 4, key: "progress.stages.scoring" },
-  { at: 6, key: "progress.stages.writing" },
-  { at: 15, key: "progress.stages.slow" },
-] as const;
+// The analysis usually answers in about 9 s (measured; its timeout chain allows far more): past this, say so.
+const SLOW_AFTER_SECONDS = 20;
 
-function formatElapsed(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+export type SentDetails = { companyName: string; jobTitle: string; fileName: string; fileSize: number };
 
 type AnalysisInProgressProps = {
-  /** "uploading": the PDF is on its way to storage. "analyzing": the server has it. */
-  stage: UploadStage;
-  fileSize: number;
+  phase: RunPhase;
+  startedAt: RunClock;
+  sent: SentDetails;
 };
 
-export default function AnalysisInProgress({ stage, fileSize }: AnalysisInProgressProps) {
-  const { t } = useTranslation("upload");
-  const [elapsed, setElapsed] = useState(0);
-
-  // The clock belongs to the stage: it restarts when the upload hands over.
-  useEffect(() => {
-    setElapsed(0);
-    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(timer);
-  }, [stage]);
-
-  const uploading = stage === "uploading";
-  const activeIndex = ANALYSIS_STAGES.reduce(
-    (current, step, i) => (elapsed >= step.at ? i : current),
-    0,
+/** Done is filled, now is an outline with a beating core, next is a faint outline. Ink only: nothing here is proof. */
+function StepMark({ state }: { state: StepState }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "relative mt-[0.4em] inline-flex size-[11px] flex-none items-center justify-center border-[1.5px]",
+        state === "done" && "border-ed-ink bg-ed-ink",
+        state === "now" && "border-ed-ink",
+        state === "next" && "border-ed-line-2",
+      )}
+    >
+      {state === "now" && <span className="size-[3px] bg-ed-ink motion-safe:animate-pulse" />}
+    </span>
   );
+}
+
+/**
+ * The run as the browser sees it: the upload, the analysis request, the move to the saved analysis. Each step shows
+ * the time it really took; nothing inside the analysis is shown as progress, because nothing inside it is observed.
+ */
+export default function AnalysisInProgress({ phase, startedAt, sent }: AnalysisInProgressProps) {
+  const { t } = useTranslation("upload");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // The submit that had focus is gone: the heading takes it, so a reader lands on what is happening.
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
+
+  const steps = runSteps(phase, startedAt, now);
+  const analysis = steps.find((step) => step.phase === "analyzing");
+  const slow = phase === "analyzing" && (analysis?.seconds ?? 0) >= SLOW_AFTER_SECONDS;
 
   return (
-    <section
-      role="status"
-      aria-live="polite"
-      className="grid gap-10 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-14"
-    >
-      {/* The sheet being sent, then read */}
-      <div
-        aria-hidden
-        className="relative mx-auto aspect-[3/4] w-full max-w-[15rem] overflow-hidden bg-sheet p-6 shadow-sheet"
-      >
-        <span className="block h-2.5 w-2/5 bg-ink" />
-        <span className="mt-3 block h-[5px] w-3/5 bg-paper-3" />
-        <span className="mt-2 block h-[5px] w-2/5 bg-paper-3" />
-        <span className="mt-7 block h-[5px] w-full bg-paper-3" />
-        <span className="mt-2 block h-[5px] w-11/12 bg-paper-3" />
-        <span className="mt-2 block h-[5px] w-4/5 bg-paper-3" />
-        <span className="mt-7 block h-[5px] w-full bg-paper-3" />
-        <span className="mt-2 block h-[5px] w-3/4 bg-paper-3" />
-        <span className="mt-2 block h-[5px] w-5/6 bg-paper-3" />
+    <section aria-labelledby="run-title" className="ed-grid gap-y-10 border-t border-ed-line-2 pt-[clamp(28px,4vw,48px)]">
+      <div className="lg:col-[5/span_8] lg:row-start-1 lg:max-w-[75ch]">
+        <h2
+          ref={heading}
+          id="run-title"
+          tabIndex={-1}
+          className="ed-display text-[clamp(30px,3.4vw,44px)] leading-[1.08] tracking-[-0.02em] text-balance focus:outline-none"
+        >
+          {t(`run.title.${phase}`)}
+        </h2>
+        {/* The heading is read when it takes focus; later phases are announced here. */}
+        <p role="status" className="sr-only">
+          {phase === "uploading" ? "" : t(`run.title.${phase}`)}
+        </p>
 
-        {!uploading && (
-          <span className="absolute inset-x-0 top-0 h-full animate-scan">
-            <span className="absolute inset-x-0 bottom-0 h-px bg-signal" />
-            <span className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-signal/12 to-transparent" />
-          </span>
+        <ol aria-label={t("run.steps.label")} className="mt-8 border-t border-ed-line">
+          {steps.map((step) => (
+            <li
+              key={step.phase}
+              aria-current={step.state === "now" ? "step" : undefined}
+              className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-b border-ed-line py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+            >
+              <StepMark state={step.state} />
+              <div className="min-w-0">
+                <p className={cn("text-ed-h3 font-semibold", step.state === "next" ? "text-ed-ink-2" : "text-ed-ink")}>
+                  {t(`run.steps.${step.phase}.title`)}
+                </p>
+                <p className="mt-1 max-w-[58ch] text-ed-ink-2">
+                  {t(`run.steps.${step.phase}.detail`, { size: formatFileSize(sent.fileSize, t) })}
+                </p>
+              </div>
+              <p className="col-start-2 text-ed-small text-ed-ink-2 sm:col-start-3 sm:pt-0.5 sm:text-right">
+                <span className={cn(step.state === "now" && "font-medium text-ed-ink")}>{t(`run.state.${step.state}`)}</span>
+                {/* Ticks every second: kept from screen readers, which would read it on every visit. */}
+                {step.seconds !== null && <span aria-hidden className="ed-mono text-[13px]">{` · ${clock(step.seconds)}`}</span>}
+              </p>
+            </li>
+          ))}
+        </ol>
+
+        {phase === "analyzing" && (
+          <div className="mt-8 grid gap-2 border-l border-ed-line-2 pl-5">
+            <h3 className="ed-cap">{t("run.now.title")}</h3>
+            <p className="max-w-[65ch] text-ed-ink-2">{t("run.now.body")}</p>
+          </div>
         )}
+
+        <div aria-live="polite">{slow && <p className="mt-6 text-ed-ink">{t("run.slow")}</p>}</div>
+        <p className="mt-6 text-ed-small text-ed-ink-2">{t("run.keepOpen")}</p>
       </div>
 
-      <div>
-        <div className="flex items-baseline justify-between border-b border-line pb-4">
-          <h2 className="display-md text-ink">{uploading ? t("progress.uploading") : t("progress.analyzing")}</h2>
-          <span className="eyebrow tabular text-ink">{formatElapsed(elapsed)}</span>
-        </div>
-
-        {uploading ? (
-          <div className="mt-6">
-            <p className="flex items-start gap-4 text-ink">
-              <span className="mt-[0.45em] flex size-3 shrink-0 items-center justify-center">
-                <span className="block size-1.5 bg-signal animate-blink" />
-              </span>
-              <span className="font-medium">
-                {fileSize > 0
-                  ? t("progress.sendingWithSize", { size: formatFileSize(fileSize, t) })
-                  : t("progress.sending")}
-              </span>
-            </p>
-            <p className="eyebrow mt-8">{t("progress.uploadNote")}</p>
+      <div className="lg:col-[1/span_4] lg:row-start-1 lg:pr-ed-gutter">
+        <h3 className="ed-cap">{t("run.sent")}</h3>
+        <Surface className="mt-4 grid gap-4 p-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <CvSheet />
+            <div className="min-w-0">
+              <p data-truncate="file-name" title={sent.fileName} className="truncate font-medium text-ed-ink">
+                {sent.fileName}
+              </p>
+              <p className="ed-mono mt-1 text-[13px] text-ed-ink-3">{t("file.details", { size: formatFileSize(sent.fileSize, t) })}</p>
+            </div>
           </div>
-        ) : (
-          <>
-            <ol className="mt-6 space-y-4">
-              {ANALYSIS_STAGES.map((step, i) => {
-                const done = i < activeIndex;
-                const active = i === activeIndex;
-                return (
-                  <li
-                    key={step.at}
-                    className={cn(
-                      "flex items-start gap-4 transition-colors duration-500",
-                      done ? "text-ink-3" : active ? "text-ink" : "text-ink-3/60",
-                    )}
-                  >
-                    <span className="mt-[0.45em] flex size-3 shrink-0 items-center justify-center">
-                      {done ? (
-                        <Check className="size-3" />
-                      ) : (
-                        <span
-                          className={cn(
-                            "block size-1.5",
-                            active ? "bg-signal animate-blink" : "bg-line-strong",
-                          )}
-                        />
-                      )}
-                    </span>
-                    <span className={cn(active && "font-medium")}>{t(step.key)}</span>
-                  </li>
-                );
-              })}
-            </ol>
-
-            <p className="eyebrow mt-8">{t("progress.analysisNote")}</p>
-          </>
-        )}
+          <dl className="grid border-t border-ed-line text-[15px]">
+            <div className="grid gap-0.5 border-b border-ed-line py-2.5">
+              <dt className="text-ed-ink-3">{t("form.company")}</dt>
+              <dd className="break-words text-ed-ink">{sent.companyName}</dd>
+            </div>
+            <div className="grid gap-0.5 border-b border-ed-line py-2.5">
+              <dt className="text-ed-ink-3">{t("form.jobTitle")}</dt>
+              <dd className="break-words text-ed-ink">{sent.jobTitle}</dd>
+            </div>
+          </dl>
+        </Surface>
       </div>
     </section>
   );

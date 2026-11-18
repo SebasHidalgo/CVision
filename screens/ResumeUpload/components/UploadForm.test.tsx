@@ -32,7 +32,7 @@ describe("quotaLine", () => {
     expect(quotaLine(free(1), en)).toBe("1 of 3 analyses left this month · resets Nov 1");
     expect(quotaLine(pro(40), en)).toBeNull();
     expect(quotaLine(free(0), en)).toBe("You've used this month's analyses. Resets Nov 1.");
-    expect(quotaLine(pro(0), en)).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
+    expect(quotaLine(pro(0), en)).toBe("You've used your 50 analyses for this period. They reset Nov 1.");
   });
 
   it("takes the noun's number from the allowance, not from what is left", () => {
@@ -62,7 +62,7 @@ describe("UploadForm and the analysis quota", () => {
     const { container } = render(<UploadForm quota={pro(40)} />);
 
     expect(container.textContent).not.toMatch(/analyses left|50|fair-use/);
-    expect(screen.getByText("Runs while you wait · takes seconds")).toBeTruthy();
+    expect(screen.getByText("Runs while you wait · usually under 20 seconds")).toBeTruthy();
   });
 
   it("at zero, disables the file control and the submit and says when the quota resets", () => {
@@ -74,11 +74,18 @@ describe("UploadForm and the analysis quota", () => {
     expect(container.querySelector("[aria-disabled=true]")).not.toBeNull();
   });
 
-  it("at Pro's fair-use cap, says so without the number", () => {
-    const { container } = render(<UploadForm quota={pro(0)} />);
+  it("at Free's zero, offers Pro next to the reset", () => {
+    render(<UploadForm quota={free(0)} />);
 
-    expect(screen.getByRole("status").textContent).toBe("You've reached this month's fair-use limit. Resets Nov 1.");
-    expect(container.textContent).not.toMatch(/50/);
+    expect(screen.getByRole("link", { name: "See Pro" }).getAttribute("href")).toBe("/pricing");
+    expect(screen.getByText("With Pro you get up to 50 analyses a month.")).toBeTruthy();
+  });
+
+  it("at Pro's cap, says so with the cap and offers nothing", () => {
+    render(<UploadForm quota={pro(0)} />);
+
+    expect(screen.getByRole("status").textContent).toBe("You've used your 50 analyses for this period. They reset Nov 1.");
+    expect(screen.queryByRole("link", { name: "See Pro" })).toBeNull();
     expect(screen.getByRole("button", { name: /run the analysis/i }).hasAttribute("disabled")).toBe(true);
   });
 });

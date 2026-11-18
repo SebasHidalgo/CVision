@@ -1,36 +1,41 @@
 {
   "intro": {
-    "eyebrow": "Nuevo análisis",
     "title": "Mide tu CV frente a un puesto.",
     "lede": "Una oferta, un PDF. El veredicto llega en segundos."
   },
-  "notes": {
-    "company": {
+  "rows": {
+    "role": {
       "title": "Empresa y puesto",
       "body": "Dan nombre a este análisis y, más adelante, sirven de marco para la entrevista de práctica."
     },
-    "description": {
-      "title": "La descripción",
-      "body": "Pégala completa: requisitos, responsabilidades, puntos deseables. Cuanto más completa la oferta, más precisa la lectura."
+    "posting": {
+      "title": "La oferta",
+      "body": "Pégala completa: requisitos, responsabilidades, puntos deseables. Cada requisito se lee de este texto, así que cuanto más completa la oferta, más precisa la lectura."
     },
     "cv": {
       "title": "Tu CV",
-      "body": "Un PDF con capa de texto, no un escaneo. Queda adjunto al análisis para que puedas volver a verlo."
+      "body": "Un PDF con capa de texto, no un escaneo: se lee como lo leería un sistema de seguimiento de postulaciones (ATS). Queda adjunto al análisis para que puedas volver a abrirlo."
     }
   },
   "form": {
     "company": "Empresa",
-    "companyPlaceholder": "Northwind",
+    "companyPlaceholder": "p. ej., Northwind",
     "jobTitle": "Puesto",
-    "jobTitlePlaceholder": "Desarrollador frontend",
-    "jobDescription": "Descripción del puesto",
-    "jobDescriptionPlaceholder": "Pega la oferta completa: responsabilidades, requisitos, puntos deseables.",
-    "cv": "Tu CV",
-    "idle": "Se hace mientras esperas · tarda unos segundos",
+    "jobTitlePlaceholder": "p. ej., Desarrollador frontend",
+    "jobDescriptionPlaceholder": "Pega aquí la oferta completa.",
+    "characters": "Caracteres usados:",
+    "idle": "Se hace mientras esperas · suele tardar menos de 20 segundos",
     "submit": "Hacer el análisis",
     "quota_one": "Tienes {{left}} de {{count}} análisis disponible este mes · se reinicia el {{date}}",
     "quota_many": "Tienes {{left}} de {{count}} análisis disponibles este mes · se reinician el {{date}}",
-    "quota_other": "Tienes {{left}} de {{count}} análisis disponibles este mes · se reinician el {{date}}"
+    "quota_other": "Tienes {{left}} de {{count}} análisis disponibles este mes · se reinician el {{date}}",
+    "proOffer": "Con Pro tienes hasta {{limit}} análisis al mes.",
+    "seePro": "Ver Pro"
+  },
+  "failure": {
+    "uploading": "Se detuvo en la subida",
+    "analyzing": "Se detuvo en el análisis",
+    "kept": "Todo lo que escribiste sigue aquí, también tu archivo."
   },
   "validation": {
     "fileRequired": "Falta el archivo",
@@ -46,6 +51,8 @@
   "file": {
     "details": "{{size}} · PDF",
     "remove": "Quitar",
+    "removeNamed": "Quitar {{name}}",
+    "replace": "Haz clic o suelta otro PDF para reemplazarlo.",
     "dropHere": "Suéltalo aquí",
     "dropOrChoose": "Suelta tu CV aquí o haz clic para elegirlo",
     "limits": "PDF · hasta {{size}}",
@@ -62,19 +69,38 @@
     "gb": "{{value}} GB",
     "tb": "{{value}} TB"
   },
-  "progress": {
-    "uploading": "Subiendo",
-    "analyzing": "Analizando",
-    "sending": "Enviando tu CV al almacenamiento",
-    "sendingWithSize": "Enviando tu CV al almacenamiento · {{size}}",
-    "uploadNote": "El análisis empieza apenas llega. Mantén esta pestaña abierta.",
-    "analysisNote": "Suele estar listo en segundos. Mantén esta pestaña abierta.",
-    "stages": {
-      "reading": "Leyendo la capa de texto de tu PDF",
-      "comparing": "Comparándolo con la oferta, requisito por requisito",
-      "scoring": "Calificando tu experiencia, habilidades y formación",
-      "writing": "Escribiendo el veredicto y los arreglos prioritarios",
-      "slow": "Todavía trabajando. Hacerlo bien lleva un momento"
-    }
+  "run": {
+    "title": {
+      "uploading": "Subiendo tu CV",
+      "analyzing": "Analizando tu CV",
+      "opening": "Abriendo tu análisis"
+    },
+    "sent": "Lo que enviaste",
+    "steps": {
+      "label": "En qué punto está tu análisis",
+      "uploading": {
+        "title": "Subida",
+        "detail": "Tu PDF va a un almacenamiento privado · {{size}}"
+      },
+      "analyzing": {
+        "title": "Análisis",
+        "detail": "Corre en nuestro servidor como una sola solicitud y vuelve completo, de una vez, cuando termina."
+      },
+      "opening": {
+        "title": "Tu análisis",
+        "detail": "Se abre en su propia página apenas queda guardado."
+      }
+    },
+    "state": {
+      "done": "Listo",
+      "now": "Ahora",
+      "next": "Pendiente"
+    },
+    "now": {
+      "title": "Qué pasa ahora",
+      "body": "Se lee la capa de texto de tu PDF, como la leería un sistema de seguimiento de postulaciones (ATS). Se sacan los requisitos de la oferta, cada uno con la frase de donde viene, y cada uno se busca en tu CV. Suele tardar menos de 20 segundos."
+    },
+    "slow": "Este está tardando más de lo habitual. Sigue corriendo.",
+    "keepOpen": "Mantén esta pestaña abierta hasta que se abra tu análisis."
   }
 }

@@ -1,12 +1,20 @@
 "use client";
 
-import { Upload } from "lucide-react";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
+import { textLinkClass } from "@/components/design-system/Button";
 import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
+import CvSheet from "./CvSheet";
+import { CONTROL_EDGE, ErrorText } from "./Field";
+
+/** The drop area's id: the form focuses it when the file is the only thing missing. */
+export const DROPZONE_ID = "resume-drop";
+
+const PROMPT_ID = "resume-prompt";
+const REJECTED_ID = "resume-rejected";
 
 interface FileUploaderProps {
   /**
@@ -16,6 +24,10 @@ interface FileUploaderProps {
    */
   file: File | null;
   onFileSelect: (file: File | null) => void;
+  /** The heading's <label>, which names the drop area. */
+  labelId: string;
+  /** The row's note and the field's error, when there is one. */
+  describedBy?: string;
   invalid?: boolean;
   /** No analysis left this period: a file must not be picked only to fail after. */
   disabled?: boolean;
@@ -28,108 +40,92 @@ function rejectionKey(code: string | undefined) {
   return "file.rejected.notPdf" as const;
 }
 
-/** A small sheet with a folded corner: the CV as an object. */
-function Sheet() {
-  return (
-    <span
-      aria-hidden
-      className="relative block h-14 w-11 shrink-0 border border-line-strong bg-sheet p-2"
-    >
-      <span className="block h-1 w-1/2 bg-ink" />
-      <span className="mt-1.5 block h-px w-full bg-line-strong" />
-      <span className="mt-1 block h-px w-4/5 bg-line-strong" />
-      <span className="mt-1 block h-px w-full bg-line-strong" />
-      <span className="absolute top-0 right-0 size-3 bg-paper-3 [clip-path:polygon(0_0,100%_100%,0_100%)]" />
-    </span>
-  );
-}
-
-export default function FileUploader({
-  file,
-  onFileSelect,
-  invalid = false,
-  disabled = false,
-}: FileUploaderProps) {
+export default function FileUploader({ file, onFileSelect, labelId, describedBy, invalid = false, disabled = false }: FileUploaderProps) {
   const { t } = useTranslation("upload");
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => onFileSelect(acceptedFiles[0] ?? null),
-    [onFileSelect],
-  );
+  const onDrop = useCallback((acceptedFiles: File[]) => onFileSelect(acceptedFiles[0] ?? null), [onFileSelect]);
 
-  const { getRootProps, getInputProps, isDragActive, fileRejections } =
-    useDropzone({
-      onDrop,
-      multiple: false,
-      accept: { "application/pdf": [".pdf"] },
-      maxSize: MAX_RESUME_BYTES,
-      disabled,
-    });
-
-  const clear = (event: React.MouseEvent) => {
-    // The whole slot opens the file dialog; removing must not.
-    event.stopPropagation();
-    onFileSelect(null);
-  };
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
+    onDrop,
+    multiple: false,
+    accept: { "application/pdf": [".pdf"] },
+    maxSize: MAX_RESUME_BYTES,
+    disabled,
+  });
 
   const rejection = fileRejections[0];
+  const rejected = Boolean(rejection) && !file;
+  const description = [PROMPT_ID, rejected ? REJECTED_ID : null, describedBy].filter(Boolean).join(" ");
 
   return (
     <div>
-      <div
-        {...getRootProps()}
-        aria-disabled={disabled || undefined}
-        className={cn(
-          "relative flex min-h-[9.5rem] cursor-pointer items-center justify-center border border-dashed px-6 py-8 transition-colors duration-200 ease-out-expo",
-          isDragActive
-            ? "border-signal bg-signal-soft/50"
-            : file
-              ? "border-line-strong bg-paper-2/70"
-              : "border-line-strong hover:border-ink",
-          invalid && !file && "border-signal",
-          disabled && "cursor-not-allowed opacity-50 hover:border-line-strong",
-        )}
-      >
-        <input {...getInputProps()} name="resume" id="resume" />
+      <div className="relative">
+        <div
+          {...getRootProps({ role: "button" })}
+          id={DROPZONE_ID}
+          aria-labelledby={labelId}
+          aria-describedby={description}
+          aria-disabled={disabled || undefined}
+          className={cn(
+            "flex min-h-40 cursor-pointer items-center rounded-ed-surface border px-5 py-7 transition-[border-color,background-color] duration-200 ease-ed-out motion-reduce:transition-none sm:px-6",
+            isDragActive
+              ? "border-ed-ink bg-ed-raise"
+              : file
+                ? cn(CONTROL_EDGE, "bg-ed-panel hover:border-ed-ink-2")
+                : cn(CONTROL_EDGE, "border-dashed bg-ed-panel/50 hover:border-ed-ink-2"),
+            invalid && !file && !isDragActive && "border-ed-ink",
+            disabled && "cursor-not-allowed opacity-50 hover:border-ed-ink-2/55",
+          )}
+        >
+          {/* Disabled too, so its label cannot open a file dialog whose pick would be ignored. */}
+          <input
+            {...getInputProps({ disabled })}
+            name="resume"
+            id="resume"
+            aria-required
+            aria-invalid={invalid || undefined}
+            aria-describedby={describedBy}
+          />
 
-        {file ? (
-          <div className="flex w-full items-center gap-5">
-            <Sheet />
-            <div className="min-w-0 flex-1">
-              <p data-truncate="file-name" className="truncate font-medium text-ink">{file.name}</p>
-              <p className="eyebrow mt-1.5">
-                {t("file.details", { size: formatFileSize(file.size, t) })}
-              </p>
+          {file ? (
+            <div id={PROMPT_ID} className="flex w-full min-w-0 items-center gap-4 pr-20 sm:gap-5 sm:pr-24">
+              <CvSheet />
+              <div className="min-w-0 flex-1">
+                <p data-truncate="file-name" title={file.name} className="truncate font-medium text-ed-ink">
+                  {file.name}
+                </p>
+                <p className="ed-mono mt-1 text-[13px] text-ed-ink-3">{t("file.details", { size: formatFileSize(file.size, t) })}</p>
+                <p className="mt-2 text-ed-small text-ed-ink-2">{t("file.replace")}</p>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={clear}
-              className="link-rule shrink-0 cursor-pointer text-sm text-ink-2"
-            >
-              {t("file.remove")}
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Upload
-              className={cn(
-                "size-6 transition-colors duration-200",
-                isDragActive ? "text-signal" : "text-ink-3",
-              )}
-            />
-            <p className="font-medium text-ink">
-              {isDragActive ? t("file.dropHere") : t("file.dropOrChoose")}
-            </p>
-            <p className="eyebrow">{t("file.limits", { size: MAX_RESUME_SIZE_LABEL })}</p>
-          </div>
+          ) : (
+            <div id={PROMPT_ID} className="flex w-full flex-col items-center gap-3 text-center">
+              <CvSheet className={cn("transition-transform duration-200 ease-ed-out motion-reduce:transition-none", isDragActive && "-translate-y-1")} />
+              <p className="font-medium text-ed-ink">{isDragActive ? t("file.dropHere") : t("file.dropOrChoose")}</p>
+              <p className="ed-mono text-[13px] text-ed-ink-3">{t("file.limits", { size: MAX_RESUME_SIZE_LABEL })}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Outside the drop area: a button inside another button is not operable by every reader. */}
+        {file && (
+          <button
+            type="button"
+            onClick={() => onFileSelect(null)}
+            aria-label={t("file.removeNamed", { name: file.name })}
+            className={cn(textLinkClass, "absolute top-1/2 right-4 -translate-y-1/2 sm:right-6")}
+          >
+            {t("file.remove")}
+          </button>
         )}
       </div>
 
-      {rejection && !file && (
-        <p className="mt-2 flex items-center gap-2 text-sm text-signal">
-          <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
-          {t(rejectionKey(rejection.errors[0]?.code), { size: MAX_RESUME_SIZE_LABEL })}
-        </p>
-      )}
+      <div aria-live="polite">
+        {rejected && (
+          <div className="mt-2">
+            <ErrorText id={REJECTED_ID}>{t(rejectionKey(rejection?.errors[0]?.code), { size: MAX_RESUME_SIZE_LABEL })}</ErrorText>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
