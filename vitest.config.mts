@@ -8,6 +8,8 @@ export default defineConfig({
   // tsconfig keeps `jsx: preserve` for Next; the component render tests
   // (.test.tsx) need the transformer to emit the automatic runtime instead.
   oxc: { jsx: { runtime: "automatic", importSource: "react" } },
+  // Next's PostCSS config (a list of plugin names) is not one Vite can load; tests need CSS modules, not Tailwind.
+  css: { postcss: { plugins: [] } },
   resolve: {
     alias: [
       { find: /^@\//, replacement: `${root}/` },
