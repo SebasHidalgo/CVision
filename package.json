@@ -59,7 +59,7 @@
     "framer-motion": "^12.23.22",
     "i18next": "26.5.11",
     "lucide-react": "^0.545.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "next-themes": "^0.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",

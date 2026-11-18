@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
   // Dev-only pages are page.dev.tsx: a production build doesn't know the extension.
   pageExtensions: process.env.NODE_ENV === "production" && !e2eBuild ? ["tsx", "ts", "jsx", "js"] : ["dev.tsx", "tsx", "ts", "jsx", "js"],
   experimental: {
+    // Keeps `next upgrade` to published security advisories (set by the 16.4.3 -> 16.4.6 security upgrade).
+    agentUpgrade: "security",
     serverActions: {
       // No action carries a file: the CV goes to storage over a signed URL
       // and the analysis action receives its key and the posting's text.
