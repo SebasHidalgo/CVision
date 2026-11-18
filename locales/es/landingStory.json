@@ -1,0 +1,98 @@
+{
+  "title": "Una oferta, un CV y lo que pasa en el medio.",
+  "lede": "Lo que hace {{brand}} con cualquier oferta, en seis pasos y sobre un mismo objeto: los requisitos de la oferta.",
+  "ledeRail": "Avanza con el scroll o salta a un paso desde el índice.",
+  "rail": {
+    "label": "Pasos de cómo funciona"
+  },
+  "steps": {
+    "posting": {
+      "short": "Oferta",
+      "title": "Pegas la oferta y subes tu CV",
+      "p1": "Escribes la empresa y el puesto, pegas la descripción completa de la oferta y subes tu CV en PDF. Cuanto más completa la oferta, más precisa la lectura.",
+      "p2": "Cada análisis usa uno de tu plan. Si algo falla antes de terminar, no se descuenta."
+    },
+    "requirements": {
+      "short": "Requisitos",
+      "title": "Se sacan los requisitos de la oferta",
+      "p1": "Cada requisito sale con la frase de la oferta de donde viene. Queda como obligatorio o deseable según la sección en que aparece y palabras como «deseable» o «se valora».",
+      "p2": "Si una línea de requisitos quedó fuera de la lista, se lee otra vez."
+    },
+    "search": {
+      "short": "Tu CV",
+      "title": "Cada uno se busca en tu CV",
+      "p1": "{{brand}} lee la capa de texto de tu PDF, como la leería un sistema de seguimiento de postulaciones (ATS). Cada requisito se busca ahí término por término, con las palabras de la oferta. La línea que lo prueba se comprueba contra el texto de tu CV: si no está ahí, el requisito no cuenta como cumplido.",
+      "p2": "Los años se cuentan con el total que declaras o con las fechas de tu CV. Si tu PDF es un escaneo sin texto, te lo dice y no gasta ninguno de tus análisis."
+    },
+    "verdict": {
+      "short": "Veredicto",
+      "title": "Cuatro estados y una cuenta",
+      "p1": "Cada requisito queda cumplido, cumplido en parte, no cumplido o «no aparece en tu CV»: lo que un CV no puede mostrar, como tu disponibilidad, o un nivel de idioma que no declaras.",
+      "p2": "El veredicto (compatibilidad baja, parcial o alta) sale de contar obligatorios y deseables; no es un puntaje. Aparte, cinco lecturas de tu CV que no cambian el veredicto, y lo que conviene arreglar primero."
+    },
+    "interview": {
+      "short": "Entrevista",
+      "title": "Ensayas en voz alta",
+      "p1": "Desde el análisis abres la sala, eliges español o inglés y hablas con un entrevistador de IA que tiene la oferta y tu análisis. Empieza por lo que quedó abierto y sigue con lo que sí muestras y con situaciones del puesto.",
+      "p2": "Lo que dicen se escribe en pantalla mientras ocurre. Si la llamada se corta después de que respondiste, reconectas y retoma donde quedó."
+    },
+    "feedback": {
+      "short": "Feedback",
+      "title": "Lees cómo te fue",
+      "p1": "Al colgar, la transcripción se lee contra la oferta y contra lo que tu análisis dejó abierto. Suele estar listo en un minuto o poco más.",
+      "p2": "Ves cómo respondiste a cada punto débil, con tus palabras citadas, lo que funcionó, qué trabajar y la transcripción con sus tiempos."
+    }
+  },
+  "figure": {
+    "bar": {
+      "posting": "Nuevo análisis",
+      "read": "La oferta, leída",
+      "requirements": "Requisitos",
+      "requirementsNote": "cada uno, buscado en tu CV",
+      "analysis": "Análisis",
+      "analysisNote": "un estado por requisito",
+      "room": "Habla el entrevistador",
+      "feedback": "Feedback",
+      "feedbackNote": "tus puntos débiles, en la entrevista"
+    },
+    "intro": "Hacemos software de turnos para clínicas. Trabajo remoto.",
+    "introNote": "Describe la empresa: no es un requisito.",
+    "heads": {
+      "postingRequired": "Requisitos",
+      "postingPreferred": "Se valora",
+      "required": "Obligatorios",
+      "preferred": "Deseables",
+      "agendaGaps": "1 · Lo no cumplido y lo cumplido en parte",
+      "agendaMet": "2 · Lo cumplido, para ir a fondo",
+      "agendaNotShown": "3 · Lo que no aparece en tu CV",
+      "agendaExtra": "4 · Situaciones del puesto y repreguntas",
+      "agendaExtraNote": "hasta que se acaba el tiempo"
+    },
+    "lineRef": "L{{n}}",
+    "yearsSum": "2019–2021 + 2021–hoy ≈ 7 años · pide 3",
+    "termOr": "o",
+    "file": "PDF · 84 KB",
+    "sheet": "Tu CV · la capa de texto",
+    "noProof": "Ninguna línea de tu CV lo muestra.",
+    "quote": "«{{text}}»",
+    "tally": {
+      "required": "Obligatorios",
+      "preferred": "Deseables",
+      "count": "{{met}} de {{total}}",
+      "countPartial": "{{met}} de {{total}}, {{partial}} en parte",
+      "notShown": "No aparece en tu CV",
+      "notShownCount": "{{n}}, fuera de la cuenta",
+      "verdict": "Veredicto"
+    },
+    "outcomes": {
+      "label": "Resultados posibles",
+      "dodged": "Esquivada",
+      "notRaised": "No surgió"
+    },
+    "after": {
+      "worked": "Lo que funcionó",
+      "work": "Qué trabajar",
+      "transcript": "La transcripción, con sus tiempos"
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "title": "One posting, one CV, and what happens in between.",
+  "lede": "What {{brand}} does with any job posting, in six steps and on a single object: the posting's requirements.",
+  "ledeRail": "Scroll to move through it, or jump to a step from the index.",
+  "rail": {
+    "label": "How it works, step by step"
+  },
+  "steps": {
+    "posting": {
+      "short": "Posting",
+      "title": "You paste the posting and upload your CV",
+      "p1": "You enter the company and the job title, paste the posting's full description and upload your CV as a PDF. The more complete the posting, the more precise the read.",
+      "p2": "Each analysis counts against your plan. If something fails before it finishes, it isn't counted."
+    },
+    "requirements": {
+      "short": "Requirements",
+      "title": "The requirements are pulled from the posting",
+      "p1": "Each requirement comes with the phrase from the posting it was taken from. It's marked required or preferred by the section it appears in and by words like “nice to have” or “a plus”.",
+      "p2": "If a line of requirements was left off the list, it's read again."
+    },
+    "search": {
+      "short": "Your CV",
+      "title": "Each one is looked for in your CV",
+      "p1": "{{brand}} reads the text layer of your PDF, the way an applicant tracking system (ATS) would. Each requirement is looked up there term by term, in the posting's own words. The line that proves it is checked against your CV's text: if it isn't there, the requirement doesn't count as met.",
+      "p2": "Years are counted from the total you state or from the dates in your CV. If your PDF is a scan with no text, you're told so, and it doesn't use any of your analyses."
+    },
+    "verdict": {
+      "short": "Verdict",
+      "title": "Four statuses and a count",
+      "p1": "Each requirement ends up met, partly met, not met or “not shown in your CV”: something a CV can't show, like your availability, or a language level you don't state.",
+      "p2": "The verdict (weak, partial or strong fit) comes from counting required and preferred requirements; it isn't a score. Separately, you get five readings of your CV that don't change the verdict, and what to fix first."
+    },
+    "interview": {
+      "short": "Interview",
+      "title": "You rehearse out loud",
+      "p1": "From the analysis, you open the room, choose English or Spanish, and talk with an AI interviewer that has the posting and your analysis. It starts with what was left open, then moves on to what you do show and to situations from the role.",
+      "p2": "Everything said is written on screen as it happens. If the call drops after you've answered, you reconnect and it picks up where it left off."
+    },
+    "feedback": {
+      "short": "Feedback",
+      "title": "You read how it went",
+      "p1": "When you hang up, the transcript is read against the posting and against what your analysis left open. It's usually ready in a minute or so.",
+      "p2": "You see how you answered each weak spot, with your own words quoted, what worked, what to work on, and the transcript with its timestamps."
+    }
+  },
+  "figure": {
+    "bar": {
+      "posting": "New analysis",
+      "read": "The posting, read",
+      "requirements": "Requirements",
+      "requirementsNote": "each one, looked for in your CV",
+      "analysis": "Analysis",
+      "analysisNote": "one status per requirement",
+      "room": "The interviewer is speaking",
+      "feedback": "Feedback",
+      "feedbackNote": "your weak spots, in the interview"
+    },
+    "intro": "We build appointment software for clinics. Remote work.",
+    "introNote": "Describes the company: not a requirement.",
+    "heads": {
+      "postingRequired": "Requirements",
+      "postingPreferred": "Nice to have",
+      "required": "Required",
+      "preferred": "Preferred",
+      "agendaGaps": "1 · What's not met or partly met",
+      "agendaMet": "2 · What's met, to dig deeper",
+      "agendaNotShown": "3 · What your CV doesn't show",
+      "agendaExtra": "4 · Situations from the role and follow-ups",
+      "agendaExtraNote": "until time runs out"
+    },
+    "lineRef": "L{{n}}",
+    "yearsSum": "2019–2021 + 2021–now ≈ 7 years · asks for 3",
+    "termOr": "or",
+    "file": "PDF · 84 KB",
+    "sheet": "Your CV · the text layer",
+    "noProof": "No line in your CV shows it.",
+    "quote": "“{{text}}”",
+    "tally": {
+      "required": "Required",
+      "preferred": "Preferred",
+      "count": "{{met}} of {{total}}",
+      "countPartial": "{{met}} of {{total}}, {{partial}} partly",
+      "notShown": "Not shown in your CV",
+      "notShownCount": "{{n}}, outside the count",
+      "verdict": "Verdict"
+    },
+    "outcomes": {
+      "label": "Possible outcomes",
+      "dodged": "Dodged",
+      "notRaised": "Not raised"
+    },
+    "after": {
+      "worked": "What worked",
+      "work": "What to work on",
+      "transcript": "The transcript, with its timestamps"
+    }
+  }
+}
