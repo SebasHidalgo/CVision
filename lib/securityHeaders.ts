@@ -30,9 +30,14 @@
  *              URL in an <object> (object-src), both minted by the server.
  *   Next.js    'unsafe-inline' scripts: the App Router's hydration and RSC
  *              payload are inline scripts without a nonce (a nonce would
- *              make every page dynamic; the legal pages are static);
+ *              make every page dynamic; the legal pages are static), and
+ *              so is the root layout's data-js marker;
  *              'unsafe-eval' in development only (the dev runtime), with
  *              the dev server's websocket.
+ *
+ * Not allowed on purpose: clerk-telemetry.com. Clerk's development
+ * instances send telemetry from the browser; the root layout turns it off
+ * (ClerkProvider `telemetry={false}`) instead of widening the policy.
  *
  * Mode: `Content-Security-Policy` (enforced) unless CSP_MODE=report-only,
  * which switches to `Content-Security-Policy-Report-Only` so a change can
@@ -41,6 +46,7 @@
 
 // Relative on purpose: next.config.ts loads this module at config time,
 // where the `@/` alias resolves one level deep and no further.
+import { APP_URL_ENV, appUrl } from "./brand";
 import { LIBSAMPLERATE_WORKLET_URL } from "./voice/elevenlabs/worklets";
 
 export type HeaderEntry = { key: string; value: string };
@@ -49,10 +55,20 @@ export type HeaderRule = { source: string; headers: HeaderEntry[] };
 export type SecurityHeadersEnv = {
   NODE_ENV?: string;
   CSP_MODE?: string;
+  NEXT_PUBLIC_APP_URL?: string;
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?: string;
   PADDLE_ENV?: string;
   NEXT_PUBLIC_SUPABASE_URL?: string;
 };
+
+/**
+ * Whether the app is served over https (its NEXT_PUBLIC_APP_URL). A local
+ * production build on http://localhost is not: upgrading its requests to
+ * https leaves Safari with a page that loads nothing.
+ */
+export function servedOverHttps(env: SecurityHeadersEnv): boolean {
+  return appUrl({ [APP_URL_ENV]: env.NEXT_PUBLIC_APP_URL }).startsWith("https://");
+}
 
 export type CspMode = "enforce" | "report-only";
 
@@ -132,7 +148,7 @@ export function contentSecurityPolicy(env: SecurityHeadersEnv): string {
     "media-src": ["'self'", "blob:"],
     "worker-src": ["'self'", "blob:"],
     "manifest-src": ["'self'"],
-    ...(development ? {} : { "upgrade-insecure-requests": [] }),
+    ...(!development && servedOverHttps(env) ? { "upgrade-insecure-requests": [] } : {}),
   };
 
   return Object.entries(directives)
@@ -151,10 +167,13 @@ export function contentSecurityPolicy(env: SecurityHeadersEnv): string {
  * is the one that was served for the analysis (proved by the browser
  * suite: with `microphone=()` elsewhere, Start was refused). `self` still
  * keeps every embedded third-party frame away from it.
+ *
+ * No `interest-cohort`: FLoC is gone, and browsers log the unknown
+ * feature as an error on every page.
  */
 export function permissionsPolicy(env: SecurityHeadersEnv): string {
   const paddleCheckout = PADDLE_CHECKOUT[env.PADDLE_ENV === "production" ? "production" : "sandbox"];
-  return ["camera=()", "geolocation=()", "microphone=(self)", `payment=(self "${paddleCheckout}")`, "usb=()", "interest-cohort=()"].join(", ");
+  return ["camera=()", "geolocation=()", "microphone=(self)", `payment=(self "${paddleCheckout}")`, "usb=()"].join(", ");
 }
 
 /** The rules for next.config's `headers()`: the same set on every route. */

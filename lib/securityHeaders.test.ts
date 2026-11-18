@@ -6,6 +6,7 @@ const LIVE_KEY = `pk_live_${Buffer.from("clerk.example.com$").toString("base64")
 
 const env = (overrides: Record<string, string | undefined> = {}) => ({
   NODE_ENV: "production",
+  NEXT_PUBLIC_APP_URL: "https://app.example.com",
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: LIVE_KEY,
   PADDLE_ENV: "production",
   NEXT_PUBLIC_SUPABASE_URL: "https://abcdefgh.supabase.co",
@@ -53,6 +54,21 @@ describe("contentSecurityPolicy", () => {
     expect(csp).not.toContain("upgrade-insecure-requests");
   });
 
+  it("upgrades insecure requests only where the app is served over https, so a local production build loads in Safari", () => {
+    expect(contentSecurityPolicy(env())).toContain("upgrade-insecure-requests");
+    expect(contentSecurityPolicy(env({ NEXT_PUBLIC_APP_URL: "http://localhost:3300" }))).not.toContain("upgrade-insecure-requests");
+    // Unset reads as the local dev server.
+    expect(contentSecurityPolicy(env({ NEXT_PUBLIC_APP_URL: undefined }))).not.toContain("upgrade-insecure-requests");
+    // A tunnel in development: the dev server is still opened on http://localhost too.
+    expect(contentSecurityPolicy(env({ NODE_ENV: "development", NEXT_PUBLIC_APP_URL: "https://tunnel.example.dev" }))).not.toContain("upgrade-insecure-requests");
+  });
+
+  it("never allows Clerk's telemetry host: the layout turns telemetry off instead", () => {
+    for (const csp of [contentSecurityPolicy(env()), contentSecurityPolicy(env({ NODE_ENV: "development", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: DEV_KEY }))]) {
+      expect(csp).not.toContain("clerk-telemetry");
+    }
+  });
+
   it("falls back to object-src 'none' and no Clerk host when the variables are missing, never to a wildcard", () => {
     const csp = contentSecurityPolicy({ NODE_ENV: "production" });
     expect(directive(csp, "object-src")).toBe("object-src 'none'");
@@ -83,6 +99,8 @@ describe("the header rules", () => {
     expect(common["Permissions-Policy"]).toContain("camera=()");
     expect(common["Permissions-Policy"]).toContain('payment=(self "https://buy.paddle.com")');
     expect(permissionsPolicy(env({ PADDLE_ENV: "sandbox" }))).toContain('payment=(self "https://sandbox-buy.paddle.com")');
+    // FLoC is gone; browsers log the unknown feature as an error.
+    expect(common["Permissions-Policy"]).not.toContain("interest-cohort");
 
     const dev = securityHeaderRules(env({ NODE_ENV: "development" }));
     expect(dev[0].headers.some((header) => header.key === "Strict-Transport-Security")).toBe(false);

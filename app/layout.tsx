@@ -66,7 +66,8 @@ export default async function RootLayout({
   return (
     // Base appearance for anything Clerk renders without an explicit one;
     // modals opened from the client pass the themed variant themselves.
-    <ClerkProvider appearance={clerkAppearance("light")} localization={clerkLocalization(locale)}>
+    // No telemetry: a development instance would send it to a host the CSP blocks (lib/securityHeaders.ts).
+    <ClerkProvider appearance={clerkAppearance("light")} localization={clerkLocalization(locale)} telemetry={false}>
       {/* next-themes' class and MARK_JS's data-js change <html> before hydration. */}
       <html lang={locale} suppressHydrationWarning>
         <head>
