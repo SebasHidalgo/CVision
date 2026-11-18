@@ -55,7 +55,8 @@ const LANGUAGE_NAMES: Record<SpecLocale, string> = { en: "English", es: "Españo
 export async function switchLanguage(page: Page, target: SpecLocale): Promise<void> {
   await page.getByRole("banner").getByRole("button", { name: /^(EN|ES), (language|idioma):/i }).click();
   await page.getByRole("menuitemradio", { name: LANGUAGE_NAMES[target] }).click();
-  await page.waitForFunction((lang) => document.documentElement.lang === lang, target, { timeout: 30_000 });
+  // The landing reloads to switch: mid-navigation there is briefly no document element.
+  await page.waitForFunction((lang) => document.documentElement?.lang === lang, target, { timeout: 30_000 });
 }
 
 /** The interview call to action on an analysis page. */

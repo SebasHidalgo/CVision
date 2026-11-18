@@ -187,6 +187,9 @@ export async function layoutViolations(page: Page, label: string): Promise<Layou
         const a = texts[i];
         const b = texts[j];
         if (a.owner.closest(BUTTON) || b.owner.closest(BUTTON)) continue;
+        // The lines of one heading are set together (tight display leading): their line boxes may meet.
+        const heading = a.owner.closest("h1, h2, h3");
+        if (heading && heading === b.owner.closest("h1, h2, h3")) continue;
         if (a.flow === b.flow || a.flow.contains(b.flow) || b.flow.contains(a.flow) || layer(a.owner) !== layer(b.owner)) continue;
         if (a.rects.some((ra) => b.rects.some((rb) => meets(ra, rb)))) report("overlap", `${describe(a.owner)} overlaps the text ${describe(b.owner)}`);
       }
@@ -219,9 +222,21 @@ export async function layoutViolations(page: Page, label: string): Promise<Layou
     for (const button of [...document.querySelectorAll(BUTTON)].filter(shown)) {
       if (!(button.textContent ?? "").trim()) continue;
       const box = button.getBoundingClientRect();
-      const spills = textRects(button).some((rect) => rect.left < box.left - 1 || rect.right > box.right + 1 || rect.top < box.top - 1 || rect.bottom > box.bottom + 1);
+      // Screen-reader text (sr-only: a 1 px box that clips on purpose) is never shown, so it never spills or is cut.
+      // A text range reports the unclipped extent, so each text node is measured on its own, the hidden ones skipped.
+      const hiddenText = (el: HTMLElement) => el.offsetWidth <= 1 && el.offsetHeight <= 1;
+      const shownRects: DOMRect[] = [];
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        let hidden = !(node.textContent ?? "").trim();
+        for (let at = node.parentElement; !hidden && at && at !== button.parentElement; at = at.parentElement) {
+          if (hiddenText(at) || !visible(at)) hidden = true;
+        }
+        if (!hidden) shownRects.push(...textRects(node));
+      }
+      const spills = shownRects.some((rect) => rect.left < box.left - 1 || rect.right > box.right + 1 || rect.top < box.top - 1 || rect.bottom > box.bottom + 1);
       const truncated = [button, ...button.querySelectorAll("*")].some(
-        (el) => el instanceof HTMLElement && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible",
+        (el) => el instanceof HTMLElement && !hiddenText(el) && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible",
       );
       if (spills || truncated) report("clipped", `${describe(button)}${truncated ? " (truncated)" : " (text outside the button)"}`);
     }

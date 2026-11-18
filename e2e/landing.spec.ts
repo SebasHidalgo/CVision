@@ -46,7 +46,8 @@ test("the loader shows on a full load of the landing, fills and hands over to th
   expect(log[0]?.loading).toBe("");
   const off = log.find((entry) => entry.loading === null);
   expect(off, "the loader came down").toBeTruthy();
-  expect(off!.at).toBeLessThan(CAP_MS + 1_500);
+  // The cap counts from the boot script, which runs when the HTML arrives, not from navigation start.
+  expect(off!.at - log[0].at).toBeLessThan(CAP_MS + 1_500);
   await expect(page.locator("[data-loader]")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(await page.evaluate(() => performance.getEntriesByName("cvision:revealed").length)).toBe(1);
@@ -58,9 +59,10 @@ test("the cap shows the page when a part never reports ready", async ({ page }) 
   await page.addInitScript(() => window.addEventListener("cvision:ready", (e) => e.stopImmediatePropagation(), true));
   await page.goto("/");
   await revealed(page);
-  const off = (await loaderLog(page)).find((entry) => entry.loading === null);
-  expect(off!.at).toBeGreaterThan(CAP_MS - 300);
-  expect(off!.at).toBeLessThan(CAP_MS + 1_500);
+  const log = await loaderLog(page);
+  const off = log.find((entry) => entry.loading === null);
+  expect(off!.at - log[0].at).toBeGreaterThan(CAP_MS - 300);
+  expect(off!.at - log[0].at).toBeLessThan(CAP_MS + 1_500);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
