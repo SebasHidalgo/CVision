@@ -1,0 +1,185 @@
+{
+  "title": "Rehearse the interview on a voice call. Then read your feedback.",
+  "lede": "An AI interviewer that has read the same posting and your analysis asks you questions out loud. You answer by speaking, from your computer or your phone. It's practice, just for you: nobody else hears it, and nobody will contact you.",
+  "intro": "The app's screens, as they are: the room during the call, and your feedback after it.",
+  "controls": {
+    "group": "Example conversation",
+    "play": "Play the excerpt",
+    "pause": "Pause",
+    "resume": "Resume",
+    "again": "Play again",
+    "restart": "From the start",
+    "sound": "Sound",
+    "loading": "Loading audio…",
+    "voiceLabel": "AI-generated voices · example conversation",
+    "voiceNote": "The interviewer's voice is the one that interviews you in {{brand}} when you choose English."
+  },
+  "talk": {
+    "lines": {
+      "l1": "Hi Guillermo, thanks for joining. I'll be interviewing you for the Full Stack Developer role at Orilla Software. We have about 12 minutes. To start, tell me briefly about your background and what drew you to this role.",
+      "l2": "Seven years of web apps. Today I run an ordering app for 120 restaurants, in React and Node.js. I want a product to grow with.",
+      "l3": "This role uses PostgreSQL or MySQL. Which database do you use, and for what?",
+      "l4": "PostgreSQL. I designed the payments tables and I write their migrations.",
+      "l5": "The team deploys on AWS. Have you used any cloud?",
+      "l6": "Not AWS. We deploy to our own server; I automated the deploys.",
+      "l7": "Tell me about a time your change broke production. What did you do?",
+      "l8": "A tip bug charged twice for an hour. I rolled it back, refunded everyone and told the team."
+    }
+  },
+  "screens": {
+    "label": "App screen",
+    "during": "During",
+    "duringSub": "The interview room",
+    "after": "After",
+    "afterSub": "Your feedback",
+    "note": "A replica of the app's screens, playing the example conversation. The app keeps the transcript with its times; it doesn't record the audio of your call."
+  },
+  "app": {
+    "interview": {
+      "room": {
+        "eyebrow": "Interview room · Attempt {{attempt}}",
+        "status": {
+          "ready": "Ready when you are",
+          "speaking": "Interviewer speaking",
+          "yourTurn": "Your turn",
+          "ended": "Interview ended"
+        },
+        "startButton": {
+          "start": "Start the interview"
+        },
+        "clock": {
+          "timeLeft": "Time left",
+          "length": "Interview length"
+        },
+        "interviewer": "Interviewer",
+        "you": "You",
+        "candidate": "Candidate",
+        "length": "Length",
+        "upTo_one": "Up to {{count}} minute",
+        "upTo_other": "Up to {{count}} minutes",
+        "source": {
+          "period_one": "{{count}} of {{limit}} interviews left this period. This one uses one of them.",
+          "period_other": "{{count}} of {{limit}} interviews left this period. This one uses one of them."
+        },
+        "hint": {
+          "idle": "The questions come from the posting and your analysis.",
+          "live": "Speak naturally. End the interview whenever you are done.",
+          "ended": "Opening your feedback."
+        },
+        "end": "End the interview",
+        "openingFeedback": "Opening your feedback",
+        "transcript": {
+          "label": "Live transcript",
+          "title": "Transcript",
+          "listening": "Listening",
+          "empty": "Empty",
+          "lines_one": "{{count}} line",
+          "lines_other": "{{count}} lines",
+          "emptyLive": "Every finished sentence lands here as it is said.",
+          "emptyIdle": "Once the call starts, the conversation is written down here as it happens."
+        },
+        "language": {
+          "label": "Interview language",
+          "en": "English",
+          "es": "Spanish",
+          "note": "Proposed from the posting. The interviewer speaks and listens in the language you choose here."
+        }
+      }
+    },
+    "feedback": {
+      "header": {
+        "eyebrow": "Interview feedback · {{date}}",
+        "kicker": "Mock interview"
+      },
+      "actions": {
+        "allInterviews": "All interviews"
+      },
+      "report": {
+        "overall": "Overall performance",
+        "gaps": {
+          "eyebrow": "Your weak spots, in the room",
+          "title": "The analysis flagged these. Here is how each one went."
+        },
+        "outcome": {
+          "addressed": "Addressed",
+          "partially": "Partly addressed"
+        },
+        "answers": {
+          "eyebrow": "Answers worth hearing again",
+          "title": "In your own words.",
+          "worked": "Worked",
+          "didntLand": "Didn't land"
+        },
+        "readings": {
+          "eyebrow": "Five readings",
+          "title": "Where the interview held up, and where it didn't."
+        },
+        "strengths": "What worked",
+        "improve": "Work on this",
+        "finalAssessment": "Final assessment"
+      },
+      "categories": {
+        "communicationSkills": "Communication Skills",
+        "technicalKnowledge": "Technical Knowledge",
+        "problemSolving": "Problem Solving",
+        "culturalFit": "Cultural Fit",
+        "confidenceAndClarity": "Confidence and Clarity"
+      },
+      "stats": {
+        "answers_one": "{{count}} answer",
+        "answers_other": "{{count}} answers",
+        "wordsEach_one": "{{count}} word each",
+        "wordsEach_other": "{{count}} words each",
+        "onFloor_one": "about {{count}} min on the floor",
+        "onFloor_other": "about {{count}} min on the floor"
+      },
+      "transcript": {
+        "title": "Transcript",
+        "lines_one": "{{count}} line",
+        "lines_other": "{{count}} lines",
+        "show": "show",
+        "hide": "hide",
+        "you": "You",
+        "interviewer": "Interviewer"
+      }
+    }
+  },
+  "example": {
+    "gaps": {
+      "r3": "You named the database and what you do with it. Add it to your CV: it's what R3 is missing.",
+      "r5": "You were clear about what you haven't done, and you showed something close. You didn't say how you'd learn it."
+    },
+    "answers": {
+      "a1": "You answered with what you did in the database, not with a list of tools.",
+      "a2": "You said what happened and how you fixed it, but not what you changed so it doesn't happen again."
+    },
+    "worked": {
+      "w1": "Asked about the database, you answered with what you did, not with a list of tools.",
+      "w2": "On AWS you were direct instead of dodging the question."
+    },
+    "workOn": {
+      "o1": "When you talk about the production bug, say what you changed afterwards so it doesn't happen again.",
+      "o2": "End long answers with the result, not the task."
+    },
+    "final": "You answered with concrete facts and were direct about what you haven't done. The next step is to end every answer with its result: what changed afterwards.",
+    "sample": "A sample: the first lines of {{total}}."
+  },
+  "facts": {
+    "length": {
+      "term": "Length",
+      "body": "Up to {{full}} minutes with Pro. The free trial lasts {{trial}}, once per account."
+    },
+    "language": {
+      "term": "Language",
+      "body": "English or Spanish. The room suggests the posting's language."
+    },
+    "count": {
+      "term": "How many",
+      "body": "Pro: {{perMonth}} a month. With Pro you can add packs of {{credits}} for {{price}}: they never expire, and they still work if you leave Pro later."
+    },
+    "kept": {
+      "term": "What's kept",
+      "body": "The transcript, with its times, to put together your feedback. {{brand}} doesn't keep a recording of your voice, and nobody else listens."
+    }
+  }
+}

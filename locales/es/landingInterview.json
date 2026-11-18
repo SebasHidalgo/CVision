@@ -1,0 +1,192 @@
+{
+  "title": "Ensaya la entrevista en una llamada de voz. Después, lee tu feedback.",
+  "lede": "Un entrevistador de IA, armado con la misma oferta y con tu análisis, te pregunta en voz alta. Respondes hablando, desde tu computadora o tu teléfono. Es práctica, para ti: nadie más la escucha y nadie te va a contactar.",
+  "intro": "Las pantallas de la app, tal como son: la sala durante la llamada y el feedback después.",
+  "controls": {
+    "group": "Conversación de ejemplo",
+    "play": "Reproducir el fragmento",
+    "pause": "Pausa",
+    "resume": "Seguir",
+    "again": "Repetir",
+    "restart": "Desde el inicio",
+    "sound": "Sonido",
+    "loading": "Cargando audio…",
+    "voiceLabel": "Voces generadas con IA · conversación de ejemplo",
+    "voiceNote": "La voz del entrevistador es la misma que te entrevista en {{brand}} cuando eliges español."
+  },
+  "talk": {
+    "lines": {
+      "l1": "Hola Guillermo, gracias por conectarte. Voy a entrevistarte para el puesto de Desarrollador Full Stack en Orilla Software. Tenemos unos 12 minutos. Para empezar, cuéntame brevemente sobre tu trayectoria y qué te atrajo de este puesto.",
+      "l2": "Hace unos siete años que hago aplicaciones web. Hoy mantengo la app de pedidos que usan 120 restaurantes: el panel en React y la API de pagos en Node.js. Me atrajo trabajar en un producto propio.",
+      "l3": "En este puesto se trabaja con PostgreSQL o MySQL. ¿Con qué base de datos trabajas hoy, y qué haces con ella?",
+      "l4": "Con PostgreSQL. Diseñé las tablas de pagos y escribo las migraciones cuando cambian.",
+      "l5": "El equipo despliega en AWS. ¿Trabajaste con alguna nube?",
+      "l6": "No en AWS. Publicamos en un servidor propio, y armé el despliegue automático.",
+      "l7": "Cuéntame de una vez en que un cambio tuyo rompió algo en producción. ¿Qué pasó y qué hiciste?",
+      "l8": "Un cambio en el cálculo de propinas cobró dos veces durante una hora. Lo revertí, devolvimos los cobros y avisé al equipo."
+    }
+  },
+  "screens": {
+    "label": "Pantalla de la app",
+    "during": "Durante",
+    "duringSub": "La sala de entrevista",
+    "after": "Después",
+    "afterSub": "Tu feedback",
+    "note": "Réplica de las pantallas de la app con la conversación de ejemplo. La app guarda la transcripción con sus tiempos; no graba el audio de tu llamada."
+  },
+  "app": {
+    "interview": {
+      "room": {
+        "eyebrow": "Sala de entrevista · Intento {{attempt}}",
+        "status": {
+          "ready": "Cuando quieras",
+          "speaking": "Habla el entrevistador",
+          "yourTurn": "Tu turno",
+          "ended": "Entrevista terminada"
+        },
+        "startButton": {
+          "start": "Empezar la entrevista"
+        },
+        "clock": {
+          "timeLeft": "Tiempo restante",
+          "length": "Duración de la entrevista"
+        },
+        "interviewer": "Entrevistador",
+        "you": "Tú",
+        "candidate": "Postulante",
+        "length": "Duración",
+        "upTo_one": "Hasta {{count}} minuto",
+        "upTo_many": "Hasta {{count}} minutos",
+        "upTo_other": "Hasta {{count}} minutos",
+        "source": {
+          "period_one": "Te queda {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
+          "period_many": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
+          "period_other": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una."
+        },
+        "hint": {
+          "idle": "Las preguntas salen de la oferta y de tu análisis.",
+          "live": "Habla con naturalidad. Termina la entrevista cuando quieras.",
+          "ended": "Abriendo tu feedback."
+        },
+        "end": "Terminar la entrevista",
+        "openingFeedback": "Abriendo tu feedback",
+        "transcript": {
+          "label": "Transcripción en vivo",
+          "title": "Transcripción",
+          "listening": "Escuchando",
+          "empty": "Vacía",
+          "lines_one": "{{count}} línea",
+          "lines_many": "{{count}} líneas",
+          "lines_other": "{{count}} líneas",
+          "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
+          "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre."
+        },
+        "language": {
+          "label": "Idioma de la entrevista",
+          "en": "Inglés",
+          "es": "Español",
+          "note": "Propuesto según la oferta. El entrevistador habla y escucha en el idioma que elijas aquí."
+        }
+      }
+    },
+    "feedback": {
+      "header": {
+        "eyebrow": "Feedback de la entrevista · {{date}}",
+        "kicker": "Entrevista de práctica"
+      },
+      "actions": {
+        "allInterviews": "Todas las entrevistas"
+      },
+      "report": {
+        "overall": "Desempeño general",
+        "gaps": {
+          "eyebrow": "Tus puntos débiles, en la entrevista",
+          "title": "El análisis señaló estas brechas. Así te fue con cada una."
+        },
+        "outcome": {
+          "addressed": "Abordada",
+          "partially": "Abordada en parte"
+        },
+        "answers": {
+          "eyebrow": "Respuestas que vale la pena repasar",
+          "title": "En tus propias palabras.",
+          "worked": "Funcionó",
+          "didntLand": "No convenció"
+        },
+        "readings": {
+          "eyebrow": "Cinco lecturas",
+          "title": "Dónde se sostuvo la entrevista y dónde no."
+        },
+        "strengths": "Lo que funcionó",
+        "improve": "Trabaja en esto",
+        "finalAssessment": "Valoración final"
+      },
+      "categories": {
+        "communicationSkills": "Habilidades de comunicación",
+        "technicalKnowledge": "Conocimientos técnicos",
+        "problemSolving": "Resolución de problemas",
+        "culturalFit": "Afinidad cultural",
+        "confidenceAndClarity": "Seguridad y claridad"
+      },
+      "stats": {
+        "answers_one": "{{count}} respuesta",
+        "answers_many": "{{count}} respuestas",
+        "answers_other": "{{count}} respuestas",
+        "wordsEach_one": "{{count}} palabra por respuesta",
+        "wordsEach_many": "{{count}} palabras por respuesta",
+        "wordsEach_other": "{{count}} palabras por respuesta",
+        "onFloor_one": "alrededor de {{count}} min con la palabra",
+        "onFloor_many": "unos {{count}} min con la palabra",
+        "onFloor_other": "unos {{count}} min con la palabra"
+      },
+      "transcript": {
+        "title": "Transcripción",
+        "lines_one": "{{count}} línea",
+        "lines_many": "{{count}} líneas",
+        "lines_other": "{{count}} líneas",
+        "show": "mostrar",
+        "hide": "ocultar",
+        "you": "Tú",
+        "interviewer": "Entrevistador"
+      }
+    }
+  },
+  "example": {
+    "gaps": {
+      "r3": "Nombraste la base de datos y lo que haces con ella. Súmalo a tu CV: es lo que le falta a R3.",
+      "r5": "Fuiste claro sobre lo que no hiciste y mostraste algo cercano. Faltó decir cómo lo aprenderías."
+    },
+    "answers": {
+      "a1": "Respondiste con lo que hiciste en la base de datos, no con una lista de herramientas.",
+      "a2": "Contaste qué pasó y cómo lo arreglaste, pero no qué cambiaste para que no se repita."
+    },
+    "worked": {
+      "w1": "Cuando te preguntaron por la base de datos, respondiste con lo que hiciste, no con una lista de herramientas.",
+      "w2": "Sobre AWS fuiste directo en vez de esquivar la pregunta."
+    },
+    "workOn": {
+      "o1": "Al hablar del error en producción, di qué cambiaste después para que no se repita.",
+      "o2": "Cierra las respuestas largas con el resultado, no con la tarea."
+    },
+    "final": "Respondiste con hechos concretos y fuiste directo sobre lo que no hiciste. El siguiente paso es cerrar cada respuesta con su resultado: qué cambió después.",
+    "sample": "Muestra: las primeras líneas de las {{total}}."
+  },
+  "facts": {
+    "length": {
+      "term": "Duración",
+      "body": "Hasta {{full}} minutos con Pro. La prueba gratis dura {{trial}}, una vez por cuenta."
+    },
+    "language": {
+      "term": "Idioma",
+      "body": "Español o inglés. La sala te propone el de la oferta."
+    },
+    "count": {
+      "term": "Cuántas",
+      "body": "Pro: {{perMonth}} al mes. Con Pro puedes sumar paquetes de {{credits}} por {{price}}: no vencen y se usan aunque después dejes Pro."
+    },
+    "kept": {
+      "term": "Qué se guarda",
+      "body": "La transcripción, con sus tiempos, para armar tu feedback. {{brand}} no guarda una grabación de tu voz, y nadie más escucha."
+    }
+  }
+}
