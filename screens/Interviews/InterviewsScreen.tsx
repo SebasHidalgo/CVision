@@ -1,4 +1,4 @@
-import { HistoryLine } from "@/components/billing/HistoryNotice";
+import { HistoryLine } from "./components/HistoryLine";
 import EmptyState from "@/components/layout/EmptyState";
 import IndexRow from "@/components/layout/IndexRow";
 import PageIntro from "@/components/layout/PageIntro";
@@ -109,7 +109,7 @@ export default async function InterviewsScreen() {
           })}
         </ol>
       )}
-      <HistoryLine hidden={hidden} what="interviews" />
+      <HistoryLine hidden={hidden} />
     </div>
   );
 }

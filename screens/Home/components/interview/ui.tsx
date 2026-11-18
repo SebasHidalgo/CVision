@@ -12,8 +12,6 @@ export const THIN_SCROLL = "[scrollbar-width:thin] [scrollbar-color:var(--color-
 /** The report's numbered rows: an ordinal column, then the row. */
 export const ROWS = "mt-[18px] border-t border-ed-line";
 export const ROW = "grid grid-cols-[2.6rem_minmax(0,1fr)] gap-3.5 border-b border-ed-line py-[18px]";
-/** The design system squares every focused element (radius 2 px); a pill keeps its shape. */
-export const KEEP_PILL_FOCUS = "focus-visible:rounded-full!";
 
 /** A score bar the way the app reads it: a meter from 0 to 100. */
 export function Meter({ value, label, size = "sm" }: { value: number; label: string; size?: "sm" | "lg" }) {

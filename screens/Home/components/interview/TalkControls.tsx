@@ -4,12 +4,10 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { ControlIcon } from "./icons";
 import type { TalkState } from "./talk";
-import { KEEP_PILL_FOCUS } from "./ui";
 
 const PILL = cn(
   "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-ed-line-2 bg-ed-raise pr-4 pl-3 text-[14.5px] text-ed-ink",
   "transition-[border-color,background-color] duration-200 hover:border-ed-ink-2 motion-reduce:transition-none",
-  KEEP_PILL_FOCUS,
 );
 
 /**
