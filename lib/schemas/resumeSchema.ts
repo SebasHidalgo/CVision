@@ -65,7 +65,6 @@ export const analyzeResumeInputSchema = resumeDetailsSchema.extend({
   resumeKey: z.string().regex(RESUME_KEY_PATTERN, "Not a resume key"),
 });
 
-export type AnalyzeResumeInput = z.infer<typeof analyzeResumeInputSchema>;
 
 /** An analysis named by id, for actions that act on one the caller owns. */
 export const resumeIdInputSchema = z.object({ resumeId: z.uuid() });
@@ -110,7 +109,6 @@ export const EVIDENCE_SOURCES = ["experience", "projects", "skills", "summary", 
 
 export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
-export type PostingSection = (typeof POSTING_SECTIONS)[number];
 export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
 
 /** A term the requirement names, verbatim from its sourceQuote, and the CV word that shows it ("" when none). */

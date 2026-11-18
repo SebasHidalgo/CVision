@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/page.dev.tsx",
+    "e2e/server.mjs",
+    "e2e/run.mjs",
+    "e2e/cleanup.ts",
+    "e2e/fixtures/capture-translations.ts",
+    "e2e/support/gemini-ledger.cjs",
+    "scripts/smoke/block-network.cjs",
+    "scripts/eval/accents/build.mjs"
+  ],
+  "ignore": ["scripts/eval/runs/**", "e2e/.artifacts/**", "public/worklets/**", "components/ui/**"],
+  "ignoreExportsUsedInFile": true
+}

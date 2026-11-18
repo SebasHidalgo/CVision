@@ -65,8 +65,6 @@ export const INTERVIEW_TIERS: Record<InterviewTierId, InterviewTier> = {
   FULL: { seconds: MAX_INTERVIEW_DURATION_SECONDS },
 };
 
-export const TRIAL_INTERVIEW_SECONDS = INTERVIEW_TIERS.TRIAL.seconds;
-
 /**
  * The interview pack: a one-time purchase, sold to active Pro accounts,
  * this many credits. A credit is one full interview: for a Pro, once the

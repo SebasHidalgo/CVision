@@ -234,17 +234,6 @@ export type BucketSettings = {
   allowedMimeTypes: string[] | null;
 };
 
-export async function getBucketSettings(): Promise<BucketSettings> {
-  const { buckets } = storage();
-  const { data, error } = await buckets.getBucket(RESUME_BUCKET);
-  if (error) throw toStorageError(error, "get bucket");
-  return {
-    public: data.public,
-    fileSizeLimit: data.file_size_limit ?? null,
-    allowedMimeTypes: data.allowed_mime_types ?? null,
-  };
-}
-
 export async function applyBucketSettings(settings: typeof BUCKET_SETTINGS): Promise<void> {
   const { buckets } = storage();
   const { error } = await buckets.updateBucket(RESUME_BUCKET, {

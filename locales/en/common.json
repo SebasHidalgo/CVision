@@ -1,6 +1,5 @@
 {
   "meta": {
-    "tagline": "Check your CV against the job. Then rehearse the interview out loud.",
     "description": "Paste a job post, upload your CV, and find out how well you actually fit before you apply. Then rehearse the interview out loud."
   },
   "nav": {
@@ -69,12 +68,6 @@
   "plan": {
     "FREE": "Free",
     "PRO": "Pro"
-  },
-  "actions": {
-    "tryAgain": "Try again",
-    "cancel": "Cancel",
-    "close": "Close",
-    "back": "Back"
   },
   "translation": {
     "pending": "Translating. It takes a few seconds, and only happens once.",

@@ -1,6 +1,5 @@
 {
   "meta": {
-    "tagline": "Compara tu CV con el puesto. Después, ensaya la entrevista en voz alta.",
     "description": "Pega una oferta de empleo, sube tu CV y descubre qué tan alineado estás de verdad antes de postularte. Después, ensaya la entrevista en voz alta."
   },
   "nav": {
@@ -70,12 +69,6 @@
   "plan": {
     "FREE": "Gratis",
     "PRO": "Pro"
-  },
-  "actions": {
-    "tryAgain": "Intentar de nuevo",
-    "cancel": "Cancelar",
-    "close": "Cerrar",
-    "back": "Volver"
   },
   "translation": {
     "pending": "Traduciendo al español. Tarda unos segundos y solo pasa una vez.",

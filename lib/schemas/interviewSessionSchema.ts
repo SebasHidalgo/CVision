@@ -64,10 +64,4 @@ export const interviewEndedRequestSchema = z.object({
   elapsedSeconds: z.number().min(0).max(7_200).optional(),
 });
 
-/** What the ended endpoint answers. `finalized`: the interview is now being scored. */
-export const interviewEndedResponseSchema = z.object({
-  recorded: z.boolean(),
-  finalized: z.boolean().optional(),
-});
 
-export type InterviewEndedRequest = z.infer<typeof interviewEndedRequestSchema>;

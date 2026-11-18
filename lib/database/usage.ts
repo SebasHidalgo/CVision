@@ -283,11 +283,6 @@ export async function reserveInterview(userId: string, interviewId: string, now 
   }
 }
 
-/** The plan in force: an access-granting subscription, else the manual comp, else Free. */
-export async function fetchPlan(userId: string, now = new Date()): Promise<PlanId> {
-  return (await resolvePlanStanding(userId, now)).plan;
-}
-
 /**
  * A refund or chargeback of a pack takes back what was not used: the
  * smaller of the grant and the current balance, written as one revoke

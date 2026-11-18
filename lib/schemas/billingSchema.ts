@@ -7,7 +7,6 @@ export const checkoutInputSchema = z.object({
   item: z.enum(CHECKOUT_ITEMS),
 });
 
-export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 
 /** The transaction the account page waits for, as the status poll and the "Check again" action receive it. */
 export const transactionIdSchema = z.string().regex(TRANSACTION_ID_PATTERN);

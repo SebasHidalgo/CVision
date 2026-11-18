@@ -72,7 +72,6 @@ const gapFollowThroughSchema = z.object({
   note: z.string(),
 });
 
-export type GapFollowThrough = z.infer<typeof gapFollowThroughSchema>;
 
 /** An answer worth showing back, good or bad, with the words that make it so. */
 const notableAnswerSchema = z.object({
@@ -83,7 +82,6 @@ const notableAnswerSchema = z.object({
   why: z.string(),
 });
 
-export type NotableAnswer = z.infer<typeof notableAnswerSchema>;
 
 /**
  * Where a strength or an area for improvement comes from. Every one of them
@@ -98,7 +96,6 @@ const anchorSchema = z.object({
   index: z.number().int().min(0),
 });
 
-export type FeedbackAnchor = z.infer<typeof anchorSchema>;
 
 const anchoredPointSchema = z.object({
   point: z.string(),

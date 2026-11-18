@@ -18,9 +18,6 @@ export type Price = { inputPerMillion: number; outputPerMillion: number };
 const { about: _about, ...table } = pricesFile;
 export const PRICES = table as Record<string, Record<Tier, Price>>;
 
-// Batch is priced like Flex but asynchronous (hours); the harness does not use it.
-export const BATCH_PRICE_NOTE = "batch: same as flex, asynchronous, unused";
-
 /** The price of a model at a tier; an unknown model is priced at the dearest known standard rate. */
 export function priceOf(model: string | null, tier: Tier): Price {
   const known = model ? PRICES[model] : undefined;

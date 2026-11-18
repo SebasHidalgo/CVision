@@ -42,8 +42,8 @@ describe("voice provider isolation", () => {
   });
 
   it("the app reaches the server adapter only through the facades", () => {
-    // The worklet paths are static data the CSP and the browser adapter share; the manual check plays the provider.
-    const allowed = new Set(["lib/voice/index.ts", "lib/voice/admin.ts", "lib/securityHeaders.ts", "scripts/eval/m3b-manual-check.ts"]);
+    // The worklet paths are static data the CSP and the browser adapter share.
+    const allowed = new Set(["lib/voice/index.ts", "lib/voice/admin.ts", "lib/securityHeaders.ts"]);
     const reaching = [
       ...importing(/from\s+["']@\/lib\/voice\/elevenlabs\//),
       ...importing(/from\s+["']\.\/(voice\/)?elevenlabs\//).filter((file) => file.startsWith("lib/")),
@@ -58,7 +58,7 @@ describe("voice provider isolation", () => {
       /conversation_initiation_client_data|dynamic_variables|call_duration_secs|start_time_unix_secs|termination_reason|elevenlabs-signature|xi-api-key|post_call_transcription|conversationalAi|characterLimit|callDurationSecs/;
     const offenders = files
       .filter((file) => !file.path.startsWith(SERVER_ADAPTER) && !file.path.startsWith(BROWSER_ADAPTER))
-      .filter((file) => !isTest(file.path) && file.path !== "scripts/eval/m3b-manual-check.ts")
+      .filter((file) => !isTest(file.path))
       .filter((file) => names.test(file.text))
       .map((file) => file.path);
     expect(offenders).toEqual([]);

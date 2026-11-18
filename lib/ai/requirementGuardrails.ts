@@ -497,10 +497,6 @@ export function unshowableAlternativeIn(sourceQuote: string): string | null {
   return match ? match[1].trim().replace(/[\s,]+$/, "") : null;
 }
 
-export function alternativeNote(requirement: Requirement, alternative: string, language: AnalysisLanguage): string {
-  return renderSentence(alternativeSentence(requirement, alternative), language);
-}
-
 /** What is absent and what the posting accepts instead, as data. */
 export function alternativeSentence(requirement: Requirement, alternative: string): Sentence {
   const terms = absentTermsPhrase(requirement.keyTerms, requirement.sourceQuote);
@@ -857,10 +853,6 @@ export function isSkillYears(requirement: Pick<Requirement, "keyTerms" | "source
   return terms.some((term, i) => !example[i] && term.term.trim() && locateTerm(clause, term.term) >= 0 && !ROLE_TERM.test(term.term));
 }
 
-export function gapLabel(requirement: Requirement, language: AnalysisLanguage): string {
-  return renderPhrase(gapLabelPhrase(requirement), language);
-}
-
 /** A gap's short name as data: its years, its absent terms or examples, or the posting's words cut short. */
 export function gapLabelPhrase(requirement: Requirement): Phrase {
   if (requirement.years && requirement.years.candidate < requirement.years.min && !isSkillYears(requirement)) return say.yearsLabel(requirement.years.min);
@@ -872,11 +864,6 @@ export function gapLabelPhrase(requirement: Requirement): Phrase {
   const text = requirement.requirement.replace(/[.;:,\s]+$/, "");
   if (text.length <= SHORT_LABEL) return text;
   return `${text.slice(0, SHORT_LABEL).replace(/\s+\S*$/, "").replace(/[\s,;:.]+$/, "")}…`;
-}
-
-/** The unshown examples of a requirement that names nothing but examples ("tools such as Redis or Sidekiq"); "" otherwise. */
-export function absentExamples(keyTerms: KeyTerms | undefined, quote = "", language: AnalysisLanguage = "en"): string {
-  return renderPhrase(absentExamplesPhrase(keyTerms, quote), language);
 }
 
 function absentExamplesPhrase(keyTerms: KeyTerms | undefined, quote = ""): Phrase {

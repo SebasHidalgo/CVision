@@ -213,12 +213,6 @@ export class VoiceKeyRejectedError extends AppError {
   }
 }
 
-export class VoiceBusyError extends AppError {
-  constructor(message = "Voice platform at capacity", options?: ErrorOptions) {
-    super("VOICE_BUSY", message, options);
-  }
-}
-
 /** The interview is past the point where a session can be issued. */
 /** The interview expired (two hours without a session) before this start: closed, and its unit given back. */
 export class InterviewExpiredError extends AppError {
