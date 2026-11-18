@@ -29,7 +29,7 @@ const TECHNICAL_ATTRS = new Set([
   "charSet", "httpEquiv", "itemProp", "position", "orientation", "defaultValue", "value", "form", "formAction", "variantName", "item",
   "variantKey", "dataset", "testId", "data-testid", "tabIndex", "colSpan", "rowSpan", "scope", "headers", "wrap", "autoCapitalize",
   "enterKeyHint", "spellCheck", "translate", "color", "from", "to", "ease", "transition", "layout", "layoutId", "initial", "animate", "exit",
-  "storageKey", "attribute", "defaultTheme", "anchor", "returnTo", "kind", "status", "source", "phase", "reason", "code", "plan", "tier",
+  "anchor", "returnTo", "kind", "status", "source", "phase", "reason", "code", "plan", "tier",
 ]);
 
 const HAS_LETTER = /\p{L}/u;
@@ -61,10 +61,16 @@ function* files(target: string): Generator<string> {
 }
 
 const looksLikeCss = (text: string) => CSS_LIKE.test(text) && !/[A-Z]/.test(text) && /(?:^|\s)[\w-]+-[\w-]+/.test(text);
+// Code that is a string: a media query, a DOM error name ("NotAllowedError"), an inline script.
+const MEDIA_QUERY = /^\((?:prefers|min|max|hover|pointer|any)-[\w-]+(?::\s*[\w-]+)?\)$/;
+const ERROR_NAME = /^[A-Z][a-z]+(?:[A-Z][a-z]+)*Error$/;
+const INLINE_SCRIPT = /^\(function\(\)\{/;
+// A shader's source (GLSL), whole or in pieces.
+const GLSL = /\bvoid main\(\)|\bgl_(?:Position|FragColor)\b|\bprecision (?:highp|mediump|lowp) float;|\buniform (?:float|vec[234]|sampler2D) /;
 const isProse = (text: string) => {
   const trimmed = text.trim();
   if (!HAS_LETTER.test(trimmed) || onlyNames(trimmed) || KEY_LIKE.test(trimmed) || trimmed.startsWith("/") || /^https?:/.test(trimmed)) return false;
-  if (looksLikeCss(trimmed)) return false;
+  if (looksLikeCss(trimmed) || MEDIA_QUERY.test(trimmed) || ERROR_NAME.test(trimmed) || INLINE_SCRIPT.test(trimmed) || GLSL.test(trimmed)) return false;
   return PROSE.test(trimmed);
 };
 
@@ -152,6 +158,8 @@ describe("user-facing strings", () => {
     const found = scan(tsx, ROOT + "/screens/X/X.tsx", false).map((line) => line.replace(/^.*?"/, "\""));
     expect(found).toEqual(['"Hello there"', '"Close the drawer"', '"Turned on"', '"Something failed"']);
     expect(scan('export const LABEL = { title: "Open the room" }; export const KEY = "nav.home";', ROOT + "/screens/X/utils/copy.ts", true)).toHaveLength(1);
+    const code = 'const A = "(prefers-reduced-motion: reduce)"; const B = "NotAllowedError"; const C = `(function(){var d=1;})()`; const D = "precision highp float; void main() { gl_FragColor = vec4(1.0); }";';
+    expect(scan(code, ROOT + "/screens/X/utils/media.ts", true)).toEqual([]);
   });
 
   it("live in locales/, not in JSX or copy modules", () => {

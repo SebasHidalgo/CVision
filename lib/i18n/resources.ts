@@ -8,6 +8,12 @@ import enErrors from "@/locales/en/errors.json";
 import enFeedback from "@/locales/en/feedback.json";
 import enInterview from "@/locales/en/interview.json";
 import enLanding from "@/locales/en/landing.json";
+import enLandingHero from "@/locales/en/landingHero.json";
+import enLandingStory from "@/locales/en/landingStory.json";
+import enLandingAnalysis from "@/locales/en/landingAnalysis.json";
+import enLandingInterview from "@/locales/en/landingInterview.json";
+import enLandingPricing from "@/locales/en/landingPricing.json";
+import enLandingFaq from "@/locales/en/landingFaq.json";
 import enLegal from "@/locales/en/legal.json";
 import enPricing from "@/locales/en/pricing.json";
 import enSentences from "@/locales/en/sentences.json";
@@ -20,6 +26,12 @@ import esErrors from "@/locales/es/errors.json";
 import esFeedback from "@/locales/es/feedback.json";
 import esInterview from "@/locales/es/interview.json";
 import esLanding from "@/locales/es/landing.json";
+import esLandingHero from "@/locales/es/landingHero.json";
+import esLandingStory from "@/locales/es/landingStory.json";
+import esLandingAnalysis from "@/locales/es/landingAnalysis.json";
+import esLandingInterview from "@/locales/es/landingInterview.json";
+import esLandingPricing from "@/locales/es/landingPricing.json";
+import esLandingFaq from "@/locales/es/landingFaq.json";
 import esLegal from "@/locales/es/legal.json";
 import esPricing from "@/locales/es/pricing.json";
 import esSentences from "@/locales/es/sentences.json";
@@ -34,6 +46,12 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     common: enCommon,
     errors: enErrors,
     landing: enLanding,
+    landingHero: enLandingHero,
+    landingStory: enLandingStory,
+    landingAnalysis: enLandingAnalysis,
+    landingInterview: enLandingInterview,
+    landingPricing: enLandingPricing,
+    landingFaq: enLandingFaq,
     pricing: enPricing,
     account: enAccount,
     billing: enBilling,
@@ -48,6 +66,12 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     common: esCommon,
     errors: esErrors,
     landing: esLanding,
+    landingHero: esLandingHero,
+    landingStory: esLandingStory,
+    landingAnalysis: esLandingAnalysis,
+    landingInterview: esLandingInterview,
+    landingPricing: esLandingPricing,
+    landingFaq: esLandingFaq,
     pricing: esPricing,
     account: esAccount,
     billing: esBilling,

@@ -1,99 +1,120 @@
 {
-  "cta": {
+  "case": {
+    "company": "Orilla Software",
+    "role": "Desarrollador/a Full Stack",
+    "candidate": "Guillermo Hidalgo",
+    "file": "cv-guillermo-hidalgo.pdf",
+    "status": {
+      "met": "Cumplido",
+      "partial": "Cumplido en parte",
+      "missing": "No cumplido",
+      "notshown": "No aparece en tu CV"
+    },
+    "statusShort": {
+      "met": "Cumplido",
+      "partial": "En parte",
+      "missing": "No cumplido",
+      "notshown": "No aparece"
+    },
+    "kind": {
+      "required": "Obligatorio",
+      "preferred": "Deseable"
+    },
+    "terms": {
+      "react": "React",
+      "typescript": "TypeScript",
+      "node": "Node.js",
+      "postgres": "PostgreSQL",
+      "mysql": "MySQL",
+      "aws": "AWS"
+    },
+    "req": {
+      "r1": {
+        "label": "3+ años en desarrollo web",
+        "text": "3 años o más desarrollando aplicaciones web",
+        "evidence": "Full Stack · Comanda Simple · 2021–hoy",
+        "note": "Unos 7 años en total, contando las fechas de tus dos trabajos."
+      },
+      "r2": {
+        "label": "React y TypeScript",
+        "text": "React y TypeScript",
+        "evidence": "Panel de pedidos en React y TypeScript.",
+        "note": "La línea nombra las dos herramientas y lo que hiciste con ellas."
+      },
+      "r3": {
+        "label": "Node.js y base de datos SQL",
+        "text": "Node.js con PostgreSQL o MySQL",
+        "evidence": "Escribí en Node.js la API de pagos.",
+        "note": "Muestras Node.js; ninguna línea nombra la base de datos."
+      },
+      "r4": {
+        "label": "Guardias una semana al mes",
+        "text": "Disponibilidad para guardias una semana al mes",
+        "note": "Un CV no puede mostrar tu disponibilidad. Menciónalo en tu carta de presentación o prepárate para hablar de ello en la entrevista."
+      },
+      "r5": {
+        "label": "Experiencia con AWS",
+        "text": "Experiencia con AWS",
+        "note": "Ninguna línea de tu CV nombra AWS."
+      },
+      "r6": {
+        "label": "Inglés intermedio",
+        "text": "Inglés intermedio o superior",
+        "evidence": "Idiomas: español nativo, inglés B2",
+        "note": "Tu CV declara el nivel: B2."
+      }
+    },
+    "cv": {
+      "l1": "Guillermo Hidalgo",
+      "l2": "Desarrollador Full Stack · Córdoba",
+      "l3": "Experiencia",
+      "l4": "Full Stack · Comanda Simple · 2021–hoy",
+      "l5": "App de pedidos para 120 restaurantes.",
+      "l6": "Panel de pedidos en React y TypeScript.",
+      "l7": "Escribí en Node.js la API de pagos.",
+      "l8": "Web · Agencia Palmera · 2019–2021",
+      "l9": "Tiendas en PHP para 15 clientes.",
+      "l10": "Formación: técnico en Programación",
+      "l11": "Idiomas: español nativo, inglés B2"
+    },
+    "answers": {
+      "r3": "Con PostgreSQL. Diseñé las tablas de pagos y escribo las migraciones cuando cambian.",
+      "r5": "No en AWS. Publicamos en un servidor propio, y armé el despliegue automático."
+    },
+    "outcome": {
+      "addressed": "Abordada",
+      "partly": "Abordada en parte"
+    }
+  },
+  "header": {
+    "sectionsLabel": "Secciones",
+    "sections": {
+      "how": "Cómo funciona",
+      "analysis": "Análisis",
+      "interview": "Entrevista",
+      "pricing": "Precios",
+      "faq": "Preguntas"
+    },
+    "signIn": "Iniciar sesión",
+    "createAccount": "Crear cuenta gratis"
+  },
+  "skip": "Saltar al análisis de ejemplo",
+  "loader": {
+    "label": "Cargando"
+  },
+  "closing": {
+    "title": "Antes de postularte, mide tu CV contra la oferta.",
+    "body_one": "Pegas la oferta y subes tu CV en PDF. Con la cuenta gratis tienes {{count}} análisis al mes.",
+    "body_many": "Pegas la oferta y subes tu CV en PDF. Con la cuenta gratis tienes {{count}} análisis al mes.",
+    "body_other": "Pegas la oferta y subes tu CV en PDF. Con la cuenta gratis tienes {{count}} análisis al mes.",
+    "start": "Crear cuenta gratis",
     "analyze": "Analizar mi CV"
   },
-  "hero": {
-    "eyebrow": "CV × puesto: la compatibilidad, medida",
-    "title": "¿Tu CV <underline>encaja de verdad</underline> con el puesto?",
-    "lede": "Pega la oferta, sube tu CV y recibe una lectura franca de tu propia postulación: qué coincide, qué falta y qué arreglar primero. Después, practica la entrevista en voz alta con un entrevistador de IA.",
-    "howLink": "Mira cómo funciona",
-    "contents": {
-      "fitVerdict": "Veredicto de compatibilidad",
-      "fixes": "Arreglos prioritarios",
-      "interview": "Entrevista de práctica por voz"
-    }
-  },
-  "specimen": {
-    "caption": "Análisis de ejemplo",
-    "role": "Frontend Engineer · Northwind",
-    "experience": "Experiencia",
-    "note": "← agrega una cifra",
-    "skills": "Habilidades vs. oferta",
-    "skillNames": {
-      "typescript": "TypeScript",
-      "react": "React",
-      "graphql": "GraphQL",
-      "testing": "Pruebas",
-      "accessibility": "Accesibilidad"
-    },
-    "quality": "Calidad del CV",
-    "meterLabel": "Puntaje de calidad del CV de ejemplo"
-  },
-  "how": {
-    "eyebrow": "Cómo funciona",
-    "title": "Tres pasos. Alrededor de un minuto.",
-    "aside": "Se hace mientras esperas. Inicia sesión y listo.",
-    "steps": {
-      "paste": {
-        "title": "Pega la oferta",
-        "body": "Empresa, puesto y la descripción completa, tal como aparecen en la oferta. Es la vara con la que se mide todo lo demás."
-      },
-      "upload": {
-        "title": "Sube tu CV",
-        "body": "Un PDF. Leemos su capa de texto y la comparamos con el puesto, requisito por requisito."
-      },
-      "verdict": {
-        "title": "Recibe el veredicto",
-        "body": "Un veredicto de compatibilidad (baja, parcial o alta) con la cuenta de requisitos que lo respalda, un puntaje de calidad del CV y los cambios que más pesan. Después, ensaya la entrevista para ese mismo puesto."
-      }
-    }
-  },
-  "dimensions": {
-    "eyebrow": "Qué se mide",
-    "title": "Seis lecturas, un veredicto.",
-    "lede": "Cada una viene con su evidencia y los cambios concretos que la mejorarían, y tres de ellas (experiencia, habilidades, formación) además tienen puntaje. El veredicto de compatibilidad es el titular, calculado a partir de los requisitos que cumples; estas son las razones.",
-    "items": {
-      "ats": {
-        "name": "Compatibilidad con ATS",
-        "body": "Si un sistema de seguimiento de postulaciones (ATS) puede leerlo siquiera: encabezados de sección, fechas, estructura."
-      },
-      "experience": {
-        "name": "Experiencia e impacto",
-        "body": "¿Tus viñetas muestran resultados y alcance, o solo tareas? Incluye reescrituras sugeridas."
-      },
-      "skills": {
-        "name": "Habilidades",
-        "body": "Qué habilidades obligatorias demuestras con evidencia, cuáles solo mencionas y cuáles faltan."
-      },
-      "education": {
-        "name": "Formación y certificaciones",
-        "body": "Qué cuenta para este puesto y qué valdría la pena agregar."
-      },
-      "tone": {
-        "name": "Tono y claridad",
-        "body": "Legibilidad, tiempos verbales, jerga y qué tan rápido quien lee entiende lo importante."
-      },
-      "jobFit": {
-        "name": "Compatibilidad con el puesto",
-        "body": "Coincidencia de palabras clave y requisitos con esta oferta en particular, más los movimientos estratégicos."
-      }
-    }
-  },
-  "interview": {
-    "eyebrow": "Después, en voz alta",
-    "title": "Ensaya la entrevista antes de la de verdad.",
-    "lede": "Un entrevistador de IA por voz, armado a partir de la misma oferta, te hace las preguntas que esa oferta sugiere y profundiza en las brechas que encontró tu análisis. Respondes en voz alta, desde tu computadora o tu teléfono. Cuando terminas la llamada, recibes un puntaje en cinco aspectos, cómo te fue con cada brecha, con tus propias palabras, y la transcripción. Es práctica, para ti: nadie más la escucha.",
-    "listening": "El entrevistador está escuchando",
-    "categories": {
-      "communicationSkills": "Habilidades de comunicación",
-      "technicalKnowledge": "Conocimientos técnicos",
-      "problemSolving": "Resolución de problemas",
-      "culturalFit": "Afinidad cultural",
-      "confidenceAndClarity": "Seguridad y claridad"
-    }
-  },
-  "finalCta": {
-    "title": "Tu próxima postulación merece una segunda opinión.",
-    "note": "Un PDF. Alrededor de un minuto."
+  "footer": {
+    "about": "Una herramienta de autoevaluación de CV y de práctica de entrevistas para quien busca trabajo, con un entrevistador de IA.",
+    "legalLabel": "Legal",
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "refunds": "Reembolsos"
   }
 }
