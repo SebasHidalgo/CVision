@@ -3,6 +3,10 @@
   "regions": ["iad1"],
   "crons": [
     {
+      "path": "/api/cron/users-reconcile",
+      "schedule": "47 3 * * *"
+    },
+    {
       "path": "/api/cron/storage-gc",
       "schedule": "17 4 * * *"
     }

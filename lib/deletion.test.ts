@@ -34,6 +34,7 @@ beforeEach(() => {
   vi.mocked(deleteConversation).mockResolvedValue("deleted");
   vi.mocked(removeObject).mockResolvedValue(true);
   vi.mocked(listObjects).mockResolvedValue([]);
+  vi.mocked(collectDetachedConversationIds).mockResolvedValue([]);
   vi.mocked(deleteUserRows).mockResolvedValue(true);
   vi.mocked(cancelSubscriptionNow).mockResolvedValue({ canceled: [], failed: [] });
   for (const method of ["info", "warn", "error"] as const) {
@@ -155,6 +156,9 @@ describe("deleteAccountCascade", () => {
       analyses: 2,
       leftoverObjects: 2,
       leftoverObjectsRemoved: true,
+      // Two analysis files and two leftovers; two analysis conversations and a detached one.
+      objectsRemoved: 4,
+      conversationsDeleted: 3,
       conversationsFailed: 0,
       subscriptionsCanceled: 0,
       subscriptionsFailed: 0,
@@ -198,6 +202,8 @@ describe("deleteAccountCascade", () => {
       analyses: 0,
       leftoverObjects: 0,
       leftoverObjectsRemoved: true,
+      objectsRemoved: 0,
+      conversationsDeleted: 0,
       conversationsFailed: 0,
       subscriptionsCanceled: 0,
       subscriptionsFailed: 0,

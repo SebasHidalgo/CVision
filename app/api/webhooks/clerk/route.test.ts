@@ -12,6 +12,8 @@ const deleted = (userRowRemoved: boolean) => ({
   analyses: userRowRemoved ? 2 : 0,
   leftoverObjects: 0,
   leftoverObjectsRemoved: true,
+  objectsRemoved: userRowRemoved ? 2 : 0,
+  conversationsDeleted: 0,
   conversationsFailed: 0,
   subscriptionsCanceled: 0,
   subscriptionsFailed: 0,

@@ -59,6 +59,10 @@ export type AccountDeletion = {
   /** Objects still under the account's prefix after its analyses went, and whether they were removed. */
   leftoverObjects: number;
   leftoverObjectsRemoved: boolean;
+  /** CV objects removed from the bucket: one per analysis whose file went, plus the leftovers. */
+  objectsRemoved: number;
+  /** Conversations deleted at the voice platform, and those it would not delete. */
+  conversationsDeleted: number;
   conversationsFailed: number;
   /** Provider subscriptions canceled (or already canceled) before the rows went, and those the provider refused. */
   subscriptionsCanceled: number;
@@ -94,16 +98,19 @@ export async function deleteAccountCascade(userId: string): Promise<AccountDelet
   }
 
   const analysisIds = await listAnalysisIdsOfUser(userId);
-  let conversationsFailed = 0;
+  let objectsRemoved = 0;
+  const conversations: ConversationCleanup[] = [];
   for (const analysisId of analysisIds) {
     const outcome = await deleteAnalysisCascade({ analysisId, userId, allowBusy: true });
     if (outcome.kind === "deleted") {
-      conversationsFailed += outcome.conversations.filter((c) => c.outcome === "failed").length;
+      if (outcome.objectRemoved) objectsRemoved += 1;
+      conversations.push(...outcome.conversations);
     }
   }
 
-  const detached = await cleanUpConversations(await collectDetachedConversationIds(userId));
-  conversationsFailed += detached.filter((c) => c.outcome === "failed").length;
+  conversations.push(...(await cleanUpConversations(await collectDetachedConversationIds(userId))));
+  const conversationsDeleted = conversations.filter((c) => c.outcome === "deleted").length;
+  const conversationsFailed = conversations.filter((c) => c.outcome === "failed").length;
 
   let leftoverObjects = 0;
   let leftoverObjectsRemoved = true;
@@ -111,6 +118,7 @@ export async function deleteAccountCascade(userId: string): Promise<AccountDelet
     const leftovers = await listObjects(`cv/${userId}`);
     leftoverObjects = leftovers.length;
     if (leftovers.length > 0) await removeObjects(leftovers.map((object) => object.key));
+    objectsRemoved += leftovers.length;
   } catch (error) {
     leftoverObjectsRemoved = false;
     console.error(`${LOG} user=${userId} leftover objects not removed (collector):`, error instanceof Error ? error.name : error);
@@ -125,6 +133,8 @@ export async function deleteAccountCascade(userId: string): Promise<AccountDelet
     analyses: analysisIds.length,
     leftoverObjects,
     leftoverObjectsRemoved,
+    objectsRemoved,
+    conversationsDeleted,
     conversationsFailed,
     subscriptionsCanceled,
     subscriptionsFailed,
