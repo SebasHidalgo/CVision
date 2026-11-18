@@ -1,22 +1,22 @@
 import { redirect } from "next/navigation";
-import HistoryNotice from "@/components/billing/HistoryNotice";
+import { fontText } from "@/components/design-system/fonts";
 import ClientMessages from "@/components/i18n/ClientMessages";
-import TranslationNotice from "@/components/i18n/TranslationNotice";
-import TranslationPending from "@/components/i18n/TranslationPending";
 import { localizedAnalysis } from "@/lib/ai/contentTranslation";
 import { fetchResumeAccess } from "@/lib/database/resume";
 import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
+import { formatLongDate } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { deriveFitVerdict } from "@/lib/schemas/resumeSchema";
-import { formatLongDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import AnalysisHeader from "./components/AnalysisHeader";
 import DeleteAnalysis from "./components/DeleteAnalysis";
 import DimensionNav from "./components/DimensionNav";
 import DimensionSections from "./components/DimensionSections";
+import HiddenAnalysis from "./components/HiddenAnalysis";
 import InterviewAttempts from "./components/InterviewAttempts";
 import InterviewCta from "./components/InterviewCta";
 import PriorityFixes from "./components/PriorityFixes";
-import { translateAnalysisAction } from "./actions/translateAnalysisAction";
+import TranslationLine from "./components/TranslationLine";
 import { DIMENSION_IDS, dimensionScores } from "./utils/dimensions";
 
 type ResumeAnalysisDetailScreenProps = {
@@ -24,6 +24,15 @@ type ResumeAnalysisDetailScreenProps = {
   /** Show the original prose without asking for a translation (after a translation call never got through). */
   original?: boolean;
 };
+
+/** The page root of the new design: the plain dark canvas (no moving ground on a working page). */
+function Page({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={cn("ed-root flex-1", fontText.variable)}>
+      <article className="ed-wrap pt-[clamp(32px,5vw,64px)] pb-ed-section">{children}</article>
+    </div>
+  );
+}
 
 export default async function ResumeAnalysisDetailScreen({
   resumeAnalysisId,
@@ -33,7 +42,13 @@ export default async function ResumeAnalysisDetailScreen({
   // The caller's own, beyond the plan's history, gets the notice instead.
   const [access, t, locale] = await Promise.all([fetchResumeAccess(resumeAnalysisId), getT("analysis"), getLocale()]);
   if (access.kind === "missing") redirect("/resume/analyses");
-  if (access.kind === "hidden") return <HistoryNotice title={t("detail.historyTitle")} />;
+  if (access.kind === "hidden") {
+    return (
+      <Page>
+        <HiddenAnalysis title={t("detail.historyTitle")} />
+      </Page>
+    );
+  }
   const { analysis } = access;
 
   // Stored feedback no longer matches the schema, so there is nothing to render.
@@ -58,53 +73,40 @@ export default async function ResumeAnalysisDetailScreen({
   // The client components below (drawer, interview control, nav, delete) read the analysis namespace.
   return (
     <ClientMessages ns={["analysis"]}>
-    <article className="wrap py-10 lg:py-14">
-      <AnalysisHeader
-        companyName={analysis.companyName}
-        jobTitle={analysis.jobTitle}
-        date={formatLongDate(analysis.createdAt, locale)}
-        fit={deriveFitVerdict(feedback)}
-        qualityScore={feedback.overall.qualityScore}
-        summary={feedback.overall.summaryText}
-        resumeId={analysis.id}
-        attempts={analysis.interviews}
-        quota={quota}
-      />
+      <Page>
+        <AnalysisHeader
+          companyName={analysis.companyName}
+          jobTitle={analysis.jobTitle}
+          date={formatLongDate(analysis.createdAt, locale)}
+          fit={deriveFitVerdict(feedback)}
+          qualityScore={feedback.overall.qualityScore}
+          summary={feedback.overall.summaryText}
+          resumeId={analysis.id}
+          attempts={analysis.interviews}
+          quota={quota}
+        />
 
-      {/* No translation yet: the prose shows skeletons and this line asks for it; never a page half in one language unannounced. */}
-      {state === "pending" ? (
-        <TranslationPending translate={translateAnalysisAction} input={{ resumeId: analysis.id }} className="mt-8" />
-      ) : (
-        <TranslationNotice state={state} className="mt-8" />
-      )}
+        {/* No translation yet: the prose shows skeletons and this line asks for it; never a page half in one language unannounced. */}
+        <TranslationLine state={state} resumeId={analysis.id} className="mt-10" />
 
-      <PriorityFixes fixes={feedback.overall.prioritizedFixes} />
+        <PriorityFixes fixes={feedback.overall.prioritizedFixes} className="mt-[clamp(56px,7vw,96px)]" />
 
-      {/* min-w-0: the scrollable chip strip must not widen the single column. */}
-      <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
-        <div className="min-w-0 lg:col-span-3">
-          <DimensionNav items={navItems} />
+        {/* A block on small screens, so the sticky section strip (whose wrapper is `contents` there) sticks through
+            the whole report; the 12-column grid from lg, the index in the first three columns. */}
+        <div className="mt-[clamp(56px,7vw,96px)] lg:grid lg:grid-cols-12 lg:gap-x-ed-gutter">
+          <div className="contents lg:col-span-3 lg:block">
+            <DimensionNav items={navItems} />
+          </div>
+
+          <div className="min-w-0 lg:col-span-9">
+            <DimensionSections feedback={feedback} />
+            <InterviewCta variant="full" resumeId={analysis.id} jobTitle={analysis.jobTitle} attempts={analysis.interviews} quota={quota}>
+              <InterviewAttempts attempts={analysis.interviews} t={t} locale={locale} entitlement={quota.entitlement} />
+            </InterviewCta>
+            <DeleteAnalysis resumeId={analysis.id} jobTitle={analysis.jobTitle} companyName={analysis.companyName} />
+          </div>
         </div>
-
-        <div className="min-w-0 lg:col-span-9 xl:col-span-8">
-          <DimensionSections feedback={feedback} />
-          <InterviewCta
-            variant="full"
-            resumeId={analysis.id}
-            jobTitle={analysis.jobTitle}
-            attempts={analysis.interviews}
-            quota={quota}
-          >
-            <InterviewAttempts attempts={analysis.interviews} t={t} locale={locale} entitlement={quota.entitlement} />
-          </InterviewCta>
-          <DeleteAnalysis
-            resumeId={analysis.id}
-            jobTitle={analysis.jobTitle}
-            companyName={analysis.companyName}
-          />
-        </div>
-      </div>
-    </article>
+      </Page>
     </ClientMessages>
   );
 }

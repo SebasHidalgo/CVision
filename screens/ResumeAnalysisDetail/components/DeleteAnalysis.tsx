@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import Eyebrow from "@/components/layout/Eyebrow";
+import { buttonClass } from "@/components/design-system/Button";
+import { fontText } from "@/components/design-system/fonts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,8 +18,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
+import { cn } from "@/lib/utils";
 import { deleteAnalysisAction } from "@/screens/ResumeAnalysisDetail/actions/deleteAnalysisAction";
 
 type DeleteAnalysisProps = {
@@ -26,6 +27,21 @@ type DeleteAnalysisProps = {
   jobTitle: string;
   companyName: string;
 };
+
+// The dialog renders in a portal, outside the page root: it brings its own face, colours and focus ring, and its
+// buttons override the shadcn button classes they are built on (the wrapper merges ours last).
+const FOCUS = "focus-visible:border-ed-ink focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-solid focus-visible:outline-ed-ink";
+const DIALOG = cn(
+  fontText.variable,
+  "font-ed-text gap-5 rounded-ed-surface border-ed-line-2 bg-ed-panel p-6 text-ed-ink shadow-ed-surface sm:max-w-[30rem]",
+);
+const pill = (variant: "solid" | "ghost") =>
+  cn(
+    buttonClass({ variant, size: "sm" }),
+    "h-auto shadow-none has-[>svg]:px-4 disabled:opacity-70",
+    variant === "solid" ? "hover:bg-ed-ink" : "hover:bg-transparent hover:text-ed-ink",
+    FOCUS,
+  );
 
 /**
  * The one destructive control on the page, behind a dialog that says what
@@ -59,40 +75,37 @@ export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: Dele
   };
 
   return (
-    <section aria-labelledby="delete-analysis-title" className="mt-16 border-t border-line pt-10 lg:mt-20">
-      <Eyebrow tick>{t("delete.eyebrow")}</Eyebrow>
-      <div className="mt-5 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-xl">
-          <h2 id="delete-analysis-title" className="text-lg font-medium text-ink">
+    <section aria-labelledby="delete-analysis-title" className="mt-20 border-t border-ed-line pt-8">
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-[60ch]">
+          <h2 id="delete-analysis-title" className="text-ed-h3 font-semibold text-ed-ink">
             {t("delete.title")}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-ink-2">{t("delete.body")}</p>
+          <p className="mt-2 text-ed-body text-ed-ink-2">{t("delete.body")}</p>
         </div>
 
         <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="h-11 gap-2 px-5 text-signal hover:text-signal">
-              <Trash2 className="size-4" />
+            <button type="button" className={buttonClass({ variant: "ghost", className: "self-start md:self-auto" })}>
+              <Trash2 aria-hidden className="size-4 flex-none" />
               {t("delete.trigger")}
-            </Button>
+            </button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="border-line-strong bg-paper">
+          <AlertDialogContent className={DIALOG}>
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-ink">{t("delete.dialogTitle")}</AlertDialogTitle>
-              <AlertDialogDescription className="text-ink-2">
+              <AlertDialogTitle className="text-ed-h3 font-semibold text-ed-ink">{t("delete.dialogTitle")}</AlertDialogTitle>
+              <AlertDialogDescription className="text-ed-body text-ed-ink-2">
                 {t("delete.dialogBody", { jobTitle, companyName })}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>{t("delete.keep")}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirm}
-                disabled={deleting}
-                className="bg-signal text-paper hover:bg-signal/90"
-              >
+            <AlertDialogFooter className="gap-3">
+              <AlertDialogCancel disabled={deleting} className={pill("ghost")}>
+                {t("delete.keep")}
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={confirm} disabled={deleting} className={pill("solid")}>
                 {deleting ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 aria-hidden className="size-4 animate-spin" />
                     {t("delete.deleting")}
                   </>
                 ) : (

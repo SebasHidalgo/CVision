@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { tFor } from "@/lib/i18n/testing";
 import type { Requirement } from "@/lib/schemas/resumeSchema";
-import { Requirements } from "./SectionParts";
+import { Requirements } from "./Requirements";
 
 const t = tFor("analysis");
 const NOT_SHOWN_ADVICE = t("requirements.notShownAdvice");
@@ -157,6 +157,24 @@ describe("Requirements", () => {
 
     expect(text).toContain(SUMMARY_ONLY_ADVICE);
     expect(text).not.toContain(SKILLS_ONLY_ADVICE);
+  });
+
+  it("lists the rows in the page's order, each with its stored status and its shown kind", () => {
+    const requirements = [
+      row("Kafka", "preferred", "met"),
+      row("Background check", "required", "not_evident"),
+      row("Go", "required", "missing"),
+      row("SQL", "required", "met"),
+      row("Rust", "preferred", "partial"),
+    ];
+    const tally = { required: { total: 2, met: 1, partial: 0, notShown: 1 }, preferred: { total: 2, met: 1, partial: 1, notShown: 0 } };
+
+    const html = renderToStaticMarkup(<Requirements requirements={requirements} tally={tally} t={t} />);
+    const rows = [...html.matchAll(/data-requirement-status="(\w+)" data-requirement-kind="(\w+)"/g)].map((m) => `${m[2]}:${m[1]}`);
+    const order = ["SQL", "Go", "Kafka", "Rust", "Background check"].map((title) => html.indexOf(title));
+
+    expect(rows).toEqual(["required:met", "required:missing", "preferred:met", "preferred:partial", "required:not_evident"]);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it("never quotes the CV under a stored 'Not shown in your CV' row", () => {

@@ -3,9 +3,10 @@
 import { FileText, Loader2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
+import { buttonClass, textLinkClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import type { ErrorCode } from "@/lib/error/errors";
+import { cn } from "@/lib/utils";
 import { getResumeViewUrlAction } from "@/screens/ResumeAnalysisDetail/actions/getResumeViewUrlAction";
 
 type ResumeDrawerProps = {
@@ -18,6 +19,11 @@ type Sheet =
   | { kind: "loading" }
   | { kind: "ready"; url: string }
   | { kind: "failed"; code: ErrorCode };
+
+// The global `drawer` utility gives the side sheet its place and motion; these give it the dark surface. Important:
+// the utility sets the same properties and its order against ours is not guaranteed.
+const SHEET =
+  "drawer bg-ed-panel! text-ed-ink! shadow-[-1px_0_0_var(--color-ed-line-2),-24px_0_48px_-24px_rgb(0_0_0/0.8)]! backdrop:bg-[rgb(0_0_0/0.62)]!";
 
 /**
  * The CV as a side sheet. Native <dialog> gives the focus trap, Escape and the
@@ -75,15 +81,15 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
 
   return (
     <>
-      <Button variant="outline" onClick={show} className="h-11 gap-2 px-5">
-        <FileText className="size-4" />
+      <button type="button" onClick={show} className={buttonClass({ variant: "ghost" })}>
+        <FileText aria-hidden className="size-4 flex-none" />
         {t("drawer.view")}
-      </Button>
+      </button>
 
       <dialog
         ref={ref}
         aria-label={t("drawer.title")}
-        className="drawer"
+        className={SHEET}
         onClose={() => setSheet({ kind: "idle" })}
         onClick={(event) => {
           // Only the backdrop closes; clicks inside the sheet don't reach here.
@@ -91,38 +97,36 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
         }}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between gap-6 border-b border-line px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-6 border-b border-ed-line px-5 py-3 sm:px-6">
             <div className="min-w-0">
-              <p className="eyebrow">{t("drawer.title")}</p>
-              <p data-truncate="drawer-title" className="mt-1 truncate font-medium text-ink">{title}</p>
+              <p className="ed-cap">{t("drawer.title")}</p>
+              <p data-truncate="drawer-title" className="mt-1 truncate text-ed-body font-medium text-ed-ink">
+                {title}
+              </p>
             </div>
-            <div className="flex shrink-0 items-center gap-4">
-              <button
-                type="button"
-                onClick={openInNewTab}
-                className="link-rule hidden cursor-pointer text-sm text-ink-2 sm:inline"
-              >
+            <div className="flex shrink-0 items-center gap-3">
+              <button type="button" onClick={openInNewTab} className={cn(textLinkClass, "hidden sm:inline-flex")}>
                 {t("drawer.openInNewTab")}
               </button>
               <button
                 type="button"
                 onClick={close}
                 aria-label={t("drawer.close")}
-                className="flex size-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-paper-2"
+                className="flex size-11 cursor-pointer items-center justify-center rounded-full text-ed-ink-2 transition-colors hover:bg-ed-raise hover:text-ed-ink"
               >
-                <X className="size-5" />
+                <X aria-hidden className="size-5" />
               </button>
             </div>
           </div>
 
           {popupBlocked && (
-            <p role="status" className="border-b border-line px-5 py-3 text-sm text-signal sm:px-6">
+            <p role="status" className="border-b border-ed-line px-5 py-3 text-[15px] text-ed-ink sm:px-6">
               {t("drawer.popupBlocked")}
             </p>
           )}
 
           {sheet.kind === "loading" && (
-            <p role="status" className="flex flex-1 items-center justify-center gap-3 text-sm text-ink-2">
+            <p role="status" className="flex flex-1 items-center justify-center gap-3 text-ed-body text-ed-ink-2">
               <Loader2 aria-hidden className="size-4 animate-spin" />
               {t("drawer.opening")}
             </p>
@@ -130,24 +134,19 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
 
           {sheet.kind === "failed" && (
             <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-              <p className="text-ink">{t("drawer.failed")}</p>
-              <p className="max-w-sm text-sm text-ink-2">{errorCopy(sheet.code)}</p>
-              <Button variant="outline" onClick={load} className="h-10 px-4">
+              <p className="text-ed-body text-ed-ink">{t("drawer.failed")}</p>
+              <p className="max-w-sm text-[15px] text-ed-ink-2">{errorCopy(sheet.code)}</p>
+              <button type="button" onClick={load} className={buttonClass({ variant: "ghost", size: "sm" })}>
                 {t("drawer.tryAgain")}
-              </Button>
+              </button>
             </div>
           )}
 
           {sheet.kind === "ready" && (
-            <object
-              data={`${sheet.url}#view=FitH`}
-              type="application/pdf"
-              aria-label={t("drawer.pdfLabel")}
-              className="w-full flex-1 bg-paper-2"
-            >
+            <object data={`${sheet.url}#view=FitH`} type="application/pdf" aria-label={t("drawer.pdfLabel")} className="w-full flex-1 bg-ed-raise">
               <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-                <p className="text-ink-2">{t("drawer.noInline")}</p>
-                <button type="button" onClick={openInNewTab} className="link-rule cursor-pointer font-medium text-ink">
+                <p className="text-ed-body text-ed-ink-2">{t("drawer.noInline")}</p>
+                <button type="button" onClick={openInNewTab} className={buttonClass({ variant: "ghost", size: "sm" })}>
                   {t("drawer.openPdf")}
                 </button>
               </div>

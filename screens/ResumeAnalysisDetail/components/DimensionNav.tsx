@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import ScoreMeter from "@/components/score/ScoreMeter";
 import { ordinal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DimensionId } from "../utils/dimensions";
+import { ScoreBar } from "./ScoreBar";
 
 /** score is null for the sections that report evidence, not a number. The label comes translated. */
 type NavItem = { id: DimensionId; label: string; score: number | null };
@@ -15,18 +15,16 @@ type DimensionNavProps = {
 };
 
 /**
- * Section index. A horizontal strip under the header on small screens, a
- * sticky column with mini meters on large ones. Tracks the section in view.
+ * Section index. A sticky strip under the app header on small screens, a sticky column with the scores on large
+ * ones. Tracks the section in view. Its parent must be the tall report block (see the screen), or nothing sticks.
  */
 export default function DimensionNav({ items }: DimensionNavProps) {
   const { t } = useTranslation("analysis");
-  const { t: common } = useTranslation("common");
-  const [active, setActive] = useState<DimensionId>(items[0]?.id ?? "ats");
+  const [active, setActive] = useState<DimensionId>(items[0]?.id ?? "fit");
+  const strip = useRef<HTMLOListElement>(null);
 
   useEffect(() => {
-    const sections = items
-      .map((item) => document.getElementById(item.id))
-      .filter((el): el is HTMLElement => el !== null);
+    const sections = items.map((item) => document.getElementById(item.id)).filter((el): el is HTMLElement => el !== null);
 
     // The band between 20% and 45% of the viewport decides which is "current".
     const observer = new IntersectionObserver(
@@ -43,53 +41,43 @@ export default function DimensionNav({ items }: DimensionNavProps) {
     return () => observer.disconnect();
   }, [items]);
 
+  // On a phone the strip scrolls sideways: keep the current pill in it. Only the strip moves, never the page.
+  useEffect(() => {
+    const list = strip.current;
+    const link = list?.querySelector<HTMLElement>('[aria-current="location"]');
+    if (!list || !link || list.scrollWidth <= list.clientWidth) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    list.scrollTo({ left: Math.max(0, link.offsetLeft - list.clientWidth / 2 + link.offsetWidth / 2), behavior: reduce ? "auto" : "smooth" });
+  }, [active]);
+
   return (
     <nav
       aria-label={t("nav.label")}
-      className="sticky top-14 z-30 -mx-[clamp(1.25rem,4vw,3rem)] bg-paper/95 backdrop-blur-[6px] lg:top-28 lg:mx-0 lg:bg-transparent lg:backdrop-blur-none"
+      className="sticky top-ed-header z-30 -mx-ed-pad border-b border-ed-line bg-ed-bg lg:top-[calc(var(--spacing-ed-header)+32px)] lg:mx-0 lg:border-b-0 lg:bg-transparent"
     >
-      <ol className="flex gap-2 overflow-x-auto px-[clamp(1.25rem,4vw,3rem)] py-3 [scrollbar-width:none] lg:flex-col lg:gap-0 lg:overflow-visible lg:px-0 lg:py-0 [&::-webkit-scrollbar]:hidden">
+      <ol ref={strip} className="relative flex gap-2 overflow-x-auto px-ed-pad py-2.5 [scrollbar-width:none] lg:flex-col lg:gap-0 lg:overflow-visible lg:border-t lg:border-ed-line lg:px-0 lg:py-0 [&::-webkit-scrollbar]:hidden">
         {items.map((item, i) => {
           const current = item.id === active;
           return (
-            <li key={item.id} className="shrink-0 lg:border-t lg:border-line lg:last:border-b">
+            <li key={item.id} className="shrink-0 lg:border-b lg:border-ed-line">
               <a
                 href={`#${item.id}`}
                 aria-current={current ? "location" : undefined}
                 className={cn(
-                  // Chip on small screens
-                  "flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] whitespace-nowrap transition-colors duration-200",
-                  current
-                    ? "border-ink bg-ink text-paper"
-                    : "border-line-strong text-ink-2 hover:border-ink",
-                  // Row on large screens
-                  "lg:grid lg:grid-cols-[2.25rem_1fr_2.5rem] lg:items-center lg:gap-x-3 lg:gap-y-2 lg:border-0 lg:bg-transparent lg:px-0 lg:py-4 lg:font-sans lg:text-sm lg:text-ink-3 lg:hover:text-ink",
-                  current && "lg:text-ink",
+                  // A pill on small screens (radius by breakpoint: a plain rounded-full compiles !important here)
+                  "flex min-h-11 items-center gap-2 border px-4 max-lg:rounded-full text-[15px] whitespace-nowrap transition-colors duration-200",
+                  current ? "border-ed-ink bg-ed-ink text-ed-bg" : "border-ed-line-2 text-ed-ink-2 hover:border-ed-ink-2 hover:text-ed-ink",
+                  // A row on large screens: number, label, score, and the score's bar under them
+                  "lg:grid lg:grid-cols-[2rem_minmax(0,1fr)_auto] lg:gap-x-3 lg:gap-y-2.5 lg:border-0 lg:bg-transparent lg:py-3.5 lg:pr-1 lg:pl-3 lg:whitespace-normal lg:hover:text-ed-ink",
+                  current && "lg:text-ed-ink lg:shadow-[inset_2px_0_0_var(--color-ed-ink)]",
                 )}
               >
-                <span
-                  className={cn(
-                    "hidden font-mono text-[11px] tracking-[0.14em] transition-colors duration-300 lg:block",
-                    current ? "text-signal" : "text-ink-3",
-                  )}
-                >
+                <span aria-hidden className="ed-mono hidden text-[13px] text-ed-ink-3 lg:block">
                   {ordinal(i)}
                 </span>
-                <span className="font-medium lg:whitespace-normal">{item.label}</span>
-                <span className="tabular lg:figure lg:text-right lg:text-2xl lg:text-ink">
-                  {item.score ?? ""}
-                </span>
-                {item.score !== null && (
-                  <span className="hidden lg:col-span-3 lg:block">
-                    <ScoreMeter
-                      score={item.score}
-                      size="sm"
-                      reveal="mount"
-                      delay={0.3 + i * 0.06}
-                      label={common("score.scoreOf", { label: item.label })}
-                    />
-                  </span>
-                )}
+                <span className="font-medium">{item.label}</span>
+                <span className="ed-mono text-[14px] lg:text-[15px]">{item.score ?? ""}</span>
+                {item.score !== null && <ScoreBar score={item.score} className="hidden lg:col-span-3 lg:block" />}
               </a>
             </li>
           );

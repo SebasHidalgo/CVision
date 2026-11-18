@@ -1,28 +1,23 @@
 import type { TFunction } from "i18next";
-import { Check, Plus, X } from "lucide-react";
-import Eyebrow from "@/components/layout/Eyebrow";
-import ScoreMeter from "@/components/score/ScoreMeter";
-import { termDisplay, type TermChip } from "@/lib/ai/requirementGuardrails";
+import { Plus } from "lucide-react";
 import { ordinal } from "@/lib/format";
-import type {
-  KeyTerms,
-  QuantifiedAchievement,
-  Requirement,
-  RequirementStatus,
-  requirementTally,
-} from "@/lib/schemas/resumeSchema";
-import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
+import type { QuantifiedAchievement } from "@/lib/schemas/resumeSchema";
+import { scoreTone, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
-import { displayQuote } from "../utils/displayQuote";
-import Prose from "@/components/i18n/Prose";
+import { CvQuote } from "./CvQuote";
+import ProseText from "./ProseText";
+import { ScoreBar } from "./ScoreBar";
 
-/* Shared building blocks for the six dimension sections. Server components: the screen hands them its t. */
+/* Building blocks for the six report sections. Server components: the screen hands them its t. */
 
 type AnalysisT = TFunction<"analysis">;
+
+export const SUBHEAD = "text-ed-h3 font-semibold text-ed-ink";
 
 type SectionProps = {
   id: string;
   index: string;
+  total: string;
   label: string;
   /** `null` for the sections that report evidence instead of a number. */
   score: number | null;
@@ -32,86 +27,67 @@ type SectionProps = {
   children: React.ReactNode;
 };
 
-export function Section({
-  id,
-  index,
-  label,
-  score,
-  description,
-  common,
-  children,
-}: SectionProps) {
-  const tone = score === null ? null : scoreTone(score);
-
+export function Section({ id, index, total, label, score, description, common, children }: SectionProps) {
   return (
-    <section
-      id={id}
-      aria-labelledby={`${id}-title`}
-      className="scroll-mt-32 border-t border-line py-10 lg:scroll-mt-28 lg:py-14"
-    >
+    // Scroll margin: the app header, plus the section strip on small screens.
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-36 border-t border-ed-line-2 pt-8 pb-16 lg:scroll-mt-24 lg:pt-10">
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
-        <div>
-          <Eyebrow>
-            {index} <span className="text-ink-3">/ 06</span>
-          </Eyebrow>
-          <h2 id={`${id}-title`} className="display-md mt-3 text-ink">
+        <div className="min-w-0">
+          <p aria-hidden className="ed-mono text-[13px] text-ed-ink-3">
+            {index} / {total}
+          </p>
+          <h2 id={`${id}-title`} className="ed-display mt-2 text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
             {label}
           </h2>
         </div>
-        {score !== null && tone && (
-          <div className="flex w-full items-center gap-4 sm:w-72 sm:shrink-0">
-            <span className="figure w-14 text-5xl text-ink tabular">{score}</span>
-            <div className="min-w-0 flex-1">
-              <ScoreMeter score={score} size="sm" label={common("score.scoreOf", { label })} />
-              <p className={cn("mt-1.5 text-xs font-medium", TONE_CLASS[tone].text)}>
-                {common(toneKey("tone", tone))}
-              </p>
-            </div>
+        {score !== null && (
+          <div className="w-full sm:w-60 sm:shrink-0">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="ed-mono text-[40px] leading-none text-ed-ink">{score}</span>
+              <span className="text-[15px] text-ed-ink-2">{common(toneKey("tone", scoreTone(score)))}</span>
+            </p>
+            <ScoreBar score={score} label={common("score.scoreOf", { label })} className="mt-3.5" />
           </div>
         )}
       </header>
 
-      <p className="mt-7 max-w-2xl text-[17px] leading-relaxed text-ink-2">
-        <Prose text={description} lines={3} />
+      <p className="mt-6 max-w-[65ch] text-ed-lede text-ed-ink">
+        <ProseText text={description} lines={3} />
       </p>
 
-      <div className="mt-9 space-y-10">{children}</div>
+      <div className="mt-10 grid gap-12">{children}</div>
     </section>
   );
 }
 
-type Mark = "strong" | "signal" | "neutral";
+type Mark = "strong" | "weak" | "neutral";
 
-function Marker({ mark }: { mark: Mark }) {
-  if (mark === "strong") {
-    return <Check aria-hidden className="mt-1 size-4 shrink-0 text-strong" />;
-  }
-  if (mark === "signal") {
-    return <span aria-hidden className="mt-[0.6em] size-1.5 shrink-0 bg-signal" />;
-  }
-  return <span aria-hidden className="mt-[0.75em] h-px w-3 shrink-0 bg-ink-3" />;
-}
+// Shape only, in ink: the heading above says what the list is; green stays for what the CV proves.
+const MARKER: Record<Mark, string> = {
+  strong: "mt-[0.6em] size-[7px] bg-ed-ink",
+  weak: "mt-[0.6em] size-[7px] border-[1.5px] border-ed-ink-2",
+  neutral: "mt-[0.78em] h-px w-2.5 bg-ed-ink-3",
+};
 
 type MarkedListProps = {
   title: string;
   items: string[];
   mark: Mark;
-  className?: string;
 };
 
-/** Strengths get a check, problems get the red square, evidence a dash. */
-export function MarkedList({ title, items, mark, className }: MarkedListProps) {
+/** Strengths get a filled square, problems an empty one, suggestions a dash. */
+export function MarkedList({ title, items, mark }: MarkedListProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className={className}>
-      <h3 className="eyebrow">{title}</h3>
-      <ul className="mt-4 space-y-3">
+    <div>
+      <h3 className={SUBHEAD}>{title}</h3>
+      <ul className="mt-4 grid gap-3.5">
         {items.map((item, i) => (
-          <li key={i} className="flex gap-3 text-[15px] leading-relaxed text-ink">
-            <Marker mark={mark} />
-            <span className="min-w-0 flex-1">
-              <Prose text={item} lines={1} />
+          <li key={i} className="grid grid-cols-[10px_minmax(0,1fr)] gap-x-3.5 text-ed-body text-ed-ink">
+            <span aria-hidden className={cn("block", MARKER[mark])} />
+            <span className="max-w-[65ch]">
+              <ProseText text={item} lines={1} />
             </span>
           </li>
         ))}
@@ -120,26 +96,35 @@ export function MarkedList({ title, items, mark, className }: MarkedListProps) {
   );
 }
 
-type NumberedListProps = {
-  title: string;
-  items: string[];
-};
+const PAIR = "grid gap-x-ed-gutter gap-y-10 md:grid-cols-2";
 
-export function NumberedList({ title, items }: NumberedListProps) {
+/** Two lists side by side from md up; one alone takes the full measure, none renders nothing. */
+export function ListPair({ lists }: { lists: MarkedListProps[] }) {
+  const shown = lists.filter((list) => list.items.length > 0);
+  if (shown.length === 0) return null;
+  return (
+    <div className={shown.length > 1 ? PAIR : undefined}>
+      {shown.map((list) => (
+        <MarkedList key={list.title} {...list} />
+      ))}
+    </div>
+  );
+}
+
+export function NumberedList({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
 
   return (
     <div>
-      <h3 className="eyebrow">{title}</h3>
-      <ol className="mt-4 divide-y divide-line border-y border-line">
+      <h3 className={SUBHEAD}>{title}</h3>
+      <ol className="mt-4 border-t border-ed-line">
         {items.map((item, i) => (
-          <li
-            key={i}
-            className="grid grid-cols-[2.5rem_1fr] gap-x-3 py-3.5 text-[15px] leading-relaxed text-ink"
-          >
-            <span className="eyebrow pt-1 text-ink">{ordinal(i)}</span>
-            <span>
-              <Prose text={item} lines={1} />
+          <li key={i} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-3 border-b border-ed-line py-4 text-ed-body text-ed-ink">
+            <span aria-hidden className="ed-mono pt-0.5 text-[13px] text-ed-ink-3">
+              {ordinal(i)}
+            </span>
+            <span className="max-w-[65ch]">
+              <ProseText text={item} lines={1} />
             </span>
           </li>
         ))}
@@ -148,63 +133,20 @@ export function NumberedList({ title, items }: NumberedListProps) {
   );
 }
 
-type ChipsProps = {
-  title: string;
-  items: string[];
-  kind: "matched" | "missing" | "neutral";
-  emptyText: string;
-};
-
-/** Keywords and skills as set type: ticked when found, marked when missing. */
-export function Chips({ title, items, kind, emptyText }: ChipsProps) {
-  return (
-    <div>
-      <h3 className="eyebrow">{title}</h3>
-      {items.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">{emptyText}</p>
-      ) : (
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {items.map((item, i) => (
-            <li
-              key={`${item}-${i}`}
-              className={cn(
-                "inline-flex items-center gap-1.5 border px-2.5 py-1 font-mono text-[12px] text-ink",
-                kind === "matched" && "border-strong/40",
-                kind === "missing" && "border-signal/45",
-                kind === "neutral" && "border-line-strong",
-              )}
-            >
-              {kind === "matched" && <Check aria-hidden className="size-3 text-strong" />}
-              {kind === "missing" && <X aria-hidden className="size-3 text-signal" />}
-              {item}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-type EvidenceProps = {
-  items: string[];
-  t: AnalysisT;
-};
-
-/** Collapsed by default: it backs the verdict up without competing with it. */
-export function Evidence({ items, t }: EvidenceProps) {
+/** What an analysis leaned on. Collapsed by default: it backs the section up without competing with it. */
+export function Evidence({ items, t }: { items: string[]; t: AnalysisT }) {
   if (items.length === 0) return null;
 
   return (
-    <details className="details-reset border-t border-line pt-4">
-      <summary className="flex items-center justify-between text-sm font-medium text-ink-2 transition-colors hover:text-ink">
+    <details className="details-reset border-y border-ed-line">
+      <summary className="flex min-h-12 items-center justify-between gap-4 text-ed-body font-medium text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink">
         <span>{t("sections.evidence", { n: items.length })}</span>
-        <Plus data-marker aria-hidden className="size-4" />
+        <Plus data-marker aria-hidden className="size-4 flex-none" />
       </summary>
-      <ul className="mt-4 space-y-2.5">
+      <ul className="grid max-w-[68ch] gap-2.5 pt-1 pb-5">
         {items.map((item, i) => (
-          <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-2">
-            <Marker mark="neutral" />
-            <span>{displayQuote(item)}</span>
+          <li key={i}>
+            <CvQuote text={item} />
           </li>
         ))}
       </ul>
@@ -212,29 +154,21 @@ export function Evidence({ items, t }: EvidenceProps) {
   );
 }
 
-type RewritesProps = {
-  bullets: Array<{ role: string; examples: string[] }>;
-  t: AnalysisT;
-};
-
-/** The pencil in the margin: rewritten bullets set against a signal rule. */
-export function Rewrites({ bullets, t }: RewritesProps) {
+/** Rewritten bullets for a role in the CV. They stay in the CV's language: never translated. */
+export function Rewrites({ bullets, t }: { bullets: Array<{ role: string; examples: string[] }>; t: AnalysisT }) {
   const withExamples = bullets.filter((bullet) => bullet.examples.length > 0);
   if (withExamples.length === 0) return null;
 
   return (
     <div>
-      <h3 className="eyebrow">{t("sections.rewrites")}</h3>
-      <div className="mt-4 space-y-6">
+      <h3 className={SUBHEAD}>{t("sections.rewrites")}</h3>
+      <div className="mt-5 grid gap-7">
         {withExamples.map((bullet, i) => (
-          <div key={`${bullet.role}-${i}`}>
-            <p className="font-medium text-ink">{bullet.role}</p>
-            <ul className="mt-2.5 space-y-2.5">
+          <div key={`${bullet.role}-${i}`} translate="no" className="max-w-[68ch]">
+            <p className="text-ed-body font-semibold text-ed-ink">{bullet.role}</p>
+            <ul className="mt-3 grid gap-3">
               {bullet.examples.map((example, j) => (
-                <li
-                  key={j}
-                  className="border-l-2 border-signal pl-4 text-[15px] leading-relaxed text-ink"
-                >
+                <li key={j} className="border-l border-ed-line-2 pl-4 text-ed-body text-ed-ink">
                   {example}
                 </li>
               ))}
@@ -246,228 +180,20 @@ export function Rewrites({ bullets, t }: RewritesProps) {
   );
 }
 
-type SkillEvidenceProps = {
-  skills: Array<{ name: string; evidence: string }>;
-  t: AnalysisT;
-};
-
-export function SkillEvidence({ skills, t }: SkillEvidenceProps) {
+/** Skills the posting asks for, each with the CV line that proves it. */
+export function SkillEvidence({ skills, t }: { skills: Array<{ name: string; evidence: string }>; t: AnalysisT }) {
   return (
     <div>
-      <h3 className="eyebrow">{t("sections.skillsProven")}</h3>
+      <h3 className={SUBHEAD}>{t("sections.skillsProven")}</h3>
       {skills.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">{t("sections.noSkillsProven")}</p>
+        <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noSkillsProven")}</p>
       ) : (
-        <dl className="mt-4 divide-y divide-line border-y border-line">
+        <dl className="mt-4 border-t border-ed-line">
           {skills.map((skill, i) => (
-            <div
-              key={`${skill.name}-${i}`}
-              className="grid gap-1.5 py-3.5 sm:grid-cols-[11rem_1fr] sm:gap-6"
-            >
-              <dt className="flex items-center gap-2 font-medium text-ink">
-                <Check aria-hidden className="size-4 shrink-0 text-strong" />
-                {skill.name}
-              </dt>
-              <dd className="text-sm leading-relaxed text-ink-2">{displayQuote(skill.evidence)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
-  );
-}
-
-type RequirementsProps = {
-  requirements: Requirement[];
-  tally: ReturnType<typeof requirementTally>;
-  t: AnalysisT;
-};
-
-const STATUS_MARK: Record<RequirementStatus, Mark> = {
-  met: "strong",
-  partial: "neutral",
-  missing: "signal",
-  not_evident: "neutral",
-};
-
-/**
- * The headline of the analysis: one row per requirement in the posting. A
- * plain list on purpose - the shape is what this phase is testing, and a
- * visual pass on it comes later.
- */
-export function Requirements({ requirements, tally, t }: RequirementsProps) {
-  const groups = [
-    { kind: "required" as const, title: t("requirements.requiredTitle"), count: tally.required },
-    { kind: "preferred" as const, title: t("requirements.preferredTitle"), count: tally.preferred },
-  ];
-  const notShown = requirements.filter((requirement) => requirement.status === "not_evident");
-
-  if (requirements.length === 0) {
-    return <p className="text-sm text-ink-3">{t("requirements.none")}</p>;
-  }
-
-  return (
-    <div className="space-y-10">
-      {groups.map(({ kind, title, count }) => {
-        const rows = requirements.filter(
-          (requirement) => requirement.kind === kind && requirement.status !== "not_evident",
-        );
-        if (rows.length === 0) return null;
-
-        return (
-          <div key={kind}>
-            <div className="flex items-baseline justify-between gap-4">
-              <h3 className="eyebrow">{title}</h3>
-              <p className="text-sm text-ink-2 tabular">
-                {count.partial > 0
-                  ? t("requirements.countWithPartial", { met: count.met, total: count.total, partial: count.partial })
-                  : t("requirements.count", { met: count.met, total: count.total })}
-              </p>
-            </div>
-
-            <ul className="mt-4 divide-y divide-line border-y border-line">
-              {rows.map((requirement, i) => (
-                <RequirementRow
-                  key={i}
-                  requirement={requirement}
-                  label={t(`status.${requirement.status}`)}
-                  t={t}
-                />
-              ))}
-            </ul>
-          </div>
-        );
-      })}
-
-      {notShown.length > 0 && (
-        <div>
-          <h3 className="eyebrow">{t("status.not_evident")}</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-2">{t("requirements.notShownAdvice")}</p>
-          <ul className="mt-4 divide-y divide-line border-y border-line">
-            {notShown.map((requirement, i) => (
-              <RequirementRow
-                key={i}
-                requirement={requirement}
-                label={t(`kind.${requirement.kind}`)}
-                t={t}
-              />
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RequirementRow({ requirement, label, t }: { requirement: Requirement; label: string; t: AnalysisT }) {
-  const claimed = requirement.status === "met" || requirement.status === "partial";
-  const onlyListed = claimed && requirement.skillsOnly === true;
-  const onlyClaimed = claimed && requirement.summaryOnly === true;
-  const notShown = requirement.status === "not_evident";
-  // A stored "Not shown in your CV" row may still carry the quote cleared since M8-F.
-  const evidence = notShown ? "" : requirement.evidence;
-  // No CV can show these by definition: a ✓ or ✗ here would contradict the group they sit in.
-  const keyTerms = !notShown && requirement.keyTerms && requirement.keyTerms.terms.length > 0 ? requirement.keyTerms : null;
-
-  return (
-    <li className="py-4">
-      <div className="flex gap-3">
-        <Marker mark={STATUS_MARK[requirement.status]} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] leading-relaxed text-ink">{requirement.requirement}</p>
-          <p className="eyebrow mt-1.5 text-ink-3">{label}</p>
-          {keyTerms && <KeyTermList keyTerms={keyTerms} quote={requirement.sourceQuote ?? ""} t={t} />}
-          {requirement.note && (
-            <p className="mt-2 text-sm leading-relaxed text-ink-2">
-              <Prose text={requirement.note} lines={1} />
-            </p>
-          )}
-          {evidence && (
-            <p className="mt-2 border-l-2 border-line-strong pl-3 font-mono text-[12px] leading-relaxed text-ink-2">
-              {displayQuote(evidence)}
-            </p>
-          )}
-          {onlyListed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{t("requirements.skillsOnly")}</p>}
-          {onlyClaimed && <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{t("requirements.summaryOnly")}</p>}
-        </div>
-      </div>
-    </li>
-  );
-}
-
-/**
- * "Ruby on Rails ✗ · MySQL ✓ · PostgreSQL ✓ (Postgres)", "C# ✓ or Python ✗", and the posting's examples on a line
- * of their own ("e.g. Azure ✗ · AWS ✗"): every term the posting names, and what the CV shows.
- */
-function KeyTermList({ keyTerms, quote, t }: { keyTerms: KeyTerms; quote: string; t: AnalysisT }) {
-  const { terms, examples } = termDisplay(keyTerms, quote);
-
-  return (
-    <div className="mt-2 space-y-1 text-[13px] text-ink-2">
-      {terms.length > 0 && (
-        <ul aria-label={t("requirements.termsLabel")} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          {terms.map((term, i) => (
-            <TermItem key={`${term.term}-${i}`} term={term} t={t} />
-          ))}
-        </ul>
-      )}
-      {examples.length > 0 && (
-        <ul aria-label={t("requirements.examplesLabel")} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <li className="text-ink-3">{t("requirements.examplesLead")}</li>
-          {examples.map((term, i) => (
-            <TermItem key={`${term.term}-${i}`} term={term} t={t} />
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// Spanish writes "u" for "o" before a word that starts with an o sound ("C# u Objective-C").
-const STARTS_WITH_O = /^h?o/i;
-
-function TermItem({ term, t }: { term: TermChip; t: AnalysisT }) {
-  const same = term.cvMatch.toLowerCase() === term.term.trim().toLowerCase();
-  return (
-    <li className="inline-flex items-center gap-1">
-      {term.joiner === "and" && <span aria-hidden className="pr-0.5 text-ink-3">·</span>}
-      {term.joiner === "or" && (
-        <span className="pr-0.5 text-ink-3">
-          {t(STARTS_WITH_O.test(term.term.trim()) ? "requirements.orBeforeO" : "requirements.or")}
-        </span>
-      )}
-      <span className="text-ink">{term.term}</span>
-      {term.shown ? <Check aria-hidden className="size-3.5 text-strong" /> : <X aria-hidden className="size-3.5 text-signal" />}
-      <span className="sr-only">{term.shown ? t("requirements.termShown") : t("requirements.termMissing")}</span>
-      {term.shown && !same && <span className="text-ink-3">({term.cvMatch})</span>}
-    </li>
-  );
-}
-
-type AchievementsProps = {
-  achievements: QuantifiedAchievement[];
-  t: AnalysisT;
-};
-
-/** The figures the CV already has. Empty is itself the finding. */
-export function Achievements({ achievements, t }: AchievementsProps) {
-  return (
-    <div>
-      <h3 className="eyebrow">{t("sections.achievements")}</h3>
-      {achievements.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-3">{t("sections.noAchievements")}</p>
-      ) : (
-        <dl className="mt-4 divide-y divide-line border-y border-line">
-          {achievements.map((achievement, i) => (
-            <div
-              key={i}
-              className="grid gap-1.5 py-3.5 sm:grid-cols-[6rem_1fr] sm:gap-6"
-            >
-              <dt className="figure text-2xl text-ink tabular">
-                {achievement.figure}
-              </dt>
-              <dd className="font-mono text-[12px] leading-relaxed text-ink-2">
-                {displayQuote(achievement.quote)}
+            <div key={`${skill.name}-${i}`} className="grid gap-x-6 gap-y-2 border-b border-ed-line py-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
+              <dt className="text-ed-body font-medium text-ed-ink">{skill.name}</dt>
+              <dd className="min-w-0 max-w-[68ch]">
+                <CvQuote text={skill.evidence} proof />
               </dd>
             </div>
           ))}
@@ -477,31 +203,46 @@ export function Achievements({ achievements, t }: AchievementsProps) {
   );
 }
 
-type TextLayerProps = {
-  artifacts: string[];
-  sections: string[];
-  t: AnalysisT;
-};
+/** The figures the CV already has. Empty is itself the finding. */
+export function Achievements({ achievements, t }: { achievements: QuantifiedAchievement[]; t: AnalysisT }) {
+  return (
+    <div>
+      <h3 className={SUBHEAD}>{t("sections.achievements")}</h3>
+      {achievements.length === 0 ? (
+        <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noAchievements")}</p>
+      ) : (
+        <dl className="mt-4 border-t border-ed-line">
+          {achievements.map((achievement, i) => (
+            <div key={i} className="grid gap-x-6 gap-y-2 border-b border-ed-line py-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
+              <dt translate="no" className="ed-mono pt-1.5 text-[22px] leading-none text-ed-ink">
+                {achievement.figure}
+              </dt>
+              <dd className="min-w-0 max-w-[68ch]">
+                <CvQuote text={achievement.quote} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
 
 /**
- * What the extracted text actually contains. This replaced the ATS score: the
- * model is reliably right about the artifacts and was filling the rest with
- * advice the document did not need.
+ * What the extracted text actually contains. This replaced the ATS score: the model is reliably right about the
+ * artifacts and was filling the rest with advice the document did not need.
  */
-export function TextLayer({ artifacts, sections, t }: TextLayerProps) {
+export function TextLayer({ artifacts, sections, t }: { artifacts: string[]; sections: string[]; t: AnalysisT }) {
   return (
-    <div className="grid gap-10 md:grid-cols-2">
+    <div className={PAIR}>
       <div>
-        <h3 className="eyebrow">{t("sections.artifacts")}</h3>
+        <h3 className={SUBHEAD}>{t("sections.artifacts")}</h3>
         {artifacts.length === 0 ? (
-          <p className="mt-4 text-sm text-ink-3">{t("sections.noArtifacts")}</p>
+          <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noArtifacts")}</p>
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 grid gap-2">
             {artifacts.map((artifact, i) => (
-              <li
-                key={i}
-                className="border-l-2 border-signal pl-3 font-mono text-[13px] leading-relaxed text-ink"
-              >
+              <li key={i} translate="no" className="ed-mono rounded-ed-kbd bg-ed-raise px-3 py-2 text-[15px] break-words text-ed-ink">
                 {artifact}
               </li>
             ))}
@@ -509,12 +250,20 @@ export function TextLayer({ artifacts, sections, t }: TextLayerProps) {
         )}
       </div>
 
-      <Chips
-        title={t("sections.atsSections")}
-        items={sections}
-        kind="matched"
-        emptyText={t("sections.noAtsSections")}
-      />
+      <div>
+        <h3 className={SUBHEAD}>{t("sections.atsSections")}</h3>
+        {sections.length === 0 ? (
+          <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noAtsSections")}</p>
+        ) : (
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {sections.map((section, i) => (
+              <li key={`${section}-${i}`} translate="no" className="rounded-ed-kbd border border-ed-line-2 px-2.5 py-1 text-[15px] text-ed-ink">
+                {section}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

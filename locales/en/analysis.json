@@ -1,14 +1,4 @@
 {
-  "list": {
-    "eyebrow": "Your analyses",
-    "title": "Every CV you have measured.",
-    "count": "Analyses",
-    "strongFits": "Strong fits",
-    "emptyTitle": "Nothing measured yet.",
-    "emptyBody": "Paste a job post, upload your CV, and this page becomes the record of how each application stacks up.",
-    "emptyAction": "Start your first analysis",
-    "unreadable": "We couldn't read this analysis. Run it again."
-  },
   "detail": {
     "loading": "Loading analysis",
     "historyTitle": "This analysis is in your history."
@@ -18,6 +8,22 @@
     "quality": "Resume quality, on its own",
     "qualityMeter": "Resume quality",
     "qualityNote": "{{tone}} · the part you can change by editing"
+  },
+  "verdict": {
+    "cap": "Verdict",
+    "required": "Required",
+    "preferred": "Preferred",
+    "notShown_one": "Not shown in your CV",
+    "notShown_other": "Not shown in your CV",
+    "ruleTitle": "How it's counted",
+    "rule": {
+      "weak": "A required item is missing, or two or more are only partly met.",
+      "fair": "You meet the required items (one may be partly met) and fewer than two preferred ones.",
+      "strong": "The same, with two or more preferred; a partly met one counts as half.",
+      "notShown": "Whatever a CV can't show stays out of the count.",
+      "empty": "No required items were found in this posting, so there is nothing to count.",
+      "applies": "applies to this analysis"
+    }
   },
   "status": {
     "met": "Met",
@@ -92,6 +98,7 @@
     "notShownAdvice": "Mention it in your cover letter or be ready to talk about it in the interview.",
     "skillsOnly": "Only listed in your skills — show it in an experience bullet.",
     "summaryOnly": "Only claimed in your summary — show it in an experience bullet.",
+    "fromCv": "From your CV",
     "termsLabel": "Terms the posting names",
     "examplesLabel": "Examples the posting gives",
     "examplesLead": "e.g.",
@@ -168,7 +175,6 @@
     "openPdf": "Open the PDF in a new tab"
   },
   "delete": {
-    "eyebrow": "Remove",
     "title": "Delete this analysis",
     "body": "The CV, the analysis, every rehearsal and its feedback are removed for good.",
     "trigger": "Delete analysis",

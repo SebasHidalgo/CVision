@@ -1,14 +1,4 @@
 {
-  "list": {
-    "eyebrow": "Tus análisis",
-    "title": "Cada CV que mediste.",
-    "count": "Análisis",
-    "strongFits": "Compatibilidad alta",
-    "emptyTitle": "Todavía no mediste nada.",
-    "emptyBody": "Pega una oferta de empleo, sube tu CV y esta página se convierte en el registro de qué tan bien encaja cada postulación.",
-    "emptyAction": "Haz tu primer análisis",
-    "unreadable": "No pudimos leer este análisis. Vuelve a hacerlo."
-  },
   "detail": {
     "loading": "Cargando el análisis",
     "historyTitle": "Este análisis está en tu historial."
@@ -18,6 +8,23 @@
     "quality": "Calidad del CV, por sí sola",
     "qualityMeter": "Calidad del CV",
     "qualityNote": "{{tone}} · lo que puedes cambiar editando tu CV"
+  },
+  "verdict": {
+    "cap": "Veredicto",
+    "required": "Obligatorios",
+    "preferred": "Deseables",
+    "notShown_one": "No aparece en tu CV",
+    "notShown_many": "No aparecen en tu CV",
+    "notShown_other": "No aparecen en tu CV",
+    "ruleTitle": "Cómo se cuenta",
+    "rule": {
+      "weak": "Te falta un obligatorio, o dos o más están solo en parte.",
+      "fair": "Cumples los obligatorios (uno puede estar en parte) y menos de dos deseables.",
+      "strong": "Lo mismo, con dos deseables o más; uno en parte cuenta como medio.",
+      "notShown": "Lo que un CV no puede mostrar queda fuera de la cuenta.",
+      "empty": "No se encontraron requisitos obligatorios en esta oferta, así que no hay nada que contar.",
+      "applies": "se aplica a este análisis"
+    }
   },
   "status": {
     "met": "Cumplido",
@@ -92,6 +99,7 @@
     "notShownAdvice": "Menciónalo en tu carta de presentación o prepárate para hablar de ello en la entrevista.",
     "skillsOnly": "Solo aparece en tus habilidades: muéstralo en una viñeta de experiencia.",
     "summaryOnly": "Solo lo afirmas en tu resumen: muéstralo en una viñeta de experiencia.",
+    "fromCv": "De tu CV",
     "termsLabel": "Términos que nombra la oferta",
     "examplesLabel": "Ejemplos que da la oferta",
     "examplesLead": "p. ej.",
@@ -172,7 +180,6 @@
     "openPdf": "Abrir el PDF en otra pestaña"
   },
   "delete": {
-    "eyebrow": "Eliminar",
     "title": "Borrar este análisis",
     "body": "El CV, el análisis, cada ensayo y su feedback se borran para siempre.",
     "trigger": "Borrar análisis",

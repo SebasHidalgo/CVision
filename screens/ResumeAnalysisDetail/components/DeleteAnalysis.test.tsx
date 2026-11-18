@@ -7,6 +7,8 @@ import DeleteAnalysis from "./DeleteAnalysis";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
+// The dialog carries the design system's face (next/font, which only runs under Next).
+vi.mock("next/font/google", () => ({ Host_Grotesk: () => ({ variable: "font-text" }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@/screens/ResumeAnalysisDetail/actions/deleteAnalysisAction", () => ({ deleteAnalysisAction: vi.fn() }));
 

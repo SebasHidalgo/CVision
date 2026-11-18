@@ -1,21 +1,21 @@
-import Eyebrow from "@/components/layout/Eyebrow";
-import Reveal from "@/components/motion/Reveal";
+import { Surface } from "@/components/design-system/Surface";
 import { ordinal } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import type { ResumeAnalysisFeedback } from "@/types/resume";
-import Prose from "@/components/i18n/Prose";
+import ProseText from "./ProseText";
 
 type PriorityFixesProps = {
   fixes: ResumeAnalysisFeedback["overall"]["prioritizedFixes"];
+  className?: string;
 };
 
-// `impact` is an open string from the model; match by prefix, not equality.
+// `impact` is an open string from the model; match by prefix, not equality. Weight, not colour, ranks it.
 function impactStyle(impact: string) {
   const value = impact.trim().toLowerCase();
-  if (value.startsWith("high")) return "bg-signal text-paper";
-  if (value.startsWith("med")) return "border border-ink text-ink";
-  return "border border-line-strong text-ink-3";
+  if (value.startsWith("high")) return "border-ed-ink bg-ed-ink text-ed-bg";
+  if (value.startsWith("med")) return "border-ed-ink text-ed-ink";
+  return "border-ed-line-2 text-ed-ink-2";
 }
 
 /** The three levels the prompt asks for get the interface's words; anything else is shown as the model wrote it. */
@@ -27,44 +27,48 @@ function impactKey(impact: string) {
   return "fixes.impact.other" as const;
 }
 
-export default async function PriorityFixes({ fixes }: PriorityFixesProps) {
+/** What to change first, in the model's order, beside the report's index column. */
+export default async function PriorityFixes({ fixes, className }: PriorityFixesProps) {
   if (fixes.length === 0) return null;
   const t = await getT("analysis");
 
   return (
-    <section aria-labelledby="fixes-title" className="py-10 lg:py-14">
-      <Reveal>
-        <Eyebrow tick>{t("fixes.eyebrow")}</Eyebrow>
-        <h2 id="fixes-title" className="display-md mt-4 text-ink">
+    <section aria-labelledby="fixes-title" className={cn("ed-grid gap-y-6", className)}>
+      <div className="lg:col-[1/span_3]">
+        <p className="ed-cap">{t("fixes.eyebrow")}</p>
+        <h2 id="fixes-title" className="ed-display mt-3 text-[clamp(28px,2.6vw,38px)] leading-[1.08] tracking-[-0.025em] text-balance">
           {t("fixes.title")}
         </h2>
-      </Reveal>
+      </div>
 
-      <ol className="mt-8 divide-y divide-line border-y border-line">
+      <Surface as="ol" className="px-5 max-sm:px-4 lg:col-[4/span_9]">
         {fixes.map((fix, i) => (
-          <Reveal key={`${fix.title}-${i}`} delay={i * 0.07}>
-            <li className="grid gap-4 py-6 sm:grid-cols-[3rem_1fr_auto] sm:gap-6">
-              <span className="eyebrow pt-1.5 text-ink">{ordinal(i)}</span>
-              <div>
-                <h3 className="display-sm text-ink">
-                  <Prose text={fix.title} lines={1} className="w-2/3" />
-                </h3>
-                <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                  <Prose text={fix.action} />
-                </p>
-              </div>
-              <span
-                className={cn(
-                  "h-fit w-fit px-2 py-1 font-mono text-[11px] uppercase tracking-[0.12em] sm:justify-self-end",
-                  impactStyle(fix.impact),
-                )}
-              >
-                {t(impactKey(fix.impact), { impact: fix.impact })}
-              </span>
-            </li>
-          </Reveal>
+          <li
+            key={`${fix.title}-${i}`}
+            className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-4 gap-y-3 border-b border-ed-line py-5 last:border-b-0 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]"
+          >
+            <span aria-hidden className="ed-mono pt-1 text-[13px] text-ed-ink-3">
+              {ordinal(i)}
+            </span>
+            <div className="min-w-0 max-w-[65ch]">
+              <h3 className="text-[17px] leading-[1.4] font-semibold text-ed-ink">
+                <ProseText text={fix.title} lines={1} className="w-2/3" />
+              </h3>
+              <p className="mt-2 text-ed-body text-ed-ink-2">
+                <ProseText text={fix.action} />
+              </p>
+            </div>
+            <span
+              className={cn(
+                "col-start-2 h-fit w-fit rounded-full border px-2.5 py-0.5 text-[13px] font-semibold whitespace-nowrap sm:col-start-3 sm:row-start-1",
+                impactStyle(fix.impact),
+              )}
+            >
+              {t(impactKey(fix.impact), { impact: fix.impact })}
+            </span>
+          </li>
         ))}
-      </ol>
+      </Surface>
     </section>
   );
 }

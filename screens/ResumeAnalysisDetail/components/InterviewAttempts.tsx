@@ -19,12 +19,14 @@ type InterviewAttemptsProps = {
   entitlement: InterviewEntitlement;
 };
 
-/** The dot beside an attempt's state, by phase; done attempts show their score. */
-const DOT: Record<Exclude<InterviewPhase, "done">, string> = {
-  ready: "glow-signal bg-signal animate-blink",
-  pending: "bg-fair animate-blink",
-  failed: "bg-weak",
-  expired: "bg-ink-3",
+/** The mark beside an attempt's state: shape, in ink (the state is written next to it). A waiting one pulses. */
+const MARK: Record<InterviewPhase | "blocked", string> = {
+  done: "bg-ed-ink",
+  ready: "border-[1.5px] border-ed-ink animate-pulse",
+  pending: "bg-ed-ink-2 animate-pulse",
+  failed: "border-[1.5px] border-ed-ink-3",
+  expired: "border-[1.5px] border-dashed border-ed-ink-3",
+  blocked: "border-[1.5px] border-ed-ink-3",
 };
 
 /** The rehearsals of one analysis, newest first, each a link to where it stands. */
@@ -32,39 +34,33 @@ export default function InterviewAttempts({ attempts, t, locale, entitlement }: 
   if (attempts.length === 0) return null;
 
   return (
-    <ol aria-label={t("attempts.label")} className="divide-y divide-line border-y border-line">
+    <ol aria-label={t("attempts.label")} className="border-t border-ed-line">
       {attempts.map((attempt) => {
         const destination = interviewDestination(attempt);
         const phase = destination.phase;
         const reading = phase === "ready" ? waitingReading(waitingInterviewEntry(attempt, entitlement, MAX_INTERVIEW_STARTS)) : null;
+        const mark = reading && reading !== "ready" ? "blocked" : phase;
         return (
-          <li key={attempt.id}>
+          <li key={attempt.id} className="border-b border-ed-line">
             <Link
               href={destination.href}
-              className="group -mx-3 grid grid-cols-[1fr_auto_1.5rem] items-center gap-x-4 px-3 py-4 transition-colors duration-200 hover:bg-paper-2 focus-visible:bg-paper-2 focus-visible:outline-none sm:grid-cols-[7rem_1fr_auto_1.5rem]"
+              className="group -mx-3 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-x-4 gap-y-0.5 rounded-ed-field px-3 py-3.5 transition-colors duration-200 hover:bg-ed-raise sm:grid-cols-[8rem_minmax(0,1fr)_auto_1.25rem]"
             >
-              <span className="eyebrow text-ink">{t("attempts.attempt", { number: attempt.attemptNumber })}</span>
-              <span className="eyebrow col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">
+              <span className="text-ed-body font-semibold text-ed-ink">{t("attempts.attempt", { number: attempt.attemptNumber })}</span>
+              <span className="col-span-2 row-start-2 text-[15px] text-ed-ink-2 sm:col-span-1 sm:row-start-auto">
                 {formatDate(attempt.createdAt, locale)}
               </span>
-              <span className="flex items-center gap-3 text-sm font-medium text-ink">
-                {phase === "done" ? (
-                  <>
-                    <span aria-hidden className="size-2 rounded-full bg-strong" />
-                    {attempt.totalScore === null
-                      ? t("attempts.completed")
-                      : t("attempts.scored", { score: attempt.totalScore })}
-                  </>
-                ) : (
-                  <>
-                    <span aria-hidden className={cn("size-2 rounded-full", reading && reading !== "ready" ? "bg-ink-3" : DOT[phase])} />
-                    {t(`attempts.reading.${reading ?? phase}`)}
-                  </>
-                )}
+              <span className="flex items-center gap-2.5 text-[15px] font-medium text-ed-ink">
+                <span aria-hidden className={cn("size-2 flex-none rounded-full", MARK[mark])} />
+                {phase === "done"
+                  ? attempt.totalScore === null
+                    ? t("attempts.completed")
+                    : t("attempts.scored", { score: attempt.totalScore })
+                  : t(`attempts.reading.${reading ?? phase}`)}
               </span>
               <ArrowUpRight
                 aria-hidden
-                className="size-4 justify-self-end text-ink-3 transition-all duration-300 ease-out-expo group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ink"
+                className="size-4 justify-self-end text-ed-ink-3 transition-[transform,color] duration-300 ease-ed-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ed-ink motion-reduce:transition-none"
               />
             </Link>
           </li>

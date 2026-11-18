@@ -1,14 +1,13 @@
-import Eyebrow from "@/components/layout/Eyebrow";
-import ScoreMeter from "@/components/score/ScoreMeter";
-import VerdictReadout from "@/components/score/VerdictReadout";
 import { getT } from "@/lib/i18n/server";
 import type { InterviewQuotaView } from "@/lib/plans";
 import type { FitVerdict } from "@/lib/schemas/resumeSchema";
-import { scoreTone, TONE_CLASS, toneKey } from "@/lib/score";
+import { scoreTone, toneKey } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
+import ProseText from "./ProseText";
 import ResumeDrawer from "./ResumeDrawer";
-import Prose from "@/components/i18n/Prose";
+import { ScoreBar } from "./ScoreBar";
+import { VerdictCard } from "./VerdictCard";
 
 type AnalysisHeaderProps = {
   companyName: string;
@@ -24,11 +23,8 @@ type AnalysisHeaderProps = {
 };
 
 /**
- * The dossier cover. Fit answers "this posting" and quality answers "this
- * document". Fit is a verdict rather than a number because it is derived from
- * the requirements breakdown, and the breakdown only supports three outcomes -
- * a 0-100 there would claim a precision we do not have. Its counts are printed
- * beside it so the arithmetic is open to inspection.
+ * The cover. Fit answers "this posting" and quality answers "this document": the verdict card on the right, the
+ * quality reading under the summary. On a phone the verdict comes right after the title.
  */
 export default async function AnalysisHeader({
   companyName,
@@ -42,57 +38,41 @@ export default async function AnalysisHeader({
   quota,
 }: AnalysisHeaderProps) {
   const [t, common] = await Promise.all([getT("analysis"), getT("common")]);
-  const qualityTone = scoreTone(qualityScore);
 
   return (
-    <header className="border-b border-line pb-10 lg:pb-12">
-      <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
-        <div className="lg:col-span-7">
-          <Eyebrow tick>{t("header.eyebrow", { date })}</Eyebrow>
-          <p className="mt-6 text-lg text-ink-2">{companyName}</p>
-          <h1 className="display-lg mt-1 text-ink">{jobTitle}</h1>
-        </div>
-        <div className="lg:col-span-5 lg:justify-self-end">
-          <VerdictReadout verdict={fit} />
-        </div>
+    <header className="ed-grid gap-y-8 lg:grid-rows-[auto_1fr] lg:gap-y-10">
+      <div className="lg:col-[1/span_8] lg:row-start-1">
+        <p className="ed-cap">{t("header.eyebrow", { date })}</p>
+        <p className="mt-6 text-[18px] text-ed-ink-2">{companyName}</p>
+        <h1 className="ed-display mt-1.5 text-[clamp(38px,4.6vw,68px)] leading-[1.02] tracking-[-0.03em] text-balance break-words">
+          {jobTitle}
+        </h1>
       </div>
 
+      <VerdictCard verdict={fit} t={t} common={common} className="max-lg:max-w-[34rem] lg:col-[9/span_4] lg:row-[1/span_2] lg:self-start" />
 
-
-      <div className="mt-10 flex items-center gap-4 sm:max-w-md">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="eyebrow">{t("header.quality")}</h2>
-            <span className="figure text-2xl text-ink tabular">{qualityScore}</span>
-          </div>
-          <ScoreMeter
-            score={qualityScore}
-            size="sm"
-            label={t("header.qualityMeter")}
-            reveal="mount"
-            delay={0.3}
-            className="mt-2"
-          />
-          <p className={`mt-1.5 text-xs font-medium ${TONE_CLASS[qualityTone].text}`}>
-            {t("header.qualityNote", { tone: common(toneKey("tone", qualityTone)) })}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:items-start">
-        <p className="lede lg:col-span-8">
-          <Prose text={summary} lines={3} />
+      <div className="lg:col-[1/span_7] lg:row-start-2">
+        <p className="max-w-[62ch] text-ed-lede text-ed-ink">
+          <ProseText text={summary} lines={3} />
         </p>
-        <div className="flex flex-wrap gap-3 lg:col-span-4 lg:justify-end">
+        <div className="mt-8 flex flex-wrap items-center gap-3">
           <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />
-          <InterviewCta
-            variant="compact"
-            resumeId={resumeId}
-            jobTitle={jobTitle}
-            attempts={attempts}
-            quota={quota}
-          />
+          <InterviewCta variant="compact" resumeId={resumeId} jobTitle={jobTitle} attempts={attempts} quota={quota} />
         </div>
+
+        <section aria-labelledby="quality-title" className="mt-12 max-w-[26rem] border-t border-ed-line-2 pt-4">
+          <h2 id="quality-title" className="ed-cap">
+            {t("header.quality")}
+          </h2>
+          <p className="mt-3 flex items-baseline gap-3">
+            <span className="ed-mono text-[40px] leading-none text-ed-ink">{qualityScore}</span>
+            <span className="text-[15px] text-ed-ink-2">{common("score.outOf")}</span>
+          </p>
+          <ScoreBar score={qualityScore} label={t("header.qualityMeter")} className="mt-4" />
+          <p className="mt-3 text-[15px] text-ed-ink-2">
+            {t("header.qualityNote", { tone: common(toneKey("tone", scoreTone(qualityScore))) })}
+          </p>
+        </section>
       </div>
     </header>
   );

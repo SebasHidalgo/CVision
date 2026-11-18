@@ -6,14 +6,15 @@ import { useState } from "react";
 import { ArrowRight, Loader2, Mic, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import Eyebrow from "@/components/layout/Eyebrow";
-import { Button } from "@/components/ui/button";
+import { buttonClass, textLinkClass } from "@/components/design-system/Button";
+import { Surface } from "@/components/design-system/Surface";
 import { useErrorCopy, useResetDate } from "@/hooks/useErrorCopy";
 import { attemptRan, interviewDestination, liveAttempt } from "@/lib/interviewStatus";
 import { AGENT_SECONDS } from "@/lib/interviewEntitlement";
 import { entryCanStart, waitingInterviewEntry, type WaitingInterview } from "@/lib/interviewEntry";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
 import { INTERVIEW_PACK_CREDITS, PLANS, type InterviewQuotaView } from "@/lib/plans";
+import { cn } from "@/lib/utils";
 import { createInterviewAction } from "@/screens/ResumeAnalysisDetail/actions/createInterviewAction";
 import type { ResumeAnalysis } from "@/types/resume";
 
@@ -117,16 +118,19 @@ export default function InterviewCta({
 
   // Labels wrap inside the button instead of overflowing it: a nowrap label is a min-content width
   // that pushes the button over the text beside it (the Spanish trial label did).
-  const sharedClasses = "h-auto max-w-full gap-2 whitespace-normal text-center";
-  const compactClasses = `${sharedClasses} min-h-11 px-5 py-2`;
-  const fullClasses = `${sharedClasses} group min-h-12 px-5 py-3 text-base sm:px-7`;
-  const buttonClasses = variant === "compact" ? compactClasses : fullClasses;
+  const buttonClasses = buttonClass({
+    size: "md",
+    className: cn(
+      "group h-auto max-w-full whitespace-normal py-2.5 text-center disabled:cursor-progress disabled:opacity-70",
+      variant === "full" && "min-h-[52px] px-7 text-[16px]",
+    ),
+  });
 
   const startButton = (label: string, icon: React.ReactNode) => (
-    <Button onClick={handleCreate} disabled={isCreating} className={buttonClasses}>
+    <button type="button" onClick={handleCreate} disabled={isCreating} className={buttonClasses}>
       {isCreating ? (
         <>
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 aria-hidden className="size-4 flex-none animate-spin" />
           {t("cta.preparing")}
         </>
       ) : (
@@ -135,37 +139,40 @@ export default function InterviewCta({
           {label}
         </>
       )}
-    </Button>
+    </button>
   );
+
+  const icon = "size-4 flex-none";
 
   // A live attempt that can start is in the "ready" phase: its link goes to the room.
   const control = offer.kind === "live" && live ? (
-    <Button asChild className={buttonClasses}>
-      <Link href={interviewDestination(live).href}>
-        {t("cta.openRoom")}
-        <ArrowRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-1" />
-      </Link>
-    </Button>
+    <Link href={interviewDestination(live).href} className={buttonClasses}>
+      {t("cta.openRoom")}
+      <ArrowRight
+        aria-hidden
+        className={cn(icon, "transition-transform duration-300 ease-ed-out group-hover:translate-x-1 motion-reduce:transition-none")}
+      />
+    </Link>
   ) : offer.kind === "trial" ? (
-    startButton(t("cta.tryTrial", { minutes: TRIAL_MINUTES }), <Mic className="size-4" />)
+    startButton(t("cta.tryTrial", { minutes: TRIAL_MINUTES }), <Mic aria-hidden className={icon} />)
   ) : offer.kind === "pro" || offer.kind === "credits" ? (
     startButton(
       rehearsed ? t("cta.rehearseAgain") : t("cta.rehearse"),
-      rehearsed ? <RotateCcw className="size-4" /> : <Mic className="size-4" />,
+      rehearsed ? <RotateCcw aria-hidden className={icon} /> : <Mic aria-hidden className={icon} />,
     )
   ) : offer.kind === "pro-exhausted" ? (
-    <div className="flex min-w-0 flex-col items-start gap-2">
-      <p className="text-sm font-medium text-ink">
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      <p className="text-ed-body font-medium text-ed-ink">
         {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
       </p>
-      <Link href="/account/billing" className="link-rule text-sm text-ink-2">
+      <Link href="/account/billing" className={cn(textLinkClass, "text-ed-ink underline underline-offset-4 decoration-ed-ink-3")}>
         {t("cta.getMore", { count: INTERVIEW_PACK_CREDITS })}
       </Link>
     </div>
   ) : (
-    <div className="flex min-w-0 flex-col items-start gap-2">
-      <p className="text-sm font-medium text-ink">{errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}</p>
-      <Link href="/pricing" className="link-rule text-sm text-ink-2">
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      <p className="text-ed-body font-medium text-ed-ink">{errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}</p>
+      <Link href="/pricing" className={cn(textLinkClass, "text-ed-ink underline underline-offset-4 decoration-ed-ink-3")}>
         {t("cta.seePro")}
       </Link>
     </div>
@@ -218,23 +225,20 @@ export default function InterviewCta({
               : t("cta.lede.first");
 
   return (
-    <section
-      aria-labelledby="interview-cta-title"
-      className="mt-6 border-t border-line pt-12 lg:pt-16"
-    >
-      <Eyebrow tick>{t("cta.eyebrow")}</Eyebrow>
-      {/* Text, then the control under it: the section is at most ~48rem wide, too narrow to give a long label a column of its own. */}
-      <div className="mt-5 min-w-0 max-w-2xl">
-        <h2 id="interview-cta-title" className="display-md text-ink">
+    <Surface as="section" aria-labelledby="interview-cta-title" className="mt-4 px-[clamp(20px,3.4vw,40px)] py-[clamp(28px,4vw,48px)]">
+      <p className="ed-cap">{t("cta.eyebrow")}</p>
+      {/* Text, then the control under it: the column is too narrow to give a long label a column of its own. */}
+      <div className="mt-4 min-w-0 max-w-[60ch]">
+        <h2 id="interview-cta-title" className="ed-display text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
           {heading}
         </h2>
-        <p className="lede mt-4 max-w-xl">{lede}</p>
+        <p className="mt-4 text-ed-lede text-ed-ink-2">{lede}</p>
       </div>
       <div className="mt-8 flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
         {control}
-        {note && <p className="eyebrow min-w-0">{note}</p>}
+        {note && <p className="min-w-0 text-[15px] text-ed-ink-2">{note}</p>}
       </div>
       {children && <div className="mt-10">{children}</div>}
-    </section>
+    </Surface>
   );
 }
