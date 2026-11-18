@@ -131,6 +131,11 @@
   .ed-root :is(p, dd, li) {
     text-wrap: pretty;
   }
+  /* Selected text in ink, never the old system's red or the signal green. */
+  .ed-root ::selection {
+    background: var(--color-ed-ink);
+    color: var(--color-ed-bg);
+  }
 }
 
 /* A solid surface: content never sits on the moving ground. Here ink-3 can be the quieter grey. */

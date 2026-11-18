@@ -45,9 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// One design, no dark mode: the paper. A page on another ground exports its own themeColor.
+// One design, no dark mode: the dark header sits on every page, so the browser chrome matches it.
 export const viewport: Viewport = {
-  themeColor: "#f8f6f2",
+  themeColor: "#0c0d0f",
   width: "device-width",
   initialScale: 1,
 };
