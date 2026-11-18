@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { AnalysisRow } from "./components/AnalysisRow";
 import { EmptyRecord } from "./components/EmptyRecord";
 import { HiddenAnalyses, type HiddenItem } from "./components/HiddenAnalyses";
-import { PageHeading } from "./components/PageHeading";
+import { PageHeading } from "@/components/design-system/PageHeading";
 import { anyWaiting } from "./utils/attemptSummary";
 
 const HEADING_ID = "analyses-title";
@@ -40,6 +40,7 @@ export default async function ResumeAnalysesScreen() {
       <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
         <PageHeading
           id={HEADING_ID}
+          ruled
           title={t("page.title")}
           aside={
             analyses.length > 0 && (

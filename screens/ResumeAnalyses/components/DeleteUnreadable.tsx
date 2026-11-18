@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { buttonClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { deleteOneAnalysisAction } from "@/screens/ResumeAnalyses/actions/deleteOneAnalysisAction";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmDialog } from "@/components/design-system/ConfirmDialog";
 
 type DeleteUnreadableProps = {
   resumeId: string;

@@ -3,7 +3,7 @@ import ClientMessages from "@/components/i18n/ClientMessages";
 import { analysisQuotaView, currentUsageSummary } from "@/lib/database/usage";
 import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
-import PageHeading from "./components/PageHeading";
+import { PageHeading } from "@/components/design-system/PageHeading";
 import UploadForm from "./components/UploadForm";
 
 export default async function ResumeUploadScreen() {

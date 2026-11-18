@@ -16,7 +16,9 @@ M11-B). Pages move to it one phase at a time; the landing is the first.
 | `Surface.tsx` | A solid panel with its edge. |
 | `SectionHeading.tsx` | Number, title and lede on the grid. |
 | `Button.tsx` | `buttonClass`, `ButtonLink`, `textLinkClass`. |
-| `Kbd.tsx`, `Logo.tsx` | A key hint; the wordmark. |
+| `PageHeading.tsx` | A working page's head: the title over eight columns, a lede or a block in the right rail (M11-C). |
+| `ConfirmDialog.tsx` | A destructive confirmation on Radix's alert dialog; it portals out of the page, so it carries `ed-root` and the font itself (M11-C). |
+| `Logo.tsx` | The wordmark. |
 
 Every token is prefixed `ed-` because the old light system still owns `paper`, `ink`, `line` and `signal` with other
 meanings. When the last page migrates, the old tokens go and the prefix can be dropped in one rename.

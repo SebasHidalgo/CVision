@@ -8,7 +8,7 @@ import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { deleteHiddenAnalysesAction } from "@/screens/ResumeAnalyses/actions/deleteHiddenAnalysesAction";
 import { deleteOneAnalysisAction } from "@/screens/ResumeAnalyses/actions/deleteOneAnalysisAction";
 import { deletionSummary } from "@/screens/ResumeAnalyses/utils/deletionSummary";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmDialog } from "@/components/design-system/ConfirmDialog";
 
 /** One hidden analysis as the list shows it: told apart, never opened. Dates come formatted from the server. */
 export type HiddenItem = {
