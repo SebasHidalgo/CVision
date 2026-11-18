@@ -12,7 +12,7 @@ import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
  * text over or under a button, a card, an illustration or other text, no text leaving its block, no
  * button that clips its text, no text cut short with an ellipsis outside the allowlist. Every <details> is opened
  * first. One seeded analysis (no model call for it; in Spanish, its translation on first view), its room before
- * Start and again with the trial used (the Pro offer), the room live with an invented 24-line call (the dev-only
+ * Start and again with the trial used (the Pro offer), the analyses list with Free's hidden block, the 404 page, the room live with an invented 24-line call (the dev-only
  * preview route), and a finished Spanish interview's feedback page with its transcript (seeded, no call).
  */
 
@@ -110,11 +110,14 @@ for (const width of WIDTHS) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const found: LayoutViolation[] = [];
 
-    await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"]], found);
+    await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"], ["not found", "/no-such-page"]], found);
 
     const account: TestAccount = await createAccount(`layout-${width}-${localeOf(testInfo)}`);
     try {
       await signIn(page, account);
+      // Four older analyses first: Free shows the last three, so the list has its hidden block.
+      const older = Date.now() - 10 * 86_400_000;
+      for (let i = 0; i < 4; i += 1) await seedAnalysis(account, { createdAt: new Date(older + i * 3_600_000) });
       const analysisId = await seedAnalysis(account);
       await page.goto(`/resume/analysis/${analysisId}`);
       await settle(page);
@@ -125,7 +128,7 @@ for (const width of WIDTHS) {
         page,
         [
           ["upload", "/resume/upload"],
-          ["analyses", "/resume/analyses"],
+          ["analyses (two hidden)", "/resume/analyses"],
           ["analysis", `/resume/analysis/${analysisId}`],
           ["interview room", room],
           ["interview room, live (24 lines)", "/dev/room-preview"],
