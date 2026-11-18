@@ -9,7 +9,6 @@ import { useTranslation } from "react-i18next";
 import SignInCta from "@/components/auth/SignInCta";
 import Wordmark from "@/components/brand/Wordmark";
 import LocaleMenu from "@/components/i18n/LocaleMenu";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import MobileMenu from "./MobileMenu";
@@ -60,12 +59,11 @@ function PrimaryNav({ items }: { items: readonly NavItem[] }) {
   );
 }
 
-/** Language and theme: the same pair, signed in or out, from md up. */
+/** The language menu: the same, signed in or out, from md up. */
 function Preferences() {
   return (
-    <div className="hidden items-center gap-1 md:flex">
+    <div className="hidden items-center md:flex">
       <LocaleMenu />
-      <ThemeToggle />
     </div>
   );
 }

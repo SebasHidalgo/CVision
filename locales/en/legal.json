@@ -88,7 +88,7 @@
     },
     "cookies": {
       "heading": "6. Cookies",
-      "p1": "The interface language is kept in a cookie (locale) for a year. [PLACEHOLDER: the cookies set by the authentication provider, the theme preference, and anything the merchant of record's checkout sets.]"
+      "p1": "The interface language is kept in a cookie (locale) for a year. [PLACEHOLDER: the cookies set by the authentication provider and anything the merchant of record's checkout sets.]"
     }
   },
   "refunds": {

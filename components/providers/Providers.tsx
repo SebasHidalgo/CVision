@@ -1,22 +1,26 @@
 "use client";
 
-import { ThemeProvider } from "next-themes";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 type ProvidersProps = {
   children: React.ReactNode;
 };
 
+// The theme preference the removed dark mode kept in returning browsers.
+const OLD_THEME_KEY = "cvision-theme";
+
 export default function Providers({ children }: ProvidersProps) {
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(OLD_THEME_KEY);
+    } catch {
+      // Storage blocked: nothing was kept either.
+    }
+  }, []);
+
   return (
-    // Class on <html>, applied by an inline script before first paint, so no
-    // flash of the wrong theme. Persists in localStorage.
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      storageKey="cvision-theme"
-    >
+    <>
       {children}
       <Toaster
         position="bottom-center"
@@ -27,6 +31,6 @@ export default function Providers({ children }: ProvidersProps) {
           },
         }}
       />
-    </ThemeProvider>
+    </>
   );
 }

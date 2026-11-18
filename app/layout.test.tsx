@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import RootLayout from "./layout";
+import RootLayout, { viewport } from "./layout";
 
 vi.mock("./globals.css", () => ({}));
 vi.mock("next/font/google", () => {
@@ -13,6 +13,21 @@ vi.mock("@/components/providers/I18nProvider", () => ({ default: ({ children }: 
 vi.mock("@/components/providers/Providers", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 
 type Element = ReactElement<{ children?: ReactNode; telemetry?: unknown; dangerouslySetInnerHTML?: { __html: string } }>;
+
+/** Runs an inline script against a stand-in <html> and returns the attributes it set. */
+function attributesSetBy(script: string) {
+  const attributes = new Map<string, string>();
+  const element = {
+    dataset: new Proxy({}, { set: (_target, key, value) => (attributes.set(`data-${String(key)}`, String(value)), true) }),
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+    getAttribute: (name: string) => attributes.get(name) ?? null,
+    hasAttribute: (name: string) => attributes.has(name),
+    removeAttribute: (name: string) => attributes.delete(name),
+    style: {},
+  };
+  new Function("document", "location", "window", "setTimeout", script)({ documentElement: element }, { pathname: "/pricing" }, {}, () => 0);
+  return attributes;
+}
 
 /** The root layout's own tree, read from the element it returns: no render needed. */
 async function tree() {
@@ -28,11 +43,15 @@ describe("the root layout", () => {
     expect(provider.props.telemetry).toBe(false);
   });
 
+  it("gives the browser one theme color, not a light/dark pair", () => {
+    expect(viewport.themeColor).toBe("#f8f6f2");
+  });
+
   it("marks <html data-js> from an inline script in <head>, before first paint", async () => {
     const { head } = await tree();
     expect(head.type).toBe("head");
     const script = head.props.children as Element;
     expect(script.type).toBe("script");
-    expect(script.props.dangerouslySetInnerHTML?.__html).toBe('document.documentElement.dataset.js=""');
+    expect(attributesSetBy(script.props.dangerouslySetInnerHTML?.__html ?? "").get("data-js")).toBe("");
   });
 });

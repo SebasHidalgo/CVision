@@ -7,9 +7,7 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SignInCta from "@/components/auth/SignInCta";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { useClerkAppearance } from "@/hooks/useClerkAppearance";
 import { useLocaleSwitch } from "@/hooks/useLocaleSwitch";
 import { LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
@@ -23,7 +21,7 @@ type MobileMenuProps = {
 };
 
 /**
- * Below md: navigation, account, language and theme in a side sheet. A modal native <dialog> gives
+ * Below md: navigation, account and language in a side sheet. A modal native <dialog> gives
  * the focus trap, Escape, an inert page behind it and focus back on the trigger. No Radix menu goes
  * inside: those portal into <body>, which is inert while the dialog is open.
  */
@@ -32,7 +30,6 @@ export default function MobileMenu({ signedIn, className }: MobileMenuProps) {
   const pathname = usePathname();
   const { user } = useUser();
   const { openUserProfile, signOut } = useClerk();
-  const appearance = useClerkAppearance();
   const { current, pending, switchTo, prefetch } = useLocaleSwitch();
   const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
@@ -64,7 +61,7 @@ export default function MobileMenu({ signedIn, className }: MobileMenuProps) {
   // Clerk's modals mount in <body>: the sheet closes first so they are not inert.
   const openAccount = () => {
     close();
-    openUserProfile({ appearance });
+    openUserProfile();
   };
   const leave = () => {
     close();
@@ -196,10 +193,6 @@ export default function MobileMenu({ signedIn, className }: MobileMenuProps) {
                     );
                   })}
                 </div>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <p className="eyebrow">{t("theme.label")}</p>
-                <ThemeToggle className="border border-line" />
               </div>
             </div>
 

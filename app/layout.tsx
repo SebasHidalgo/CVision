@@ -44,11 +44,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// One design, no dark mode: the paper. A page on another ground exports its own themeColor.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f6f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#262320" },
-  ],
+  themeColor: "#f8f6f2",
   width: "device-width",
   initialScale: 1,
 };
@@ -64,11 +62,10 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   return (
-    // Base appearance for anything Clerk renders without an explicit one;
-    // modals opened from the client pass the themed variant themselves.
+    // One appearance for everything Clerk renders, its modals included.
     // No telemetry: a development instance would send it to a host the CSP blocks (lib/securityHeaders.ts).
-    <ClerkProvider appearance={clerkAppearance("light")} localization={clerkLocalization(locale)} telemetry={false}>
-      {/* next-themes' class and MARK_JS's data-js change <html> before hydration. */}
+    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization(locale)} telemetry={false}>
+      {/* MARK_JS adds data-js to <html> before hydration. */}
       <html lang={locale} suppressHydrationWarning>
         <head>
           <script dangerouslySetInnerHTML={{ __html: MARK_JS }} />

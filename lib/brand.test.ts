@@ -10,8 +10,8 @@ import { appUrl, BRAND } from "./brand";
  * legal drafts, the catalog, the agent names, the prompts, the error copy,
  * and every locale file, which interpolates {{brand}}).
  * The `[CVision]` log tags are internal and allowed; test files and the
- * `cvision-theme` storage key (lowercase, a browser-local identifier whose
- * change would reset every visitor's theme) are not customer-facing.
+ * old `cvision-theme` storage key the app clears (lowercase, a
+ * browser-local identifier) are not customer-facing.
  */
 
 const ROOT = path.resolve(__dirname, "..");

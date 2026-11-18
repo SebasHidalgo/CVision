@@ -2,7 +2,6 @@
 
 import { useClerk } from "@clerk/nextjs";
 import { Slot } from "@radix-ui/react-slot";
-import { useClerkAppearance } from "@/hooks/useClerkAppearance";
 
 type SignInCtaProps = {
   /** Where Clerk sends the user after the modal succeeds. */
@@ -14,18 +13,16 @@ type SignInCtaProps = {
 };
 
 /**
- * Sign-in (or sign-up) modal trigger that carries the current theme into
- * Clerk's UI. Opens imperatively: <SignInButton> spreads unknown props such
- * as `appearance` onto its child, which leaks into the DOM and breaks
- * hydration.
+ * Sign-in (or sign-up) modal trigger. Opens imperatively: <SignInButton>
+ * spreads unknown props onto its child, which leaks into the DOM and breaks
+ * hydration. The modal's look comes from the root layout's ClerkProvider.
  */
 export default function SignInCta({ forceRedirectUrl, mode = "signIn", children }: SignInCtaProps) {
   const { openSignIn, openSignUp } = useClerk();
-  const appearance = useClerkAppearance();
   const open = mode === "signUp" ? openSignUp : openSignIn;
 
   return (
-    <Slot onClick={() => open({ appearance, forceRedirectUrl })}>
+    <Slot onClick={() => open({ forceRedirectUrl })}>
       {children}
     </Slot>
   );

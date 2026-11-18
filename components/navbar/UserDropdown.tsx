@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useClerkAppearance } from "@/hooks/useClerkAppearance";
 import { ACCOUNT_LINKS } from "./nav";
 import UserAvatar, { UserIdentity } from "./UserAvatar";
 
@@ -25,7 +24,6 @@ const ITEM = "px-2.5 py-2 text-ink-2 focus:text-ink";
 export default function UserDropdown() {
   const { user, isLoaded } = useUser();
   const { openUserProfile, signOut } = useClerk();
-  const appearance = useClerkAppearance();
   const { t } = useTranslation("common");
 
   if (!isLoaded || !user) {
@@ -52,7 +50,7 @@ export default function UserDropdown() {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem className={ITEM} onSelect={() => openUserProfile({ appearance })}>
+        <DropdownMenuItem className={ITEM} onSelect={() => openUserProfile()}>
           {t("nav.account")}
         </DropdownMenuItem>
         {ACCOUNT_LINKS.map((item) => (

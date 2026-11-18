@@ -88,7 +88,7 @@
     },
     "cookies": {
       "heading": "6. Cookies",
-      "p1": "El idioma de la interfaz se guarda en una cookie (locale) durante un año. [PLACEHOLDER: las cookies del proveedor de autenticación, la preferencia de tema y lo que instale la página de pago del comerciante registrado.]"
+      "p1": "El idioma de la interfaz se guarda en una cookie (locale) durante un año. [PLACEHOLDER: las cookies del proveedor de autenticación y lo que instale la página de pago del comerciante registrado.]"
     }
   },
   "refunds": {

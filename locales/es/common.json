@@ -30,11 +30,6 @@
     "privacy": "Privacidad",
     "refunds": "Reembolsos"
   },
-  "theme": {
-    "label": "Tema",
-    "toLight": "Cambiar a modo claro",
-    "toDark": "Cambiar a modo oscuro"
-  },
   "locale": {
     "label": "Idioma",
     "current": "{{code}}, idioma: {{language}}",

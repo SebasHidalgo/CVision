@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -43,6 +42,9 @@ type Phase = "idle" | "opening" | "open" | "paid";
  */
 export const PAID_RESET_MS = 8_000;
 
+// The overlay matches the pages that sell, on the light paper until their redesign.
+const OVERLAY_THEME = "light";
+
 /**
  * One purchase: the server mints the transaction, the provider's overlay
  * takes the payment, and the account page that follows waits for the
@@ -54,7 +56,6 @@ export const PAID_RESET_MS = 8_000;
  */
 export default function CheckoutButtonClient({ item, label, className, size = "lg", variant = "default", onPaid }: CheckoutButtonProps) {
   const router = useRouter();
-  const { resolvedTheme } = useTheme();
   const { t } = useTranslation("billing");
   const locale = useLocale();
   const errorCopy = useErrorCopy();
@@ -100,7 +101,7 @@ export default function CheckoutButtonClient({ item, label, className, size = "l
         return;
       }
       const { transactionId } = result.data;
-      const outcome = await openCheckout(transactionId, resolvedTheme === "dark" ? "dark" : "light", locale, {
+      const outcome = await openCheckout(transactionId, OVERLAY_THEME, locale, {
         signal: controller.signal,
         onLoaded: () => {
           if (!controller.signal.aborted && mounted.current) setPhase("open");
