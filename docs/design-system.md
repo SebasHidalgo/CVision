@@ -49,6 +49,48 @@ meanings. When the last page migrates, the old tokens go and the prefix can be d
 - **Motion**: `ease-ed-out` (entrances), `ease-ed-settle` (open and close), `ease-ed-story` (the story's object);
   durations 200 / 380 / 600 ms; `animate-ed-rise` and `animate-ed-fade`. Every motion has a reduced-motion path.
 
+## The landing (`screens/Home/`)
+
+`HomeScreen.tsx` composes sections and nothing else. Each section lives in
+`components/<section>/`, with its strings in its own namespace
+(`landing<Section>`; the header, example case, loader, closing and footer in
+`landing`):
+
+| Folder | What it holds |
+|---|---|
+| `header/` | Signed out: section anchors, sign in, sign up. Signed in: the app's pages, a new analysis, the account menu. The language menu that reloads. |
+| `hero/` | Headline, lede, start action; the figure (requirements wired to CV lines): `HeroFigure` picks 3D or HTML, `FlatFigure` is the HTML one, `useHeroSequence` the timing. |
+| `hero/scene/` | The three.js scene, loaded with `next/dynamic` and no SSR: three, @react-three/fiber and drei exist only in this chunk. Desktop only; phones, reduced motion, no WebGL and software rendering get the HTML figure. |
+| `background/` | The silk ground: a shader that runs while the hero is on screen, clamped to a luminance ceiling, with a WebP still for every case it cannot draw. |
+| `story/` | One ledger carried through the pipeline in six steps: a sticky object on large screens, still figures on phones and under reduced motion. `layout.ts` is pure and tested. |
+| `analysis/`, `pricing/`, `faq/` | The example analysis (verdict counted like the app's), plans with every figure from `lib/plans.ts` and the catalog, questions that open smoothly in every engine. |
+| `interview/` | Replicas of the room and the feedback page playing an eight-line call. Sound is off by default and no audio is requested until it is turned on. Audio in `public/landing/voice/{en,es}/`. |
+| `loader/` | The full-page loader (below). |
+| `closing/`, `footer/` | The last call to action and the footer. |
+
+`utils/exampleCase.ts` is the invented case as data (ids, statuses, line
+numbers); every word of it is under `landing:case.*`. `utils/readiness.ts`
+carries the loader's signals.
+
+### The loader
+
+On a full load of `/` only, the inline boot script in the root layout
+(`lib/bootScript.ts`) sets `data-loading` on `<html>` before first paint and
+arms a 2.5 s cap. Six marks fill, one per real signal: fonts, the hero's data,
+the 3D chunk, the scene's first frame, the silk's first frame, critical images
+decoded (a part that is not used reports at once). When all six are in, the
+row travels into the hero's legend while the page appears around it; under
+reduced motion it simply appears. Without JavaScript the attribute is never
+set and nothing is hidden. A client-side return to the home shows no loader:
+the chunks are cached and the hero runs its own entrance. A screen reader
+hears one "Loading".
+
+### Language
+
+On the landing, the language menu saves the choice (cookie and `User.locale`)
+and reloads, so the loader and the hero's entrance play again in the new
+language. Every other page switches in place.
+
 ## Pages not migrated yet
 
 They keep the old light look (paper, ink, red signal; Schibsted Grotesk) exactly as before, minus the dark theme.

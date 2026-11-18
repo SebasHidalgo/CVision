@@ -10,13 +10,18 @@ software. Next.js 16 (App Router), TypeScript, Clerk, Prisma on Supabase
 Postgres, Gemini for the text analysis, ElevenLabs Agents for the voice
 interview, Paddle as merchant of record. The interface is in English and
 Spanish (i18next; the browser's language by default, a switcher in the
-header); analyses stay English underneath and are shown translated. The
+header; on the landing a switch reloads the page); analyses stay English
+underneath and are shown translated. One visual design, dark editorial on a
+12-column grid, with no light/dark theme: its tokens and primitives live in
+`components/design-system/`, and pages move to it one at a time (the landing
+first; the others keep the earlier light look until their turn). The
 product's name lives in one file, `lib/brand.ts`.
 
 Reference material, once you are running: [docs/database.md](docs/database.md),
 [docs/accounts.md](docs/accounts.md), [docs/billing.md](docs/billing.md),
 [docs/storage.md](docs/storage.md), [docs/voice.md](docs/voice.md),
 [docs/analysis.md](docs/analysis.md), [docs/i18n.md](docs/i18n.md),
+[docs/design-system.md](docs/design-system.md),
 [docs/data-inventory.md](docs/data-inventory.md).
 
 ## Getting started from zero
@@ -289,6 +294,7 @@ call's webhook round trip. Then:
 | (all tiers) | the browser suite (Playwright, Chromium; `npx playwright install chromium` once), once per interface language (projects `<tier>` in English, `<tier>-es` in Spanish): sign-up with bot protection on, a Free account's trial labels, Pro from the account page and from pricing, a pack, a cancellation that keeps the credits usable, a closed overlay. Also the room's entry states with purchases from the room (and "Your purchase is being confirmed…" with Check again when the confirmation is late), the live transcript driven by a real mouse wheel, and the layout check (the room live on an invented call, a Spanish feedback transcript, covered text and every scroll box's last line). Analyses and their Spanish translations are seeded (e2e/fixtures/; `npm run e2e:capture-translations` rebuilds the translations on the free key, and a unit test says so when the translation prompt version or the fixtures changed); only `e2e/smoke.spec.ts` calls the model, one real analysis per language, and any other test that does fails. The external tier needs the tunnel up and `E2E_PUBLIC_URL`; the suite creates and deletes its own accounts and starts its own server unless one answers on the port (`npm run e2e:server`: Gemini on the app's key on Flex, `E2E_GEMINI_TIER=standard` to change it, every call priced into the eval spend ledger and refused over `EVAL_BUDGET_PER_DAY_USD`; a call Flex answers 503 three times goes once on the standard tier; dev tools on) and refuses a plain `npm run dev` left on the port; a marker left by a server that was killed is removed on the next start. A Paddle sandbox overlay that never loads (the app closes it after 20 s) is retried once, with a `[e2e][paddle]` line. Screenshots, traces and the HTML report go to `e2e/.artifacts/` (ignored). |
 | `npm run e2e:voice` | opt-in: one real Start on a trial with fake media devices, ended after three seconds, which spends seconds of platform time; it prints the outcome and the cost. |
 | `npm run e2e:cleanup` | deletes every `+clerk_test` account a dead run left behind (`-- --dry-run` lists them) |
+| `npx knip` | unused files, exports and dependencies, with this repo's entries in `knip.json` (not a dependency: `npx` fetches it). It reports five "unlisted dependencies" on purpose: packages used directly but installed by another one (`@clerk/backend`, `postcss`, `playwright`). Unused locale keys are a unit test (`lib/i18n/unusedKeys.test.ts`). |
 | `npm run e2e:capture-translations` | rebuilds `e2e/fixtures/translations.es.json`, the Spanish translations of the suite's seeded analysis and feedback (invented data, free Gemini key, in the spend ledger). Run it when `scripts/e2eTranslations.test.ts` says the file is stale. |
 | `npm run dev:usage -- --email <e> --reset-trial` | makes the free trial available again for a development account: the trial unit is given back (marked, not deleted), unfinished interviews that held it are released, an audit row is written; interviews and feedback stay. Same guards as below |
 | `npm run voice:trim-transcripts [-- --write]` | one-time: cuts stored interview turns down to the three fields the app reads (dry run by default; dev tools only) |
