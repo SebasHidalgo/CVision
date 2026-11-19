@@ -66,3 +66,20 @@ for (const [width, height] of [[1366, 768], [1920, 1080]] as const) {
     await expect(back.or(fresh)).toHaveCount(0);
   });
 }
+
+for (const [width, height] of [[375, 667], [390, 844]] as const) {
+  test(`on a ${width}x${height} phone in a live call, the transcript is on screen above the controls without scrolling the page`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await signIn(page, account);
+    await page.goto("/dev/room-preview?state=your-turn");
+    const log = page.getByRole("log");
+    await log.locator("li").last().waitFor({ timeout: 60_000 });
+    // The room fills the screen under the header: no page scroll to reach the transcript or the End button.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
+    await expect.poll(() => uncovered(page, '[role="log"] li'), { timeout: 5_000 }).toBe(true);
+    const box = (await log.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(150);
+    const end = (await page.locator('[data-room-part="action"] button').boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(end.y);
+  });
+}

@@ -6,6 +6,7 @@ import { copyFor, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
 import { layoutViolations, openDetails, settle, type LayoutViolation } from "./support/layout";
 import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
+import { seedFeedbackState, seedListInterview } from "./support/seedInterviews";
 
 /**
  * The main pages from a phone to a wide desktop, once per interface language: no sideways scroll, no
@@ -117,12 +118,19 @@ for (const width of WIDTHS) {
       await signIn(page, account);
       // Four older analyses first: Free shows the last three, so the list has its hidden block.
       const older = Date.now() - 10 * 86_400_000;
-      for (let i = 0; i < 4; i += 1) await seedAnalysis(account, { createdAt: new Date(older + i * 3_600_000) });
+      const olderIds: string[] = [];
+      for (let i = 0; i < 4; i += 1) olderIds.push(await seedAnalysis(account, { createdAt: new Date(older + i * 3_600_000) }));
       const analysisId = await seedAnalysis(account);
       await page.goto(`/resume/analysis/${analysisId}`);
       await settle(page);
       const room = new URL(await openRoom(page, t)).pathname;
       const feedback = `/interview/${await seedCompletedInterview(account, analysisId)}/feedback`;
+      // The list in its states, on the two older analyses Free still shows (one live interview per analysis).
+      const pending = await seedListInterview(account, olderIds[2], "pending", { minutesAgo: 30 });
+      await seedListInterview(account, olderIds[2], "expired", { minutesAgo: 60 });
+      const failed = await seedFeedbackState(account, olderIds[2], "feedbackFailed");
+      await seedListInterview(account, olderIds[3], "dropped", { minutesAgo: 5 });
+      const states = ["your-turn", "queued", "mic-denied", "early-end", "dropped", "needs-pack", "confirming", "voice-down"];
 
       await check(
         page,
@@ -134,7 +142,10 @@ for (const width of WIDTHS) {
           ["interview room, live (24 lines)", "/dev/room-preview"],
           ["interview room, time up and closing", "/dev/room-preview?closing=1"],
           ["interview feedback (Spanish transcript)", feedback],
-          ["interviews", "/interviews"],
+          ["interviews (every state)", "/interviews"],
+          ["interview feedback, pending", `/interview/${pending}/feedback`],
+          ["interview feedback, scoring failed", `/interview/${failed}/feedback`],
+          ...states.map((state): [string, string] => [`interview room preview, ${state}`, `/dev/room-preview?state=${state}`]),
           ["account and billing", "/account/billing"],
           ["pricing (signed in)", "/pricing"],
         ],
