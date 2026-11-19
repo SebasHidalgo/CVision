@@ -40,14 +40,14 @@ export default function ErrorScreen({ error, retry, variant }: ErrorScreenProps)
   }, []);
 
   const body = (
-    <section aria-labelledby="error-title" className="ed-wrap ed-grid w-full flex-1 content-center gap-y-5 py-[clamp(64px,10vw,128px)]">
+    <section aria-labelledby="error-title" className="wrap page-grid w-full flex-1 content-center gap-y-5 py-[clamp(64px,10vw,128px)]">
       <title>{`${t("meta")} · ${BRAND.name}`}</title>
-      <h1 ref={title} id="error-title" tabIndex={-1} className="ed-display text-ed-h2 text-balance text-ed-ink focus:outline-none lg:col-span-8">
+      <h1 ref={title} id="error-title" tabIndex={-1} className="display text-h2 text-balance text-ink focus:outline-none lg:col-span-8">
         {t("title")}
       </h1>
-      <p className="max-w-[60ch] text-ed-lede text-ed-ink-2 lg:col-span-7">{t("body")}</p>
+      <p className="max-w-[60ch] text-lede text-ink-2 lg:col-span-7">{t("body")}</p>
       {/* What happened, by its mark and in words, as on the 404; with the server log's reference when there is one. */}
-      <p className="ed-mono flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ed-micro text-ed-ink-2">
+      <p className="mono flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-ink-2">
         <StatusMark status="missing" />
         <span>{t("status")}</span>
         {digest && (
@@ -77,12 +77,12 @@ export default function ErrorScreen({ error, retry, variant }: ErrorScreenProps)
   );
 
   if (variant === "shell") {
-    return <div className={cn("ed-root flex flex-1 flex-col", fontText.variable)}>{body}</div>;
+    return <div className={cn("root flex flex-1 flex-col", fontText.variable)}>{body}</div>;
   }
   return (
-    <div className={cn("ed-root flex min-h-dvh flex-1 flex-col", fontText.variable)}>
-      <div className="ed-chrome border-b border-ed-line bg-ed-bg">
-        <div className="ed-wrap flex h-16 items-center">
+    <div className={cn("root flex min-h-dvh flex-1 flex-col", fontText.variable)}>
+      <div className="chrome border-b border-line bg-bg">
+        <div className="wrap flex h-16 items-center">
           <a href="/" aria-label={t("home")} className="inline-flex min-h-11 items-center no-underline">
             <Logo />
           </a>

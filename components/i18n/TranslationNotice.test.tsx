@@ -27,11 +27,11 @@ describe("TranslationNotice", () => {
   it("is drawn in the design system: body text in ink-2 behind a still ink mark, never green", async () => {
     render((await TranslationNotice({ state: "partial", className: "mt-10" }))!);
     const note = screen.getByRole("note");
-    expect(note.className).toMatch(/\btext-ed-body\b/);
-    expect(note.className).toMatch(/\btext-ed-ink-2\b/);
+    expect(note.className).toMatch(/\btext-body\b/);
+    expect(note.className).toMatch(/\btext-ink-2\b/);
     expect(note.className).toMatch(/\bmt-10\b/);
     const mark = note.querySelector("[data-status-mark]");
-    expect(mark?.className).toMatch(/\bbg-ed-ink-2\b/);
+    expect(mark?.className).toMatch(/\bbg-ink-2\b/);
     expect(mark?.className).not.toMatch(/animate-pulse/);
     expect(note.outerHTML).not.toMatch(/signal|eyebrow|bg-fair/);
   });

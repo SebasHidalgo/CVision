@@ -158,12 +158,12 @@ describe("UploadForm: a field in error", () => {
       return invalid;
     });
     for (const field of fields) {
-      expect(field.className).toContain("aria-invalid:border-ed-danger-text");
-      expect(field.className).toContain("aria-invalid:focus:border-ed-danger-text");
-      expect(field.className).not.toContain("aria-invalid:border-ed-ink");
+      expect(field.className).toContain("aria-invalid:border-danger-text");
+      expect(field.className).toContain("aria-invalid:focus:border-danger-text");
+      expect(field.className).not.toContain("aria-invalid:border-ink");
     }
     const dropzone = container.querySelector<HTMLElement>("#resume-drop");
-    expect(dropzone?.className.split(/\s+/)).toEqual(expect.arrayContaining(["border-ed-danger-text", "hover:border-ed-danger-text"]));
-    expect(dropzone?.className.split(/\s+/)).not.toContain("hover:border-ed-ink-2");
+    expect(dropzone?.className.split(/\s+/)).toEqual(expect.arrayContaining(["border-danger-text", "hover:border-danger-text"]));
+    expect(dropzone?.className.split(/\s+/)).not.toContain("hover:border-ink-2");
   });
 });

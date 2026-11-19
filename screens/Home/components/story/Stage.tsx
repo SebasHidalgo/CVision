@@ -18,7 +18,7 @@ export function Stage({ step, className }: { step: StepId; className?: string })
   return (
     <FigureContext value={{ mode: "stage", step }}>
       <div aria-hidden className={cn("relative", className)}>
-        <div className={cn("ed-surface", styles.obj)} style={{ height: layout.height }}>
+        <div className={cn("surface", styles.obj)} style={{ height: layout.height }}>
           {ITEM_KEYS.map((key, i) => {
             const box = layout.boxes[key];
             return (

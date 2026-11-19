@@ -52,13 +52,13 @@ describe("TranslationPending", () => {
     const translate = vi.fn(() => new Promise<never>(() => {}));
     render(<TranslationPending translate={translate} input={{ resumeId: "a1" }} className="mt-10" />);
     const line = screen.getByRole("status");
-    expect(line.className).toMatch(/\btext-ed-body\b/);
-    expect(line.className).toMatch(/\btext-ed-ink-2\b/);
+    expect(line.className).toMatch(/\btext-body\b/);
+    expect(line.className).toMatch(/\btext-ink-2\b/);
     expect(line.className).toMatch(/\bmt-10\b/);
     const mark = line.querySelector("[data-status-mark]");
-    expect(mark?.className).toMatch(/\bbg-ed-ink-2\b/);
+    expect(mark?.className).toMatch(/\bbg-ink-2\b/);
     expect(mark?.className).toMatch(/\bmotion-safe:animate-pulse\b/);
     // Green marks what a CV proves; the old light system's tokens are gone.
-    expect(line.outerHTML).not.toMatch(/signal|eyebrow|text-ink-|bg-fair|bg-paper/);
+    expect(line.outerHTML).not.toMatch(/signal|eyebrow|bg-fair|bg-paper/);
   });
 });

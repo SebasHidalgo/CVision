@@ -18,10 +18,10 @@ export function ScoreBar({ score, label, className }: ScoreBarProps) {
     ? ({ role: "meter", "aria-label": label, "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": value } as const)
     : ({ "aria-hidden": true } as const);
   return (
-    <span {...meter} className={cn("relative block h-[3px] bg-ed-line-2", className)}>
-      <span className="absolute inset-y-0 left-0 bg-ed-ink" style={{ width: `${value}%` }} />
-      <i className="absolute -top-[3px] h-[9px] w-px bg-ed-ink-3" style={{ left: `${SCORE_THRESHOLDS.fair}%` }} />
-      <i className="absolute -top-[3px] h-[9px] w-px bg-ed-ink-3" style={{ left: `${SCORE_THRESHOLDS.strong}%` }} />
+    <span {...meter} className={cn("relative block h-[3px] bg-line-2", className)}>
+      <span className="absolute inset-y-0 left-0 bg-ink" style={{ width: `${value}%` }} />
+      <i className="absolute -top-[3px] h-[9px] w-px bg-ink-3" style={{ left: `${SCORE_THRESHOLDS.fair}%` }} />
+      <i className="absolute -top-[3px] h-[9px] w-px bg-ink-3" style={{ left: `${SCORE_THRESHOLDS.strong}%` }} />
     </span>
   );
 }

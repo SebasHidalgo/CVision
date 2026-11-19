@@ -34,7 +34,7 @@ export default async function FeedbackPending({ interviewId, analysisId, role, d
             title={waitingFor === "transcript" ? t("pending.saving") : t("pending.preparing")}
             body={waitingFor === "transcript" ? t("pending.transcriptBody") : t("pending.scoringBody")}
           />
-          <p className="mt-6 max-w-[60ch] text-ed-body text-ed-ink-2">{t("pending.leave")}</p>
+          <p className="mt-6 max-w-[60ch] text-body text-ink-2">{t("pending.leave")}</p>
         </StatusPoller>
       </ClientMessages>
     </FeedbackState>

@@ -14,10 +14,10 @@ const OLD_THEME_KEY = "cvision-theme";
 
 // Sonner's colours are variables on its list, set from the design system.
 const TOAST_COLORS = {
-  "--normal-bg": "var(--color-ed-raise)",
-  "--normal-text": "var(--color-ed-ink)",
-  "--normal-border": "var(--color-ed-line-2)",
-  "--border-radius": "var(--radius-ed-surface)",
+  "--normal-bg": "var(--color-raise)",
+  "--normal-text": "var(--color-ink)",
+  "--normal-border": "var(--color-line-2)",
+  "--border-radius": "var(--radius-surface)",
 } as React.CSSProperties;
 
 export default function Providers({ children }: ProvidersProps) {
@@ -47,9 +47,9 @@ export default function Providers({ children }: ProvidersProps) {
         }}
         toastOptions={{
           classNames: {
-            toast: "font-ed-text text-ed-small! shadow-ed-surface!",
+            toast: "font-text text-small! shadow-surface!",
             title: "font-medium",
-            description: "text-ed-ink-2!",
+            description: "text-ink-2!",
           },
         }}
       />

@@ -75,7 +75,7 @@ describe("the loading states", () => {
       expect(container.querySelectorAll("a, button, input, select, textarea, [tabindex]")).toHaveLength(0);
       expect(container.textContent).not.toMatch(/\{\{|\}\}/);
       // On the dark canvas from the first paint: the root carries the design system.
-      expect(container.firstElementChild?.classList.contains("ed-root")).toBe(true);
+      expect(container.firstElementChild?.classList.contains("root")).toBe(true);
       unmount();
     }
   });

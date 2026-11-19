@@ -23,16 +23,16 @@ function partText(part: PlanPart, t: TFunction<"interview">, locale: Locale): st
   }
 }
 
-const LINK = "inline-flex min-h-11 items-center text-ed-ink underline decoration-ed-ink-3 underline-offset-4 hover:decoration-ed-ink";
+const LINK = "inline-flex min-h-11 items-center text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink";
 
 /** Under the heading: the plan, what it has left to rehearse with, and the way to more when nothing is. */
 export function PlanLine({ line, t, common, locale }: { line: PlanLineData; t: TFunction<"interview">; common: TFunction<"common">; locale: Locale }) {
   return (
     <div data-plan-line className="mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <p className="ed-cap">
+      <p className="cap">
         {t("list.plan.label")} · {common(`plan.${line.plan}`)}
       </p>
-      <p className="text-ed-body text-ed-ink">{line.parts.map((part) => partText(part, t, locale)).join(" · ")}</p>
+      <p className="text-body text-ink">{line.parts.map((part) => partText(part, t, locale)).join(" · ")}</p>
       {line.link === "getMore" && (
         <Link href="/account/billing" className={LINK}>
           {t("list.plan.getMore")}

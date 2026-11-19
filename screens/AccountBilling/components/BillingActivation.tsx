@@ -72,7 +72,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   if (phase === "landed") {
     return (
-      <p className="flex items-center gap-3 text-ed-body font-medium text-ed-ink" role="status">
+      <p className="flex items-center gap-3 text-body font-medium text-ink" role="status">
         <Mark shape="filled" />
         {t(pro ? "activation.landedPro" : "activation.landedPack")}
       </p>
@@ -81,7 +81,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   if (phase === "waiting") {
     return (
-      <p className="flex items-start gap-3 text-ed-body text-ed-ink" role="status">
+      <p className="flex items-start gap-3 text-body text-ink" role="status">
         <Mark shape="half" className="mt-[0.45em] motion-safe:animate-pulse" />
         {t(pro ? "activation.waitingPro" : "activation.waitingPack")}
       </p>
@@ -90,7 +90,7 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   return (
     <div className="flex flex-col items-start gap-4" role="status">
-      <p className="flex items-start gap-3 text-ed-body text-ed-ink">
+      <p className="flex items-start gap-3 text-body text-ink">
         <Mark shape="half" className="mt-[0.45em]" />
         {t("activation.stalled")}
       </p>

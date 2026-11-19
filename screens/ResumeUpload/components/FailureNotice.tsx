@@ -38,16 +38,16 @@ export default function FailureNotice({ stage, message }: FailureNoticeProps) {
       aria-labelledby={titleId}
       aria-describedby={`${messageId} ${keptId}`}
       data-failure-notice
-      className="ed-surface grid scroll-mt-24 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 px-5 py-5 focus:outline-none sm:px-6"
+      className="surface grid scroll-mt-24 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 px-5 py-5 focus:outline-none sm:px-6"
     >
-      <CircleAlert aria-hidden className="mt-[0.15em] size-5 text-ed-danger-text" />
-      <p id={titleId} className="font-semibold text-ed-ink">
+      <CircleAlert aria-hidden className="mt-[0.15em] size-5 text-danger-text" />
+      <p id={titleId} className="font-semibold text-ink">
         {t(`failure.${stage}`)}
       </p>
-      <p id={messageId} className="col-start-2 max-w-[65ch] text-ed-ink-2">
+      <p id={messageId} className="col-start-2 max-w-[65ch] text-ink-2">
         {message}
       </p>
-      <p id={keptId} className="col-start-2 text-ed-small text-ed-ink-3">
+      <p id={keptId} className="col-start-2 text-small text-ink-3">
         {t("failure.kept")}
       </p>
     </div>

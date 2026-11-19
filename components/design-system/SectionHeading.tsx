@@ -15,14 +15,14 @@ export function SectionHeading({
   className?: string;
 }) {
   return (
-    <div className={cn("ed-grid mb-[clamp(36px,5vw,64px)] gap-y-3.5 border-t border-ed-line-2 pt-[18px]", className)}>
-      <p aria-hidden className="ed-mono text-[13px] text-ed-ink-3 lg:col-span-1 lg:pt-2.5">
+    <div className={cn("page-grid mb-[clamp(36px,5vw,64px)] gap-y-3.5 border-t border-line-2 pt-[18px]", className)}>
+      <p aria-hidden className="mono text-[13px] text-ink-3 lg:col-span-1 lg:pt-2.5">
         {n}
       </p>
-      <h2 id={id} className="ed-display text-ed-h2 text-balance lg:col-start-2 lg:col-end-8">
+      <h2 id={id} className="display text-h2 text-balance lg:col-start-2 lg:col-end-8">
         {title}
       </h2>
-      {lede && <div className="max-w-[44ch] text-[17px] text-ed-ink-2 lg:col-start-9 lg:col-end-13 lg:pt-2.5">{lede}</div>}
+      {lede && <div className="max-w-[44ch] text-[17px] text-ink-2 lg:col-start-9 lg:col-end-13 lg:pt-2.5">{lede}</div>}
     </div>
   );
 }

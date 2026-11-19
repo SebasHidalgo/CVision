@@ -64,7 +64,7 @@ describe("InterviewReport", () => {
     const rows = [...root.querySelectorAll('[data-feedback-row="gap"]')];
     expect(rows.map((row) => row.getAttribute("data-outcome"))).toEqual(["addressed", "dodged", "not_raised", "partially"]);
     expect(rows.map((row) => row.querySelector("[data-mark]")?.getAttribute("data-mark"))).toEqual(["full", "empty", "dashed", "half"]);
-    expect(rows.map((row) => row.querySelector(".ed-cap")?.textContent)).toEqual(["Addressed", "Dodged", "Not raised", "Partly addressed"]);
+    expect(rows.map((row) => row.querySelector(".cap")?.textContent)).toEqual(["Addressed", "Dodged", "Not raised", "Partly addressed"]);
     expect(rows[0].querySelector("blockquote")?.textContent).toBe("“Last year we moved the six orders services to a managed Kubernetes cluster.”");
     expect(rows[0].querySelector("blockquote")?.getAttribute("translate")).toBe("no");
     expect(rows[1].querySelector("blockquote")).toBeNull();
@@ -78,7 +78,7 @@ describe("InterviewReport", () => {
 
   it("shows notable answers with their verdict, and hides one whose quote the guardrail dropped (and the section with none)", () => {
     const answers = [...render().root.querySelectorAll('[data-feedback-row="answer"]')];
-    expect(answers.map((a) => a.querySelector(".ed-cap")?.textContent)).toEqual(["Worked", "Didn't land"]);
+    expect(answers.map((a) => a.querySelector(".cap")?.textContent)).toEqual(["Worked", "Didn't land"]);
 
     const dropped = render({ ...DATA, report: { ...REPORT, notableAnswers: [{ quote: " ", worked: true, why: "Clear ownership." }] } });
     expect(dropped.text).not.toContain("Clear ownership.");

@@ -26,13 +26,13 @@ export function StoryRail({ active, onGo, railRef }: StoryRailProps) {
               aria-current={active === i ? "step" : undefined}
               data-done={i < active || undefined}
               onClick={() => onGo(i)}
-              className="group relative grid min-h-12 cursor-pointer content-start items-baseline gap-x-2 pb-4 pr-1.5 text-left text-ed-ink-3 transition-colors duration-300 hover:[&:not([aria-current])]:text-ed-ink-2 data-done:text-ed-ink-2 aria-[current=step]:text-ed-ink min-[1280px]:grid-cols-[auto_minmax(0,1fr)]"
+              className="group relative grid min-h-12 cursor-pointer content-start items-baseline gap-x-2 pb-4 pr-1.5 text-left text-ink-3 transition-colors duration-300 hover:[&:not([aria-current])]:text-ink-2 data-done:text-ink-2 aria-[current=step]:text-ink min-[1280px]:grid-cols-[auto_minmax(0,1fr)]"
             >
               <span
                 aria-hidden
-                className="absolute -bottom-1 left-0 z-[1] size-[9px] rounded-full border-[1.5px] border-ed-line-2 bg-ed-bg transition-[background-color,border-color,transform] duration-300 ease-ed-story group-data-done:border-ed-ink-2 group-data-done:bg-ed-ink-2 group-aria-[current=step]:scale-[1.35] group-aria-[current=step]:border-ed-ink group-aria-[current=step]:bg-ed-ink motion-reduce:transition-none"
+                className="absolute -bottom-1 left-0 z-[1] size-[9px] rounded-full border-[1.5px] border-line-2 bg-bg transition-[background-color,border-color,transform] duration-300 ease-story group-data-done:border-ink-2 group-data-done:bg-ink-2 group-aria-[current=step]:scale-[1.35] group-aria-[current=step]:border-ink group-aria-[current=step]:bg-ink motion-reduce:transition-none"
               />
-              <span aria-hidden className="ed-mono text-[13px]">
+              <span aria-hidden className="mono text-[13px]">
                 {pad2(i + 1)}
               </span>
               {/* Below 1280 px the number sits over the label, which may then break: never an ellipsis. */}
@@ -42,8 +42,8 @@ export function StoryRail({ active, onGo, railRef }: StoryRailProps) {
           </li>
         ))}
       </ol>
-      <span aria-hidden className="absolute bottom-0 left-1 right-0 h-px bg-ed-line-2">
-        <span className="absolute inset-0 origin-left bg-ed-ink-2" style={{ transform: `scaleX(calc(var(--p, 0) * ${FILL_SHARE}))` }} />
+      <span aria-hidden className="absolute bottom-0 left-1 right-0 h-px bg-line-2">
+        <span className="absolute inset-0 origin-left bg-ink-2" style={{ transform: `scaleX(calc(var(--p, 0) * ${FILL_SHARE}))` }} />
       </span>
     </nav>
   );

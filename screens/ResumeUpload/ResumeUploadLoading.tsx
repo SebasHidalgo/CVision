@@ -10,7 +10,7 @@ function ControlBone({ label = true, className }: { label?: boolean; className?:
   return (
     <div className="grid min-w-0 content-start gap-2">
       {label && <Bone className="h-3.5 w-24" />}
-      <Bone className={cn("h-12 w-full rounded-ed-field", className)} />
+      <Bone className={cn("h-12 w-full rounded-field", className)} />
       <span className="block min-h-6" />
     </div>
   );
@@ -23,14 +23,14 @@ function ControlBone({ label = true, className }: { label?: boolean; className?:
 export default async function ResumeUploadLoading() {
   const t = await getT("upload");
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div aria-busy="true" className="ed-wrap pt-[clamp(32px,5vw,72px)] pb-[clamp(56px,7vw,112px)]">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div aria-busy="true" className="wrap pt-[clamp(32px,5vw,72px)] pb-[clamp(56px,7vw,112px)]">
         <PageHeading title={t("intro.title")} lede={t("intro.lede")} />
         <p role="status" className="sr-only">
           {t("intro.loading")}
         </p>
         <FormRow n="01" title={t("rows.role.title")} note={t("rows.role.body")} noteId="loading-role-note">
-          <div className="grid gap-x-ed-gutter md:grid-cols-2">
+          <div className="grid gap-x-gutter md:grid-cols-2">
             <ControlBone />
             <ControlBone />
           </div>
@@ -39,9 +39,9 @@ export default async function ResumeUploadLoading() {
           <ControlBone label={false} className="h-60" />
         </FormRow>
         <FormRow n="03" title={t("rows.cv.title")} note={t("rows.cv.body")} noteId="loading-cv-note">
-          <ControlBone label={false} className="h-40 rounded-ed-surface" />
+          <ControlBone label={false} className="h-40 rounded-surface" />
         </FormRow>
-        <div className="ed-grid border-t border-ed-line-2 pt-[clamp(24px,3.5vw,40px)]">
+        <div className="page-grid border-t border-line-2 pt-[clamp(24px,3.5vw,40px)]">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between lg:col-[5/span_8] lg:max-w-[75ch]">
             <Bone className="h-4 w-56 max-w-full" />
             <Bone className="h-12 w-44 rounded-full sm:ml-auto" />

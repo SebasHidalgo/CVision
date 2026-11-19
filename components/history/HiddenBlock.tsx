@@ -83,7 +83,7 @@ export function HiddenBlock({ kind, title, why, seePro, listLabel, deleteRow, de
 
   return (
     <div>
-      <p ref={outcomeRef} tabIndex={-1} data-deletion-outcome className="mt-8 w-fit max-w-[75ch] rounded-ed-field border border-ed-line-2 bg-ed-panel px-4 py-3 text-ed-body text-ed-ink empty:hidden">
+      <p ref={outcomeRef} tabIndex={-1} data-deletion-outcome className="mt-8 w-fit max-w-[75ch] rounded-field border border-line-2 bg-panel px-4 py-3 text-body text-ink empty:hidden">
         {outcome}
       </p>
 
@@ -92,14 +92,14 @@ export function HiddenBlock({ kind, title, why, seePro, listLabel, deleteRow, de
           data-hidden-analyses={analyses ? "" : undefined}
           data-hidden-interviews={analyses ? undefined : ""}
           aria-labelledby={headingId}
-          className="ed-surface mt-8 border-dashed px-6 pt-6 pb-2 max-sm:px-4"
+          className="surface mt-8 border-dashed px-6 pt-6 pb-2 max-sm:px-4"
         >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
-              <h2 id={headingId} className="text-ed-h3 font-semibold text-balance text-ed-ink">
+              <h2 id={headingId} className="text-h3 font-semibold text-balance text-ink">
                 {title}
               </h2>
-              <p className="mt-2 max-w-[68ch] text-ed-body text-ed-ink-2">{why}</p>
+              <p className="mt-2 max-w-[68ch] text-body text-ink-2">{why}</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <button type="button" onClick={(event) => open({ kind: "all" }, event.currentTarget)} className={buttonClass({ variant: "ghost", size: "sm" })}>
@@ -117,16 +117,16 @@ export function HiddenBlock({ kind, title, why, seePro, listLabel, deleteRow, de
                 key={row.id}
                 data-hidden-analysis={analyses ? "" : undefined}
                 data-hidden-interview={analyses ? undefined : ""}
-                className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-t border-ed-line py-3 sm:grid-cols-[40px_minmax(0,1fr)_9rem_auto] sm:gap-x-5"
+                className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-t border-line py-3 sm:grid-cols-[40px_minmax(0,1fr)_9rem_auto] sm:gap-x-5"
               >
-                <span aria-hidden className="ed-mono row-span-2 self-start pt-0.5 text-[13px] text-ed-ink-3 sm:row-span-1 sm:self-center sm:pt-0">
+                <span aria-hidden className="mono row-span-2 self-start pt-0.5 text-[13px] text-ink-3 sm:row-span-1 sm:self-center sm:pt-0">
                   {row.n}
                 </span>
                 <p className="min-w-0 break-words">
-                  <span className="font-medium text-ed-ink">{row.company}</span>
-                  <span className="block text-ed-small text-ed-ink-2">{row.title}</span>
+                  <span className="font-medium text-ink">{row.company}</span>
+                  <span className="block text-small text-ink-2">{row.title}</span>
                 </p>
-                <time dateTime={row.dateTime} className="ed-mono col-start-2 row-start-2 text-[13.5px] text-ed-ink-2 sm:col-start-auto sm:row-start-auto">
+                <time dateTime={row.dateTime} className="mono col-start-2 row-start-2 text-[13.5px] text-ink-2 sm:col-start-auto sm:row-start-auto">
                   {row.date}
                 </time>
                 <button

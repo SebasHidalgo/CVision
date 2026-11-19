@@ -21,12 +21,12 @@ type InterviewAttemptsProps = {
 
 /** The mark beside an attempt's state: shape, in ink (the state is written next to it). A waiting one pulses. */
 const MARK: Record<InterviewPhase | "blocked", string> = {
-  done: "bg-ed-ink",
-  ready: "border-[1.5px] border-ed-ink animate-pulse",
-  pending: "bg-ed-ink-2 animate-pulse",
-  failed: "border-[1.5px] border-ed-ink-3",
-  expired: "border-[1.5px] border-dashed border-ed-ink-3",
-  blocked: "border-[1.5px] border-ed-ink-3",
+  done: "bg-ink",
+  ready: "border-[1.5px] border-ink animate-pulse",
+  pending: "bg-ink-2 animate-pulse",
+  failed: "border-[1.5px] border-ink-3",
+  expired: "border-[1.5px] border-dashed border-ink-3",
+  blocked: "border-[1.5px] border-ink-3",
 };
 
 /** The rehearsals of one analysis, newest first, each a link to where it stands. */
@@ -34,23 +34,23 @@ export default function InterviewAttempts({ attempts, t, locale, entitlement }: 
   if (attempts.length === 0) return null;
 
   return (
-    <ol aria-label={t("attempts.label")} className="border-t border-ed-line">
+    <ol aria-label={t("attempts.label")} className="border-t border-line">
       {attempts.map((attempt) => {
         const destination = interviewDestination(attempt);
         const phase = destination.phase;
         const reading = phase === "ready" ? waitingReading(waitingInterviewEntry(attempt, entitlement, MAX_INTERVIEW_STARTS)) : null;
         const mark = reading && reading !== "ready" ? "blocked" : phase;
         return (
-          <li key={attempt.id} className="border-b border-ed-line">
+          <li key={attempt.id} className="border-b border-line">
             <Link
               href={destination.href}
-              className="group -mx-3 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-x-4 gap-y-0.5 rounded-ed-field px-3 py-3.5 transition-colors duration-200 hover:bg-ed-raise sm:grid-cols-[8rem_minmax(0,1fr)_auto_1.25rem]"
+              className="group -mx-3 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-x-4 gap-y-0.5 rounded-field px-3 py-3.5 transition-colors duration-200 hover:bg-raise sm:grid-cols-[8rem_minmax(0,1fr)_auto_1.25rem]"
             >
-              <span className="text-ed-body font-semibold text-ed-ink">{t("attempts.attempt", { number: attempt.attemptNumber })}</span>
-              <span className="col-span-2 row-start-2 text-[15px] text-ed-ink-2 sm:col-span-1 sm:row-start-auto">
+              <span className="text-body font-semibold text-ink">{t("attempts.attempt", { number: attempt.attemptNumber })}</span>
+              <span className="col-span-2 row-start-2 text-[15px] text-ink-2 sm:col-span-1 sm:row-start-auto">
                 {formatDate(attempt.createdAt, locale)}
               </span>
-              <span className="flex items-center gap-2.5 text-[15px] font-medium text-ed-ink">
+              <span className="flex items-center gap-2.5 text-[15px] font-medium text-ink">
                 <span aria-hidden className={cn("size-2 flex-none rounded-full", MARK[mark])} />
                 {phase === "done"
                   ? attempt.totalScore === null
@@ -60,7 +60,7 @@ export default function InterviewAttempts({ attempts, t, locale, entitlement }: 
               </span>
               <ArrowUpRight
                 aria-hidden
-                className="size-4 justify-self-end text-ed-ink-3 transition-[transform,color] duration-300 ease-ed-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ed-ink motion-reduce:transition-none"
+                className="size-4 justify-self-end text-ink-3 transition-[transform,color] duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ink motion-reduce:transition-none"
               />
             </Link>
           </li>

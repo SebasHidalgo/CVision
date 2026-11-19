@@ -61,7 +61,7 @@ export default function ManageSubscriptionButtonClient({ label, className, varia
         {label ?? t("portal.manage")}
       </button>
       {problem && (
-        <p role="alert" className="max-w-[52ch] text-ed-small text-ed-danger-text">
+        <p role="alert" className="max-w-[52ch] text-small text-danger-text">
           {problem}
         </p>
       )}

@@ -13,8 +13,8 @@ export default async function ResumeUploadScreen() {
   const quota = analysisQuotaView(summary);
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(32px,5vw,72px)] pb-[clamp(56px,7vw,112px)]">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(32px,5vw,72px)] pb-[clamp(56px,7vw,112px)]">
         <PageHeading title={t("intro.title")} lede={t("intro.lede")} />
         <ClientMessages ns={["upload"]}>
           <UploadForm quota={quota} />

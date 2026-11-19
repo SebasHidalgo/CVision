@@ -34,8 +34,8 @@ export default async function PricingScreen() {
   const proPrice = catalogPrice("pro_monthly", locale);
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)} data-pricing-state={state.kind}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)} data-pricing-state={state.kind}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading title={t("intro.title")} lede={t("intro.lede")} ruled />
         <div className="mt-10 lg:mt-12">
           <PlanComparison

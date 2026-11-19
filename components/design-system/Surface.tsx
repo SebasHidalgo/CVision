@@ -10,7 +10,7 @@ type SurfaceProps<T extends React.ElementType> = {
 export function Surface<T extends React.ElementType = "div">({ as, className, children, ...rest }: SurfaceProps<T>) {
   const Tag = (as ?? "div") as React.ElementType;
   return (
-    <Tag className={cn("ed-surface", className)} {...rest}>
+    <Tag className={cn("surface", className)} {...rest}>
       {children}
     </Tag>
   );

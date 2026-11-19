@@ -12,8 +12,8 @@ const ROWS = [0, 1, 2];
 export default async function InterviewsLoading() {
   const t = await getT("interview");
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div aria-busy="true" className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div aria-busy="true" className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading ruled title={t("list.title")} aside={<CountsBone />} />
         <p role="status" className="sr-only">
           {t("list.loading")}
@@ -22,7 +22,7 @@ export default async function InterviewsLoading() {
           <Bone className="h-3 w-24" />
           <Bone className="h-4 w-72 max-w-full" />
         </div>
-        <Surface as="ol" aria-hidden className="mt-10 divide-y divide-ed-line overflow-hidden">
+        <Surface as="ol" aria-hidden className="mt-10 divide-y divide-line overflow-hidden">
           {ROWS.map((row) => (
             <li key={row} className={ROW_GRID}>
               <Bone className="mt-1 h-3 w-5 [grid-area:n]" />

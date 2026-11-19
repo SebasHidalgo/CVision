@@ -70,21 +70,21 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
       data-state={state.kind}
       className={cn(
         ROW_GRID,
-        "group relative transition-colors duration-200 hover:bg-ed-raise motion-reduce:transition-none",
-        "has-[[data-row-link]:focus-visible]:outline-2 has-[[data-row-link]:focus-visible]:outline-offset-[-2px] has-[[data-row-link]:focus-visible]:outline-ed-ink",
+        "group relative transition-colors duration-200 hover:bg-raise motion-reduce:transition-none",
+        "has-[[data-row-link]:focus-visible]:outline-2 has-[[data-row-link]:focus-visible]:outline-offset-[-2px] has-[[data-row-link]:focus-visible]:outline-ink",
       )}
     >
-      <span aria-hidden className="ed-mono pt-[3px] text-[13px] text-ed-ink-3 [grid-area:n]">
+      <span aria-hidden className="mono pt-[3px] text-[13px] text-ink-3 [grid-area:n]">
         {n}
       </span>
 
       <div className="min-w-0 [grid-area:title]">
-        <p className="ed-mono text-[13px] text-ed-ink-3">
+        <p className="mono text-[13px] text-ink-3">
           <time dateTime={interview.createdAt.toISOString()}>{formatDate(interview.createdAt, locale)}</time>
           <span aria-hidden> · </span>
           {t("list.attempt", { number: interview.attemptNumber })}
         </p>
-        <h2 className="mt-1.5 text-[20px] leading-tight font-semibold tracking-[-0.01em] break-words text-ed-ink">
+        <h2 className="mt-1.5 text-[20px] leading-tight font-semibold tracking-[-0.01em] break-words text-ink">
           <Link
             href={destination.href}
             data-row-link
@@ -98,20 +98,20 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
             </span>
           </Link>
         </h2>
-        {interview.companyName && <p className="mt-1 break-words text-ed-ink-2">{interview.companyName}</p>}
+        {interview.companyName && <p className="mt-1 break-words text-ink-2">{interview.companyName}</p>}
       </div>
 
       <div className="min-w-0 [grid-area:state]">
         {scored !== null ? (
           <p aria-hidden className="flex items-baseline gap-3">
-            <span className="font-ed-display text-[30px] leading-none font-light tracking-[-0.03em] tabular-nums text-ed-ink">{scored}</span>
-            <span className="text-ed-ink">{tone}</span>
+            <span className="font-display text-[30px] leading-none font-light tracking-[-0.03em] tabular-nums text-ink">{scored}</span>
+            <span className="text-ink">{tone}</span>
           </p>
         ) : (
-          <p aria-hidden className="flex items-start gap-2.5 text-ed-ink">
+          <p aria-hidden className="flex items-start gap-2.5 text-ink">
             <span className="flex h-lh shrink-0 items-center">
               {state.kind === "live" ? (
-                <span className="size-2.5 rounded-full bg-ed-ink motion-safe:animate-pulse" />
+                <span className="size-2.5 rounded-full bg-ink motion-safe:animate-pulse" />
               ) : (
                 <InkMark shape={SHAPE[state.kind]} />
               )}
@@ -120,7 +120,7 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
           </p>
         )}
         {interview.analysisId && (
-          <Link href={`/resume/analysis/${interview.analysisId}`} className={cn(textLinkClass, "relative z-10 -mb-2 text-ed-small")}>
+          <Link href={`/resume/analysis/${interview.analysisId}`} className={cn(textLinkClass, "relative z-10 -mb-2 text-small")}>
             {t("list.openAnalysis")}
             <span className="sr-only">
               {" · "}
@@ -136,7 +136,7 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
         width="16"
         height="16"
         viewBox="0 0 16 16"
-        className="mt-1 text-ed-ink-3 transition-[color,translate] duration-200 ease-ed-out [grid-area:go] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ed-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0"
+        className="mt-1 text-ink-3 transition-[color,translate] duration-200 ease-out [grid-area:go] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0"
       >
         <path d="M4.5 11.5l7-7M6 4.5h5.5V10" fill="none" stroke="currentColor" strokeWidth="1.5" />
       </svg>

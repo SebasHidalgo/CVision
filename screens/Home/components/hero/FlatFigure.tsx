@@ -37,8 +37,8 @@ const PROOF_LINES = new Set(PROVING.map((r) => r.line));
 // Before a status lands. Only with JavaScript (the boot script's `data-js`) and motion: without either, the read state
 // shows from the first paint.
 const PENDING = {
-  mark: "in-data-js:motion-safe:border-solid in-data-js:motion-safe:border-ed-ink-3 in-data-js:motion-safe:bg-transparent in-data-js:motion-safe:bg-none",
-  label: "in-data-js:motion-safe:text-ed-ink-2",
+  mark: "in-data-js:motion-safe:border-solid in-data-js:motion-safe:border-ink-3 in-data-js:motion-safe:bg-transparent in-data-js:motion-safe:bg-none",
+  label: "in-data-js:motion-safe:text-ink-2",
   status: "in-data-js:motion-safe:opacity-0",
   proof: "in-data-js:motion-safe:bg-transparent in-data-js:motion-safe:shadow-none",
 };
@@ -47,10 +47,10 @@ const PENDING = {
 const HEAD_FLAT = "[@media(max-height:760px)]:hidden";
 
 const LINE_KIND: Record<LocalizedCvLine["kind"], string> = {
-  name: "font-ed-display font-light text-ed-ink [font-variation-settings:'opsz'_48,'SOFT'_0,'WONK'_0] text-[21px] leading-[1.2]",
+  name: "font-display font-light text-ink [font-variation-settings:'opsz'_48,'SOFT'_0,'WONK'_0] text-[21px] leading-[1.2]",
   meta: "",
-  head: "font-ed-mono text-[12px] uppercase tracking-[0.06em] text-ed-ink-3",
-  role: "font-semibold text-ed-ink",
+  head: "font-mono text-[12px] uppercase tracking-[0.06em] text-ink-3",
+  role: "font-semibold text-ink",
   text: "",
 };
 
@@ -132,16 +132,16 @@ export function FlatFigure(props: Props) {
         className,
       )}
     >
-      <div data-sheet data-hero={heroFit ? "" : undefined} className={cn("ed-surface", flat ? "flex min-h-0 flex-col px-4 pt-2.5 pb-1" : "px-3.5 pt-2 pb-0.5")}>
+      <div data-sheet data-hero={heroFit ? "" : undefined} className={cn("surface", flat ? "flex min-h-0 flex-col px-4 pt-2.5 pb-1" : "px-3.5 pt-2 pb-0.5")}>
         <p
           className={cn(
-            "flex justify-between gap-3 border-b border-ed-line pb-1.5 text-[12.5px] text-ed-ink-3",
+            "flex justify-between gap-3 border-b border-line pb-1.5 text-[12.5px] text-ink-3",
             // A short screen keeps the rows: the sheet headings go first.
             flat ? HEAD_FLAT : "max-lg:[@media(max-height:700px)]:hidden",
           )}
         >
           <span>{t("figure.posting", { company })}</span>
-          <span className="ed-mono">{t("figure.requirements", { count: requirements.length })}</span>
+          <span className="mono">{t("figure.requirements", { count: requirements.length })}</span>
         </p>
         <ul
           aria-label={flat ? undefined : t("figure.listLabel")}
@@ -159,11 +159,11 @@ export function FlatFigure(props: Props) {
                     className={cn("transition-[background-color,border-color] duration-[350ms] motion-reduce:transition-none", pending && PENDING.mark)}
                   />
                 </span>
-                <span className="ed-mono text-[12px] text-ed-ink-3">{r.n}</span>
+                <span className="mono text-[12px] text-ink-3">{r.n}</span>
                 <span
                   className={cn(
                     "text-[15px] leading-[1.22] font-medium transition-colors duration-300 motion-reduce:transition-none",
-                    focus && focus !== r.id ? "text-ed-ink-2" : "text-ed-ink",
+                    focus && focus !== r.id ? "text-ink-2" : "text-ink",
                     pinned === r.id && "underline decoration-1 underline-offset-4",
                     pending && PENDING.label,
                   )}
@@ -172,13 +172,13 @@ export function FlatFigure(props: Props) {
                 </span>
                 <span
                   aria-hidden
-                  className={cn("text-[13px] whitespace-nowrap text-ed-ink-2 transition-opacity duration-300 motion-reduce:transition-none", pending && PENDING.status)}
+                  className={cn("text-[13px] whitespace-nowrap text-ink-2 transition-opacity duration-300 motion-reduce:transition-none", pending && PENDING.status)}
                 >
                   {r.statusShort}
                 </span>
               </>
             );
-            const row = "grid w-full grid-cols-[12px_26px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-ed-line text-left";
+            const row = "grid w-full grid-cols-[12px_26px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-line text-left";
             return (
               <li key={r.id} className="flex [&:last-child>*]:border-b-0">
                 {flat ? (
@@ -218,7 +218,7 @@ export function FlatFigure(props: Props) {
             d={w.d}
             pathLength={1}
             className={cn(
-              "fill-none stroke-ed-signal [stroke-dasharray:1] [stroke-width:1.25] transition-[stroke-dashoffset,opacity] duration-[450ms] ease-ed-out motion-reduce:transition-none",
+              "fill-none stroke-signal [stroke-dasharray:1] [stroke-width:1.25] transition-[stroke-dashoffset,opacity] duration-[450ms] ease-out motion-reduce:transition-none",
               done.has(w.id) ? "[stroke-dashoffset:0]" : "[stroke-dashoffset:1]",
               focus && focus !== w.id && "opacity-25",
             )}
@@ -226,10 +226,10 @@ export function FlatFigure(props: Props) {
         ))}
       </svg>
 
-      <div data-cv aria-hidden className={cn("ed-surface", flat ? "flex min-h-0 flex-col overflow-hidden px-4 pt-2.5 pb-2" : "px-3.5 pt-3 pb-3.5")}>
-        <p className={cn("flex justify-between gap-3 border-b border-ed-line pb-2 text-[12.5px] text-ed-ink-3", flat && HEAD_FLAT)}>
+      <div data-cv aria-hidden className={cn("surface", flat ? "flex min-h-0 flex-col overflow-hidden px-4 pt-2.5 pb-2" : "px-3.5 pt-3 pb-3.5")}>
+        <p className={cn("flex justify-between gap-3 border-b border-line pb-2 text-[12.5px] text-ink-3", flat && HEAD_FLAT)}>
           <span>{t("figure.cv", { name: candidate })}</span>
-          <span className="ed-mono">{t("figure.pages", { count: 1 })}</span>
+          <span className="mono">{t("figure.pages", { count: 1 })}</span>
         </p>
         <ol className={cn("relative mt-2 grid gap-px", flat && "min-h-0 flex-1 content-evenly")}>
           {cvLines.map((l) => {
@@ -239,18 +239,18 @@ export function FlatFigure(props: Props) {
                 key={l.n}
                 data-line={l.n}
                 className={cn(
-                  "grid grid-cols-[22px_minmax(0,1fr)] items-baseline gap-2.5 py-[3px] pr-1.5 pl-1 text-[13.5px] leading-[1.35] text-ed-ink-2 transition-[background-color,box-shadow] duration-[400ms] motion-reduce:transition-none",
+                  "grid grid-cols-[22px_minmax(0,1fr)] items-baseline gap-2.5 py-[3px] pr-1.5 pl-1 text-[13.5px] leading-[1.35] text-ink-2 transition-[background-color,box-shadow] duration-[400ms] motion-reduce:transition-none",
                   flat && "py-px",
-                  proof && "bg-ed-signal-wash shadow-ed-proof",
+                  proof && "bg-signal-wash shadow-proof",
                   proof && !proofNow.has(l.n) && PENDING.proof,
                 )}
               >
-                <span className="ed-mono text-[12px] text-ed-ink-3">{String(l.n).padStart(2, "0")}</span>
+                <span className="mono text-[12px] text-ink-3">{String(l.n).padStart(2, "0")}</span>
                 <span className={cn("min-w-0", LINE_KIND[l.kind])}>{l.text}</span>
               </li>
             );
           })}
-          <li ref={scan} className="pointer-events-none absolute inset-0 border-t border-ed-ink opacity-0" />
+          <li ref={scan} className="pointer-events-none absolute inset-0 border-t border-ink opacity-0" />
         </ol>
       </div>
     </div>

@@ -5,7 +5,7 @@
 /* The page itself: every route draws the design system's canvas, so overscroll and a page's edges are never light. */
 @layer base {
   * {
-    border-color: var(--color-ed-line);
+    border-color: var(--color-line);
   }
 
   html {
@@ -13,25 +13,25 @@
     /* An anchor (/#how) lands below the sticky 64 px header. */
     scroll-padding-top: 5rem;
     -webkit-text-size-adjust: 100%;
-    background: var(--color-ed-bg);
+    background: var(--color-bg);
     color-scheme: dark;
   }
 
   body {
-    background: var(--color-ed-bg);
-    color: var(--color-ed-ink);
+    background: var(--color-bg);
+    color: var(--color-ink);
     font-family: var(--font-host-grotesk), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background: var(--color-ed-ink);
-    color: var(--color-ed-bg);
+    background: var(--color-ink);
+    color: var(--color-bg);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-ed-ink);
+    outline: 2px solid var(--color-ink);
     outline-offset: 3px;
   }
 
@@ -44,7 +44,7 @@
      script, so a page without JavaScript is never hidden. Backwards fill: nothing stays applied after. */
   @media (prefers-reduced-motion: no-preference) {
     html[data-js] [data-page-enter] {
-      animation: page-enter 450ms var(--ease-ed-out) backwards;
+      animation: page-enter 450ms var(--ease-out) backwards;
     }
   }
   @keyframes page-enter {

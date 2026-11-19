@@ -23,7 +23,7 @@ type ConfirmDialogProps = {
 
 /**
  * A destructive confirmation on the design system. Radix's alert dialog (focus trap, Escape, focus on the cancel
- * button first) without the shadcn skin. It portals to <body>, outside the page's `.ed-root`, so it carries the root
+ * button first) without the shadcn skin. It portals to <body>, outside the page's `.root`, so it carries the root
  * class and the text face itself.
  */
 export function ConfirmDialog({
@@ -43,7 +43,7 @@ export function ConfirmDialog({
   return (
     <AlertDialog.Root open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-ed-fade motion-reduce:animate-none" />
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-fade motion-reduce:animate-none" />
         <AlertDialog.Content
           onOpenAutoFocus={() => {
             returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -57,13 +57,13 @@ export function ConfirmDialog({
             })
           }
           className={cn(
-            "ed-root ed-surface fixed top-1/2 left-1/2 z-50 grid w-[min(calc(100%-32px),30rem)] -translate-x-1/2 -translate-y-1/2 gap-4 p-6 max-sm:p-5",
-            "data-[state=open]:animate-ed-fade motion-reduce:animate-none",
+            "root surface fixed top-1/2 left-1/2 z-50 grid w-[min(calc(100%-32px),30rem)] -translate-x-1/2 -translate-y-1/2 gap-4 p-6 max-sm:p-5",
+            "data-[state=open]:animate-fade motion-reduce:animate-none",
             fontText.variable,
           )}
         >
-          <AlertDialog.Title className="text-ed-h3 font-semibold text-balance text-ed-ink">{title}</AlertDialog.Title>
-          <AlertDialog.Description className="max-w-[60ch] text-ed-body text-ed-ink-2">{body}</AlertDialog.Description>
+          <AlertDialog.Title className="text-h3 font-semibold text-balance text-ink">{title}</AlertDialog.Title>
+          <AlertDialog.Description className="max-w-[60ch] text-body text-ink-2">{body}</AlertDialog.Description>
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <AlertDialog.Cancel disabled={pending} className={buttonClass({ variant: "ghost", size: "sm" })}>
               {cancelLabel}

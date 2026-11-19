@@ -36,31 +36,31 @@ export function VerdictCard({ verdict, t, common, className }: VerdictCardProps)
   return (
     <Surface as="aside" aria-labelledby="verdict-cap verdict-title" className={cn("grid content-start gap-4 px-5 pt-5 pb-5 max-sm:px-4", className)}>
       <div>
-        <p id="verdict-cap" className="ed-cap">
+        <p id="verdict-cap" className="cap">
           {common("verdict.cap")}
         </p>
         <p
           id="verdict-title"
-          className="mt-2 font-ed-display text-[clamp(34px,3vw,42px)] leading-[1.04] font-normal tracking-[-0.02em] [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]"
+          className="mt-2 font-display text-[clamp(34px,3vw,42px)] leading-[1.04] font-normal tracking-[-0.02em] [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]"
         >
           {common(toneKey("fit", tone))}
         </p>
       </div>
 
-      <dl className="border-t border-ed-line">
+      <dl className="border-t border-line">
         {rows.map((row) => (
           // A value that does not fit beside its label drops below it whole, still flush right.
-          <div key={row.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-ed-line py-2.5 text-[15px]">
-            <dt className="text-ed-ink-2">{row.label}</dt>
-            <dd className="ml-auto text-right text-ed-ink tabular-nums">{row.value}</dd>
+          <div key={row.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-line py-2.5 text-[15px]">
+            <dt className="text-ink-2">{row.label}</dt>
+            <dd className="ml-auto text-right text-ink tabular-nums">{row.value}</dd>
           </div>
         ))}
       </dl>
 
       <div>
-        <p className="ed-cap">{t("verdict.ruleTitle")}</p>
+        <p className="cap">{t("verdict.ruleTitle")}</p>
         {empty ? (
-          <p className="mt-2.5 text-[15px] text-ed-ink-2">{t("verdict.rule.empty")}</p>
+          <p className="mt-2.5 text-[15px] text-ink-2">{t("verdict.rule.empty")}</p>
         ) : (
           <dl className="mt-2.5 grid gap-2.5 text-[15px] leading-[1.5]">
             {TONES.map((rule) => {
@@ -68,7 +68,7 @@ export function VerdictCard({ verdict, t, common, className }: VerdictCardProps)
               return (
                 <div
                   key={rule}
-                  className={cn("grid gap-0.5 pl-3", applies ? "text-ed-ink shadow-[inset_2px_0_0_var(--color-ed-ink)]" : "text-ed-ink-2")}
+                  className={cn("grid gap-0.5 pl-3", applies ? "text-ink shadow-[inset_2px_0_0_var(--color-ink)]" : "text-ink-2")}
                 >
                   <dt className="font-semibold">
                     {common(toneKey("fit", rule))}
@@ -80,7 +80,7 @@ export function VerdictCard({ verdict, t, common, className }: VerdictCardProps)
             })}
           </dl>
         )}
-        <p className="mt-3 text-[15px] text-ed-ink-2">{common("verdictRule.notShown")}</p>
+        <p className="mt-3 text-[15px] text-ink-2">{common("verdictRule.notShown")}</p>
       </div>
     </Surface>
   );

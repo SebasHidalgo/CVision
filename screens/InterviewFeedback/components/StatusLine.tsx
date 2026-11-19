@@ -11,21 +11,21 @@ import { cn } from "@/lib/utils";
 export type StatusKind = "working" | "live" | "stopped" | "unreadable";
 
 function Mark({ kind }: { kind: StatusKind }) {
-  if (kind === "working") return <Loader2 aria-hidden className="size-[18px] text-ed-ink motion-safe:animate-spin" />;
-  if (kind === "live") return <span aria-hidden className="size-2.5 rounded-full bg-ed-ink motion-safe:animate-pulse" />;
+  if (kind === "working") return <Loader2 aria-hidden className="size-[18px] text-ink motion-safe:animate-spin" />;
+  if (kind === "live") return <span aria-hidden className="size-2.5 rounded-full bg-ink motion-safe:animate-pulse" />;
   return <InkMark shape={kind === "stopped" ? "empty" : "dashed"} className="size-3" />;
 }
 
 export function StatusLine({ kind, title, body, className }: { kind: StatusKind; title: string; body?: React.ReactNode; className?: string }) {
   return (
     <div data-feedback-state={kind} className={className}>
-      <p className="flex items-start gap-3.5 text-[clamp(20px,2vw,24px)] leading-[1.3] font-medium tracking-[-0.01em] text-ed-ink">
+      <p className="flex items-start gap-3.5 text-[clamp(20px,2vw,24px)] leading-[1.3] font-medium tracking-[-0.01em] text-ink">
         <span aria-hidden className="flex h-lh shrink-0 items-center">
           <Mark kind={kind} />
         </span>
         <span className="min-w-0">{title}</span>
       </p>
-      {body && <p className={cn("mt-4 max-w-[60ch] text-ed-lede text-ed-ink-2")}>{body}</p>}
+      {body && <p className={cn("mt-4 max-w-[60ch] text-lede text-ink-2")}>{body}</p>}
     </div>
   );
 }

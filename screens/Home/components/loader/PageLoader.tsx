@@ -96,7 +96,7 @@ export function PageLoader() {
       role="status"
       className="fixed inset-0 z-50 hidden place-items-center [html[data-loading]_&]:grid"
     >
-      <div ref={ground} aria-hidden className="absolute inset-0 bg-ed-bg" />
+      <div ref={ground} aria-hidden className="absolute inset-0 bg-bg" />
       <div className="relative grid justify-items-center gap-7">
         <div ref={brand} aria-hidden>
           <Logo className="scale-125" />
@@ -110,8 +110,8 @@ export function PageLoader() {
               }}
               data-on={i < count ? "" : undefined}
               className={cn(
-                "size-[11px] border-[1.5px] border-ed-ink-2 transition-[background-color,border-color] duration-200 ease-ed-out motion-reduce:transition-none",
-                "data-[on]:border-ed-ink data-[on]:bg-ed-ink",
+                "size-[11px] border-[1.5px] border-ink-2 transition-[background-color,border-color] duration-200 ease-out motion-reduce:transition-none",
+                "data-[on]:border-ink data-[on]:bg-ink",
               )}
             />
           ))}

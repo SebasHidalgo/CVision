@@ -14,8 +14,8 @@ export async function PricingSection() {
   const [t, pricing, common, locale] = await Promise.all([getT("landingPricing"), getT("pricing"), getT("common"), getLocale()]);
   const view = pricingView({ t: pricing, common, locale });
   return (
-    <section id="pricing" aria-labelledby="pricing-heading" className="pt-ed-section">
-      <div className="ed-wrap">
+    <section id="pricing" aria-labelledby="pricing-heading" className="pt-section">
+      <div className="wrap">
         <SectionHeading n="04" id="pricing-heading" title={t("title")} lede={<p>{t("lede")}</p>} />
         <PlanComparison
           view={view}

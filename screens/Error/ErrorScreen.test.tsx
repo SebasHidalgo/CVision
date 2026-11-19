@@ -97,7 +97,7 @@ describe("the root error page", () => {
   it("is a whole document with no providers, and leaks nothing of the error", () => {
     const html = renderToStaticMarkup(<GlobalError error={serverError()} retry={() => {}} />);
     expect(html).toMatch(/^<html lang="en">/);
-    expect(html).toMatch(/<body class="ed-root /);
+    expect(html).toMatch(/<body class="root /);
     expect(html).toContain(enCopy.title);
     expect(html).toContain(esCopy.title);
     expect(html).not.toContain(SECRET);

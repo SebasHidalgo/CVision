@@ -28,7 +28,7 @@ export function RoomButton({ tone = "primary", icon, busy = false, className, ch
       className={cn(
         buttonClass({ variant: tone === "quiet" ? "ghost" : "solid", size: "md" }),
         "w-full sm:w-auto",
-        tone === "danger" && "border-ed-danger-edge bg-ed-danger text-white hover:bg-ed-danger-hover",
+        tone === "danger" && "border-danger-edge bg-danger text-white hover:bg-danger-hover",
         "disabled:cursor-default disabled:opacity-75 disabled:hover:translate-y-0 disabled:active:scale-100",
         "aria-disabled:cursor-default aria-disabled:opacity-75 aria-disabled:hover:translate-y-0 aria-disabled:active:scale-100",
         className,

@@ -6,8 +6,8 @@ import { ControlIcon } from "./icons";
 import type { TalkState } from "./talk";
 
 const PILL = cn(
-  "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-ed-line-2 bg-ed-raise pr-4 pl-3 text-[14.5px] text-ed-ink",
-  "transition-[border-color,background-color] duration-200 hover:border-ed-ink-2 motion-reduce:transition-none",
+  "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-line-2 bg-raise pr-4 pl-3 text-[14.5px] text-ink",
+  "transition-[border-color,background-color] duration-200 hover:border-ink-2 motion-reduce:transition-none",
 );
 
 /**
@@ -25,7 +25,7 @@ export function TalkControls({ talk, className }: { talk: TalkState; className?:
         <button
           type="button"
           onClick={talk.playing ? talk.pause : talk.ended ? talk.replay : talk.play}
-          className={cn(PILL, "border-ed-ink bg-ed-ink text-ed-bg hover:border-white hover:bg-white")}
+          className={cn(PILL, "border-ink bg-ink text-bg hover:border-white hover:bg-white")}
         >
           <ControlIcon name={talk.playing ? "pause" : "play"} />
           {main}
@@ -41,17 +41,17 @@ export function TalkControls({ talk, className }: { talk: TalkState; className?:
           type="button"
           aria-pressed={talk.sound}
           onClick={talk.toggleSound}
-          className={cn(PILL, "aria-pressed:border-ed-ink aria-pressed:bg-ed-line")}
+          className={cn(PILL, "aria-pressed:border-ink aria-pressed:bg-line")}
         >
           <ControlIcon name={talk.sound ? "sound" : "mute"} />
           {t("controls.sound")}
         </button>
-        <span role="status" className="text-[13px] text-ed-ink-2">
+        <span role="status" className="text-[13px] text-ink-2">
           {talk.sound && talk.loading ? t("controls.loading") : null}
         </span>
       </div>
-      <p className="max-w-[46ch] text-[13px] leading-[1.45] text-ed-ink-2">
-        <span className="block font-ed-mono text-[12px] tracking-[0.02em] text-ed-ink">{t("controls.voiceLabel")}</span>{" "}
+      <p className="max-w-[46ch] text-[13px] leading-[1.45] text-ink-2">
+        <span className="block font-mono text-[12px] tracking-[0.02em] text-ink">{t("controls.voiceLabel")}</span>{" "}
         {t("controls.voiceNote")}
       </p>
     </div>

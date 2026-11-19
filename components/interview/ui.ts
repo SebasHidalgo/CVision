@@ -2,5 +2,5 @@
 // both). Colour stays ink: green is kept for what a CV proves.
 
 /** The eyebrow; add a colour. */
-export const CAP = "text-ed-cap font-semibold uppercase";
-export const THIN_SCROLL = "[scrollbar-width:thin] [scrollbar-color:var(--color-ed-line-2)_transparent]";
+export const CAP = "text-cap font-semibold uppercase";
+export const THIN_SCROLL = "[scrollbar-width:thin] [scrollbar-color:var(--color-line-2)_transparent]";

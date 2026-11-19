@@ -25,23 +25,23 @@ export function VerdictCard({ tone, tally, className }: { tone: ScoreTone; tally
   ];
   return (
     <Surface as="aside" aria-label={t("verdict.label")} className={cn("grid content-start gap-3.5 self-start px-5 pt-5 pb-[18px] max-sm:px-4", className)}>
-      <p className="ed-cap">{common("verdict.cap")}</p>
-      <p className="font-ed-display text-[34px] leading-[1.05] font-normal tracking-[-0.02em] [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
+      <p className="cap">{common("verdict.cap")}</p>
+      <p className="font-display text-[34px] leading-[1.05] font-normal tracking-[-0.02em] [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
         {common(toneKey("fit", tone))}
       </p>
-      <dl className="grid border-t border-ed-line">
+      <dl className="grid border-t border-line">
         {rows.map((row) => (
-          <div key={row.key} className="flex justify-between gap-3 border-b border-ed-line py-2.5 text-[15px]">
-            <dt className="text-ed-ink-2">{row.label}</dt>
-            <dd className="ed-mono text-right text-[14px]">{row.value}</dd>
+          <div key={row.key} className="flex justify-between gap-3 border-b border-line py-2.5 text-[15px]">
+            <dt className="text-ink-2">{row.label}</dt>
+            <dd className="mono text-right text-[14px]">{row.value}</dd>
           </div>
         ))}
       </dl>
       {/* The app's rule, word for word: the analysis page prints the same sentences. */}
-      <p className="text-[14px] text-ed-ink-3">
+      <p className="text-[14px] text-ink-3">
         {RULES.map((rule) => (
           <Fragment key={rule}>
-            <strong className="font-semibold text-ed-ink-2">{common("verdictRule.term", { verdict: common(toneKey("fit", rule)) })}</strong>{" "}
+            <strong className="font-semibold text-ink-2">{common("verdictRule.term", { verdict: common(toneKey("fit", rule)) })}</strong>{" "}
             {common(`verdictRule.${rule}`)}{" "}
           </Fragment>
         ))}

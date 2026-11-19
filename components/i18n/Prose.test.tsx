@@ -25,7 +25,7 @@ describe("Prose", () => {
   it("draws the bars on the design system's edge colour, pulsing only when motion is allowed", () => {
     const { container } = render(<Prose text={PENDING_PROSE} lines={1} />);
     const [bar] = [...(container.querySelector("[data-prose-pending]")?.children ?? [])];
-    expect(bar.className).toMatch(/\bbg-ed-line-2\b/);
+    expect(bar.className).toMatch(/\bbg-line-2\b/);
     expect(bar.className).toMatch(/\bmotion-safe:animate-pulse\b/);
     expect(bar.className).toMatch(/\bw-full\b/);
     expect(bar.className).not.toMatch(/bg-paper/);

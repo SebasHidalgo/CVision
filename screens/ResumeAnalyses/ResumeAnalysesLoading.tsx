@@ -9,8 +9,8 @@ import { AnalysesListSkeleton } from "./components/AnalysesSkeleton";
 export default async function ResumeAnalysesLoading() {
   const t = await getT("analyses");
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div aria-busy="true" className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div aria-busy="true" className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading
           title={t("page.title")}
           ruled

@@ -23,10 +23,10 @@ export function AnalysisSection() {
   const tally = useMemo(() => caseTally(example.requirements), [example.requirements]);
   const proof = example.requirements.find((r) => r.id === PROOF_REQUIREMENT);
   return (
-    <section id="analysis" aria-labelledby="analysis-heading" className="pt-ed-section">
-      <div className="ed-wrap">
+    <section id="analysis" aria-labelledby="analysis-heading" className="pt-section">
+      <div className="wrap">
         <SectionHeading n="02" id="analysis-heading" title={t("title")} lede={<p>{t("lede")}</p>} />
-        <div className="ed-grid gap-y-8">
+        <div className="page-grid gap-y-8">
           <VerdictCard tone={caseVerdict(tally)} tally={tally} className="xl:col-[1/span_3]" />
           <RequirementTable requirements={example.requirements} className="xl:col-[4/span_9]" />
         </div>

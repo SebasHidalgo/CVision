@@ -37,15 +37,15 @@ export default function LocaleMenu({ className }: LocaleMenuProps) {
         onPointerEnter={prefetchOthers}
         onFocus={prefetchOthers}
         className={cn(
-          "inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2.5 whitespace-nowrap rounded-full border border-ed-field bg-transparent pr-3.5 pl-4 text-[15px] text-ed-ink",
-          "transition-colors duration-200 hover:border-ed-ink-2 data-[state=open]:border-ed-ink-2 motion-reduce:transition-none",
-          "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-[3px] focus-visible:outline-ed-ink",
+          "inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2.5 whitespace-nowrap rounded-full border border-field bg-transparent pr-3.5 pl-4 text-[15px] text-ink",
+          "transition-colors duration-200 hover:border-ink-2 data-[state=open]:border-ink-2 motion-reduce:transition-none",
+          "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-[3px] focus-visible:outline-ink",
           className,
         )}
       >
-        <Icon aria-hidden className={cn("size-4 text-ed-ink-2", pending && "animate-spin motion-reduce:animate-none")} />
+        <Icon aria-hidden className={cn("size-4 text-ink-2", pending && "animate-spin motion-reduce:animate-none")} />
         <span lang={current}>{LOCALE_NAMES[current]}</span>
-        <ChevronDown aria-hidden className="size-4 text-ed-ink-2" />
+        <ChevronDown aria-hidden className="size-4 text-ink-2" />
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Portal>

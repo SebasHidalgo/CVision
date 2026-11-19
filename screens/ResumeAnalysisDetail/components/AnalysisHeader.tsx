@@ -40,11 +40,11 @@ export default async function AnalysisHeader({
   const [t, common] = await Promise.all([getT("analysis"), getT("common")]);
 
   return (
-    <header className="ed-grid gap-y-8 lg:grid-rows-[auto_1fr] lg:gap-y-10">
+    <header className="page-grid gap-y-8 lg:grid-rows-[auto_1fr] lg:gap-y-10">
       <div className="lg:col-[1/span_8] lg:row-start-1">
-        <p className="ed-cap">{t("header.eyebrow", { date })}</p>
-        <p className="mt-6 text-[18px] text-ed-ink-2">{companyName}</p>
-        <h1 className="ed-display mt-1.5 text-[clamp(38px,4.6vw,68px)] leading-[1.02] tracking-[-0.03em] text-balance break-words">
+        <p className="cap">{t("header.eyebrow", { date })}</p>
+        <p className="mt-6 text-[18px] text-ink-2">{companyName}</p>
+        <h1 className="display mt-1.5 text-[clamp(38px,4.6vw,68px)] leading-[1.02] tracking-[-0.03em] text-balance break-words">
           {jobTitle}
         </h1>
       </div>
@@ -52,7 +52,7 @@ export default async function AnalysisHeader({
       <VerdictCard verdict={fit} t={t} common={common} className="max-lg:max-w-[34rem] lg:col-[9/span_4] lg:row-[1/span_2] lg:self-start" />
 
       <div className="lg:col-[1/span_7] lg:row-start-2">
-        <p className="max-w-[62ch] text-ed-lede text-ed-ink">
+        <p className="max-w-[62ch] text-lede text-ink">
           <Prose text={summary} lines={3} />
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -60,16 +60,16 @@ export default async function AnalysisHeader({
           <InterviewCta variant="compact" resumeId={resumeId} jobTitle={jobTitle} attempts={attempts} quota={quota} />
         </div>
 
-        <section aria-labelledby="quality-title" className="mt-12 max-w-[26rem] border-t border-ed-line-2 pt-4">
-          <h2 id="quality-title" className="ed-cap">
+        <section aria-labelledby="quality-title" className="mt-12 max-w-[26rem] border-t border-line-2 pt-4">
+          <h2 id="quality-title" className="cap">
             {t("header.quality")}
           </h2>
           <p className="mt-3 flex items-baseline gap-3">
-            <span className="ed-mono text-[40px] leading-none text-ed-ink">{qualityScore}</span>
-            <span className="text-[15px] text-ed-ink-2">{common("score.outOf")}</span>
+            <span className="mono text-[40px] leading-none text-ink">{qualityScore}</span>
+            <span className="text-[15px] text-ink-2">{common("score.outOf")}</span>
           </p>
           <ScoreBar score={qualityScore} label={t("header.qualityMeter")} className="mt-4" />
-          <p className="mt-3 text-[15px] text-ed-ink-2">
+          <p className="mt-3 text-[15px] text-ink-2">
             {t("header.qualityNote", { tone: common(toneKey("tone", scoreTone(qualityScore))) })}
           </p>
         </section>

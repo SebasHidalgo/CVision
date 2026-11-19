@@ -21,8 +21,8 @@ export function InterviewSection({ n = "03" }: { n?: string }) {
   const { t } = useTranslation("landingInterview");
   const locale = useLocale();
   return (
-    <section id="interview" aria-labelledby="interview-title" className="pt-ed-section">
-      <div className="ed-wrap">
+    <section id="interview" aria-labelledby="interview-title" className="pt-section">
+      <div className="wrap">
         <SectionHeading n={n} id="interview-title" title={t("title")} lede={<p>{t("lede")}</p>} />
         {/* A language switch starts the excerpt over: other words, other audio, other timing. */}
         <Excerpt key={locale} locale={locale} />
@@ -41,8 +41,8 @@ function Excerpt({ locale }: { locale: Locale }) {
 
   return (
     <div ref={stage} className="grid gap-[22px]">
-      <div className="ed-grid items-end gap-y-5">
-        <p className="max-w-[52ch] text-[17px] text-ed-ink-2 lg:col-span-6">{t("intro")}</p>
+      <div className="page-grid items-end gap-y-5">
+        <p className="max-w-[52ch] text-[17px] text-ink-2 lg:col-span-6">{t("intro")}</p>
         <TalkControls talk={talk} className="lg:col-start-8 lg:col-end-13 lg:justify-self-end" />
       </div>
       <Screens talk={talk} script={script} reduce={reduce} locale={locale} />

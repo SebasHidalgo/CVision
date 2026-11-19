@@ -1,5 +1,5 @@
 import { fontText } from "@/components/design-system/fonts";
-import { ED_COLOR as ED, ED_RADIUS } from "@/components/design-system/tokens";
+import { COLOR_TOKENS as ED, RADIUS_TOKENS } from "@/components/design-system/tokens";
 
 /**
  * Clerk's components (sign-in and sign-up modals, the profile) in the dark design, once for the whole app: the
@@ -54,11 +54,11 @@ export const clerkAppearance = {
     fontFamily: fontText.style.fontFamily,
     fontFamilyButtons: fontText.style.fontFamily,
     fontSize: "0.9375rem",
-    borderRadius: ED_RADIUS.field,
+    borderRadius: RADIUS_TOKENS.field,
   },
   elements: {
     // A compound value needs no derivation: the variable itself, as tokens.css emits it on :root.
-    cardBox: { border: `1px solid ${ED.line2}`, borderRadius: ED_RADIUS.surface, boxShadow: "var(--shadow-ed-surface)" },
+    cardBox: { border: `1px solid ${ED.line2}`, borderRadius: RADIUS_TOKENS.surface, boxShadow: "var(--shadow-surface)" },
     headerTitle: {
       fontFamily: "var(--font-fraunces), Georgia, 'Times New Roman', serif",
       fontWeight: 300,

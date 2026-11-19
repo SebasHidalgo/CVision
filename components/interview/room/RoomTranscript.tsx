@@ -103,12 +103,12 @@ export function RoomTranscript({
   };
 
   return (
-    <section data-room-part="transcript" aria-labelledby={TRANSCRIPT_TITLE_ID} className={cn("ed-surface flex min-h-0 flex-col", className)}>
-      <header className="flex items-baseline justify-between gap-4 border-b border-ed-line px-5 py-3.5 lg:px-7">
-        <Title id={TRANSCRIPT_TITLE_ID} className={cn(CAP, "text-ed-ink-2")}>
+    <section data-room-part="transcript" aria-labelledby={TRANSCRIPT_TITLE_ID} className={cn("surface flex min-h-0 flex-col", className)}>
+      <header className="flex items-baseline justify-between gap-4 border-b border-line px-5 py-3.5 lg:px-7">
+        <Title id={TRANSCRIPT_TITLE_ID} className={cn(CAP, "text-ink-2")}>
           {t("room.transcript.title")}
         </Title>
-        <span className={cn(CAP, "tabular-nums text-ed-ink-2")}>
+        <span className={cn(CAP, "tabular-nums text-ink-2")}>
           {lines.length === 0 ? (live ? t("room.transcript.listening") : t("room.transcript.empty")) : t("room.transcript.lines", { count: lines.length })}
         </span>
       </header>
@@ -131,7 +131,7 @@ export function RoomTranscript({
           className={cn("min-h-0 flex-1 overflow-y-auto px-5 py-5 [overscroll-behavior:contain] focus-visible:outline-offset-[-3px]! lg:px-7", THIN_SCROLL)}
         >
           {lines.length === 0 ? (
-            <p className="max-w-[44ch] text-ed-body text-ed-ink-2">{live ? t("room.transcript.emptyLive") : t("room.transcript.emptyIdle")}</p>
+            <p className="max-w-[44ch] text-body text-ink-2">{live ? t("room.transcript.emptyLive") : t("room.transcript.emptyIdle")}</p>
           ) : (
             <TranscriptLines
               animate
@@ -146,7 +146,7 @@ export function RoomTranscript({
             type="button"
             onClick={jump}
             aria-label={unseen ? undefined : t("room.transcript.backToNewest")}
-            className="absolute bottom-3 left-1/2 inline-flex min-h-11 min-w-11 -translate-x-1/2 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-ed-line-2 bg-ed-raise px-3.5 text-ed-small font-semibold text-ed-ink shadow-ed-surface transition-colors duration-200 hover:border-ed-ink-2 motion-reduce:transition-none"
+            className="absolute bottom-3 left-1/2 inline-flex min-h-11 min-w-11 -translate-x-1/2 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-line-2 bg-raise px-3.5 text-small font-semibold text-ink shadow-surface transition-colors duration-200 hover:border-ink-2 motion-reduce:transition-none"
           >
             {unseen && t("room.transcript.newMessages")}
             <ArrowDown aria-hidden className="size-4" />

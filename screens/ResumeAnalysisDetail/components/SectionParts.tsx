@@ -12,7 +12,7 @@ import { ScoreBar } from "./ScoreBar";
 
 type AnalysisT = TFunction<"analysis">;
 
-export const SUBHEAD = "text-ed-h3 font-semibold text-ed-ink";
+export const SUBHEAD = "text-h3 font-semibold text-ink";
 
 type SectionProps = {
   id: string;
@@ -30,28 +30,28 @@ type SectionProps = {
 export function Section({ id, index, total, label, score, description, common, children }: SectionProps) {
   return (
     // Scroll margin: the app header, plus the section strip on small screens.
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-36 border-t border-ed-line-2 pt-8 pb-16 lg:scroll-mt-24 lg:pt-10">
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-36 border-t border-line-2 pt-8 pb-16 lg:scroll-mt-24 lg:pt-10">
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
         <div className="min-w-0">
-          <p aria-hidden className="ed-mono text-[13px] text-ed-ink-3">
+          <p aria-hidden className="mono text-[13px] text-ink-3">
             {index} / {total}
           </p>
-          <h2 id={`${id}-title`} className="ed-display mt-2 text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
+          <h2 id={`${id}-title`} className="display mt-2 text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
             {label}
           </h2>
         </div>
         {score !== null && (
           <div className="w-full sm:w-60 sm:shrink-0">
             <p className="flex items-baseline justify-between gap-3">
-              <span className="ed-mono text-[40px] leading-none text-ed-ink">{score}</span>
-              <span className="text-[15px] text-ed-ink-2">{common(toneKey("tone", scoreTone(score)))}</span>
+              <span className="mono text-[40px] leading-none text-ink">{score}</span>
+              <span className="text-[15px] text-ink-2">{common(toneKey("tone", scoreTone(score)))}</span>
             </p>
             <ScoreBar score={score} label={common("score.scoreOf", { label })} className="mt-3.5" />
           </div>
         )}
       </header>
 
-      <p className="mt-6 max-w-[65ch] text-ed-lede text-ed-ink">
+      <p className="mt-6 max-w-[65ch] text-lede text-ink">
         <Prose text={description} lines={3} />
       </p>
 
@@ -64,9 +64,9 @@ type Mark = "strong" | "weak" | "neutral";
 
 // Shape only, in ink: the heading above says what the list is; green stays for what the CV proves.
 const MARKER: Record<Mark, string> = {
-  strong: "mt-[0.6em] size-[7px] bg-ed-ink",
-  weak: "mt-[0.6em] size-[7px] border-[1.5px] border-ed-ink-2",
-  neutral: "mt-[0.78em] h-px w-2.5 bg-ed-ink-3",
+  strong: "mt-[0.6em] size-[7px] bg-ink",
+  weak: "mt-[0.6em] size-[7px] border-[1.5px] border-ink-2",
+  neutral: "mt-[0.78em] h-px w-2.5 bg-ink-3",
 };
 
 type MarkedListProps = {
@@ -84,7 +84,7 @@ export function MarkedList({ title, items, mark }: MarkedListProps) {
       <h3 className={SUBHEAD}>{title}</h3>
       <ul className="mt-4 grid gap-3.5">
         {items.map((item, i) => (
-          <li key={i} className="grid grid-cols-[10px_minmax(0,1fr)] gap-x-3.5 text-ed-body text-ed-ink">
+          <li key={i} className="grid grid-cols-[10px_minmax(0,1fr)] gap-x-3.5 text-body text-ink">
             <span aria-hidden className={cn("block", MARKER[mark])} />
             <span className="max-w-[65ch]">
               <Prose text={item} lines={1} />
@@ -96,7 +96,7 @@ export function MarkedList({ title, items, mark }: MarkedListProps) {
   );
 }
 
-const PAIR = "grid gap-x-ed-gutter gap-y-10 md:grid-cols-2";
+const PAIR = "grid gap-x-gutter gap-y-10 md:grid-cols-2";
 
 /** Two lists side by side from md up; one alone takes the full measure, none renders nothing. */
 export function ListPair({ lists }: { lists: MarkedListProps[] }) {
@@ -117,10 +117,10 @@ export function NumberedList({ title, items }: { title: string; items: string[] 
   return (
     <div>
       <h3 className={SUBHEAD}>{title}</h3>
-      <ol className="mt-4 border-t border-ed-line">
+      <ol className="mt-4 border-t border-line">
         {items.map((item, i) => (
-          <li key={i} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-3 border-b border-ed-line py-4 text-ed-body text-ed-ink">
-            <span aria-hidden className="ed-mono pt-0.5 text-[13px] text-ed-ink-3">
+          <li key={i} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-3 border-b border-line py-4 text-body text-ink">
+            <span aria-hidden className="mono pt-0.5 text-[13px] text-ink-3">
               {ordinal(i)}
             </span>
             <span className="max-w-[65ch]">
@@ -138,10 +138,10 @@ export function Evidence({ items, t }: { items: string[]; t: AnalysisT }) {
   if (items.length === 0) return null;
 
   return (
-    <details className="group border-y border-ed-line">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 text-ed-body font-medium text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink [&::-webkit-details-marker]:hidden">
+    <details className="group border-y border-line">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 text-body font-medium text-ink-2 transition-colors duration-200 hover:text-ink [&::-webkit-details-marker]:hidden">
         <span>{t("sections.evidence", { n: items.length })}</span>
-        <Plus data-marker aria-hidden className="size-4 flex-none transition-transform duration-[250ms] ease-ed-out group-open:rotate-45" />
+        <Plus data-marker aria-hidden className="size-4 flex-none transition-transform duration-[250ms] ease-out group-open:rotate-45" />
       </summary>
       <ul className="grid max-w-[68ch] gap-2.5 pt-1 pb-5">
         {items.map((item, i) => (
@@ -165,10 +165,10 @@ export function Rewrites({ bullets, t }: { bullets: Array<{ role: string; exampl
       <div className="mt-5 grid gap-7">
         {withExamples.map((bullet, i) => (
           <div key={`${bullet.role}-${i}`} translate="no" className="max-w-[68ch]">
-            <p className="text-ed-body font-semibold text-ed-ink">{bullet.role}</p>
+            <p className="text-body font-semibold text-ink">{bullet.role}</p>
             <ul className="mt-3 grid gap-3">
               {bullet.examples.map((example, j) => (
-                <li key={j} className="border-l border-ed-line-2 pl-4 text-ed-body text-ed-ink">
+                <li key={j} className="border-l border-line-2 pl-4 text-body text-ink">
                   {example}
                 </li>
               ))}
@@ -186,12 +186,12 @@ export function SkillEvidence({ skills, t }: { skills: Array<{ name: string; evi
     <div>
       <h3 className={SUBHEAD}>{t("sections.skillsProven")}</h3>
       {skills.length === 0 ? (
-        <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noSkillsProven")}</p>
+        <p className="mt-4 text-body text-ink-2">{t("sections.noSkillsProven")}</p>
       ) : (
-        <dl className="mt-4 border-t border-ed-line">
+        <dl className="mt-4 border-t border-line">
           {skills.map((skill, i) => (
-            <div key={`${skill.name}-${i}`} className="grid gap-x-6 gap-y-2 border-b border-ed-line py-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
-              <dt className="text-ed-body font-medium text-ed-ink">{skill.name}</dt>
+            <div key={`${skill.name}-${i}`} className="grid gap-x-6 gap-y-2 border-b border-line py-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
+              <dt className="text-body font-medium text-ink">{skill.name}</dt>
               <dd className="min-w-0 max-w-[68ch]">
                 <CvQuote text={skill.evidence} proof />
               </dd>
@@ -209,12 +209,12 @@ export function Achievements({ achievements, t }: { achievements: QuantifiedAchi
     <div>
       <h3 className={SUBHEAD}>{t("sections.achievements")}</h3>
       {achievements.length === 0 ? (
-        <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noAchievements")}</p>
+        <p className="mt-4 text-body text-ink-2">{t("sections.noAchievements")}</p>
       ) : (
-        <dl className="mt-4 border-t border-ed-line">
+        <dl className="mt-4 border-t border-line">
           {achievements.map((achievement, i) => (
-            <div key={i} className="grid gap-x-6 gap-y-2 border-b border-ed-line py-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
-              <dt translate="no" className="ed-mono pt-1.5 text-[22px] leading-none text-ed-ink">
+            <div key={i} className="grid gap-x-6 gap-y-2 border-b border-line py-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
+              <dt translate="no" className="mono pt-1.5 text-[22px] leading-none text-ink">
                 {achievement.figure}
               </dt>
               <dd className="min-w-0 max-w-[68ch]">
@@ -238,11 +238,11 @@ export function TextLayer({ artifacts, sections, t }: { artifacts: string[]; sec
       <div>
         <h3 className={SUBHEAD}>{t("sections.artifacts")}</h3>
         {artifacts.length === 0 ? (
-          <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noArtifacts")}</p>
+          <p className="mt-4 text-body text-ink-2">{t("sections.noArtifacts")}</p>
         ) : (
           <ul className="mt-4 grid gap-2">
             {artifacts.map((artifact, i) => (
-              <li key={i} translate="no" className="ed-mono rounded-ed-kbd bg-ed-raise px-3 py-2 text-[15px] break-words text-ed-ink">
+              <li key={i} translate="no" className="mono rounded-kbd bg-raise px-3 py-2 text-[15px] break-words text-ink">
                 {artifact}
               </li>
             ))}
@@ -253,11 +253,11 @@ export function TextLayer({ artifacts, sections, t }: { artifacts: string[]; sec
       <div>
         <h3 className={SUBHEAD}>{t("sections.atsSections")}</h3>
         {sections.length === 0 ? (
-          <p className="mt-4 text-ed-body text-ed-ink-2">{t("sections.noAtsSections")}</p>
+          <p className="mt-4 text-body text-ink-2">{t("sections.noAtsSections")}</p>
         ) : (
           <ul className="mt-4 flex flex-wrap gap-2">
             {sections.map((section, i) => (
-              <li key={`${section}-${i}`} translate="no" className="rounded-ed-kbd border border-ed-line-2 px-2.5 py-1 text-[15px] text-ed-ink">
+              <li key={`${section}-${i}`} translate="no" className="rounded-kbd border border-line-2 px-2.5 py-1 text-[15px] text-ink">
                 {section}
               </li>
             ))}

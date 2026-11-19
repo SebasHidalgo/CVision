@@ -16,7 +16,7 @@ export default async function InterviewFeedbackLoading() {
         <p role="status" className="sr-only">
           {t("header.loading")}
         </p>
-        <div className="ed-grid gap-y-7 border-b border-ed-line-2 pb-[clamp(32px,4.5vw,56px)] lg:items-end">
+        <div className="page-grid gap-y-7 border-b border-line-2 pb-[clamp(32px,4.5vw,56px)] lg:items-end">
           <div className="grid gap-3 lg:col-[1/span_8]">
             <Bone className="h-3 w-48" />
             <Bone className="mt-3 h-5 w-36" />
@@ -37,7 +37,7 @@ export default async function InterviewFeedbackLoading() {
           </div>
         </div>
         {SECTIONS.map((section) => (
-          <div key={section} className="ed-grid gap-y-7 border-b border-ed-line py-[clamp(40px,5.5vw,72px)]">
+          <div key={section} className="page-grid gap-y-7 border-b border-line py-[clamp(40px,5.5vw,72px)]">
             <div className="grid content-start gap-3 lg:col-[1/span_4]">
               <Bone className="h-3 w-28" />
               <Bone className="h-7 w-4/5 max-w-[24ch]" />

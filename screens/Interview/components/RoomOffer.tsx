@@ -39,10 +39,10 @@ type RoomOfferProps = {
 };
 
 // The billing buttons are the old system's (shadcn): these classes dress them as the design system's pills, with its focus ring.
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-[3px] focus-visible:outline-ed-ink focus-visible:ring-0";
-const SOLID = cn(buttonClass({ variant: "solid", size: "md" }), FOCUS, "h-auto w-full whitespace-normal py-2.5 text-center shadow-none hover:bg-ed-ink disabled:opacity-75 sm:w-auto");
-const GHOST = cn(buttonClass({ variant: "ghost", size: "md" }), FOCUS, "h-auto bg-transparent shadow-none hover:bg-transparent hover:text-ed-ink disabled:opacity-75");
-const LINK = cn(textLinkClass, "gap-2 text-ed-ink underline decoration-ed-ink-3 underline-offset-4");
+const FOCUS = "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-[3px] focus-visible:outline-ink focus-visible:ring-0";
+const SOLID = cn(buttonClass({ variant: "solid", size: "md" }), FOCUS, "h-auto w-full whitespace-normal py-2.5 text-center shadow-none hover:bg-ink disabled:opacity-75 sm:w-auto");
+const GHOST = cn(buttonClass({ variant: "ghost", size: "md" }), FOCUS, "h-auto bg-transparent shadow-none hover:bg-transparent hover:text-ink disabled:opacity-75");
+const LINK = cn(textLinkClass, "gap-2 text-ink underline decoration-ink-3 underline-offset-4");
 
 const PREVIEW_PURCHASE: Activation = { item: "pro_monthly", transactionId: "txn_preview" };
 
@@ -184,7 +184,7 @@ export default function RoomOffer({ entry, facts, preview }: RoomOfferProps) {
         </Link>
       )}
       {entry.kind === "needs-pack" && entry.pastDue && (
-        <div className="mt-6 w-full border-t border-ed-line pt-5">
+        <div className="mt-6 w-full border-t border-line pt-5">
           <PanelLine>{t("room.offer.subscription.pastDue")}</PanelLine>
           <div className="mt-4">
             <ManageSubscriptionButtonClient className={GHOST} />

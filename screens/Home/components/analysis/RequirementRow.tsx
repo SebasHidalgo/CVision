@@ -22,40 +22,40 @@ export function RequirementRow({ requirement: r }: { requirement: LocalizedRequi
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
-    <li data-open={open || undefined} className="group/req border-b border-ed-line last:border-b-0">
+    <li data-open={open || undefined} className="group/req border-b border-line last:border-b-0">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className={`${ROW_GRID} -mx-3 w-[calc(100%+24px)] cursor-pointer rounded-ed-field px-3 py-4 text-left transition-colors duration-150 hover:bg-ed-raise motion-reduce:transition-none`}
+        className={`${ROW_GRID} -mx-3 w-[calc(100%+24px)] cursor-pointer rounded-field px-3 py-4 text-left transition-colors duration-150 hover:bg-raise motion-reduce:transition-none`}
       >
-        <span className="ed-mono text-[13px] text-ed-ink-3 [grid-area:n]">{r.n}</span>
+        <span className="mono text-[13px] text-ink-3 [grid-area:n]">{r.n}</span>
         <span className="font-medium [grid-area:text]">{r.text}</span>
-        <span className="text-[14px] text-ed-ink-2 [grid-area:kind]">{r.kindLabel}</span>
+        <span className="text-[14px] text-ink-2 [grid-area:kind]">{r.kindLabel}</span>
         <span className="inline-flex items-center gap-2 text-[14.5px] [grid-area:status]">
           <StatusMark status={r.status} />
           {r.statusLabel}
         </span>
-        <span className="text-[14.5px] text-ed-ink-2 [grid-area:ev]">
+        <span className="text-[14.5px] text-ink-2 [grid-area:ev]">
           {r.line && r.evidence ? (
             <>
-              <span aria-hidden className="ed-mono mr-1 text-[12.5px] text-ed-ink-3">
+              <span aria-hidden className="mono mr-1 text-[12.5px] text-ink-3">
                 {t("requirements.line", { line: String(r.line).padStart(2, "0") })}
               </span>
               <span className="sr-only">{t("requirements.lineSr", { n: r.line })} </span>
               {t("requirements.quote", { text: r.evidence })}
             </>
           ) : (
-            <span className="text-ed-ink-3">{t("requirements.noLine")}</span>
+            <span className="text-ink-3">{t("requirements.noLine")}</span>
           )}
         </span>
-        <span aria-hidden className="self-center text-ed-ink-3 [grid-area:chev]">
+        <span aria-hidden className="self-center text-ink-3 [grid-area:chev]">
           <svg
             width="14"
             height="14"
             viewBox="0 0 14 14"
-            className="transition-transform duration-[var(--ed-dur-quick)] ease-ed-out group-data-[open]/req:rotate-180 motion-reduce:transition-none"
+            className="transition-transform duration-[var(--dur-quick)] ease-out group-data-[open]/req:rotate-180 motion-reduce:transition-none"
           >
             <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>
@@ -63,10 +63,10 @@ export function RequirementRow({ requirement: r }: { requirement: LocalizedRequi
       </button>
       <div
         id={panelId}
-        className="invisible grid grid-rows-[0fr] [transition:grid-template-rows_320ms_var(--ease-ed-settle),visibility_0s_linear_320ms] group-data-[open]/req:visible group-data-[open]/req:grid-rows-[1fr] group-data-[open]/req:[transition:grid-template-rows_320ms_var(--ease-ed-settle),visibility_0s_linear_0s] motion-reduce:transition-none!"
+        className="invisible grid grid-rows-[0fr] [transition:grid-template-rows_320ms_var(--ease-settle),visibility_0s_linear_320ms] group-data-[open]/req:visible group-data-[open]/req:grid-rows-[1fr] group-data-[open]/req:[transition:grid-template-rows_320ms_var(--ease-settle),visibility_0s_linear_0s] motion-reduce:transition-none!"
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="grid max-w-[80ch] gap-2.5 pb-[18px] pl-[50px] text-[15px] text-ed-ink-2 min-[1100px]:pl-14">
+          <div className="grid max-w-[80ch] gap-2.5 pb-[18px] pl-[50px] text-[15px] text-ink-2 min-[1100px]:pl-14">
             <p>{r.note}</p>
             {r.terms.length > 0 && <KeyTerms groups={r.terms} />}
           </div>

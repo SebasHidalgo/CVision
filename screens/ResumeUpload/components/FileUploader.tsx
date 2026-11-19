@@ -66,14 +66,14 @@ export default function FileUploader({ file, onFileSelect, labelId, describedBy,
           aria-describedby={description}
           aria-disabled={disabled || undefined}
           className={cn(
-            "flex min-h-40 cursor-pointer items-center rounded-ed-surface border px-5 py-7 transition-[border-color,background-color] duration-200 ease-ed-out motion-reduce:transition-none sm:px-6",
+            "flex min-h-40 cursor-pointer items-center rounded-surface border px-5 py-7 transition-[border-color,background-color] duration-200 ease-out motion-reduce:transition-none sm:px-6",
             isDragActive
-              ? "border-ed-ink bg-ed-raise"
+              ? "border-ink bg-raise"
               : file
-                ? cn(CONTROL_EDGE, "bg-ed-panel hover:border-ed-ink-2")
-                : cn(CONTROL_EDGE, "border-dashed bg-ed-panel/50 hover:border-ed-ink-2"),
+                ? cn(CONTROL_EDGE, "bg-panel hover:border-ink-2")
+                : cn(CONTROL_EDGE, "border-dashed bg-panel/50 hover:border-ink-2"),
             (invalid || rejected) && !file && !isDragActive && INVALID_EDGE,
-            disabled && "cursor-not-allowed opacity-50 hover:border-ed-field",
+            disabled && "cursor-not-allowed opacity-50 hover:border-field",
           )}
         >
           {/* Disabled too, so its label cannot open a file dialog whose pick would be ignored. */}
@@ -90,18 +90,18 @@ export default function FileUploader({ file, onFileSelect, labelId, describedBy,
             <div id={PROMPT_ID} className="flex w-full min-w-0 items-center gap-4 pr-20 sm:gap-5 sm:pr-24">
               <CvSheet />
               <div className="min-w-0 flex-1">
-                <p data-truncate="file-name" title={file.name} className="truncate font-medium text-ed-ink">
+                <p data-truncate="file-name" title={file.name} className="truncate font-medium text-ink">
                   {file.name}
                 </p>
-                <p className="ed-mono mt-1 text-[13px] text-ed-ink-3">{t("file.details", { size: formatFileSize(file.size, t) })}</p>
-                <p className="mt-2 text-ed-small text-ed-ink-2">{t("file.replace")}</p>
+                <p className="mono mt-1 text-[13px] text-ink-3">{t("file.details", { size: formatFileSize(file.size, t) })}</p>
+                <p className="mt-2 text-small text-ink-2">{t("file.replace")}</p>
               </div>
             </div>
           ) : (
             <div id={PROMPT_ID} className="flex w-full flex-col items-center gap-3 text-center">
-              <CvSheet className={cn("transition-transform duration-200 ease-ed-out motion-reduce:transition-none", isDragActive && "-translate-y-1")} />
-              <p className="font-medium text-ed-ink">{isDragActive ? t("file.dropHere") : t("file.dropOrChoose")}</p>
-              <p className="ed-mono text-[13px] text-ed-ink-3">{t("file.limits", { size: MAX_RESUME_SIZE_LABEL })}</p>
+              <CvSheet className={cn("transition-transform duration-200 ease-out motion-reduce:transition-none", isDragActive && "-translate-y-1")} />
+              <p className="font-medium text-ink">{isDragActive ? t("file.dropHere") : t("file.dropOrChoose")}</p>
+              <p className="mono text-[13px] text-ink-3">{t("file.limits", { size: MAX_RESUME_SIZE_LABEL })}</p>
             </div>
           )}
         </div>

@@ -81,9 +81,9 @@ export function HeroFigure({ mode, started, run, reduce, onReplay, onSceneFailed
   return (
     <div ref={root} className="mt-4 lg:mt-[clamp(10px,2.2svh,28px)] lg:flex lg:min-h-0 lg:flex-1 lg:basis-0 lg:flex-col">
       <div className={cn("relative hidden min-h-[180px] flex-1 basis-0", mode !== "flat" && "lg:block")}>
-        <p aria-hidden className="pointer-events-none absolute top-3 right-0 z-[2] flex gap-2.5 text-[12.5px] text-ed-ink-3">
+        <p aria-hidden className="pointer-events-none absolute top-3 right-0 z-[2] flex gap-2.5 text-[12.5px] text-ink-3">
           <span>{t("figure.posting", { company: example.company })}</span>
-          <span data-face="mono" className="ed-mono">
+          <span data-face="mono" className="mono">
             {"↔"}
           </span>
           <span>{t("figure.cv", { name: example.candidate })}</span>

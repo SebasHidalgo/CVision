@@ -26,12 +26,12 @@ function StepMark({ state }: { state: StepState }) {
       aria-hidden
       className={cn(
         "relative mt-[0.4em] inline-flex size-[11px] flex-none items-center justify-center border-[1.5px]",
-        state === "done" && "border-ed-ink bg-ed-ink",
-        state === "now" && "border-ed-ink",
-        state === "next" && "border-ed-line-2",
+        state === "done" && "border-ink bg-ink",
+        state === "now" && "border-ink",
+        state === "next" && "border-line-2",
       )}
     >
-      {state === "now" && <span className="size-[3px] bg-ed-ink motion-safe:animate-pulse" />}
+      {state === "now" && <span className="size-[3px] bg-ink motion-safe:animate-pulse" />}
     </span>
   );
 }
@@ -60,13 +60,13 @@ export default function AnalysisInProgress({ phase, startedAt, sent }: AnalysisI
   const slow = phase === "analyzing" && (analysis?.seconds ?? 0) >= SLOW_AFTER_SECONDS;
 
   return (
-    <section aria-labelledby="run-title" className="ed-grid gap-y-10 border-t border-ed-line-2 pt-[clamp(28px,4vw,48px)]">
+    <section aria-labelledby="run-title" className="page-grid gap-y-10 border-t border-line-2 pt-[clamp(28px,4vw,48px)]">
       <div className="lg:col-[5/span_8] lg:row-start-1 lg:max-w-[75ch]">
         <h2
           ref={heading}
           id="run-title"
           tabIndex={-1}
-          className="ed-display text-[clamp(30px,3.4vw,44px)] leading-[1.08] tracking-[-0.02em] text-balance focus:outline-none"
+          className="display text-[clamp(30px,3.4vw,44px)] leading-[1.08] tracking-[-0.02em] text-balance focus:outline-none"
         >
           {t(`run.title.${phase}`)}
         </h2>
@@ -75,62 +75,62 @@ export default function AnalysisInProgress({ phase, startedAt, sent }: AnalysisI
           {phase === "uploading" ? "" : t(`run.title.${phase}`)}
         </p>
 
-        <ol aria-label={t("run.steps.label")} className="mt-8 border-t border-ed-line">
+        <ol aria-label={t("run.steps.label")} className="mt-8 border-t border-line">
           {steps.map((step) => (
             <li
               key={step.phase}
               aria-current={step.state === "now" ? "step" : undefined}
-              className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-b border-ed-line py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+              className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-b border-line py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
             >
               <StepMark state={step.state} />
               <div className="min-w-0">
-                <p className={cn("text-ed-h3 font-semibold", step.state === "next" ? "text-ed-ink-2" : "text-ed-ink")}>
+                <p className={cn("text-h3 font-semibold", step.state === "next" ? "text-ink-2" : "text-ink")}>
                   {t(`run.steps.${step.phase}.title`)}
                 </p>
-                <p className="mt-1 max-w-[58ch] text-ed-ink-2">
+                <p className="mt-1 max-w-[58ch] text-ink-2">
                   {t(`run.steps.${step.phase}.detail`, { size: formatFileSize(sent.fileSize, t) })}
                 </p>
               </div>
-              <p className="col-start-2 text-ed-small text-ed-ink-2 sm:col-start-3 sm:pt-0.5 sm:text-right">
-                <span className={cn(step.state === "now" && "font-medium text-ed-ink")}>{t(`run.state.${step.state}`)}</span>
+              <p className="col-start-2 text-small text-ink-2 sm:col-start-3 sm:pt-0.5 sm:text-right">
+                <span className={cn(step.state === "now" && "font-medium text-ink")}>{t(`run.state.${step.state}`)}</span>
                 {/* Ticks every second: kept from screen readers, which would read it on every visit. */}
-                {step.seconds !== null && <span aria-hidden className="ed-mono text-[13px]">{` · ${clock(step.seconds)}`}</span>}
+                {step.seconds !== null && <span aria-hidden className="mono text-[13px]">{` · ${clock(step.seconds)}`}</span>}
               </p>
             </li>
           ))}
         </ol>
 
         {phase === "analyzing" && (
-          <div className="mt-8 grid gap-2 border-l border-ed-line-2 pl-5">
-            <h3 className="ed-cap">{t("run.now.title")}</h3>
-            <p className="max-w-[65ch] text-ed-ink-2">{t("run.now.body")}</p>
+          <div className="mt-8 grid gap-2 border-l border-line-2 pl-5">
+            <h3 className="cap">{t("run.now.title")}</h3>
+            <p className="max-w-[65ch] text-ink-2">{t("run.now.body")}</p>
           </div>
         )}
 
-        <div aria-live="polite">{slow && <p className="mt-6 text-ed-ink">{t("run.slow")}</p>}</div>
-        <p className="mt-6 text-ed-small text-ed-ink-2">{t("run.keepOpen")}</p>
+        <div aria-live="polite">{slow && <p className="mt-6 text-ink">{t("run.slow")}</p>}</div>
+        <p className="mt-6 text-small text-ink-2">{t("run.keepOpen")}</p>
       </div>
 
-      <div className="lg:col-[1/span_4] lg:row-start-1 lg:pr-ed-gutter">
-        <h3 className="ed-cap">{t("run.sent")}</h3>
+      <div className="lg:col-[1/span_4] lg:row-start-1 lg:pr-gutter">
+        <h3 className="cap">{t("run.sent")}</h3>
         <Surface className="mt-4 grid gap-4 p-5">
           <div className="flex min-w-0 items-center gap-4">
             <CvSheet />
             <div className="min-w-0">
-              <p data-truncate="file-name" title={sent.fileName} className="truncate font-medium text-ed-ink">
+              <p data-truncate="file-name" title={sent.fileName} className="truncate font-medium text-ink">
                 {sent.fileName}
               </p>
-              <p className="ed-mono mt-1 text-[13px] text-ed-ink-3">{t("file.details", { size: formatFileSize(sent.fileSize, t) })}</p>
+              <p className="mono mt-1 text-[13px] text-ink-3">{t("file.details", { size: formatFileSize(sent.fileSize, t) })}</p>
             </div>
           </div>
-          <dl className="grid border-t border-ed-line text-[15px]">
-            <div className="grid gap-0.5 border-b border-ed-line py-2.5">
-              <dt className="text-ed-ink-3">{t("form.company")}</dt>
-              <dd className="break-words text-ed-ink">{sent.companyName}</dd>
+          <dl className="grid border-t border-line text-[15px]">
+            <div className="grid gap-0.5 border-b border-line py-2.5">
+              <dt className="text-ink-3">{t("form.company")}</dt>
+              <dd className="break-words text-ink">{sent.companyName}</dd>
             </div>
-            <div className="grid gap-0.5 border-b border-ed-line py-2.5">
-              <dt className="text-ed-ink-3">{t("form.jobTitle")}</dt>
-              <dd className="break-words text-ed-ink">{sent.jobTitle}</dd>
+            <div className="grid gap-0.5 border-b border-line py-2.5">
+              <dt className="text-ink-3">{t("form.jobTitle")}</dt>
+              <dd className="break-words text-ink">{sent.jobTitle}</dd>
             </div>
           </dl>
         </Surface>

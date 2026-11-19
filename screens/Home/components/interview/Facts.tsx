@@ -26,11 +26,11 @@ export function Facts({ locale }: { locale: Locale }) {
   ];
 
   return (
-    <dl className="ed-grid mt-[clamp(40px,5vw,64px)] gap-y-[18px] border-t border-ed-line pt-[18px]">
+    <dl className="page-grid mt-[clamp(40px,5vw,64px)] gap-y-[18px] border-t border-line pt-[18px]">
       {facts.map((f) => (
         <div key={f.id} className="min-[760px]:col-span-6 lg:col-span-3">
-          <dt className="mb-1 text-ed-cap font-semibold uppercase text-ed-ink-2">{f.term}</dt>
-          <dd className="text-[15px] text-ed-ink">{f.body}</dd>
+          <dt className="mb-1 text-cap font-semibold uppercase text-ink-2">{f.term}</dt>
+          <dd className="text-[15px] text-ink">{f.body}</dd>
         </div>
       ))}
     </dl>

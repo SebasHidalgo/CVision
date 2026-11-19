@@ -28,8 +28,8 @@ type ResumeAnalysisDetailScreenProps = {
 /** The page root of the new design: the plain dark canvas (no moving ground on a working page). */
 function Page({ children }: { children: React.ReactNode }) {
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <article className="ed-wrap pt-[clamp(32px,5vw,64px)] pb-ed-section">{children}</article>
+    <div className={cn("root flex-1", fontText.variable)}>
+      <article className="wrap pt-[clamp(32px,5vw,64px)] pb-section">{children}</article>
     </div>
   );
 }
@@ -93,7 +93,7 @@ export default async function ResumeAnalysisDetailScreen({
 
         {/* A block on small screens, so the sticky section strip (whose wrapper is `contents` there) sticks through
             the whole report; the 12-column grid from lg, the index in the first three columns. */}
-        <div className="mt-[clamp(56px,7vw,96px)] lg:grid lg:grid-cols-12 lg:gap-x-ed-gutter">
+        <div className="mt-[clamp(56px,7vw,96px)] lg:grid lg:grid-cols-12 lg:gap-x-gutter">
           <div className="contents lg:col-span-3 lg:block">
             <DimensionNav items={navItems} />
           </div>

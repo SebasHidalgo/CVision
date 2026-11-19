@@ -21,9 +21,9 @@ export function V({ at, slot, className, children }: { at: readonly StepId[]; sl
   return <span className={cn(styles.v, slot && styles[slot], on && styles.on, className)}>{children}</span>;
 }
 
-export const CAP = "mr-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ed-ink-3";
+export const CAP = "mr-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-3";
 
-const lineRefClass = (proven: boolean) => cn("ed-mono text-[13px]", proven ? "text-ed-signal" : "text-ed-ink-3");
+const lineRefClass = (proven: boolean) => cn("mono text-[13px]", proven ? "text-signal" : "text-ink-3");
 
 /** "Node.js ✓ · PostgreSQL ✗ or MySQL ✗": the posting's terms, each found in the CV or not. */
 function TermList({ groups }: { groups: LocalizedRequirement["terms"] }) {
@@ -32,11 +32,11 @@ function TermList({ groups }: { groups: LocalizedRequirement["terms"] }) {
     <span>
       {groups.map((group, gi) => (
         <span key={group[0]?.id ?? gi}>
-          {gi > 0 && <span className="text-ed-ink-3"> · </span>}
+          {gi > 0 && <span className="text-ink-3"> · </span>}
           {group.map((term, ti) => (
             <span key={term.id}>
-              {ti > 0 && <span className="text-ed-ink-3"> {t("figure.termOr")} </span>}
-              <span className={term.found ? "text-ed-signal" : undefined}>
+              {ti > 0 && <span className="text-ink-3"> {t("figure.termOr")} </span>}
+              <span className={term.found ? "text-signal" : undefined}>
                 {term.name} {term.found ? "✓" : "✗"}
               </span>
             </span>
@@ -61,13 +61,13 @@ export function ReqRow({ id }: { id: RequirementId }) {
   return (
     <div
       className={cn(
-        "grid content-start gap-1.5 border-t border-ed-line",
+        "grid content-start gap-1.5 border-t border-line",
         mode === "still" ? "py-[9px]" : step === "search" ? "pt-2" : "pt-[9px]",
       )}
     >
       <div className="flex min-w-0 items-baseline gap-3 max-[560px]:flex-wrap max-[560px]:gap-y-0.5">
-        <span className="ed-mono w-6 flex-none text-[13px] text-ed-ink-3">{r.n}</span>
-        <span className="relative grid min-w-0 flex-1 text-ed-ink">
+        <span className="mono w-6 flex-none text-[13px] text-ink-3">{r.n}</span>
+        <span className="relative grid min-w-0 flex-1 text-ink">
           <V at={["posting", "requirements"]} slot="inline">
             {r.text}.
           </V>
@@ -75,8 +75,8 @@ export function ReqRow({ id }: { id: RequirementId }) {
             {r.label}
           </V>
         </span>
-        <span className="relative grid flex-none justify-items-end text-[13.5px] text-ed-ink-2 max-[560px]:basis-full max-[560px]:justify-items-start max-[560px]:pl-9">
-          <V at={["requirements"]} slot="right" className="text-[13px] text-ed-ink-3">
+        <span className="relative grid flex-none justify-items-end text-[13.5px] text-ink-2 max-[560px]:basis-full max-[560px]:justify-items-start max-[560px]:pl-9">
+          <V at={["requirements"]} slot="right" className="text-[13px] text-ink-3">
             {r.kindLabel}
           </V>
           {/* A still writes the proving line out under the row instead. */}
@@ -89,37 +89,37 @@ export function ReqRow({ id }: { id: RequirementId }) {
             <StatusMark status={r.status} /> {r.status === "notshown" ? r.statusShort : r.statusLabel}
           </V>
           {gap && (
-            <V at={["feedback"]} slot="right" className="whitespace-nowrap rounded-full border border-ed-line-2 px-2.5 py-px text-[13px] text-ed-ink">
+            <V at={["feedback"]} slot="right" className="whitespace-nowrap rounded-full border border-line-2 px-2.5 py-px text-[13px] text-ink">
               {gap.outcome}
             </V>
           )}
         </span>
       </div>
       {id === "r1" && (
-        <V at={["search"]} slot="below" className="ed-mono pl-9 text-[13px] leading-[1.45] text-ed-ink-2">
+        <V at={["search"]} slot="below" className="mono pl-9 text-[13px] leading-[1.45] text-ink-2">
           {t("figure.yearsSum")}
         </V>
       )}
       {id === "r3" && (
-        <V at={["search"]} slot="below" className="ed-mono pl-9 text-[13px] leading-[1.45] text-ed-ink-2">
+        <V at={["search"]} slot="below" className="mono pl-9 text-[13px] leading-[1.45] text-ink-2">
           <TermList groups={r.terms} />
         </V>
       )}
       {gap && (
-        <V at={["feedback"]} slot="below" className="pl-9 text-[15px] leading-[1.45] text-ed-ink">
-          <span className="ed-mono mr-2.5 text-[13px] text-ed-ink-3">{clock(gap.at)}</span>
+        <V at={["feedback"]} slot="below" className="pl-9 text-[15px] leading-[1.45] text-ink">
+          <span className="mono mr-2.5 text-[13px] text-ink-3">{clock(gap.at)}</span>
           {t("figure.quote", { text: gap.quote })}
         </V>
       )}
       {mode === "still" && step === "search" && (
-        <p className="pb-2.5 pl-9 text-[13.5px] text-ed-ink-2">
+        <p className="pb-2.5 pl-9 text-[13.5px] text-ink-2">
           {r.line ? (
             <>
               <span className={lineRefClass(proven)}>{lineRef}</span>{" "}
               {t("figure.quote", { text: cvLines.find((l) => l.n === r.line)?.text ?? "" })}
             </>
           ) : (
-            <span className="text-ed-ink-3">{t("figure.noProof")}</span>
+            <span className="text-ink-3">{t("figure.noProof")}</span>
           )}
         </p>
       )}

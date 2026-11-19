@@ -13,7 +13,7 @@ export function RequirementTable({ requirements, className }: { requirements: Lo
     <Surface className={cn("px-5 pt-3.5 pb-2 max-sm:px-4", className)}>
       <div
         aria-hidden
-        className={cn(ROW_GRID, "ed-cap hidden border-b border-ed-line-2 pb-2.5 min-[1100px]:grid")}
+        className={cn(ROW_GRID, "cap hidden border-b border-line-2 pb-2.5 min-[1100px]:grid")}
       >
         <span className="[grid-area:n]">{t("requirements.columns.n")}</span>
         <span className="[grid-area:text]">{t("requirements.columns.requirement")}</span>
@@ -26,7 +26,7 @@ export function RequirementTable({ requirements, className }: { requirements: Lo
           <RequirementRow key={r.id} requirement={r} />
         ))}
       </ol>
-      <p className="border-t border-ed-line pt-2.5 pb-2 text-[14px] text-ed-ink-3">{t("requirements.hint")}</p>
+      <p className="border-t border-line pt-2.5 pb-2 text-[14px] text-ink-3">{t("requirements.hint")}</p>
     </Surface>
   );
 }

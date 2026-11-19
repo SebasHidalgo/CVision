@@ -30,10 +30,10 @@ export function TranscriptLines({
       {entries.map((entry) => {
         if (entry.kind === "marker") {
           return (
-            <li key={entry.key} data-transcript-marker className={cn(CAP, "flex items-center gap-4 text-ed-ink-2 sm:col-span-2")}>
-              <span aria-hidden className="h-px flex-1 bg-ed-line" />
+            <li key={entry.key} data-transcript-marker className={cn(CAP, "flex items-center gap-4 text-ink-2 sm:col-span-2")}>
+              <span aria-hidden className="h-px flex-1 bg-line" />
               {labels.resumed}
-              <span aria-hidden className="h-px flex-1 bg-ed-line" />
+              <span aria-hidden className="h-px flex-1 bg-line" />
             </li>
           );
         }
@@ -42,13 +42,13 @@ export function TranscriptLines({
           <li
             key={entry.key}
             data-transcript-line={entry.who}
-            className={cn("grid grid-cols-1 gap-y-1 sm:col-span-2 sm:grid-cols-subgrid", animate && "animate-ed-fade motion-reduce:animate-none")}
+            className={cn("grid grid-cols-1 gap-y-1 sm:col-span-2 sm:grid-cols-subgrid", animate && "animate-fade motion-reduce:animate-none")}
           >
             <span className={cn(CAP, "flex gap-2.5 whitespace-nowrap pt-[3px] sm:flex-col sm:gap-[3px]")}>
-              <span className={mine ? "text-ed-ink-2" : "text-ed-ink"}>{mine ? labels.candidate : labels.interviewer}</span>
-              {entry.at && <span className="tabular-nums text-ed-ink-2">{entry.at}</span>}
+              <span className={mine ? "text-ink-2" : "text-ink"}>{mine ? labels.candidate : labels.interviewer}</span>
+              {entry.at && <span className="tabular-nums text-ink-2">{entry.at}</span>}
             </span>
-            <p className={cn("min-w-0 max-w-[68ch] text-ed-body leading-[1.6] [overflow-wrap:anywhere]", mine ? "text-ed-ink-2" : "text-ed-ink")}>
+            <p className={cn("min-w-0 max-w-[68ch] text-body leading-[1.6] [overflow-wrap:anywhere]", mine ? "text-ink-2" : "text-ink")}>
               {entry.text}
             </p>
           </li>

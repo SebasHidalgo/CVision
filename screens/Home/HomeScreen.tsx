@@ -32,12 +32,12 @@ export default async function HomeScreen() {
   const t = await getT("landing");
   return (
     <ClientMessages ns={LANDING_NS}>
-      <div id="top" className={`ed-root ${fontText.variable} relative flex min-h-dvh flex-1 flex-col`}>
+      <div id="top" className={`root ${fontText.variable} relative flex min-h-dvh flex-1 flex-col`}>
         <PageLoader />
         <SilkBackground />
         <a
           href="#analysis"
-          className="absolute -top-16 left-4 z-50 bg-ed-ink px-3.5 py-2.5 font-semibold text-ed-bg focus:top-3"
+          className="absolute -top-16 left-4 z-50 bg-ink px-3.5 py-2.5 font-semibold text-bg focus:top-3"
         >
           {t("skip")}
         </a>

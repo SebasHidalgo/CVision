@@ -6,11 +6,11 @@ type Size = "md" | "sm";
 
 const BASE =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border font-semibold no-underline cursor-pointer " +
-  "transition-[transform,border-color,background-color] duration-200 ease-ed-out hover:-translate-y-px active:translate-y-0 active:scale-[0.97] " +
+  "transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[0.97] " +
   "motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100";
 const VARIANT: Record<Variant, string> = {
-  solid: "border-ed-ink bg-ed-ink text-ed-bg",
-  ghost: "border-ed-line-2 bg-transparent text-ed-ink hover:border-ed-ink-2",
+  solid: "border-ink bg-ink text-bg",
+  ghost: "border-line-2 bg-transparent text-ink hover:border-ink-2",
 };
 // Touch targets stay at 44 px or more.
 const SIZE: Record<Size, string> = {
@@ -44,4 +44,4 @@ export function ButtonLink({
 
 /** A quiet text action: underline on hover, 44 px tall. */
 export const textLinkClass =
-  "inline-flex min-h-11 items-center bg-transparent px-0.5 text-[15px] text-ed-ink-2 no-underline cursor-pointer hover:text-ed-ink hover:underline hover:underline-offset-4";
+  "inline-flex min-h-11 items-center bg-transparent px-0.5 text-[15px] text-ink-2 no-underline cursor-pointer hover:text-ink hover:underline hover:underline-offset-4";

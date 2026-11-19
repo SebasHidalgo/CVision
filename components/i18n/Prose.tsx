@@ -23,7 +23,7 @@ export default function Prose({ text, lines = 2, className }: ProseProps) {
         <span
           key={i}
           className={cn(
-            "block h-[0.8em] rounded-sm bg-ed-line-2 motion-safe:animate-pulse",
+            "block h-[0.8em] rounded-sm bg-line-2 motion-safe:animate-pulse",
             i === lines - 1 && lines > 1 ? "w-3/5" : "w-full",
           )}
         />

@@ -25,15 +25,15 @@ type MenuSheetProps = {
 
 // The sheet slides from the right edge; its backdrop fades. Both run their exit too (`transition-discrete`).
 const SHEET =
-  "fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(22rem,100vw)] max-w-none overflow-hidden border-0 border-l border-ed-line-2 bg-ed-panel p-0 text-ed-ink " +
-  "translate-x-full transition-[translate,overlay,display] transition-discrete duration-[380ms] ease-ed-settle open:translate-x-0 starting:open:translate-x-full " +
+  "fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(22rem,100vw)] max-w-none overflow-hidden border-0 border-l border-line-2 bg-panel p-0 text-ink " +
+  "translate-x-full transition-[translate,overlay,display] transition-discrete duration-[380ms] ease-settle open:translate-x-0 starting:open:translate-x-full " +
   "backdrop:bg-black/60 backdrop:opacity-0 backdrop:transition-[opacity,overlay,display] backdrop:transition-discrete backdrop:duration-[380ms] " +
   "open:backdrop:opacity-100 starting:open:backdrop:opacity-0 motion-reduce:transition-none motion-reduce:backdrop:transition-none";
 
 const PAGE_ROW =
-  "flex min-h-12 items-center border-b border-ed-line py-2 font-ed-display text-[22px] leading-tight font-light no-underline [font-variation-settings:'opsz'_48] transition-colors duration-200";
+  "flex min-h-12 items-center border-b border-line py-2 font-display text-[22px] leading-tight font-light no-underline [font-variation-settings:'opsz'_48] transition-colors duration-200";
 const ACCOUNT_ROW =
-  "flex min-h-11 w-full cursor-pointer items-center bg-transparent text-left text-ed-body text-ed-ink-2 no-underline transition-colors duration-200 hover:text-ed-ink";
+  "flex min-h-11 w-full cursor-pointer items-center bg-transparent text-left text-body text-ink-2 no-underline transition-colors duration-200 hover:text-ink";
 
 /**
  * Below the header's desktop width: pages, account, language and the sign-in actions in a side sheet. A modal
@@ -86,12 +86,12 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
       <ul>
         {items.map((item) => {
           const active = currentFor(item, pathname);
-          const rowClass = cn(PAGE_ROW, active ? "text-ed-ink" : "text-ed-ink-2 hover:text-ed-ink");
+          const rowClass = cn(PAGE_ROW, active ? "text-ink" : "text-ink-2 hover:text-ink");
           // The current page carries the logo's ink square after its name.
           const name = (
             <span className="inline-flex items-end gap-1.5">
               {t(item.labelKey)}
-              {active && <span aria-hidden className="mb-[6px] size-[6px] bg-ed-ink" />}
+              {active && <span aria-hidden className="mb-[6px] size-[6px] bg-ink" />}
             </span>
           );
           return (
@@ -122,7 +122,7 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={sheetId}
-        className={cn("grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-ed-line-2 bg-transparent text-ed-ink transition-colors duration-200 hover:border-ed-ink-2", className)}
+        className={cn("grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-line-2 bg-transparent text-ink transition-colors duration-200 hover:border-ink-2", className)}
       >
         <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden focusable="false">
           <path d="M3 8h16M3 14h16" stroke="currentColor" strokeWidth="1.6" />
@@ -153,15 +153,15 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
         }}
       >
         <div className="flex h-full flex-col">
-          <div className="flex h-16 shrink-0 items-center justify-between border-b border-ed-line px-5">
-            <h2 id={titleId} className="ed-cap">
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
+            <h2 id={titleId} className="cap">
               {t("nav.menu")}
             </h2>
             <button
               type="button"
               onClick={close}
               aria-label={t("nav.closeMenu")}
-              className="-mr-1.5 grid size-11 cursor-pointer place-items-center rounded-full text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink"
+              className="-mr-1.5 grid size-11 cursor-pointer place-items-center rounded-full text-ink-2 transition-colors duration-200 hover:text-ink"
             >
               <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden focusable="false">
                 <path d="M5 5l12 12M17 5 5 17" stroke="currentColor" strokeWidth="1.6" />
@@ -183,7 +183,7 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
                   const active = currentFor(item, pathname);
                   return (
                     <li key={item.href}>
-                      <Link href={item.href} onClick={close} aria-current={active} className={cn(ACCOUNT_ROW, active && "text-ed-ink")}>
+                      <Link href={item.href} onClick={close} aria-current={active} className={cn(ACCOUNT_ROW, active && "text-ink")}>
                         {t(item.labelKey)}
                       </Link>
                     </li>
@@ -195,8 +195,8 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
               {marketing ? pages(LANDING_SECTIONS, t("nav.sectionsLabel")) : pages(SIGNED_OUT_NAV, t("nav.primary"))}
             </SignedOut>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-ed-line pt-5">
-              <p id={languageId} className="ed-cap">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+              <p id={languageId} className="cap">
                 {t("locale.label")}
               </p>
               <div role="group" aria-labelledby={languageId} className="flex gap-1.5">
@@ -211,7 +211,7 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
                       onClick={() => switchTo(locale)}
                       className={cn(
                         "min-h-11 cursor-pointer rounded-full border px-4 text-[15px] transition-colors duration-200",
-                        active ? "border-ed-ink bg-ed-ink text-ed-bg" : "border-ed-line-2 text-ed-ink-2 hover:border-ed-ink-2 hover:text-ed-ink",
+                        active ? "border-ink bg-ink text-bg" : "border-line-2 text-ink-2 hover:border-ink-2 hover:text-ink",
                         pending === locale && "opacity-60",
                       )}
                     >

@@ -96,7 +96,7 @@ function Channel({ who, label, floor, level, still, compact }: { who: "interview
   }, [moving, shaped]);
 
   return (
-    <div data-meter={who} data-floor={floor ?? "none"} className={cn("min-w-0", floor ? "text-ed-ink" : "text-ed-ink-3")}>
+    <div data-meter={who} data-floor={floor ?? "none"} className={cn("min-w-0", floor ? "text-ink" : "text-ink-3")}>
       <p className={cn(CAP, "flex items-start gap-2 text-current")}>
         <span className={cn("mt-1 size-[7px] flex-none border border-current", floor === "has" ? "bg-current" : floor === null && "border-transparent")} />
         <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>

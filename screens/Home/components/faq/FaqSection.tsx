@@ -10,8 +10,8 @@ import { FAQ_IDS } from "./faqItems";
 export function FaqSection() {
   const { t } = useTranslation("landingFaq");
   return (
-    <section id="faq" aria-labelledby="faq-heading" className="pt-ed-section">
-      <div className="ed-wrap">
+    <section id="faq" aria-labelledby="faq-heading" className="pt-section">
+      <div className="wrap">
         <SectionHeading n="05" id="faq-heading" title={t("title")} />
         <Surface className="px-6 max-sm:px-4">
           {FAQ_IDS.map((id, i) => (

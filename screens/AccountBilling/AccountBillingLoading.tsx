@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 export default async function AccountBillingLoading() {
   const t = await getT("account");
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <div aria-hidden className="pb-[clamp(28px,4vw,48px)]">
-          <span className="block h-[clamp(40px,5vw,64px)] w-[min(28rem,80%)] animate-pulse rounded-[3px] bg-ed-raise motion-reduce:animate-none" />
+          <span className="block h-[clamp(40px,5vw,64px)] w-[min(28rem,80%)] animate-pulse rounded-[3px] bg-raise motion-reduce:animate-none" />
         </div>
         <AccountTabs current="billing" t={t} />
         <p role="status" className="sr-only">

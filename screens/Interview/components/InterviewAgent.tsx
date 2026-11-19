@@ -740,14 +740,14 @@ function InterviewRoom({
   const showOffer = blocked && !atCap && (phase.kind === "idle" || (dropped && entry.kind === "voice-down"));
   const panelParts = [
     lengthChanged && (
-      <PanelLine key="length" role="note" className="text-ed-ink-2">
+      <PanelLine key="length" role="note" className="text-ink-2">
         {t("room.lengthChanged", { count: Math.round(maxSeconds / 60), promised: Math.round(maxDurationSeconds / 60) })}
       </PanelLine>
     ),
     phase.kind === "idle" && atCap && (
       <div key="cap">
-        <PanelLine className="text-ed-ink-2">{errorCopy("INTERVIEW_START_LIMIT")}</PanelLine>
-        <Link href={`/resume/analysis/${analysisId}`} className={cn(textLinkClass, "mt-2 gap-2 text-ed-ink underline decoration-ed-ink-3 underline-offset-4")}>
+        <PanelLine className="text-ink-2">{errorCopy("INTERVIEW_START_LIMIT")}</PanelLine>
+        <Link href={`/resume/analysis/${analysisId}`} className={cn(textLinkClass, "mt-2 gap-2 text-ink underline decoration-ink-3 underline-offset-4")}>
           {t("room.backToAnalysis")}
           <ArrowRight aria-hidden className="size-4" />
         </Link>
@@ -755,7 +755,7 @@ function InterviewRoom({
     ),
     showOffer && <RoomOffer key="offer" entry={entry} facts={offer} preview={preview?.purchase} />,
     queued && (
-      <PanelLine key="queue" role="note" className="text-ed-ink-2">
+      <PanelLine key="queue" role="note" className="text-ink-2">
         {t("room.queue.waiting")}
       </PanelLine>
     ),

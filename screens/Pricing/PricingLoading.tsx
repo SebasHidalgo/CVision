@@ -16,8 +16,8 @@ export default async function PricingLoading() {
   const [t, common, locale] = await Promise.all([getT("pricing"), getT("common"), getLocale()]);
   const view = pricingView({ t, common, locale });
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading title={t("intro.title")} lede={t("intro.lede")} ruled />
         <p role="status" className="sr-only">
           {t("state.loading")}

@@ -11,7 +11,7 @@ import type { StepId } from "./storyData";
 export const Still = memo(function Still({ step }: { step: StepId }) {
   return (
     <FigureContext value={{ mode: "still", step }}>
-      <div aria-hidden className="ed-surface grid px-5 pb-5 pt-1 text-[15px] text-ed-ink-2">
+      <div aria-hidden className="surface grid px-5 pb-5 pt-1 text-[15px] text-ink-2">
         {stillOrder(step).map((key) => (
           <Item key={key} k={key} />
         ))}

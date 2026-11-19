@@ -6,5 +6,5 @@ import { cn } from "@/lib/utils";
  * Size and shape come from `className`.
  */
 export function Bone({ className }: { className?: string }) {
-  return <span aria-hidden data-bone="" className={cn("block rounded-[3px] bg-ed-line motion-safe:animate-pulse", className)} />;
+  return <span aria-hidden data-bone="" className={cn("block rounded-[3px] bg-line motion-safe:animate-pulse", className)} />;
 }

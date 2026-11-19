@@ -12,7 +12,7 @@ const PAGES: readonly { page: AccountPage; href: string }[] = [
 /** The two account pages as sibling links on a rule; the current one carries an ink bar on the rule itself. */
 export function AccountTabs({ current, t }: { current: AccountPage; t: TFunction<"account"> }) {
   return (
-    <nav aria-label={t("tabs.label")} className="border-b border-ed-line-2">
+    <nav aria-label={t("tabs.label")} className="border-b border-line-2">
       <ul className="flex gap-x-7">
         {PAGES.map(({ page, href }) => {
           const active = page === current;
@@ -23,7 +23,7 @@ export function AccountTabs({ current, t }: { current: AccountPage; t: TFunction
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "-mb-px inline-flex min-h-12 items-center border-b-2 text-[15.5px] no-underline transition-colors duration-200",
-                  active ? "border-ed-ink font-medium text-ed-ink" : "border-transparent text-ed-ink-2 hover:border-ed-line-2 hover:text-ed-ink",
+                  active ? "border-ink font-medium text-ink" : "border-transparent text-ink-2 hover:border-line-2 hover:text-ink",
                 )}
               >
                 {t(`tabs.${page}`)}

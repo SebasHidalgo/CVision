@@ -5,8 +5,8 @@
   position: relative;
   overflow: hidden;
   font-size: 15px;
-  color: var(--color-ed-ink-2);
-  transition: height 0.7s var(--ease-ed-story);
+  color: var(--color-ink-2);
+  transition: height 0.7s var(--ease-story);
 }
 
 @media (min-width: 1024px) and (max-height: 780px) {
@@ -23,10 +23,10 @@
   pointer-events: none;
   /* Rows leave one after another (--i is the item's index), and settle on the story curve. */
   transition:
-    transform 0.75s var(--ease-ed-story) calc(var(--i) * 18ms),
-    left 0.75s var(--ease-ed-story),
-    width 0.75s var(--ease-ed-story),
-    height 0.75s var(--ease-ed-story),
+    transform 0.75s var(--ease-story) calc(var(--i) * 18ms),
+    left 0.75s var(--ease-story),
+    width 0.75s var(--ease-story),
+    height 0.75s var(--ease-story),
     opacity 0.35s ease;
 }
 
@@ -41,10 +41,10 @@
 /* The CV moves furthest (from a file row to a sheet beside the list): a touch slower, no stagger. */
 .slow {
   transition:
-    transform 0.8s var(--ease-ed-story),
-    left 0.8s var(--ease-ed-story),
-    width 0.8s var(--ease-ed-story),
-    height 0.8s var(--ease-ed-story),
+    transform 0.8s var(--ease-story),
+    left 0.8s var(--ease-story),
+    width 0.8s var(--ease-story),
+    height 0.8s var(--ease-story),
     opacity 0.35s ease;
 }
 
@@ -63,7 +63,7 @@
   transform: translateY(4px);
   transition:
     opacity 0.35s ease,
-    transform 0.5s var(--ease-ed-story);
+    transform 0.5s var(--ease-story);
 }
 
 .v.on {
@@ -121,7 +121,7 @@
 
 .wire {
   fill: none;
-  stroke: var(--color-ed-signal);
+  stroke: var(--color-signal);
   stroke-width: 1.5px;
   vector-effect: non-scaling-stroke;
   opacity: 0;

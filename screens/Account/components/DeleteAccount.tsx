@@ -68,7 +68,7 @@ export default function DeleteAccount({ subscribed }: { subscribed: boolean }) {
   return (
     <div data-delete-account>
       {done ? (
-        <p ref={outcome} tabIndex={-1} role="status" className="text-ed-body font-medium text-ed-ink">
+        <p ref={outcome} tabIndex={-1} role="status" className="text-body font-medium text-ink">
           {t("overview.delete.done")}
         </p>
       ) : (
@@ -82,14 +82,14 @@ export default function DeleteAccount({ subscribed }: { subscribed: boolean }) {
           className={buttonClass({
             variant: "ghost",
             size: "sm",
-            className: "border-ed-danger-text/60 text-ed-danger-text hover:border-ed-danger-text",
+            className: "border-danger-text/60 text-danger-text hover:border-danger-text",
           })}
         >
           {t("overview.delete.action")}
         </button>
       )}
       {problem && (
-        <p ref={outcome} tabIndex={-1} role="alert" className="mt-4 max-w-[62ch] text-ed-body text-ed-danger-text">
+        <p ref={outcome} tabIndex={-1} role="alert" className="mt-4 max-w-[62ch] text-body text-danger-text">
           {problem}
         </p>
       )}

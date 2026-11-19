@@ -46,13 +46,13 @@ export default function DeleteAnalysis({ resumeId, jobTitle, companyName }: Dele
   };
 
   return (
-    <section aria-labelledby="delete-analysis-title" className="mt-20 border-t border-ed-line pt-8">
+    <section aria-labelledby="delete-analysis-title" className="mt-20 border-t border-line pt-8">
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-[60ch]">
-          <h2 id="delete-analysis-title" className="text-ed-h3 font-semibold text-ed-ink">
+          <h2 id="delete-analysis-title" className="text-h3 font-semibold text-ink">
             {t("delete.title")}
           </h2>
-          <p className="mt-2 text-ed-body text-ed-ink-2">{t("delete.body")}</p>
+          <p className="mt-2 text-body text-ink-2">{t("delete.body")}</p>
         </div>
         <button type="button" onClick={() => setOpen(true)} className={buttonClass({ variant: "ghost", className: "self-start md:self-auto" })}>
           <Trash2 aria-hidden className="size-4 flex-none" />

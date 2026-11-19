@@ -62,8 +62,8 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
   );
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading title={pro ? t("intro.titlePro") : t("intro.titleFree")} />
         <AccountTabs current="billing" t={t} />
 
@@ -77,13 +77,13 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
 
         <div className="mt-[clamp(8px,2vw,16px)]">
           <AccountSection n="01" id="billing-subscription" title={t("subscription.title")}>
-            <p data-standing={standing.kind} className="flex items-center gap-2.5 text-ed-body font-medium text-ed-ink">
+            <p data-standing={standing.kind} className="flex items-center gap-2.5 text-body font-medium text-ink">
               <Mark shape={copy.shape} />
               {copy.label}
             </p>
-            <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">{copy.line}</p>
+            <p className="mt-3 max-w-[62ch] text-body text-ink-2">{copy.line}</p>
             {offersProCheckout(standing, openSubscription) && (
-              <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">
+              <p className="mt-3 max-w-[62ch] text-body text-ink-2">
                 {t("subscription.offer", {
                   price: price("pro_monthly"),
                   interviews: PLANS.PRO.interviewsPerMonth,
@@ -92,7 +92,7 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
                 })}
               </p>
             )}
-            {standing.kind === "comp" && <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">{t("subscription.comp")}</p>}
+            {standing.kind === "comp" && <p className="mt-3 max-w-[62ch] text-body text-ink-2">{t("subscription.comp")}</p>}
 
             <div className="mt-6 flex flex-wrap items-start gap-3">
               {offersProCheckout(standing, openSubscription) && (confirming || <CheckoutButton item="pro_monthly" label={t("actions.getPro", { price: price("pro_monthly") })} className={WRAPS} />)}
@@ -103,7 +103,7 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
                 </Link>
               )}
             </div>
-            {hasBillingAccount && <p className="mt-6 max-w-[62ch] text-ed-body text-ed-ink-2">{t("portalNote")}</p>}
+            {hasBillingAccount && <p className="mt-6 max-w-[62ch] text-body text-ink-2">{t("portalNote")}</p>}
           </AccountSection>
 
           <AccountSection n="02" id="billing-packs" title={t("packs.title")}>
@@ -133,7 +133,7 @@ export default async function AccountBillingScreen({ activation }: AccountBillin
                 )}
               </div>
             ) : (
-              <p className={cn("max-w-[62ch] text-ed-body text-ed-ink-2", credits && "mt-6")}>{t("packs.proOnly", { count: INTERVIEW_PACK_CREDITS })}</p>
+              <p className={cn("max-w-[62ch] text-body text-ink-2", credits && "mt-6")}>{t("packs.proOnly", { count: INTERVIEW_PACK_CREDITS })}</p>
             )}
           </AccountSection>
         </div>

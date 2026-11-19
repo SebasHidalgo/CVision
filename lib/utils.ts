@@ -1,12 +1,12 @@
 import { clsx, type ClassValue } from "clsx"
 import { extendTailwindMerge } from "tailwind-merge"
 
-// The design system's named sizes and shadows: without them `text-ed-small text-ed-ink-2` reads as two colours.
+// The design system's named sizes and shadows: without them `text-small text-ink-2` reads as two colours.
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      "font-size": [{ text: ["ed-h1", "ed-h2", "ed-h3", "ed-title", "ed-lede", "ed-body", "ed-small", "ed-micro", "ed-cap"] }],
-      shadow: [{ shadow: ["ed-surface", "ed-proof"] }],
+      "font-size": [{ text: ["h1", "h2", "h3", "title", "lede", "body", "small", "micro", "cap"] }],
+      shadow: [{ shadow: ["surface", "proof"] }],
     },
   },
 })

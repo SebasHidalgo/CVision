@@ -24,11 +24,11 @@ type Sheet =
 // (allow-discrete keeps it in the top layer while it leaves), over a dimmed page. Reduced motion: it simply appears.
 const SHEET = [
   "fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(46rem,100vw)] max-w-none border-0 p-0",
-  "bg-ed-panel text-ed-ink shadow-[-1px_0_0_var(--color-ed-line-2),-24px_0_48px_-24px_rgb(0_0_0/0.8)]",
+  "bg-panel text-ink shadow-[-1px_0_0_var(--color-line-2),-24px_0_48px_-24px_rgb(0_0_0/0.8)]",
   "translate-x-full open:translate-x-0 starting:open:translate-x-full",
-  "transition-[translate,overlay,display] transition-discrete duration-500 ease-ed-out",
+  "transition-[translate,overlay,display] transition-discrete duration-500 ease-out",
   "backdrop:bg-[rgb(0_0_0/0.62)] backdrop:opacity-0 open:backdrop:opacity-100 starting:open:backdrop:opacity-0",
-  "backdrop:transition-[opacity,overlay,display] backdrop:transition-discrete backdrop:duration-500 backdrop:ease-ed-out",
+  "backdrop:transition-[opacity,overlay,display] backdrop:transition-discrete backdrop:duration-500 backdrop:ease-out",
   "motion-reduce:transition-none motion-reduce:backdrop:transition-none",
 ].join(" ");
 
@@ -104,10 +104,10 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
         }}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between gap-6 border-b border-ed-line px-5 py-3 sm:px-6">
+          <div className="flex items-center justify-between gap-6 border-b border-line px-5 py-3 sm:px-6">
             <div className="min-w-0">
-              <p className="ed-cap">{t("drawer.title")}</p>
-              <p data-truncate="drawer-title" className="mt-1 truncate text-ed-body font-medium text-ed-ink">
+              <p className="cap">{t("drawer.title")}</p>
+              <p data-truncate="drawer-title" className="mt-1 truncate text-body font-medium text-ink">
                 {title}
               </p>
             </div>
@@ -119,7 +119,7 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
                 type="button"
                 onClick={close}
                 aria-label={t("drawer.close")}
-                className="flex size-11 cursor-pointer items-center justify-center rounded-full text-ed-ink-2 transition-colors hover:bg-ed-raise hover:text-ed-ink"
+                className="flex size-11 cursor-pointer items-center justify-center rounded-full text-ink-2 transition-colors hover:bg-raise hover:text-ink"
               >
                 <X aria-hidden className="size-5" />
               </button>
@@ -127,13 +127,13 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
           </div>
 
           {popupBlocked && (
-            <p role="status" className="border-b border-ed-line px-5 py-3 text-[15px] text-ed-ink sm:px-6">
+            <p role="status" className="border-b border-line px-5 py-3 text-[15px] text-ink sm:px-6">
               {t("drawer.popupBlocked")}
             </p>
           )}
 
           {sheet.kind === "loading" && (
-            <p role="status" className="flex flex-1 items-center justify-center gap-3 text-ed-body text-ed-ink-2">
+            <p role="status" className="flex flex-1 items-center justify-center gap-3 text-body text-ink-2">
               <Loader2 aria-hidden className="size-4 animate-spin" />
               {t("drawer.opening")}
             </p>
@@ -141,8 +141,8 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
 
           {sheet.kind === "failed" && (
             <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-              <p className="text-ed-body text-ed-ink">{t("drawer.failed")}</p>
-              <p className="max-w-sm text-[15px] text-ed-ink-2">{errorCopy(sheet.code)}</p>
+              <p className="text-body text-ink">{t("drawer.failed")}</p>
+              <p className="max-w-sm text-[15px] text-ink-2">{errorCopy(sheet.code)}</p>
               <button type="button" onClick={load} className={buttonClass({ variant: "ghost", size: "sm" })}>
                 {t("drawer.tryAgain")}
               </button>
@@ -150,9 +150,9 @@ export default function ResumeDrawer({ resumeId, title }: ResumeDrawerProps) {
           )}
 
           {sheet.kind === "ready" && (
-            <object data={`${sheet.url}#view=FitH`} type="application/pdf" aria-label={t("drawer.pdfLabel")} className="w-full flex-1 bg-ed-raise">
+            <object data={`${sheet.url}#view=FitH`} type="application/pdf" aria-label={t("drawer.pdfLabel")} className="w-full flex-1 bg-raise">
               <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-                <p className="text-ed-body text-ed-ink-2">{t("drawer.noInline")}</p>
+                <p className="text-body text-ink-2">{t("drawer.noInline")}</p>
                 <button type="button" onClick={openInNewTab} className={buttonClass({ variant: "ghost", size: "sm" })}>
                   {t("drawer.openPdf")}
                 </button>

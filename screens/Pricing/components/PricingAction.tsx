@@ -41,7 +41,7 @@ export function PricingAction({ spec, proPrice, t, common }: PricingActionProps)
         </ButtonLink>
       );
     case "included":
-      return <p className="flex min-h-12 items-center text-ed-ink-2">{t("free.includedInPro")}</p>;
+      return <p className="flex min-h-12 items-center text-ink-2">{t("free.includedInPro")}</p>;
     case "none":
       return null;
   }

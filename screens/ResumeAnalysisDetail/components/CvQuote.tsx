@@ -17,12 +17,12 @@ type CvQuoteProps = {
 export function CvQuote({ text, proof = false, caption, className }: CvQuoteProps) {
   return (
     <figure className={cn("grid gap-1.5", className)}>
-      {caption && <figcaption className="ed-cap">{caption}</figcaption>}
+      {caption && <figcaption className="cap">{caption}</figcaption>}
       <blockquote
         translate="no"
         className={cn(
-          "rounded-r-[4px] py-2.5 pr-4 pl-4 text-ed-body break-words text-ed-ink",
-          proof ? "bg-ed-signal-wash shadow-ed-proof" : "bg-ed-raise shadow-[inset_2px_0_0_var(--color-ed-line-2)]",
+          "rounded-r-[4px] py-2.5 pr-4 pl-4 text-body break-words text-ink",
+          proof ? "bg-signal-wash shadow-proof" : "bg-raise shadow-[inset_2px_0_0_var(--color-line-2)]",
         )}
       >
         {displayQuote(text)}

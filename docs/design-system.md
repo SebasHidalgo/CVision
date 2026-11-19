@@ -17,53 +17,59 @@ M11-B). Pages move to it one phase at a time; the landing is the first.
 | `Surface.tsx` | A solid panel with its edge. |
 | `SectionHeading.tsx` | Number, title and lede on the grid. |
 | `Button.tsx` | `buttonClass`, `ButtonLink`, `textLinkClass`. |
+| `Bone.tsx` | The skeleton block of every loading state: `aria-hidden`, divider tone, pulses only under `motion-safe` (M11-E). |
+| `oneSystem.test.ts` | Fails if an `ed-` name or any name of the old light system comes back. |
 | `PageHeading.tsx` | A working page's head: the title over eight columns, a lede or a block in the right rail (M11-C). |
-| `ConfirmDialog.tsx` | A destructive confirmation on Radix's alert dialog; it portals out of the page, so it carries `ed-root` and the font itself (M11-C). |
+| `ConfirmDialog.tsx` | A destructive confirmation on Radix's alert dialog; it portals out of the page, so it carries `root` and the font itself (M11-C). |
 | `Logo.tsx` | The wordmark. |
 
-Every token is prefixed `ed-` because the old light system still owns `paper`, `ink`, `line` and `signal` with other
-meanings. When the last page migrates, the old tokens go and the prefix can be dropped in one rename.
+Tokens have plain names (`ink`, `line`, `panel`, `text-body`, `font-display`…). Until M11-E they carried an `ed-` prefix
+because the old light system owned `paper`, `ink`, `line` and `signal`; that system is gone, and
+`components/design-system/oneSystem.test.ts` fails if an `ed-` name, an old token or utility, Schibsted, or
+`components/ui` comes back. Two names changed meaning rather than only losing the prefix: the 12-column grid is
+`page-grid` (`grid` is Tailwind's), and the page container is `max-w-page` / `--container-page`.
 
 ## Tokens
 
-- **Colour** (`bg-ed-*`, `text-ed-*`, `border-ed-*`): `ed-bg #0C0D0F` (page), `ed-panel #121316` (surface),
-  `ed-raise #17181C` (raised or hovered), `ed-sheet #131417` (a document: the CV sheet), `ed-line #24262B` and
-  `ed-line-2 #34363C` (dividers and frames), `ed-field #6B6E75` (a form control's edge), `ed-ink #EDEDEA`,
-  `ed-ink-2 #A3A6AD`, `ed-ink-3`, `ed-signal #3EDC8A` with `ed-signal-wash` (8 %), and the danger pair below.
+- **Colour** (`bg-ed-*`, `text-ed-*`, `border-ed-*`): `bg #0C0D0F` (page), `panel #121316` (surface),
+  `raise #17181C` (raised or hovered), `sheet #131417` (a document: the CV sheet), `line #24262B` and
+  `line-2 #34363C` (dividers and frames), `field #6B6E75` (a form control's edge), `ink #EDEDEA`,
+  `ink-2 #A3A6AD`, `ink-3`, `signal #3EDC8A` with `signal-wash` (8 %), and the danger pair below.
 - **Contrast on the four grounds** (WCAG 2.x ratio; `tokens.test.ts` holds the floors):
 
   | Token | bg | panel | raise | sheet | Floor |
   |---|---|---|---|---|---|
-  | `ed-danger-text #FF7F71` | 7.89 | 7.54 | 7.20 | 7.48 | 7:1, text |
-  | `ed-field #6B6E75` | 3.81 | 3.64 | 3.47 | 3.61 | 3:1, a control's edge (1.4.11) |
-  | `ed-line-2 #34363C` | 1.61 | 1.54 | 1.47 | 1.53 | none: a divider, never a control's edge |
-  | `ed-danger #B4382A` | 3.28 | 3.13 | 2.99 | 3.10 | none: a fill, never text |
-- **ink-3 depends on what it sits on.** On the open page (`.ed-root`) it equals ink-2, because text there may lie over
-  a lit ground; inside a surface (`.ed-surface`) or the chrome (`.ed-chrome`: header, footer) it is the quieter
+  | `danger-text #FF7F71` | 7.89 | 7.54 | 7.20 | 7.48 | 7:1, text |
+  | `danger-edge #C44332` | 3.89 | 3.71 | 3.54 | 3.68 | 3:1, the End button's boundary (the `danger` fill is 2.99:1 on `raise`) |
+  | `field #6B6E75` | 3.81 | 3.64 | 3.47 | 3.61 | 3:1, a control's edge (1.4.11) |
+  | `line-2 #34363C` | 1.61 | 1.54 | 1.47 | 1.53 | none: a divider, never a control's edge |
+  | `danger #B4382A` | 3.28 | 3.13 | 2.99 | 3.10 | none: a fill, never text |
+- **ink-3 depends on what it sits on.** On the open page (`.root`) it equals ink-2, because text there may lie over
+  a lit ground; inside a surface (`.surface`) or the chrome (`.chrome`: header, footer) it is the quieter
   `#8A8E96`. Both pass AA on their ground.
 - **The signal colour only where the CV proves something** (a met requirement, a proof line). The logo square and
   every other mark are ink.
 - **Type** (`text-ed-*`, line height and tracking included): `h1` clamp(52–116 px), `h2` clamp(34–64 px), `h3` 20,
-  `title` 32, `lede` clamp(16.5–17.5), `body` 16, `small` 14.5, `micro` 13, `cap` 12 (with the `ed-cap` utility:
-  uppercase, 0.08 em, semibold). Faces: `font-ed-display` (Fraunces; `ed-display` sets weight 300 and optical size
-  144), `font-ed-text` (Host Grotesk), `font-ed-mono` (Plex Mono; `ed-mono` adds tabular figures).
-- **Space**: `ed-gutter` 24 px, `ed-pad` clamp(16–64 px) page padding, `ed-section` clamp(72–136 px) between
-  sections, `ed-header` 64 px; `max-w-ed` 1312 px; `ed-wrap` (centred, padded) and `ed-grid` (12 columns, children
+  `title` 32, `lede` clamp(16.5–17.5), `body` 16, `small` 14.5, `micro` 13, `cap` 12 (with the `cap` utility:
+  uppercase, 0.08 em, semibold). Faces: `font-display` (Fraunces; `display` sets weight 300 and optical size
+  144), `font-text` (Host Grotesk), `font-mono` (Plex Mono; `mono` adds tabular figures).
+- **Space**: `gutter` 24 px, `pad` clamp(16–64 px) page padding, `section` clamp(72–136 px) between
+  sections, `header` 64 px; `max-w-page` 1312 px; `wrap` (centred, padded) and `page-grid` (12 columns, children
   span all columns until a breakpoint places them).
-- **Radii**: `ed-surface` 10, `ed-field` 6, `ed-kbd` 5; buttons are pills.
-- **Surfaces**: panel fill, 1 px `ed-line-2` edge, radius 10 and a short tight shadow (`shadow-ed-surface`). Content
-  never sits on a moving ground. `shadow-ed-proof` is the 2 px signal bar on a proof line.
+- **Radii**: `surface` 10, `field` 6, `kbd` 5; buttons are pills.
+- **Surfaces**: panel fill, 1 px `line-2` edge, radius 10 and a short tight shadow (`shadow-surface`). Content
+  never sits on a moving ground. `shadow-proof` is the 2 px signal bar on a proof line.
 - **Status marks** (shape first, colour second): met = filled signal, partly met = signal outline half filled, not
   met = ink-3 outline, not shown in your CV = dashed ink-2 outline. 11 px, always with the status written next to it.
-- **Focus**: 2 px ink outline, 3 px offset, following the element's own radius, on every focusable element under `.ed-root`.
-- **Danger**: `ed-danger` and `ed-danger-hover` are fills, only for ending a live call (white text on them is
-  5.93:1 and 7.14:1). Danger as text (an error message, a field in error) is `ed-danger-text`: the same hue,
-  lightened to 7:1 or more on every ground. Filled, it takes `ed-bg` text (7.89:1), never white (2.5:1). A message
+- **Focus**: 2 px ink outline, 3 px offset, following the element's own radius, on every focusable element under `.root`.
+- **Danger**: `danger` and `danger-hover` are fills, only for ending a live call (white text on them is
+  5.93:1 and 7.14:1). Danger as text (an error message, a field in error) is `danger-text`: the same hue,
+  lightened to 7:1 or more on every ground. Filled, it takes `bg` text (7.89:1), never white (2.5:1). A message
   in it still says what went wrong in words; colour is never the only cue.
-- **Form controls**: an input, select or textarea draws its edge in `ed-field` (`border-ed-field`), never
-  `ed-line-2`; hover goes to ink-2, focus to the ink ring, an error to `ed-danger-text`.
-- **Motion**: `ease-ed-out` (entrances), `ease-ed-settle` (open and close), `ease-ed-story` (the story's object);
-  durations 200 / 380 / 600 ms; `animate-ed-rise` and `animate-ed-fade`. Every motion has a reduced-motion path.
+- **Form controls**: an input, select or textarea draws its edge in `field` (`border-field`), never
+  `line-2`; hover goes to ink-2, focus to the ink ring, an error to `danger-text`.
+- **Motion**: `ease-out` (entrances), `ease-settle` (open and close), `ease-story` (the story's object);
+  durations 200 / 380 / 600 ms; `animate-rise` and `animate-fade`. Every motion has a reduced-motion path.
 
 ## The landing (`screens/Home/`)
 
@@ -112,22 +118,21 @@ language. Every other page switches in place.
   `app/(root)`): signed in, Analyses, Interviews, New analysis, the account menu; signed out, How it works and
   Pricing. Marketing (the landing): the five sections as anchors. Both: sign in and start free when signed out; the
   language menu (`LocaleSwitch`, in place, or by reload on the landing); a mobile sheet (a native modal `<dialog>`).
-  64 px plus a 1 px rule; the room depends on that height. It carries its own `ed-root ed-chrome` and font, so it
-  reads as a dark band over the pages not migrated yet.
+  64 px plus a 1 px rule; the room depends on that height. It carries its own `root chrome` and font.
 - **One footer**, `components/layout/Footer.tsx`, under every page; `FooterGate` hides it in the interview room,
   which fills the viewport.
 - **Clerk** (`lib/clerkAppearance.ts`, applied once by the root `ClerkProvider`) and the **toasts** (sonner on its
   dark theme, `components/providers/Providers.tsx`) are in the dark design. Clerk takes literal colours: they come
   from `components/design-system/tokens.ts`, which a test keeps equal to `tokens.css`; the card's shadow is the CSS
   variable itself. Clerk draws an input's edge as a 1 px box-shadow at 11 % of its border colour (1.03:1 on the
-  card): the appearance replaces it on `input[data-variant="default"]` with `ed-field`, ink-2 on hover, a 2 px ink
-  ring on focus and `ed-danger-text` in error (Clerk's `data-feedback="error"`). Its error text is `colorDanger`,
-  the danger text token; its filled danger buttons (the profile's "Remove" forms) get `ed-bg` text.
+  card): the appearance replaces it on `input[data-variant="default"]` with `field`, ink-2 on hover, a 2 px ink
+  ring on focus and `danger-text` in error (Clerk's `data-feedback="error"`). Its error text is `colorDanger`,
+  the danger text token; its filled danger buttons (the profile's "Remove" forms) get `bg` text.
 - **No paper grain.** The old system's noise layer (`body::before`, multiply at 4.5 %) is gone from every page, the
   ones not migrated yet included.
 - **404**: `app/not-found.tsx` → `screens/NotFound`, with the shell's header and footer (the root not-found sits
   above `app/(root)/layout.tsx`).
-- A migrated page under `app/(root)` makes its `ed-root` element `flex-1`, so the dark canvas reaches the footer.
+- A migrated page under `app/(root)` makes its `root` element `flex-1`, so the dark canvas reaches the footer.
 
 ## Translations on a page (`components/i18n/`)
 
@@ -139,7 +144,7 @@ The analysis page and the interview feedback page share three pieces, drawn in t
   green, which marks only what a CV proves. The "Show the original" link is ink with an ink-3 underline and a 44 px
   target. A screen passes `className` for its spacing and nothing else; which component shows, and with which
   action, is the screen's call (the analysis page's `TranslationLine`).
-- `Prose` renders model prose, or its skeleton while the translation is on its way: bars on `ed-line-2` that pulse
+- `Prose` renders model prose, or its skeleton while the translation is on its way: bars on `line-2` that pulse
   only when motion is allowed, `data-prose-pending`, hidden from assistive tech.
 
 ## The interview screens (M11-D, `components/interview/`)
@@ -181,10 +186,20 @@ the left four columns, content over the right eight; `UsageRow`, `Figure`, `Cell
   shows its trial instead of a period of interviews.
 - **The billing buttons** (`components/billing/`) are the system's pill (`buttonClass`, mapping the callers' old
   `default`/`outline` and sizes) with the focus ring stated on the button (`buttonStyle.ts`); the portal's error is
-  `ed-danger-text`; Paddle's overlay opens in its dark theme. The language menu (`components/i18n/LocaleMenu.tsx`)
-  is a pill drawn as a form control (`ed-field` edge) with the header's menu surface.
-- **Deleting the account**: a ghost pill in `ed-danger-text`, the lists of what goes and what Paddle keeps on a
+  `danger-text`; Paddle's overlay opens in its dark theme. The language menu (`components/i18n/LocaleMenu.tsx`)
+  is a pill drawn as a form control (`field` edge) with the header's menu surface.
+- **Deleting the account**: a ghost pill in `danger-text`, the lists of what goes and what Paddle keeps on a
   surface, and the system's `ConfirmDialog`.
+
+## Shared by two routes (M11-E)
+
+- `components/pricing/`: `pricingView` (pure: every figure from `lib/plans.ts` and the catalog), `PlanComparison`
+  (a table from 1024 px, plan cards below; no hooks), `PackAddon`, `PaymentNote`, `SignUpButton`. The landing's
+  pricing section and `/pricing` render the same tree; each passes its own actions. No green on plan features.
+- `components/history/HiddenBlock.tsx`: the block of what Free's history hides, for analyses and interviews alike
+  (count, why, role, company and date, delete one or all through `ConfirmDialog`); `deletionSummary.ts` words the
+  outcome.
+- `components/interview/ui.ts` holds the eyebrow and the thin scrollbar only.
 
 ## The verdict rule
 
@@ -192,12 +207,13 @@ One copy, in `common:verdictRule` (`weak`, `fair`, `strong`, `notShown`, and `te
 sentence): the analysis page lists it under "How it's counted" and the landing's example prints it as one
 paragraph. The verdict words are `common:score.fit.*`.
 
-## Migrated pages and the rest
+## Every page is in the system
 
-Migrated: the landing (M11-B); the shell, the upload page, the analysis page, the analyses list and the 404
-(M11-C); the interviews list, the room and the feedback page (M11-D). Not yet: pricing, account and the legal pages
-(M11-E). Those keep the old light look (paper, ink, red signal; Schibsted Grotesk) under the dark header and
-footer until their phase.
+The landing (M11-B); the shell, the upload page, the analysis page, the analyses list and the 404 (M11-C); the
+interviews list, the room and the feedback page (M11-D); pricing, account, plan and billing, the legal pages, the
+error pages and every loading state (M11-E). The page canvas itself (`html`, `body`) is the system's dark ground, so
+overscroll and a page's edges are never light. There is no `components/ui` (shadcn) any more: the avatar and the
+toaster use Radix and sonner directly.
 
 ## Verifying a page
 

@@ -53,30 +53,30 @@ export default function DimensionNav({ items }: DimensionNavProps) {
   return (
     <nav
       aria-label={t("nav.label")}
-      className="sticky top-ed-header z-30 -mx-ed-pad border-b border-ed-line bg-ed-bg lg:top-[calc(var(--spacing-ed-header)+32px)] lg:mx-0 lg:border-b-0 lg:bg-transparent"
+      className="sticky top-header z-30 -mx-pad border-b border-line bg-bg lg:top-[calc(var(--spacing-header)+32px)] lg:mx-0 lg:border-b-0 lg:bg-transparent"
     >
-      <ol ref={strip} className="relative flex gap-2 overflow-x-auto px-ed-pad py-2.5 [scrollbar-width:none] lg:flex-col lg:gap-0 lg:overflow-visible lg:border-t lg:border-ed-line lg:px-0 lg:py-0 [&::-webkit-scrollbar]:hidden">
+      <ol ref={strip} className="relative flex gap-2 overflow-x-auto px-pad py-2.5 [scrollbar-width:none] lg:flex-col lg:gap-0 lg:overflow-visible lg:border-t lg:border-line lg:px-0 lg:py-0 [&::-webkit-scrollbar]:hidden">
         {items.map((item, i) => {
           const current = item.id === active;
           return (
-            <li key={item.id} className="shrink-0 lg:border-b lg:border-ed-line">
+            <li key={item.id} className="shrink-0 lg:border-b lg:border-line">
               <a
                 href={`#${item.id}`}
                 aria-current={current ? "location" : undefined}
                 className={cn(
                   // A pill on small screens (radius by breakpoint: a plain rounded-full compiles !important here)
                   "flex min-h-11 items-center gap-2 border px-4 max-lg:rounded-full text-[15px] whitespace-nowrap transition-colors duration-200",
-                  current ? "border-ed-ink bg-ed-ink text-ed-bg" : "border-ed-line-2 text-ed-ink-2 hover:border-ed-ink-2 hover:text-ed-ink",
+                  current ? "border-ink bg-ink text-bg" : "border-line-2 text-ink-2 hover:border-ink-2 hover:text-ink",
                   // A row on large screens: number, label, score, and the score's bar under them
-                  "lg:grid lg:grid-cols-[2rem_minmax(0,1fr)_auto] lg:gap-x-3 lg:gap-y-2.5 lg:border-0 lg:bg-transparent lg:py-3.5 lg:pr-1 lg:pl-3 lg:whitespace-normal lg:hover:text-ed-ink",
-                  current && "lg:text-ed-ink lg:shadow-[inset_2px_0_0_var(--color-ed-ink)]",
+                  "lg:grid lg:grid-cols-[2rem_minmax(0,1fr)_auto] lg:gap-x-3 lg:gap-y-2.5 lg:border-0 lg:bg-transparent lg:py-3.5 lg:pr-1 lg:pl-3 lg:whitespace-normal lg:hover:text-ink",
+                  current && "lg:text-ink lg:shadow-[inset_2px_0_0_var(--color-ink)]",
                 )}
               >
-                <span aria-hidden className="ed-mono hidden text-[13px] text-ed-ink-3 lg:block">
+                <span aria-hidden className="mono hidden text-[13px] text-ink-3 lg:block">
                   {ordinal(i)}
                 </span>
                 <span className="font-medium">{item.label}</span>
-                <span className="ed-mono text-[14px] lg:text-[15px]">{item.score ?? ""}</span>
+                <span className="mono text-[14px] lg:text-[15px]">{item.score ?? ""}</span>
                 {item.score !== null && <ScoreBar score={item.score} className="hidden lg:col-span-3 lg:block" />}
               </a>
             </li>

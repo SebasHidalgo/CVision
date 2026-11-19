@@ -25,7 +25,7 @@ const DESKTOP: Record<HeaderVariant, { show: string; hide: string; query: string
 // Full header height, so the current page's 2 px bar sits on the header's bottom rule.
 const NAV_LINK =
   "relative -mx-1 inline-flex items-center px-1 whitespace-nowrap text-[14.5px] no-underline transition-colors duration-200 focus-visible:outline-offset-[-2px] " +
-  "after:absolute after:inset-x-1 after:bottom-0 after:h-[2px] after:origin-left after:bg-ed-ink after:transition-transform after:duration-[380ms] after:ease-ed-settle motion-reduce:after:transition-none";
+  "after:absolute after:inset-x-1 after:bottom-0 after:h-[2px] after:origin-left after:bg-ink after:transition-transform after:duration-[380ms] after:ease-settle motion-reduce:after:transition-none";
 
 function NavLinks({ items, label, className }: { items: readonly NavItem[]; label: string; className: string }) {
   const pathname = usePathname();
@@ -34,7 +34,7 @@ function NavLinks({ items, label, className }: { items: readonly NavItem[]; labe
     <nav aria-label={label} className={cn("ml-4 self-stretch gap-5 xl:ml-8 xl:gap-7", className)}>
       {items.map((item) => {
         const current = currentFor(item, pathname);
-        const linkClass = cn(NAV_LINK, current ? "text-ed-ink after:scale-x-100" : "text-ed-ink-2 after:scale-x-0 hover:text-ed-ink");
+        const linkClass = cn(NAV_LINK, current ? "text-ink after:scale-x-100" : "text-ink-2 after:scale-x-0 hover:text-ink");
         return item.href.startsWith("#") ? (
           <a key={item.href} href={item.href} className={linkClass}>
             {t(item.labelKey)}
@@ -64,8 +64,8 @@ export function SiteHeaderClient({ variant = "app", offerPricing = true }: { var
   const logoClass = "inline-flex min-h-11 shrink-0 items-center pt-1 no-underline";
 
   return (
-    <header className={cn("ed-root ed-chrome sticky top-0 z-40 border-b border-ed-line bg-ed-bg", fontText.variable)}>
-      <div className="ed-wrap flex h-16 items-center gap-2 sm:gap-4">
+    <header className={cn("root chrome sticky top-0 z-40 border-b border-line bg-bg", fontText.variable)}>
+      <div className="wrap flex h-16 items-center gap-2 sm:gap-4">
         {marketing ? (
           <a href="#top" aria-label={t("nav.home")} className={logoClass}>
             <Logo />

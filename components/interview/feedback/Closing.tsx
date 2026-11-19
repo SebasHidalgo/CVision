@@ -25,7 +25,7 @@ export function FinalAssessment({
 }) {
   return (
     <ReportSection part="final" id={id} eyebrow={t("report.finalAssessment")} level={level} embedded={embedded}>
-      <p className="max-w-[42ch] font-ed-display text-[clamp(22px,2.2vw,30px)] leading-[1.28] font-normal tracking-[-0.012em] text-ed-ink">
+      <p className="max-w-[42ch] font-display text-[clamp(22px,2.2vw,30px)] leading-[1.28] font-normal tracking-[-0.012em] text-ink">
         {prose(text, 3)}
       </p>
     </ReportSection>
@@ -47,10 +47,10 @@ export function RehearseAgain({ next, id, level, t }: { next: RehearseNext; id: 
     <Surface as="section" aria-labelledby={id} data-feedback-part="next" className="mt-[clamp(40px,5.5vw,72px)] px-[clamp(20px,3.4vw,40px)] py-[clamp(28px,4vw,44px)]">
       <p className={EYEBROW}>{t("next.eyebrow")}</p>
       <div className="mt-4 max-w-[60ch]">
-        <Heading level={level} id={id} className="ed-display text-[clamp(28px,3vw,40px)] leading-[1.06] tracking-[-0.025em] text-balance text-ed-ink">
+        <Heading level={level} id={id} className="display text-[clamp(28px,3vw,40px)] leading-[1.06] tracking-[-0.025em] text-balance text-ink">
           {t("next.title")}
         </Heading>
-        <p className="mt-4 text-ed-lede text-ed-ink-2">{t("next.lede")}</p>
+        <p className="mt-4 text-lede text-ink-2">{t("next.lede")}</p>
       </div>
       <div className="mt-8 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
         <MaybeLink
@@ -69,7 +69,7 @@ export function RehearseAgain({ next, id, level, t }: { next: RehearseNext; id: 
             </>
           )}
         </MaybeLink>
-        {next.note && <p className="min-w-0 text-[15px] text-ed-ink-2">{next.note}</p>}
+        {next.note && <p className="min-w-0 text-[15px] text-ink-2">{next.note}</p>}
       </div>
     </Surface>
   );
@@ -87,17 +87,17 @@ export function TranscriptFold({
   t: TFunction<"feedback">;
 }) {
   return (
-    <details data-feedback-part="transcript" className="group mt-[clamp(40px,5.5vw,72px)] border-t border-ed-line-2">
+    <details data-feedback-part="transcript" className="group mt-[clamp(40px,5.5vw,72px)] border-t border-line-2">
       <summary className="flex min-h-14 cursor-pointer list-none flex-wrap items-center justify-between gap-x-6 gap-y-1 py-3 [&::-webkit-details-marker]:hidden">
         <span className={EYEBROW}>{t("transcript.title")}</span>
-        <span className="ed-cap tabular-nums text-ed-ink">
+        <span className="cap tabular-nums text-ink">
           {t("transcript.lines", { count: transcript.lines })} · <span className="group-open:hidden">{t("transcript.show")}</span>
           <span className="hidden group-open:inline">{t("transcript.hide")}</span>
         </span>
       </summary>
-      <div className="ed-grid pt-4 pb-2">
+      <div className="page-grid pt-4 pb-2">
         <div className="min-w-0 lg:col-[5/span_8]">
-          {note && <p className="mb-5 text-ed-small text-ed-ink-2">{note}</p>}
+          {note && <p className="mb-5 text-small text-ink-2">{note}</p>}
           <TranscriptLines
             entries={transcript.entries}
             labels={{ interviewer: t("transcript.interviewer"), candidate: t("transcript.you"), resumed: t("transcript.resumed") }}

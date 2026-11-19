@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 /** The page root of the new design: the plain dark canvas, as wide as the shell. */
 export function FeedbackPage({ children }: { children: React.ReactNode }) {
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(32px,5vw,64px)] pb-ed-section">{children}</div>
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(32px,5vw,64px)] pb-section">{children}</div>
     </div>
   );
 }
@@ -38,16 +38,16 @@ export function FeedbackState({
   return (
     <FeedbackPage>
       <article aria-labelledby="feedback-title">
-        <header className="ed-grid border-b border-ed-line-2 pb-[clamp(32px,4.5vw,56px)]">
+        <header className="page-grid border-b border-line-2 pb-[clamp(32px,4.5vw,56px)]">
           <div className="lg:col-[1/span_8]">
             <p className={EYEBROW}>{t("header.eyebrow", { date })}</p>
-            <p className="mt-6 text-ed-lede text-ed-ink-2">{t("header.kicker")}</p>
-            <h1 id="feedback-title" className="ed-display mt-1 text-ed-h2 text-balance break-words text-ed-ink">
+            <p className="mt-6 text-lede text-ink-2">{t("header.kicker")}</p>
+            <h1 id="feedback-title" className="display mt-1 text-h2 text-balance break-words text-ink">
               {role}
             </h1>
           </div>
         </header>
-        <section className="ed-grid py-[clamp(40px,5.5vw,72px)]" {...(status ? { role: "status", "aria-live": "polite" as const } : {})}>
+        <section className="page-grid py-[clamp(40px,5.5vw,72px)]" {...(status ? { role: "status", "aria-live": "polite" as const } : {})}>
           <div className="lg:col-[1/span_8]">
             {children}
             <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">

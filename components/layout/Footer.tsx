@@ -18,12 +18,12 @@ const LEGAL = [
 ] as const;
 
 const LINK =
-  "inline-flex min-h-11 max-w-full items-center text-ed-small text-ed-ink-2 no-underline transition-colors duration-200 hover:text-ed-ink hover:underline hover:underline-offset-4";
+  "inline-flex min-h-11 max-w-full items-center text-small text-ink-2 no-underline transition-colors duration-200 hover:text-ink hover:underline hover:underline-offset-4";
 
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="ed-cap mb-1">{label}</p>
+      <p className="cap mb-1">{label}</p>
       <ul>{children}</ul>
     </div>
   );
@@ -37,16 +37,16 @@ export async function Footer({ className }: { className?: string }) {
   const t = await getT("common");
   return (
     <FooterGate>
-      <footer className={cn("ed-root ed-chrome relative z-[1] border-t border-ed-line-2 bg-ed-bg", fontText.variable, className)}>
-        <div className="ed-wrap ed-grid gap-y-8 pt-10 pb-8 lg:pt-12">
+      <footer className={cn("root chrome relative z-[1] border-t border-line-2 bg-bg", fontText.variable, className)}>
+        <div className="wrap page-grid gap-y-8 pt-10 pb-8 lg:pt-12">
           <div className="grid content-start gap-2 lg:col-span-5">
             <Link href="/" aria-label={t("nav.home")} className="inline-flex min-h-11 w-fit items-center no-underline">
               <Logo />
             </Link>
-            <p className="max-w-[46ch] text-ed-small text-ed-ink-2">{t("footer.about")}</p>
+            <p className="max-w-[46ch] text-small text-ink-2">{t("footer.about")}</p>
           </div>
 
-          <nav aria-label={t("footer.label")} className="grid grid-cols-2 gap-x-ed-gutter gap-y-6 sm:grid-cols-3 lg:col-start-7 lg:col-end-13">
+          <nav aria-label={t("footer.label")} className="grid grid-cols-2 gap-x-gutter gap-y-6 sm:grid-cols-3 lg:col-start-7 lg:col-end-13">
             <Group label={t("footer.product")}>
               {PRODUCT.map((page) => (
                 <li key={page.href}>
@@ -74,7 +74,7 @@ export async function Footer({ className }: { className?: string }) {
             </Group>
           </nav>
 
-          <p className="ed-mono border-t border-ed-line pt-6 text-ed-micro text-ed-ink-3">
+          <p className="mono border-t border-line pt-6 text-micro text-ink-3">
             © {new Date().getUTCFullYear()} {BRAND.name}
           </p>
         </div>

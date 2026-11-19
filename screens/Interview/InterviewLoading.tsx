@@ -7,7 +7,7 @@ import { RoomSkeleton } from "./components/RoomSkeleton";
 export default async function InterviewLoading() {
   const t = await getT("interview");
   return (
-    <div className={cn("ed-root flex flex-1 flex-col", fontText.variable)}>
+    <div className={cn("root flex flex-1 flex-col", fontText.variable)}>
       <RoomSkeleton status={t("room.loading")} />
     </div>
   );

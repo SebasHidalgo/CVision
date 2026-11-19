@@ -41,7 +41,7 @@ export default async function RoomPreviewScreen({ state, drip = false, closing =
   const price = (key: keyof typeof CATALOG) => formatMoney(Number(CATALOG[key].amountMinor) / 100, CATALOG_CURRENCY, locale);
   return (
     <ClientMessages ns={["interview", "billing"]}>
-      <div className={cn("ed-root flex flex-1 flex-col", fontText.variable)}>
+      <div className={cn("root flex flex-1 flex-col", fontText.variable)}>
         <InterviewRoomLoader
           interviewId={PREVIEW_ID}
           role={fixture.role[locale]}

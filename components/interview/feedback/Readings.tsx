@@ -27,29 +27,29 @@ export function Readings({
 }) {
   return (
     <ReportSection part="readings" id={id} eyebrow={t("report.readings.eyebrow")} title={t("report.readings.title")} level={level} embedded={embedded}>
-      <ol className="border-t border-ed-line">
+      <ol className="border-t border-line">
         {orderedCategories(report).map((category, i) => {
           const name = t(categoryKey(category.name));
           const score = clampScore(category.score);
           return (
-            <li key={category.name} data-feedback-row="reading" className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 border-b border-ed-line py-6 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:gap-x-4">
-              <span aria-hidden className="ed-mono pt-[5px] text-[13px] text-ed-ink-2">
+            <li key={category.name} data-feedback-row="reading" className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 border-b border-line py-6 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:gap-x-4">
+              <span aria-hidden className="mono pt-[5px] text-[13px] text-ink-2">
                 {ordinal(i)}
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-                  <Heading level={sub(level)} className="font-ed-display text-[21px] leading-[1.2] font-normal tracking-[-0.01em] text-ed-ink">
+                  <Heading level={sub(level)} className="font-display text-[21px] leading-[1.2] font-normal tracking-[-0.01em] text-ink">
                     {name}
                   </Heading>
                   <div className="flex w-full items-center gap-3 sm:w-[14rem]">
-                    <span className="w-[2.2ch] font-ed-display text-[32px] leading-[0.9] font-light tracking-[-0.03em] tabular-nums text-ed-ink">{score}</span>
+                    <span className="w-[2.2ch] font-display text-[32px] leading-[0.9] font-light tracking-[-0.03em] tabular-nums text-ink">{score}</span>
                     <div className="grid min-w-0 flex-1 gap-1.5">
                       <ScoreBar value={score} label={common("score.scoreOf", { label: name })} />
-                      <span className="text-ed-small font-medium text-ed-ink">{common(toneKey("tone", scoreTone(score)))}</span>
+                      <span className="text-small font-medium text-ink">{common(toneKey("tone", scoreTone(score)))}</span>
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 max-w-[68ch] text-ed-body text-ed-ink-2">
+                <p className="mt-3 max-w-[68ch] text-body text-ink-2">
                   {prose(category.comment)}
                 </p>
               </div>
@@ -81,16 +81,16 @@ function PointList({
         return (
           <li key={i} data-feedback-row={kind} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-x-3">
             {kind === "worked" ? (
-              <Check aria-hidden className="mt-[3px] size-4 text-ed-ink" />
+              <Check aria-hidden className="mt-[3px] size-4 text-ink" />
             ) : (
-              <span aria-hidden className="mt-[0.55em] size-1.5 justify-self-center bg-ed-ink" />
+              <span aria-hidden className="mt-[0.55em] size-1.5 justify-self-center bg-ink" />
             )}
             <div className="min-w-0">
-              <p className="max-w-[68ch] text-ed-body text-ed-ink">
+              <p className="max-w-[68ch] text-body text-ink">
                 {prose(point.point, 1)}
               </p>
               {anchor?.kind === "quote" && <SpokenQuote text={anchor.text} size="small" className="mt-2.5" />}
-              {anchor?.kind === "gap" && <p className="mt-2 text-ed-small text-ed-ink-2">{t("report.onGap", { requirement: anchor.text })}</p>}
+              {anchor?.kind === "gap" && <p className="mt-2 text-small text-ink-2">{t("report.onGap", { requirement: anchor.text })}</p>}
             </div>
           </li>
         );
@@ -125,7 +125,7 @@ export function Points({
     <ReportSection part="points" id={id} eyebrow={t("report.points.eyebrow")} title={t("report.points.title")} level={level} embedded={embedded}>
       <div className="grid grid-cols-1 gap-x-8 gap-y-10 xl:grid-cols-2">
         {lists.map((list) => (
-          <div key={list.kind} className="min-w-0 border-t border-ed-line pt-4">
+          <div key={list.kind} className="min-w-0 border-t border-line pt-4">
             <Heading level={sub(level)} className={EYEBROW}>
               {list.title}
             </Heading>

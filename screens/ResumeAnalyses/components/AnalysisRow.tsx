@@ -42,15 +42,15 @@ export function AnalysisRow({ analysis, n, locale, t, common, entitlement, headi
 
   const title = (
     <div className="min-w-0 [grid-area:title]">
-      <p className="ed-mono text-[13px] text-ed-ink-3">
+      <p className="mono text-[13px] text-ink-3">
         <time dateTime={analysis.createdAt}>{date}</time>
       </p>
-      <h2 className="mt-1.5 text-[20px] leading-tight font-semibold tracking-[-0.01em] break-words text-ed-ink">{analysis.companyName}</h2>
-      <p className="mt-1 break-words text-ed-ink-2">{analysis.jobTitle}</p>
+      <h2 className="mt-1.5 text-[20px] leading-tight font-semibold tracking-[-0.01em] break-words text-ink">{analysis.companyName}</h2>
+      <p className="mt-1 break-words text-ink-2">{analysis.jobTitle}</p>
     </div>
   );
   const number = (
-    <span aria-hidden className="ed-mono pt-[3px] text-[13px] text-ed-ink-3 [grid-area:n]">
+    <span aria-hidden className="mono pt-[3px] text-[13px] text-ink-3 [grid-area:n]">
       {n}
     </span>
   );
@@ -61,7 +61,7 @@ export function AnalysisRow({ analysis, n, locale, t, common, entitlement, headi
       <li data-analysis-row className={ROW_GRID}>
         {number}
         {title}
-        <p className="text-ed-ink-2 [grid-area:fit]">{t("row.unreadable")}</p>
+        <p className="text-ink-2 [grid-area:fit]">{t("row.unreadable")}</p>
         <div className="[grid-area:int]">
           <DeleteUnreadable
             resumeId={analysis.id}
@@ -83,32 +83,32 @@ export function AnalysisRow({ analysis, n, locale, t, common, entitlement, headi
     <li data-analysis-row>
       <Link
         href={`/resume/analysis/${analysis.id}`}
-        className={cn(ROW_GRID, "group transition-colors duration-200 hover:bg-ed-raise focus-visible:outline-offset-[-2px] motion-reduce:transition-none")}
+        className={cn(ROW_GRID, "group transition-colors duration-200 hover:bg-raise focus-visible:outline-offset-[-2px] motion-reduce:transition-none")}
       >
         {number}
         {title}
         <div className="[grid-area:fit]">
-          <p className="font-ed-display text-[26px] leading-none font-normal tracking-[-0.02em] text-ed-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
+          <p className="font-display text-[26px] leading-none font-normal tracking-[-0.02em] text-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
             {common(toneKey("fit", verdict.tone))}
           </p>
           <span aria-hidden className="mt-3 flex flex-wrap items-center gap-[5px]">
             <Marks marks={marks.required} />
-            {marks.preferred.length > 0 && <span className="mx-1.5 h-3.5 w-px bg-ed-line-2" />}
+            {marks.preferred.length > 0 && <span className="mx-1.5 h-3.5 w-px bg-line-2" />}
             <Marks marks={marks.preferred} />
           </span>
-          <p className="ed-mono mt-2.5 text-[13.5px] leading-snug text-ed-ink-2">{tallyCopy(common, verdict.tally)}</p>
+          <p className="mono mt-2.5 text-[13.5px] leading-snug text-ink-2">{tallyCopy(common, verdict.tally)}</p>
         </div>
         <div className="[grid-area:int]">
-          <p className="ed-cap">{t("row.interview")}</p>
+          <p className="cap">{t("row.interview")}</p>
           {summary ? (
-            <p className="mt-1.5 text-ed-ink">
+            <p className="mt-1.5 text-ink">
               {t("row.attempt", { number: summary.number })}
-              <span aria-hidden className="text-ed-ink-3"> · </span>
+              <span aria-hidden className="text-ink-3"> · </span>
               {summary.reading === "scored" ? t("row.reading.scored", { score: summary.score }) : t(`row.reading.${summary.reading}`)}
-              {summary.earlier > 0 && <span className="block text-ed-small text-ed-ink-2">{t("row.earlier", { count: summary.earlier })}</span>}
+              {summary.earlier > 0 && <span className="block text-small text-ink-2">{t("row.earlier", { count: summary.earlier })}</span>}
             </p>
           ) : (
-            <p className="mt-1.5 text-ed-ink-2">{t("row.noInterview")}</p>
+            <p className="mt-1.5 text-ink-2">{t("row.noInterview")}</p>
           )}
         </div>
         <svg
@@ -116,7 +116,7 @@ export function AnalysisRow({ analysis, n, locale, t, common, entitlement, headi
           width="16"
           height="16"
           viewBox="0 0 16 16"
-          className="mt-1 text-ed-ink-3 transition-[color,translate] duration-200 ease-ed-out [grid-area:go] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ed-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0"
+          className="mt-1 text-ink-3 transition-[color,translate] duration-200 ease-out [grid-area:go] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0"
         >
           <path d="M4.5 11.5l7-7M6 4.5h5.5V10" fill="none" stroke="currentColor" strokeWidth="1.5" />
         </svg>

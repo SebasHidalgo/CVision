@@ -150,7 +150,7 @@ export default function InterviewCta({
       {t("cta.openRoom")}
       <ArrowRight
         aria-hidden
-        className={cn(icon, "transition-transform duration-300 ease-ed-out group-hover:translate-x-1 motion-reduce:transition-none")}
+        className={cn(icon, "transition-transform duration-300 ease-out group-hover:translate-x-1 motion-reduce:transition-none")}
       />
     </Link>
   ) : offer.kind === "trial" ? (
@@ -162,17 +162,17 @@ export default function InterviewCta({
     )
   ) : offer.kind === "pro-exhausted" ? (
     <div className="flex min-w-0 flex-col items-start gap-1">
-      <p className="text-ed-body font-medium text-ed-ink">
+      <p className="text-body font-medium text-ink">
         {errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "PRO", resetsAt: offer.resetsAt })}
       </p>
-      <Link href="/account/billing" className={cn(textLinkClass, "text-ed-ink underline underline-offset-4 decoration-ed-ink-3")}>
+      <Link href="/account/billing" className={cn(textLinkClass, "text-ink underline underline-offset-4 decoration-ink-3")}>
         {t("cta.getMore", { count: INTERVIEW_PACK_CREDITS })}
       </Link>
     </div>
   ) : (
     <div className="flex min-w-0 flex-col items-start gap-1">
-      <p className="text-ed-body font-medium text-ed-ink">{errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}</p>
-      <Link href="/pricing" className={cn(textLinkClass, "text-ed-ink underline underline-offset-4 decoration-ed-ink-3")}>
+      <p className="text-body font-medium text-ink">{errorCopy("INTERVIEW_QUOTA_EXCEEDED", { plan: "FREE" })}</p>
+      <Link href="/pricing" className={cn(textLinkClass, "text-ink underline underline-offset-4 decoration-ink-3")}>
         {t("cta.seePro")}
       </Link>
     </div>
@@ -226,17 +226,17 @@ export default function InterviewCta({
 
   return (
     <Surface as="section" aria-labelledby="interview-cta-title" className="mt-4 px-[clamp(20px,3.4vw,40px)] py-[clamp(28px,4vw,48px)]">
-      <p className="ed-cap">{t("cta.eyebrow")}</p>
+      <p className="cap">{t("cta.eyebrow")}</p>
       {/* Text, then the control under it: the column is too narrow to give a long label a column of its own. */}
       <div className="mt-4 min-w-0 max-w-[60ch]">
-        <h2 id="interview-cta-title" className="ed-display text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
+        <h2 id="interview-cta-title" className="display text-[clamp(30px,3.2vw,44px)] leading-[1.06] tracking-[-0.025em] text-balance">
           {heading}
         </h2>
-        <p className="mt-4 text-ed-lede text-ed-ink-2">{lede}</p>
+        <p className="mt-4 text-lede text-ink-2">{lede}</p>
       </div>
       <div className="mt-8 flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
         {control}
-        {note && <p className="min-w-0 text-[15px] text-ed-ink-2">{note}</p>}
+        {note && <p className="min-w-0 text-[15px] text-ink-2">{note}</p>}
       </div>
       {children && <div className="mt-10">{children}</div>}
     </Surface>

@@ -34,8 +34,8 @@ export default async function AccountScreen() {
   const periodDate = formatLongDate(view.period.date, locale);
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading title={t("meta.accountTitle")} />
         <AccountTabs current="account" t={t} />
 
@@ -43,13 +43,13 @@ export default async function AccountScreen() {
           <div className="mt-[clamp(8px,2vw,16px)]">
             <AccountSection n="01" id="account-plan" title={t("overview.plan.title")}>
               <div data-standing={view.standing.kind} className="flex flex-wrap items-end gap-x-6 gap-y-3">
-                <p className="ed-display text-[clamp(64px,9vw,112px)] leading-[0.82] text-ed-ink">{common(`plan.${summary.plan}`)}</p>
-                <p className="flex items-center gap-2.5 pb-1.5 text-ed-small font-medium text-ed-ink">
+                <p className="display text-[clamp(64px,9vw,112px)] leading-[0.82] text-ink">{common(`plan.${summary.plan}`)}</p>
+                <p className="flex items-center gap-2.5 pb-1.5 text-small font-medium text-ink">
                   <Mark shape={standing.shape} />
                   {standing.label}
                 </p>
               </div>
-              <p className="mt-5 max-w-[62ch] text-ed-body text-ed-ink-2">{standing.line}</p>
+              <p className="mt-5 max-w-[62ch] text-body text-ink-2">{standing.line}</p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 {/* Pro is sold only where a checkout can succeed: not while a paused subscription is open. */}
                 {offersProCheckout(view.standing, openSubscription) && (
@@ -79,7 +79,7 @@ export default async function AccountScreen() {
                         <Figure value={view.analyses.left} of={t("analyses.left", { limit: view.analyses.limit })} />
                       </>
                     ) : (
-                      <span className="text-ed-body font-medium text-ed-ink">{t("analyses.upTo", { limit: view.analyses.limit })}</span>
+                      <span className="text-body font-medium text-ink">{t("analyses.upTo", { limit: view.analyses.limit })}</span>
                     )
                   }
                 >
@@ -102,7 +102,7 @@ export default async function AccountScreen() {
                   <UsageRow
                     label={t("trial.label")}
                     figure={
-                      <span className="flex items-center gap-2.5 text-ed-body font-medium text-ed-ink">
+                      <span className="flex items-center gap-2.5 text-body font-medium text-ink">
                         <Mark shape={view.interviews.state === "available" ? "filled" : view.interviews.state === "used" ? "empty" : "dashed"} />
                         {t(`trial.${view.interviews.state}`)}
                       </span>
@@ -137,7 +137,7 @@ export default async function AccountScreen() {
 
             <AccountSection n="03" id="account-language" title={common("locale.accountTitle")}>
               <div className="grid gap-5">
-                <p className="max-w-[62ch] text-ed-body text-ed-ink-2">{common("locale.accountBody")}</p>
+                <p className="max-w-[62ch] text-body text-ink-2">{common("locale.accountBody")}</p>
                 <div>
                   <LocaleMenu />
                 </div>
@@ -149,25 +149,25 @@ export default async function AccountScreen() {
             </AccountSection>
 
             <AccountSection n="05" id="account-delete" title={t("overview.delete.title")}>
-              <p className="max-w-[62ch] text-ed-body text-ed-ink">{t("overview.delete.lede")}</p>
+              <p className="max-w-[62ch] text-body text-ink">{t("overview.delete.lede")}</p>
               <Surface className="mt-6 grid gap-x-10 gap-y-6 p-6 max-sm:p-5 md:grid-cols-2">
                 <div>
-                  <h3 className="ed-cap">{t("overview.delete.removedTitle")}</h3>
+                  <h3 className="cap">{t("overview.delete.removedTitle")}</h3>
                   <ul className="mt-3 grid gap-2.5">
                     {REMOVED.map((item) => (
-                      <li key={item} className="flex gap-3 text-ed-body text-ed-ink">
-                        <span aria-hidden className="mt-[0.6em] h-px w-3 flex-none bg-ed-ink-2" />
+                      <li key={item} className="flex gap-3 text-body text-ink">
+                        <span aria-hidden className="mt-[0.6em] h-px w-3 flex-none bg-ink-2" />
                         {t(`overview.delete.removed.${item}`)}
                       </li>
                     ))}
                   </ul>
                 </div>
                 <div>
-                  <h3 className="ed-cap">{t("overview.delete.keptTitle")}</h3>
+                  <h3 className="cap">{t("overview.delete.keptTitle")}</h3>
                   <ul className="mt-3 grid gap-2.5">
                     {KEPT.map((item) => (
-                      <li key={item} className="flex gap-3 text-ed-body text-ed-ink-2">
-                        <span aria-hidden className="mt-[0.6em] h-px w-3 flex-none bg-ed-ink-3" />
+                      <li key={item} className="flex gap-3 text-body text-ink-2">
+                        <span aria-hidden className="mt-[0.6em] h-px w-3 flex-none bg-ink-3" />
                         {t(`overview.delete.kept.${item}`)}
                       </li>
                     ))}

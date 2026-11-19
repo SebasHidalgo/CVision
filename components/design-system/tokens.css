@@ -1,88 +1,87 @@
-/* The design system: one design (dark editorial on a Swiss grid), no light/dark pair.
-   Every token is prefixed `ed-` while unmigrated pages still use the old paper/ink set. */
+/* The design system: one design (dark editorial on a Swiss grid), no light/dark pair, plain token names. */
 
 @theme {
   /* Grounds and surfaces, from the page to a raised panel */
-  --color-ed-bg: #0c0d0f;
-  --color-ed-panel: #121316;
-  --color-ed-raise: #17181c;
-  --color-ed-sheet: #131417;
+  --color-bg: #0c0d0f;
+  --color-panel: #121316;
+  --color-raise: #17181c;
+  --color-sheet: #131417;
 
   /* Edges. line and line-2 divide and frame; they are not a control's edge. */
-  --color-ed-line: #24262b;
-  --color-ed-line-2: #34363c;
+  --color-line: #24262b;
+  --color-line-2: #34363c;
   /* A form control's edge (input, select, textarea): 3:1 or more on every ground (WCAG 1.4.11):
      bg 3.81, panel 3.64, raise 3.47, sheet 3.61. */
-  --color-ed-field: #6b6e75;
+  --color-field: #6b6e75;
 
-  /* Ink. ink-3 depends on what it sits on: see `.ed-root` and `.ed-surface` below. */
-  --color-ed-ink: #ededea;
-  --color-ed-ink-2: #a3a6ad;
+  /* Ink. ink-3 depends on what it sits on: see `.root` and `.surface` below. */
+  --color-ink: #ededea;
+  --color-ink-2: #a3a6ad;
 
   /* The one signal colour: only where the CV proves something */
-  --color-ed-signal: #3edc8a;
-  --color-ed-signal-wash: rgb(62 220 138 / 0.08);
+  --color-signal: #3edc8a;
+  --color-signal-wash: rgb(62 220 138 / 0.08);
 
   /* Ending a live call: the room's End button (white text on it is 5.93:1, 7.14:1 on hover). A fill, never
      text: it is 3.1:1 on the panel. */
-  --color-ed-danger: #b4382a;
-  --color-ed-danger-hover: #a03024;
+  --color-danger: #b4382a;
+  --color-danger-hover: #a03024;
   /* The End button's edge: the fill alone is 2.99:1 on raise and darker on hover, so the button draws its boundary
      in this, 3:1 or more on every ground (WCAG 1.4.11) in both states: bg 3.89, panel 3.71, raise 3.54, sheet 3.68. */
-  --color-ed-danger-edge: #c44332;
-  /* Danger as text (an error message): ed-danger's hue, lightened to 7:1 or more on every ground:
-     bg 7.89, panel 7.54, raise 7.20, sheet 7.48. Filled, it takes ed-bg text (7.89:1); white on it is 2.5:1. */
-  --color-ed-danger-text: #ff7f71;
+  --color-danger-edge: #c44332;
+  /* Danger as text (an error message): danger's hue, lightened to 7:1 or more on every ground:
+     bg 7.89, panel 7.54, raise 7.20, sheet 7.48. Filled, it takes bg text (7.89:1); white on it is 2.5:1. */
+  --color-danger-text: #ff7f71;
 
   /* Type scale */
-  --text-ed-h1: clamp(52px, 7.9vw, 116px);
-  --text-ed-h1--line-height: 0.96;
-  --text-ed-h1--letter-spacing: -0.035em;
-  --text-ed-h2: clamp(34px, 4.4vw, 64px);
-  --text-ed-h2--line-height: 1.02;
-  --text-ed-h2--letter-spacing: -0.03em;
-  --text-ed-h3: 20px;
-  --text-ed-h3--line-height: 1.25;
-  --text-ed-h3--letter-spacing: -0.01em;
-  --text-ed-title: 32px;
-  --text-ed-title--line-height: 1.1;
-  --text-ed-title--letter-spacing: -0.02em;
-  --text-ed-lede: clamp(16.5px, 1.2vw, 17.5px);
-  --text-ed-lede--line-height: 1.55;
-  --text-ed-body: 16px;
-  --text-ed-body--line-height: 1.55;
-  --text-ed-small: 14.5px;
-  --text-ed-small--line-height: 1.45;
-  --text-ed-micro: 13px;
-  --text-ed-micro--line-height: 1.4;
-  --text-ed-cap: 12px;
-  --text-ed-cap--line-height: 1.3;
-  --text-ed-cap--letter-spacing: 0.08em;
+  --text-h1: clamp(52px, 7.9vw, 116px);
+  --text-h1--line-height: 0.96;
+  --text-h1--letter-spacing: -0.035em;
+  --text-h2: clamp(34px, 4.4vw, 64px);
+  --text-h2--line-height: 1.02;
+  --text-h2--letter-spacing: -0.03em;
+  --text-h3: 20px;
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.01em;
+  --text-title: 32px;
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.02em;
+  --text-lede: clamp(16.5px, 1.2vw, 17.5px);
+  --text-lede--line-height: 1.55;
+  --text-body: 16px;
+  --text-body--line-height: 1.55;
+  --text-small: 14.5px;
+  --text-small--line-height: 1.45;
+  --text-micro: 13px;
+  --text-micro--line-height: 1.4;
+  --text-cap: 12px;
+  --text-cap--line-height: 1.3;
+  --text-cap--letter-spacing: 0.08em;
 
   /* Spacing: the grid's gutter and page padding, the section rhythm, the header */
-  --spacing-ed-gutter: 24px;
-  --spacing-ed-pad: clamp(16px, 4.4vw, 64px);
-  --spacing-ed-section: clamp(72px, 9vw, 136px);
-  --spacing-ed-header: 64px;
-  --container-ed: 1312px;
+  --spacing-gutter: 24px;
+  --spacing-pad: clamp(16px, 4.4vw, 64px);
+  --spacing-section: clamp(72px, 9vw, 136px);
+  --spacing-header: 64px;
+  --container-page: 1312px;
 
   /* Radii */
-  --radius-ed-surface: 10px;
-  --radius-ed-field: 6px;
-  --radius-ed-kbd: 5px;
+  --radius-surface: 10px;
+  --radius-field: 6px;
+  --radius-kbd: 5px;
 
   /* A surface's edge: short and tight, never a wide soft glow */
-  --shadow-ed-surface: 0 1px 0 rgb(0 0 0 / 0.6), 0 8px 12px -8px rgb(0 0 0 / 0.7);
-  --shadow-ed-proof: inset 2px 0 0 #3edc8a;
+  --shadow-surface: 0 1px 0 rgb(0 0 0 / 0.6), 0 8px 12px -8px rgb(0 0 0 / 0.7);
+  --shadow-proof: inset 2px 0 0 #3edc8a;
 
   /* Motion */
-  --ease-ed-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-ed-settle: cubic-bezier(0.22, 0.8, 0.24, 1);
-  --ease-ed-story: cubic-bezier(0.2, 0.75, 0.1, 1);
-  --animate-ed-rise: ed-rise 0.75s var(--ease-ed-out) both;
-  --animate-ed-fade: ed-fade 0.6s var(--ease-ed-out) both;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-settle: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --ease-story: cubic-bezier(0.2, 0.75, 0.1, 1);
+  --animate-rise: rise 0.75s var(--ease-out) both;
+  --animate-fade: fade 0.6s var(--ease-out) both;
 
-  @keyframes ed-rise {
+  @keyframes rise {
     from {
       transform: translateY(105%);
     }
@@ -90,7 +89,7 @@
       transform: none;
     }
   }
-  @keyframes ed-fade {
+  @keyframes fade {
     from {
       opacity: 0;
       transform: translateY(8px);
@@ -105,93 +104,93 @@
 /* Faces. Inline: the next/font variables live on <body> and on the page root, not on :root, so a var declared on
    :root would resolve to nothing. Utilities get the stacks themselves. */
 @theme inline {
-  /* ink-3 depends on what it sits on (`.ed-root`, `.ed-surface`): resolved per element, never on :root. */
-  --color-ed-ink-3: var(--ed-ink-3);
-  --font-ed-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  --font-ed-text: var(--font-host-grotesk), ui-sans-serif, system-ui, sans-serif;
-  --font-ed-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* ink-3 depends on what it sits on (`.root`, `.surface`): resolved per element, never on :root. */
+  --color-ink-3: var(--ink-3);
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-text: var(--font-host-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 /* Durations, for CSS that names them; motion.ts holds the same numbers for scripts. */
 :root {
-  --ed-dur-quick: 200ms;
-  --ed-dur-base: 380ms;
-  --ed-dur-slow: 600ms;
+  --dur-quick: 200ms;
+  --dur-base: 380ms;
+  --dur-slow: 600ms;
 }
 
 /* A page in the design system. On the open page ink-3 is ink-2: text there may sit over a lit ground.
    Layered, so a utility on any element always wins over these defaults. */
 @layer base {
-  .ed-root {
-    --ed-ink-3: #a3a6ad;
+  .root {
+    --ink-3: #a3a6ad;
     color-scheme: dark;
-    background: var(--color-ed-bg);
-    color: var(--color-ed-ink);
+    background: var(--color-bg);
+    color: var(--color-ink);
     font-family: var(--font-host-grotesk), ui-sans-serif, system-ui, sans-serif;
-    font-size: var(--text-ed-body);
-    line-height: var(--text-ed-body--line-height);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
     overflow-x: clip;
   }
   /* The ring follows each element's own radius (pills stay pills). */
-  .ed-root :focus-visible {
-    outline: 2px solid var(--color-ed-ink);
+  .root :focus-visible {
+    outline: 2px solid var(--color-ink);
     outline-offset: 3px;
   }
-  .ed-root :is(p, dd, li) {
+  .root :is(p, dd, li) {
     text-wrap: pretty;
   }
   /* Selected text in ink, never the old system's red or the signal green. */
-  .ed-root ::selection {
-    background: var(--color-ed-ink);
-    color: var(--color-ed-bg);
+  .root ::selection {
+    background: var(--color-ink);
+    color: var(--color-bg);
   }
 }
 
 /* A solid surface: content never sits on the moving ground. Here ink-3 can be the quieter grey. */
 @layer components {
-  .ed-surface,
-  .ed-chrome {
-    --ed-ink-3: #8a8e96;
+  .surface,
+  .chrome {
+    --ink-3: #8a8e96;
   }
-  .ed-surface {
-    background: var(--color-ed-panel);
-    border: 1px solid var(--color-ed-line-2);
-    border-radius: var(--radius-ed-surface);
-    box-shadow: var(--shadow-ed-surface);
+  .surface {
+    background: var(--color-panel);
+    border: 1px solid var(--color-line-2);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-surface);
   }
   /* The grid's children span every column until a column utility places them (zero specificity). */
-  :where(.ed-grid) > * {
+  :where(.page-grid) > * {
     grid-column: 1 / -1;
     min-width: 0;
   }
 }
 
 /* Small caps label and the 12-column grid, used by every section */
-@utility ed-cap {
-  font-size: var(--text-ed-cap);
-  line-height: var(--text-ed-cap--line-height);
-  letter-spacing: var(--text-ed-cap--letter-spacing);
+@utility cap {
+  font-size: var(--text-cap);
+  line-height: var(--text-cap--line-height);
+  letter-spacing: var(--text-cap--letter-spacing);
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--ed-ink-3);
+  color: var(--ink-3);
 }
-@utility ed-grid {
+@utility page-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: var(--spacing-ed-gutter);
+  column-gap: var(--spacing-gutter);
 }
-@utility ed-wrap {
-  max-width: var(--container-ed);
+@utility wrap {
+  max-width: var(--container-page);
   margin-inline: auto;
-  padding-inline: var(--spacing-ed-pad);
+  padding-inline: var(--spacing-pad);
 }
-@utility ed-display {
+@utility display {
   font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
   font-weight: 300;
   font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
 }
-@utility ed-mono {
+@utility mono {
   font-family: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;

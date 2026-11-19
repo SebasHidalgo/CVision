@@ -129,7 +129,7 @@ export default async function InterviewScreen({
   // The page root of the new design: the plain dark canvas, no moving ground.
   return (
     <ClientMessages ns={["interview", "billing"]}>
-      <div className={cn("ed-root flex flex-1 flex-col", fontText.variable)}>
+      <div className={cn("root flex flex-1 flex-col", fontText.variable)}>
         <InterviewRoomLoader
           interviewId={interview.id}
           role={interview.role}

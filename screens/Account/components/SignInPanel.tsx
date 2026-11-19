@@ -16,13 +16,13 @@ export default function SignInPanel() {
 
   return (
     <div className="grid gap-5">
-      <p className="max-w-[62ch] text-ed-body text-ed-ink-2">{t("overview.signIn.body")}</p>
+      <p className="max-w-[62ch] text-body text-ink-2">{t("overview.signIn.body")}</p>
       <p className="grid gap-1" data-signed-in-as>
-        <span className="text-ed-small text-ed-ink-2">{t("overview.signIn.signedInAs")}</span>
+        <span className="text-small text-ink-2">{t("overview.signIn.signedInAs")}</span>
         {isLoaded ? (
-          <span className="text-ed-body font-medium text-ed-ink [overflow-wrap:anywhere]">{email ?? "—"}</span>
+          <span className="text-body font-medium text-ink [overflow-wrap:anywhere]">{email ?? "—"}</span>
         ) : (
-          <span aria-hidden className="block h-5 w-56 max-w-full animate-pulse rounded-[3px] bg-ed-raise motion-reduce:animate-none" />
+          <span aria-hidden className="block h-5 w-56 max-w-full animate-pulse rounded-[3px] bg-raise motion-reduce:animate-none" />
         )}
       </p>
       <div>

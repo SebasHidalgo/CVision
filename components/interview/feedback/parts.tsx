@@ -30,10 +30,10 @@ export function Heading({ level, ...rest }: { level: HeadingLevel } & React.Comp
 export type InkMarkShape = "full" | "half" | "empty" | "dashed";
 
 const SHAPE: Record<InkMarkShape, string> = {
-  full: "border-ed-ink bg-ed-ink",
-  half: "border-ed-ink bg-[linear-gradient(to_top,var(--color-ed-ink)_50%,transparent_50%)]",
-  empty: "border-ed-ink-2",
-  dashed: "border-dashed border-ed-ink-2",
+  full: "border-ink bg-ink",
+  half: "border-ink bg-[linear-gradient(to_top,var(--color-ink)_50%,transparent_50%)]",
+  empty: "border-ink-2",
+  dashed: "border-dashed border-ink-2",
 };
 
 export const OUTCOME_SHAPE: Record<GapOutcome, InkMarkShape> = {
@@ -53,8 +53,8 @@ export function SpokenQuote({ text, size = "body", className }: { text: string; 
     <blockquote
       translate="no"
       className={cn(
-        "rounded-r-[4px] bg-ed-raise py-2.5 pr-4 pl-4 break-words text-ed-ink shadow-[inset_2px_0_0_var(--color-ed-line-2)] [overflow-wrap:anywhere]",
-        size === "body" ? "text-ed-body leading-[1.6]" : "text-ed-small leading-[1.55]",
+        "rounded-r-[4px] bg-raise py-2.5 pr-4 pl-4 break-words text-ink shadow-[inset_2px_0_0_var(--color-line-2)] [overflow-wrap:anywhere]",
+        size === "body" ? "text-body leading-[1.6]" : "text-small leading-[1.55]",
         className,
       )}
     >
@@ -64,7 +64,7 @@ export function SpokenQuote({ text, size = "body", className }: { text: string; 
 }
 
 /** The section's eyebrow: a short rule, then the label. */
-export const EYEBROW = "ed-cap inline-flex items-center gap-2 before:h-px before:w-3.5 before:bg-current before:content-['']";
+export const EYEBROW = "cap inline-flex items-center gap-2 before:h-px before:w-3.5 before:bg-current before:content-['']";
 
 /**
  * One section of the report on the 12-column grid: its eyebrow and title in the left rail, the content beside it
@@ -93,7 +93,7 @@ export function ReportSection({
     <section
       aria-labelledby={title === undefined ? id : `${id}-eyebrow ${id}`}
       data-feedback-part={part}
-      className={cn("ed-grid gap-y-7 border-b border-ed-line", embedded ? "py-7" : "py-[clamp(40px,5.5vw,72px)]")}
+      className={cn("page-grid gap-y-7 border-b border-line", embedded ? "py-7" : "py-[clamp(40px,5.5vw,72px)]")}
     >
       <div className="lg:col-[1/span_4]">
         {title === undefined ? (
@@ -108,7 +108,7 @@ export function ReportSection({
             <Heading
               level={level}
               id={id}
-              className="mt-3 max-w-[24ch] font-ed-display text-[clamp(24px,2.3vw,32px)] leading-[1.12] font-normal tracking-[-0.02em] text-balance text-ed-ink"
+              className="mt-3 max-w-[24ch] font-display text-[clamp(24px,2.3vw,32px)] leading-[1.12] font-normal tracking-[-0.02em] text-balance text-ink"
             >
               {title}
             </Heading>

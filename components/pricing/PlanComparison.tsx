@@ -13,8 +13,8 @@ export type PlanStanding = {
 };
 
 const MARK: Record<PlanStanding["tone"], string> = {
-  current: "bg-ed-ink",
-  "at-risk": "bg-[linear-gradient(to_top,var(--color-ed-ink)_50%,transparent_50%)]",
+  current: "bg-ink",
+  "at-risk": "bg-[linear-gradient(to_top,var(--color-ink)_50%,transparent_50%)]",
   note: "",
 };
 
@@ -31,8 +31,8 @@ export type PlanComparisonProps = {
 };
 
 // The reader's plan carries a 2 px ink rule on top: a shape, not a colour (never the signal green).
-const CURRENT_RULE = "shadow-[inset_0_2px_0_var(--color-ed-ink)]";
-const CARD_CURRENT_RULE = "shadow-[inset_0_2px_0_var(--color-ed-ink),var(--shadow-ed-surface)]";
+const CURRENT_RULE = "shadow-[inset_0_2px_0_var(--color-ink)]";
+const CARD_CURRENT_RULE = "shadow-[inset_0_2px_0_var(--color-ink),var(--shadow-surface)]";
 const CELL = "py-4 pr-4 text-left align-top font-normal";
 
 /**
@@ -49,20 +49,20 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
           <caption className="sr-only">{view.caption}</caption>
           <colgroup>
             {/* Three of the twelve grid columns (and their gutters) for the labels: the plans get the room their actions need. */}
-            <col className="w-[calc((100%_-_11*var(--spacing-ed-gutter))/4_+_3*var(--spacing-ed-gutter))]" />
+            <col className="w-[calc((100%_-_11*var(--spacing-gutter))/4_+_3*var(--spacing-gutter))]" />
             <col />
             <col />
           </colgroup>
           <thead>
             <tr>
-              <td className={cn(CELL, "border-b border-ed-line-2 pt-5 pb-5")} />
+              <td className={cn(CELL, "border-b border-line-2 pt-5 pb-5")} />
               {PLAN_KEYS.map((key) => (
                 <th
                   key={key}
                   scope="col"
                   data-plan={key}
                   data-current={current === key || undefined}
-                  className={cn(CELL, "border-b border-ed-line-2 pt-5 pb-5", current === key && CURRENT_RULE)}
+                  className={cn(CELL, "border-b border-line-2 pt-5 pb-5", current === key && CURRENT_RULE)}
                 >
                   <PlanName>{view.plans[key].name}</PlanName>
                   <PlanPrice plan={view.plans[key]} />
@@ -73,11 +73,11 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
           <tbody>
             {hasStanding && (
               <tr>
-                <th scope="row" className={cn(CELL, "border-b border-ed-line")}>
+                <th scope="row" className={cn(CELL, "border-b border-line")}>
                   <span className="sr-only">{view.standingLabel}</span>
                 </th>
                 {PLAN_KEYS.map((key) => (
-                  <td key={key} className={cn(CELL, "border-b border-ed-line")}>
+                  <td key={key} className={cn(CELL, "border-b border-line")}>
                     {standing?.[key] && <Standing standing={standing[key]} />}
                   </td>
                 ))}
@@ -85,11 +85,11 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
             )}
             {view.rows.map((row) => (
               <tr key={row.id} data-pricing-part="row" data-row={row.id}>
-                <th scope="row" className={cn(CELL, "border-b border-ed-line text-ed-small text-ed-ink-3")}>
+                <th scope="row" className={cn(CELL, "border-b border-line text-small text-ink-3")}>
                   {row.label}
                 </th>
                 {PLAN_KEYS.map((key) => (
-                  <td key={key} className={cn(CELL, "border-b border-ed-line text-ed-ink-2")}>
+                  <td key={key} className={cn(CELL, "border-b border-line text-ink-2")}>
                     {row[key]}
                   </td>
                 ))}
@@ -131,9 +131,9 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
               {standing?.[key] && <Standing standing={standing[key]} />}
               <dl>
                 {view.rows.map((row) => (
-                  <div key={row.id} data-pricing-part="row" data-row={row.id} className="grid gap-0.5 border-b border-ed-line py-3 first:border-t">
-                    <dt className="text-ed-small text-ed-ink-3">{row.label}</dt>
-                    <dd className="text-ed-ink-2">{row[key]}</dd>
+                  <div key={row.id} data-pricing-part="row" data-row={row.id} className="grid gap-0.5 border-b border-line py-3 first:border-t">
+                    <dt className="text-small text-ink-3">{row.label}</dt>
+                    <dd className="text-ink-2">{row[key]}</dd>
                   </div>
                 ))}
               </dl>
@@ -151,7 +151,7 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
 /** A plan's name, set in the display face. */
 function PlanName({ children, as: Tag = "span", id }: { children: string; as?: "span" | "h2" | "h3"; id?: string }) {
   return (
-    <Tag id={id} className="block font-ed-display text-ed-title font-normal text-ed-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
+    <Tag id={id} className="block font-display text-title font-normal text-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
       {children}
     </Tag>
   );
@@ -160,8 +160,8 @@ function PlanName({ children, as: Tag = "span", id }: { children: string; as?: "
 /** "$15 a month": the amount in mono, the cadence beside it. */
 function PlanPrice({ plan }: { plan: PricingPlan }) {
   return (
-    <span className="mt-1.5 block text-ed-ink-2">
-      <span className="ed-mono text-[20px] text-ed-ink">{plan.price}</span>
+    <span className="mt-1.5 block text-ink-2">
+      <span className="mono text-[20px] text-ink">{plan.price}</span>
       {plan.cadence && <> {plan.cadence}</>}
     </span>
   );
@@ -170,11 +170,11 @@ function PlanPrice({ plan }: { plan: PricingPlan }) {
 function Standing({ standing }: { standing: PlanStanding }) {
   return (
     <div data-pricing-part="standing" data-tone={standing.tone}>
-      <p className="flex items-center gap-2 text-ed-cap font-semibold text-ed-ink uppercase">
-        <span aria-hidden className={cn("inline-block size-[9px] flex-none border-[1.5px] border-ed-ink", MARK[standing.tone])} />
+      <p className="flex items-center gap-2 text-cap font-semibold text-ink uppercase">
+        <span aria-hidden className={cn("inline-block size-[9px] flex-none border-[1.5px] border-ink", MARK[standing.tone])} />
         {standing.label}
       </p>
-      {standing.detail && <p className="mt-2 max-w-[46ch] text-ed-ink-2">{standing.detail}</p>}
+      {standing.detail && <p className="mt-2 max-w-[46ch] text-ink-2">{standing.detail}</p>}
     </div>
   );
 }

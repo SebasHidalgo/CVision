@@ -22,7 +22,7 @@ export default function UserMenu({ offerPricing }: { offerPricing: boolean }) {
   if (!isLoaded || !user) {
     return (
       <span aria-hidden className="grid size-11 place-items-center">
-        <span className="block size-9 rounded-full bg-ed-raise" />
+        <span className="block size-9 rounded-full bg-raise" />
       </span>
     );
   }
@@ -31,7 +31,7 @@ export default function UserMenu({ offerPricing }: { offerPricing: boolean }) {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         aria-label={t("nav.accountMenu")}
-        className="grid size-11 cursor-pointer place-items-center rounded-full transition-transform duration-200 ease-ed-out hover:scale-[1.04] data-[state=open]:scale-[1.04] motion-reduce:transition-none motion-reduce:hover:scale-100"
+        className="grid size-11 cursor-pointer place-items-center rounded-full transition-transform duration-200 ease-out hover:scale-[1.04] data-[state=open]:scale-[1.04] motion-reduce:transition-none motion-reduce:hover:scale-100"
       >
         <UserAvatar user={user} />
       </DropdownMenu.Trigger>

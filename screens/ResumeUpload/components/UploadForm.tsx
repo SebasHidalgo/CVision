@@ -187,7 +187,7 @@ export default function UploadForm({ quota }: UploadFormProps) {
       {exhausted && line && <QuotaExhausted quota={quota} line={line} />}
 
       <FormRow n="01" title={t("rows.role.title")} note={t("rows.role.body")} noteId={NOTE.role}>
-        <div className="grid gap-x-ed-gutter md:grid-cols-2">
+        <div className="grid gap-x-gutter md:grid-cols-2">
           <Field id="company-name" label={t("form.company")} error={companyError}>
             <input
               id="company-name"
@@ -229,7 +229,7 @@ export default function UploadForm({ quota }: UploadFormProps) {
           id="job-description"
           error={descriptionError}
           hint={
-            <p id={COUNTER_ID} className="ed-mono shrink-0 pt-0.5 text-[13px] text-ed-ink-3">
+            <p id={COUNTER_ID} className="mono shrink-0 pt-0.5 text-[13px] text-ink-3">
               <span className="sr-only">{t("form.characters")} </span>
               {`${number(descriptionLength)} / ${number(MAX_JOB_DESCRIPTION_CHARS)}`}
             </p>
@@ -272,7 +272,7 @@ export default function UploadForm({ quota }: UploadFormProps) {
         </Field>
       </FormRow>
 
-      <div className="ed-grid gap-y-6 border-t border-ed-line-2 pt-[clamp(24px,3.5vw,40px)]">
+      <div className="page-grid gap-y-6 border-t border-line-2 pt-[clamp(24px,3.5vw,40px)]">
         <div className="grid gap-6 lg:col-[5/span_8] lg:max-w-[75ch]">
           {failure && (
             <FailureNotice stage={failure.stage} message={errorCopy(failure.code, failure.meta)} />
@@ -291,7 +291,7 @@ export default function UploadForm({ quota }: UploadFormProps) {
               {t("form.submit")}
               <ArrowRight
                 aria-hidden
-                className="size-[18px] transition-transform duration-200 ease-ed-out group-hover:translate-x-0.5 group-disabled:translate-x-0 motion-reduce:transition-none"
+                className="size-[18px] transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-disabled:translate-x-0 motion-reduce:transition-none"
               />
             </button>
           </div>

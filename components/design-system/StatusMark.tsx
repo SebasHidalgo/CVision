@@ -4,10 +4,10 @@ export type MarkStatus = "met" | "partial" | "missing" | "notshown";
 
 // Shape carries the status without colour: filled, half, empty, dashed.
 const SHAPE: Record<MarkStatus, string> = {
-  met: "border-ed-signal bg-ed-signal",
-  partial: "border-ed-signal bg-[linear-gradient(to_top,var(--color-ed-signal)_50%,transparent_50%)]",
-  missing: "border-ed-ink-3",
-  notshown: "border-dashed border-ed-ink-2",
+  met: "border-signal bg-signal",
+  partial: "border-signal bg-[linear-gradient(to_top,var(--color-signal)_50%,transparent_50%)]",
+  missing: "border-ink-3",
+  notshown: "border-dashed border-ink-2",
 };
 
 /** The requirement status square. Decorative: the status is always written next to it. */

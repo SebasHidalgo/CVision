@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 export default async function AccountLoading() {
   const t = await getT("account");
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading title={t("meta.accountTitle")} />
         <AccountTabs current="account" t={t} />
         <p role="status" className="sr-only">

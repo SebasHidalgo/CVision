@@ -9,7 +9,7 @@ import GlobalErrorScreen from "@/screens/Error/GlobalErrorScreen";
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <html lang="en">
-      <body className={`ed-root ${fontText.variable} flex min-h-dvh flex-col`}>
+      <body className={`root ${fontText.variable} flex min-h-dvh flex-col`}>
         <GlobalErrorScreen error={error} retry={retry} />
       </body>
     </html>

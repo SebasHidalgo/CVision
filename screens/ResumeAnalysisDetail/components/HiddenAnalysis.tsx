@@ -13,10 +13,10 @@ export default async function HiddenAnalysis({ title }: { title: string }) {
   const t = await getT("billing");
   return (
     <section aria-labelledby="hidden-title" className="max-w-[60ch]">
-      <h1 id="hidden-title" className="ed-display text-[clamp(36px,4.4vw,60px)] leading-[1.04] tracking-[-0.03em] text-balance">
+      <h1 id="hidden-title" className="display text-[clamp(36px,4.4vw,60px)] leading-[1.04] tracking-[-0.03em] text-balance">
         {title}
       </h1>
-      <p className="mt-6 text-ed-lede text-ed-ink-2">{t("history.body", { limit: LIMIT })}</p>
+      <p className="mt-6 text-lede text-ink-2">{t("history.body", { limit: LIMIT })}</p>
       <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
         <ButtonLink href="/pricing">
           {t("history.seePro")}

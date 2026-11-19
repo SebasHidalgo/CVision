@@ -12,13 +12,13 @@ type FormRowProps = {
 /** One numbered row of the form on the 12-column grid: number, heading and note in the left rail, controls beside. */
 export default function FormRow({ n, title, note, noteId, children }: FormRowProps) {
   return (
-    <div className="ed-grid gap-y-5 border-t border-ed-line-2 py-[clamp(24px,3.5vw,40px)]">
-      <div className="grid content-start gap-2 lg:col-[1/span_4] lg:pr-ed-gutter">
-        <p aria-hidden className="ed-mono text-[13px] text-ed-ink-3">
+    <div className="page-grid gap-y-5 border-t border-line-2 py-[clamp(24px,3.5vw,40px)]">
+      <div className="grid content-start gap-2 lg:col-[1/span_4] lg:pr-gutter">
+        <p aria-hidden className="mono text-[13px] text-ink-3">
           {n}
         </p>
-        <h2 className="text-ed-h3 font-semibold text-ed-ink">{title}</h2>
-        <p id={noteId} className="max-w-[44ch] text-ed-ink-2">
+        <h2 className="text-h3 font-semibold text-ink">{title}</h2>
+        <p id={noteId} className="max-w-[44ch] text-ink-2">
           {note}
         </p>
       </div>

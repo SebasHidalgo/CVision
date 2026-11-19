@@ -37,8 +37,8 @@ export default async function ResumeAnalysesScreen() {
   }));
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading
           id={HEADING_ID}
           ruled
@@ -47,14 +47,14 @@ export default async function ResumeAnalysesScreen() {
             analyses.length > 0 && (
               <dl className="flex flex-wrap gap-x-8 gap-y-2">
                 <div className="flex items-baseline gap-2.5">
-                  <dt className="text-ed-small text-ed-ink-2">{t("page.count")}</dt>
-                  <dd className="ed-mono text-[17px] text-ed-ink">{analyses.length}</dd>
+                  <dt className="text-small text-ink-2">{t("page.count")}</dt>
+                  <dd className="mono text-[17px] text-ink">{analyses.length}</dd>
                 </div>
                 <div className="flex items-baseline gap-2.5">
-                  <dt className="text-ed-small text-ed-ink-2">{t("page.strongFits")}</dt>
-                  <dd className="ed-mono text-[17px] text-ed-ink">
+                  <dt className="text-small text-ink-2">{t("page.strongFits")}</dt>
+                  <dd className="mono text-[17px] text-ink">
                     {strongCount}
-                    <span className="text-ed-ink-2">/{analyses.length}</span>
+                    <span className="text-ink-2">/{analyses.length}</span>
                   </dd>
                 </div>
               </dl>
@@ -68,7 +68,7 @@ export default async function ResumeAnalysesScreen() {
               <EmptyRecord title={t("empty.title")} body={t("empty.body")} action={{ href: "/resume/upload", label: t("empty.action") }} />
             )
           ) : (
-            <Surface as="ol" aria-label={t("page.listLabel")} className="mt-10 divide-y divide-ed-line overflow-hidden">
+            <Surface as="ol" aria-label={t("page.listLabel")} className="mt-10 divide-y divide-line overflow-hidden">
               {analyses.map((analysis, i) => (
                 <AnalysisRow
                   key={analysis.id}

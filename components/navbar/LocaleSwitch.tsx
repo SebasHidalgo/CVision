@@ -31,10 +31,10 @@ export default function LocaleSwitch({ reload = false }: { reload?: boolean }) {
         aria-busy={pending !== null}
         onPointerEnter={prefetchOthers}
         onFocus={prefetchOthers}
-        className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink data-[state=open]:text-ed-ink"
+        className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-ink-2 transition-colors duration-200 hover:text-ink data-[state=open]:text-ink"
       >
         <Icon aria-hidden className={cn("size-4", pending && "animate-spin motion-reduce:animate-none")} />
-        <span className="ed-mono text-[12px] font-medium uppercase tracking-wider">{current}</span>
+        <span className="mono text-[12px] font-medium uppercase tracking-wider">{current}</span>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="end" sideOffset={10} className={cn(MENU_CONTENT, "w-48", fontText.variable)}>

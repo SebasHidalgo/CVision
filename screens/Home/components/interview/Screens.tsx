@@ -95,7 +95,7 @@ export function Screens({ talk, script, reduce, locale }: { talk: TalkState; scr
 
   return (
     <div className="grid gap-3.5">
-      <div role="tablist" aria-label={t("screens.label")} className="flex gap-1 rounded-[12px] border border-ed-line-2 bg-ed-panel p-1 lg:justify-self-start">
+      <div role="tablist" aria-label={t("screens.label")} className="flex gap-1 rounded-[12px] border border-line-2 bg-panel p-1 lg:justify-self-start">
         {VIEWS.map((v, i) => (
           <button
             key={v}
@@ -108,34 +108,34 @@ export function Screens({ talk, script, reduce, locale }: { talk: TalkState; scr
             tabIndex={view === v ? 0 : -1}
             onClick={() => pick(v)}
             onKeyDown={(e) => onKey(e, i)}
-            className="grid min-h-11 min-w-0 flex-1 cursor-pointer gap-0.5 rounded-[9px] border-0 bg-transparent px-[18px] py-2 text-left text-[15px] font-semibold text-ed-ink-2 transition-colors duration-150 hover:text-ed-ink focus-visible:rounded-[9px]! aria-selected:bg-ed-raise aria-selected:text-ed-ink aria-selected:shadow-[inset_0_0_0_1px_var(--color-ed-line-2)] motion-reduce:transition-none lg:flex-none"
+            className="grid min-h-11 min-w-0 flex-1 cursor-pointer gap-0.5 rounded-[9px] border-0 bg-transparent px-[18px] py-2 text-left text-[15px] font-semibold text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:rounded-[9px]! aria-selected:bg-raise aria-selected:text-ink aria-selected:shadow-[inset_0_0_0_1px_var(--color-line-2)] motion-reduce:transition-none lg:flex-none"
           >
             {v === "during" ? t("screens.during") : t("screens.after")}{" "}
-            <span className="text-[12.5px] font-normal text-ed-ink-2">{v === "during" ? t("screens.duringSub") : t("screens.afterSub")}</span>
+            <span className="text-[12.5px] font-normal text-ink-2">{v === "during" ? t("screens.duringSub") : t("screens.afterSub")}</span>
           </button>
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-[12px] border border-ed-line-2 bg-ed-bg shadow-[0_1px_0_rgb(0_0_0/0.6),0_10px_16px_-10px_rgb(0_0_0/0.8)]">
-        <div aria-hidden className="flex h-[34px] items-center gap-3.5 border-b border-ed-line bg-ed-panel px-3">
+      <div className="overflow-hidden rounded-[12px] border border-line-2 bg-bg shadow-[0_1px_0_rgb(0_0_0/0.6),0_10px_16px_-10px_rgb(0_0_0/0.8)]">
+        <div aria-hidden className="flex h-[34px] items-center gap-3.5 border-b border-line bg-panel px-3">
           <span className="inline-flex gap-1.5">
-            <i className="size-[9px] rounded-full bg-ed-line-2" />
-            <i className="size-[9px] rounded-full bg-ed-line-2" />
-            <i className="size-[9px] rounded-full bg-ed-line-2" />
+            <i className="size-[9px] rounded-full bg-line-2" />
+            <i className="size-[9px] rounded-full bg-line-2" />
+            <i className="size-[9px] rounded-full bg-line-2" />
           </span>
-          <span className="rounded-[6px] border border-ed-line bg-ed-bg px-2.5 py-[3px] font-ed-mono text-[12px] text-ed-ink-2">{PATH[view]}</span>
+          <span className="rounded-[6px] border border-line bg-bg px-2.5 py-[3px] font-mono text-[12px] text-ink-2">{PATH[view]}</span>
         </div>
-        <div aria-hidden className="flex h-12 items-center gap-[22px] border-b border-ed-line px-[clamp(14px,2.4vw,28px)] text-[13.5px] text-ed-ink-2">
-          <span className="inline-flex items-baseline gap-0.5 font-ed-display text-[19px] font-medium tracking-[-0.02em] text-ed-ink">
+        <div aria-hidden className="flex h-12 items-center gap-[22px] border-b border-line px-[clamp(14px,2.4vw,28px)] text-[13.5px] text-ink-2">
+          <span className="inline-flex items-baseline gap-0.5 font-display text-[19px] font-medium tracking-[-0.02em] text-ink">
             {BRAND.name}
-            <i className="inline-block size-[5px] bg-ed-ink" />
+            <i className="inline-block size-[5px] bg-ink" />
           </span>
           <span className="hidden gap-[18px] lg:inline-flex">
             <span>{tc("nav.analyses")}</span>
-            <span className="text-ed-ink shadow-[0_1px_0_var(--color-ed-ink)]">{tc("nav.interviews")}</span>
+            <span className="text-ink shadow-[0_1px_0_var(--color-ink)]">{tc("nav.interviews")}</span>
           </span>
-          <span className="ml-auto hidden rounded-full bg-ed-ink px-3 py-[5px] text-[13px] font-semibold text-ed-bg lg:inline">{tc("nav.newAnalysis")}</span>
-          <span className="ml-auto grid size-7 place-items-center rounded-full border border-ed-line-2 bg-ed-raise text-[11px] text-ed-ink lg:ml-0">{initials}</span>
+          <span className="ml-auto hidden rounded-full bg-ink px-3 py-[5px] text-[13px] font-semibold text-bg lg:inline">{tc("nav.newAnalysis")}</span>
+          <span className="ml-auto grid size-7 place-items-center rounded-full border border-line-2 bg-raise text-[11px] text-ink lg:ml-0">{initials}</span>
         </div>
         <div ref={roomPanel} id={`${id}-panel-during`} role="tabpanel" aria-labelledby={`${id}-tab-during`} hidden={view !== "during"} className={PANEL_H}>
           <Room talk={talk} script={script} role={example.role} company={example.company} candidate={example.candidate} locale={locale} />
@@ -148,14 +148,14 @@ export function Screens({ talk, script, reduce, locale }: { talk: TalkState; scr
           hidden={view !== "after"}
           tabIndex={0}
           className={cn(
-            "h-[560px] overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--color-ed-line-2)_transparent] focus-visible:outline-offset-[-2px]!",
+            "h-[560px] overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--color-line-2)_transparent] focus-visible:outline-offset-[-2px]!",
             PANEL_H,
           )}
         >
           <Report script={script} role={example.role} requirements={example.requirements} quoteOf={quoteOf} locale={locale} />
         </div>
       </div>
-      <p className="max-w-[70ch] text-[13.5px] text-ed-ink-2">{t("screens.note")}</p>
+      <p className="max-w-[70ch] text-[13.5px] text-ink-2">{t("screens.note")}</p>
     </div>
   );
 }

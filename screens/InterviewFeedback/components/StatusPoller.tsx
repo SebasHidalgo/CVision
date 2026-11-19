@@ -109,7 +109,7 @@ export default function StatusPoller({ interviewId, seen, attemptsHref, children
   return (
     <>
       <StatusLine kind="stopped" title={t("poller.stalled")} body={t("poller.reload")} />
-      <Link href={attemptsHref} className={cn(textLinkClass, "mt-6 gap-2 text-ed-ink underline decoration-ed-ink-3 underline-offset-4")}>
+      <Link href={attemptsHref} className={cn(textLinkClass, "mt-6 gap-2 text-ink underline decoration-ink-3 underline-offset-4")}>
         {t("poller.seeAttempts")}
         <ArrowRight aria-hidden className="size-4" />
       </Link>

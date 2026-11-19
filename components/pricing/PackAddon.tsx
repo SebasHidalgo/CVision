@@ -15,16 +15,16 @@ type PackAddonProps = {
 export function PackAddon({ pack, held, action, headingLevel = 3, id = "pricing-pack" }: PackAddonProps) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
-    <Surface as="section" aria-labelledby={id} data-pricing-part="pack" className="ed-grid mt-6 gap-y-2 px-6 py-5 max-sm:px-5">
-      <Heading id={id} className="text-ed-cap font-semibold text-ed-ink-3 uppercase lg:col-[1/span_3] lg:pt-1">
+    <Surface as="section" aria-labelledby={id} data-pricing-part="pack" className="page-grid mt-6 gap-y-2 px-6 py-5 max-sm:px-5">
+      <Heading id={id} className="text-cap font-semibold text-ink-3 uppercase lg:col-[1/span_3] lg:pt-1">
         {pack.label}
       </Heading>
       <div className="max-w-[68ch] lg:col-[4/span_9]">
-        <p className="text-ed-ink-2">
-          <strong className="font-semibold text-ed-ink">{pack.lead}</strong> {pack.body}
+        <p className="text-ink-2">
+          <strong className="font-semibold text-ink">{pack.lead}</strong> {pack.body}
         </p>
         {held && (
-          <p data-pricing-part="held" className="mt-2 text-ed-ink">
+          <p data-pricing-part="held" className="mt-2 text-ink">
             {held}
           </p>
         )}

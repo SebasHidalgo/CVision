@@ -37,8 +37,8 @@ export default async function InterviewsScreen() {
   }));
 
   return (
-    <div className={cn("ed-root flex-1", fontText.variable)}>
-      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+    <div className={cn("root flex-1", fontText.variable)}>
+      <div className="wrap pt-[clamp(40px,6vw,88px)] pb-section">
         <PageHeading
           id={HEADING_ID}
           ruled
@@ -47,12 +47,12 @@ export default async function InterviewsScreen() {
             interviews.length > 0 && (
               <dl className="flex flex-wrap gap-x-8 gap-y-2">
                 <div className="flex items-baseline gap-2.5">
-                  <dt className="text-ed-small text-ed-ink-2">{t("list.count")}</dt>
-                  <dd className="ed-mono text-[17px] text-ed-ink">{interviews.length}</dd>
+                  <dt className="text-small text-ink-2">{t("list.count")}</dt>
+                  <dd className="mono text-[17px] text-ink">{interviews.length}</dd>
                 </div>
                 <div className="flex items-baseline gap-2.5">
-                  <dt className="text-ed-small text-ed-ink-2">{t("list.completed")}</dt>
-                  <dd className="ed-mono text-[17px] text-ed-ink">{completed}</dd>
+                  <dt className="text-small text-ink-2">{t("list.completed")}</dt>
+                  <dd className="mono text-[17px] text-ink">{completed}</dd>
                 </div>
               </dl>
             )
@@ -63,7 +63,7 @@ export default async function InterviewsScreen() {
         {interviews.length === 0 ? (
           hiddenItems.length === 0 && <EmptyList title={t("list.emptyTitle")} body={t("list.emptyBody")} action={{ href: "/resume/analyses", label: t("list.emptyAction") }} />
         ) : (
-          <Surface as="ol" aria-label={t("list.listLabel")} className="mt-10 divide-y divide-ed-line overflow-hidden">
+          <Surface as="ol" aria-label={t("list.listLabel")} className="mt-10 divide-y divide-line overflow-hidden">
             {interviews.map((interview, i) => (
               <InterviewRow
                 key={interview.id}

@@ -22,9 +22,9 @@ export function Story() {
   const { active, go, stepRefs, railRef } = useActiveStep(STEP_IDS.length);
 
   return (
-    <section id={STORY_ANCHOR} aria-labelledby={`${STORY_ANCHOR}-title`} className="pt-ed-section">
+    <section id={STORY_ANCHOR} aria-labelledby={`${STORY_ANCHOR}-title`} className="pt-section">
       <StoryCaseContext value={storyCase}>
-        <div className="ed-wrap">
+        <div className="wrap">
           <SectionHeading
             n="01"
             id={`${STORY_ANCHOR}-title`}
@@ -37,7 +37,7 @@ export function Story() {
               </p>
             }
           />
-          <div className="ed-grid items-start">
+          <div className="page-grid items-start">
             <ol className="grid lg:col-[1/span_4] lg:pb-[22vh] lg:motion-reduce:col-[1/-1] lg:motion-reduce:pb-0">
               {STEP_IDS.map((id, i) => {
                 const current = active === i;
@@ -46,25 +46,25 @@ export function Story() {
                     key={id}
                     ref={stepRefs[i]}
                     data-i={i}
-                    className="grid scroll-mt-[120px] gap-[22px] border-t border-ed-line py-9 first:border-t-0 first:pt-2 lg:min-h-[72vh] lg:content-center lg:border-t-0 lg:py-10 lg:first:pt-10 lg:motion-reduce:min-h-0 lg:motion-reduce:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:motion-reduce:content-start lg:motion-reduce:gap-x-ed-gutter lg:motion-reduce:border-t"
+                    className="grid scroll-mt-[120px] gap-[22px] border-t border-line py-9 first:border-t-0 first:pt-2 lg:min-h-[72vh] lg:content-center lg:border-t-0 lg:py-10 lg:first:pt-10 lg:motion-reduce:min-h-0 lg:motion-reduce:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:motion-reduce:content-start lg:motion-reduce:gap-x-gutter lg:motion-reduce:border-t"
                   >
                     <div className="grid content-start gap-3">
-                      <p aria-hidden className="ed-mono text-[13px] tracking-[0.02em] text-ed-ink-3">
-                        <span className={cn("text-ed-ink transition-colors duration-300", !current && "lg:motion-safe:text-ed-ink-3")}>{pad2(i + 1)}</span>
+                      <p aria-hidden className="mono text-[13px] tracking-[0.02em] text-ink-3">
+                        <span className={cn("text-ink transition-colors duration-300", !current && "lg:motion-safe:text-ink-3")}>{pad2(i + 1)}</span>
                         {` / ${pad2(STEP_IDS.length)} · `}
                         {t(`steps.${id}.short`)}
                       </p>
                       <h3
                         tabIndex={-1}
                         className={cn(
-                          "text-[22px] font-semibold leading-[1.22] tracking-[-0.012em] text-ed-ink transition-colors duration-300",
-                          !current && "lg:motion-safe:text-ed-ink-3",
+                          "text-[22px] font-semibold leading-[1.22] tracking-[-0.012em] text-ink transition-colors duration-300",
+                          !current && "lg:motion-safe:text-ink-3",
                         )}
                       >
                         {t(`steps.${id}.title`)}
                       </h3>
-                      <p className="max-w-[54ch] text-ed-ink-2">{t(`steps.${id}.p1`)}</p>
-                      <p className="max-w-[54ch] text-ed-ink-2">{t(`steps.${id}.p2`)}</p>
+                      <p className="max-w-[54ch] text-ink-2">{t(`steps.${id}.p1`)}</p>
+                      <p className="max-w-[54ch] text-ink-2">{t(`steps.${id}.p2`)}</p>
                     </div>
                     <div className="lg:hidden lg:motion-reduce:block">
                       <Still step={id} />

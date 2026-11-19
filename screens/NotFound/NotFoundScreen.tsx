@@ -13,19 +13,19 @@ import { getT } from "@/lib/i18n/server";
 export default async function NotFoundScreen() {
   const [t, userId] = await Promise.all([getT("notFound"), getOptionalUserIdOutsideProxy()]);
   return (
-    <div className={`ed-root ${fontText.variable} flex min-h-dvh flex-1 flex-col`}>
+    <div className={`root ${fontText.variable} flex min-h-dvh flex-1 flex-col`}>
       <SiteHeader />
       <main className="flex flex-1 flex-col">
         <section
           aria-labelledby="not-found-title"
-          className="ed-wrap ed-grid w-full flex-1 content-center gap-y-5 py-[clamp(64px,10vw,128px)]"
+          className="wrap page-grid w-full flex-1 content-center gap-y-5 py-[clamp(64px,10vw,128px)]"
         >
-          <h1 id="not-found-title" className="ed-display text-ed-h2 text-balance lg:col-span-8">
+          <h1 id="not-found-title" className="display text-h2 text-balance lg:col-span-8">
             {t("title")}
           </h1>
-          <p className="max-w-[60ch] text-ed-lede text-ed-ink-2 lg:col-span-7">{t("body")}</p>
+          <p className="max-w-[60ch] text-lede text-ink-2 lg:col-span-7">{t("body")}</p>
           {/* The status written next to its mark, as on a requirement the CV doesn't show. */}
-          <p className="ed-mono flex items-center gap-2.5 text-ed-micro text-ed-ink-2">
+          <p className="mono flex items-center gap-2.5 text-micro text-ink-2">
             <StatusMark status="notshown" />
             404 · {t("status")}
           </p>
