@@ -19,13 +19,13 @@ export function VerdictCard({ tone, tally, className }: { tone: ScoreTone; tally
       : t("verdict.count", { met: c.met, total: c.total });
   const notShown = tally.required.notShown + tally.preferred.notShown;
   const rows = [
-    { key: "required", label: t("verdict.required"), value: count(tally.required) },
-    { key: "preferred", label: t("verdict.preferred"), value: count(tally.preferred) },
-    ...(notShown ? [{ key: "notShown", label: t("verdict.notShown", { count: notShown }), value: String(notShown) }] : []),
+    { key: "required", label: common("verdict.required"), value: count(tally.required) },
+    { key: "preferred", label: common("verdict.preferred"), value: count(tally.preferred) },
+    ...(notShown ? [{ key: "notShown", label: common("verdict.notShown", { count: notShown }), value: String(notShown) }] : []),
   ];
   return (
     <Surface as="aside" aria-label={t("verdict.label")} className={cn("grid content-start gap-3.5 self-start px-5 pt-5 pb-[18px] max-sm:px-4", className)}>
-      <p className="ed-cap">{t("verdict.cap")}</p>
+      <p className="ed-cap">{common("verdict.cap")}</p>
       <p className="font-ed-display text-[34px] leading-[1.05] font-normal tracking-[-0.02em] [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
         {common(toneKey("fit", tone))}
       </p>

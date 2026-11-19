@@ -44,6 +44,14 @@ async function openDrawer() {
 }
 
 describe("ResumeDrawer", () => {
+  it("is styled by the design system alone: no global drawer utility, no !important override", () => {
+    const { container } = mount();
+    const classes = (container.querySelector("dialog")?.className ?? "").split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(["bg-ed-panel", "text-ed-ink", "translate-x-full", "open:translate-x-0", "motion-reduce:transition-none"]));
+    expect(classes).not.toContain("drawer");
+    expect(classes.filter((name) => name.endsWith("!") || name.startsWith("!"))).toEqual([]);
+  });
+
   it("signs when it opens, not before, and shows the fresh URL in the frame", async () => {
     const { container } = mount();
     expect(getResumeViewUrlAction).not.toHaveBeenCalled();

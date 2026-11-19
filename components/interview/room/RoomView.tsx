@@ -180,7 +180,9 @@ export function RoomView({ variant, inCall, attempt, role, company, status, turn
             page && "sticky bottom-0 z-10 -mx-ed-pad bg-ed-bg px-ed-pad",
           )}
         >
-          <div data-room-part="notice" role={page ? "status" : undefined} className={cn("min-w-0 max-w-[68ch] text-ed-body sm:min-h-6", !(tight && notice?.tone === "hint") && "min-h-6")}>
+          {/* The page's status region while the footer has something to say. A blocked room's footer is empty, and its panel
+              (a purchase landing) announces itself: one region at a time. */}
+          <div data-room-part="notice" role={page && (notice || action) ? "status" : undefined} className={cn("min-w-0 max-w-[68ch] text-ed-body sm:min-h-6", !(tight && notice?.tone === "hint") && "min-h-6")}>
             {notice && <Notice notice={notice} hideOnPhone={tight && notice.tone === "hint"} />}
           </div>
           {action && (

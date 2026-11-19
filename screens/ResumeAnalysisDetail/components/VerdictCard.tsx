@@ -28,16 +28,16 @@ export function VerdictCard({ verdict, t, common, className }: VerdictCardProps)
   // deriveFitVerdict reads a breakdown with no required item as weak: that is an extraction gap, not the weak rule.
   const empty = tally.required.total + tally.required.notShown === 0;
   const rows = [
-    { key: "required", label: t("verdict.required"), value: count(tally.required) },
-    { key: "preferred", label: t("verdict.preferred"), value: count(tally.preferred) },
-    ...(notShown ? [{ key: "notShown", label: t("verdict.notShown", { count: notShown }), value: String(notShown) }] : []),
+    { key: "required", label: common("verdict.required"), value: count(tally.required) },
+    { key: "preferred", label: common("verdict.preferred"), value: count(tally.preferred) },
+    ...(notShown ? [{ key: "notShown", label: common("verdict.notShown", { count: notShown }), value: String(notShown) }] : []),
   ];
 
   return (
     <Surface as="aside" aria-labelledby="verdict-cap verdict-title" className={cn("grid content-start gap-4 px-5 pt-5 pb-5 max-sm:px-4", className)}>
       <div>
         <p id="verdict-cap" className="ed-cap">
-          {t("verdict.cap")}
+          {common("verdict.cap")}
         </p>
         <p
           id="verdict-title"

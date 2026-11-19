@@ -20,10 +20,17 @@ type Sheet =
   | { kind: "ready"; url: string }
   | { kind: "failed"; code: ErrorCode };
 
-// The global `drawer` utility gives the side sheet its place and motion; these give it the dark surface. Important:
-// the utility sets the same properties and its order against ours is not guaranteed.
-const SHEET =
-  "drawer bg-ed-panel! text-ed-ink! shadow-[-1px_0_0_var(--color-ed-line-2),-24px_0_48px_-24px_rgb(0_0_0/0.8)]! backdrop:bg-[rgb(0_0_0/0.62)]!";
+// A side sheet on a native <dialog>: pinned to the right edge at full height, it slides in on open and out on close
+// (allow-discrete keeps it in the top layer while it leaves), over a dimmed page. Reduced motion: it simply appears.
+const SHEET = [
+  "fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(46rem,100vw)] max-w-none border-0 p-0",
+  "bg-ed-panel text-ed-ink shadow-[-1px_0_0_var(--color-ed-line-2),-24px_0_48px_-24px_rgb(0_0_0/0.8)]",
+  "translate-x-full open:translate-x-0 starting:open:translate-x-full",
+  "transition-[translate,overlay,display] transition-discrete duration-500 ease-ed-out",
+  "backdrop:bg-[rgb(0_0_0/0.62)] backdrop:opacity-0 open:backdrop:opacity-100 starting:open:backdrop:opacity-0",
+  "backdrop:transition-[opacity,overlay,display] backdrop:transition-discrete backdrop:duration-500 backdrop:ease-ed-out",
+  "motion-reduce:transition-none motion-reduce:backdrop:transition-none",
+].join(" ");
 
 /**
  * The CV as a side sheet. Native <dialog> gives the focus trap, Escape and the
