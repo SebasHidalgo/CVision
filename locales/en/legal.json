@@ -3,7 +3,6 @@
     "banner": "DRAFT — not legal advice — to be reviewed before launch. These pages are placeholders written by the product team, not by a lawyer, and will be replaced before {{brand}} sells anything."
   },
   "updated": "Last updated {{date}}",
-  "loading": "Loading the page…",
   "nav": {
     "label": "Legal pages",
     "toc": "On this page"

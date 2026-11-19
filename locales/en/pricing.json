@@ -50,7 +50,6 @@
     }
   },
   "state": {
-    "loading": "Loading your plan…",
     "mark": {
       "yourPlan": "Your plan",
       "paused": "Paused",

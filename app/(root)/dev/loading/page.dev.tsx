@@ -3,7 +3,6 @@ import { devToolsAllowed } from "@/lib/devTools";
 import InterviewLoading from "@/screens/Interview/InterviewLoading";
 import InterviewFeedbackLoading from "@/screens/InterviewFeedback/InterviewFeedbackLoading";
 import InterviewsLoading from "@/screens/Interviews/InterviewsLoading";
-import LegalLoading from "@/screens/Legal/LegalLoading";
 import ResumeAnalysesLoading from "@/screens/ResumeAnalyses/ResumeAnalysesLoading";
 import ResumeAnalysisDetailLoading from "@/screens/ResumeAnalysisDetail/ResumeAnalysisDetailLoading";
 import ResumeUploadLoading from "@/screens/ResumeUpload/ResumeUploadLoading";
@@ -16,9 +15,6 @@ const LOADING = {
   interviews: () => <InterviewsLoading />,
   room: () => <InterviewLoading />,
   feedback: () => <InterviewFeedbackLoading />,
-  terms: () => <LegalLoading page="terms" />,
-  privacy: () => <LegalLoading page="privacy" />,
-  refunds: () => <LegalLoading page="refunds" />,
 } as const;
 
 const isLoadingPage = (page: string): page is keyof typeof LOADING => Object.keys(LOADING).includes(page);

@@ -81,28 +81,3 @@ test("on a phone the contents are a plain list before the text, and the links st
   expect(box.bottom).toBeLessThanOrEqual(box.viewport);
 });
 
-test("a legal page shows its frame while it loads", async ({ page }, testInfo) => {
-  const t = copyFor(localeOf(testInfo));
-  await page.setViewportSize({ width: 1280, height: 900 });
-  // The link is prefetched with its loading state once it is on screen (a production build): wait for that first.
-  const prefetched = page
-    .waitForResponse((response) => new URL(response.url()).pathname === "/privacy" && Boolean(response.request().headers()["next-router-prefetch"]), { timeout: 15_000 })
-    .catch(() => null);
-  await page.goto("/terms");
-  await prefetched;
-  // The navigation itself is held a few seconds, so what shows meanwhile is the loading state.
-  await page.route(
-    (url) => url.pathname === "/privacy",
-    async (route) => {
-      const headers = route.request().headers();
-      if (headers["rsc"] && !headers["next-router-prefetch"]) await new Promise((resolve) => setTimeout(resolve, 4_000));
-      await route.continue();
-    },
-  );
-  await page.getByRole("navigation", { name: t("legal:nav.label") }).getByRole("link", { name: t("legal:privacy.title") }).click();
-  await expect(page.getByRole("status").filter({ hasText: t("legal:loading") })).toBeAttached({ timeout: 3_000 });
-  await expect(page.locator("[data-bone]").first()).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: t("legal:privacy.title") })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("status").filter({ hasText: t("legal:loading") })).toHaveCount(0);
-  await page.unrouteAll({ behavior: "wait" });
-});

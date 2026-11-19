@@ -9,12 +9,9 @@ import { tFor } from "@/lib/i18n/testing";
 import RoomLoading from "./(root)/interview/[id]/(room)/loading";
 import FeedbackLoading from "./(root)/interview/[id]/feedback/loading";
 import InterviewsLoading from "./(root)/interviews/loading";
-import PrivacyLoading from "./(root)/privacy/loading";
-import RefundsLoading from "./(root)/refunds/loading";
 import AnalysesLoading from "./(root)/resume/analyses/loading";
 import AnalysisLoading from "./(root)/resume/analysis/[id]/loading";
 import UploadLoading from "./(root)/resume/upload/loading";
-import TermsLoading from "./(root)/terms/loading";
 
 const request = vi.hoisted(() => ({ locale: "en" as Locale }));
 vi.mock("@/lib/i18n/server", async () => {
@@ -36,13 +33,10 @@ const LOADINGS: Record<string, { Loading: () => ReactElement; status: (locale: L
   interviews: { Loading: InterviewsLoading, status: (l) => tFor("interview", l)("list.loading") },
   "interview/[id]/(room)": { Loading: RoomLoading, status: (l) => tFor("interview", l)("room.loading") },
   "interview/[id]/feedback": { Loading: FeedbackLoading, status: (l) => tFor("feedback", l)("header.loading") },
-  terms: { Loading: TermsLoading, status: (l) => tFor("legal", l)("loading") },
-  privacy: { Loading: PrivacyLoading, status: (l) => tFor("legal", l)("loading") },
-  refunds: { Loading: RefundsLoading, status: (l) => tFor("legal", l)("loading") },
 };
 
 /** Loading states written alongside these, still to be held to the same checks: move each into LOADINGS. */
-const NOT_YET_CHECKED = ["account", "account/billing", "pricing"];
+const NOT_YET_CHECKED = ["account", "account/billing"];
 
 function loadingFolders(dir: string, at: string[] = []): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -58,6 +52,10 @@ async function resolve(element: ReactElement): Promise<ReactElement> {
 }
 
 describe("the loading states", () => {
+  it("never wrap a public page: without JavaScript a streamed page shows only its loading frame", () => {
+    for (const page of ["pricing", "terms", "privacy", "refunds"]) expect(loadingFolders(__dirname)).not.toContain(page);
+  });
+
   it("cover every loading.tsx under app/", () => {
     expect(loadingFolders(__dirname).sort()).toEqual([...Object.keys(LOADINGS), ...NOT_YET_CHECKED].sort());
   });

@@ -55,7 +55,6 @@
     }
   },
   "state": {
-    "loading": "Cargando tu plan…",
     "mark": {
       "yourPlan": "Tu plan",
       "paused": "En pausa",

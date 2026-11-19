@@ -3,7 +3,6 @@
     "banner": "BORRADOR — no es asesoramiento legal — pendiente de revisión antes del lanzamiento. Estas páginas son provisionales, las escribió el equipo de producto y no un abogado, y se reemplazarán antes de que {{brand}} venda cualquier cosa."
   },
   "updated": "Última actualización: {{date}}",
-  "loading": "Cargando la página…",
   "nav": {
     "label": "Páginas legales",
     "toc": "En esta página"
