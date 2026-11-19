@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { fontText } from "@/components/design-system/fonts";
 import ClientMessages from "@/components/i18n/ClientMessages";
 import { getAuthUser } from "@/lib/auth";
 import { detectPostingLanguage, type InterviewLanguage } from "@/lib/ai/postingLanguage";
@@ -19,6 +20,7 @@ import { readCallEnd } from "@/lib/voice/callEnd";
 import { voiceEntryStatus } from "@/lib/voice/health";
 import { settlePreviousCall } from "@/lib/voice/reconcile";
 import { readSegments, resumeState } from "@/lib/voice/segments";
+import { cn } from "@/lib/utils";
 import InterviewRoomLoader from "./components/InterviewRoomLoader";
 
 type InterviewScreenProps = {
@@ -124,25 +126,28 @@ export default async function InterviewScreen({
     interview.language === "en" || interview.language === "es" ? interview.language : detectPostingLanguage(interview.resumeAnalysis.jobDescription);
 
   // The room and its on-demand chunk read the interview namespace (and billing, for its checkout) from the provider.
+  // The page root of the new design: the plain dark canvas, no moving ground.
   return (
     <ClientMessages ns={["interview", "billing"]}>
-      <InterviewRoomLoader
-        interviewId={interview.id}
-        role={interview.role}
-        company={interview.resumeAnalysis.companyName}
-        candidateName={user.firstName ?? user.fullName}
-        analysisId={interview.resumeAnalysisId}
-        attemptNumber={interview.attemptNumber}
-        startCount={interview.startCount}
-        maxStarts={MAX_INTERVIEW_STARTS}
-        maxDurationSeconds={maxDurationSeconds}
-        language={language}
-        resume={resume}
-        entry={entry}
-        counts={counts}
-        offer={offer}
-        devHooks={devToolsAllowed()}
-      />
+      <div className={cn("ed-root flex flex-1 flex-col", fontText.variable)}>
+        <InterviewRoomLoader
+          interviewId={interview.id}
+          role={interview.role}
+          company={interview.resumeAnalysis.companyName}
+          candidateName={user.firstName ?? user.fullName}
+          analysisId={interview.resumeAnalysisId}
+          attemptNumber={interview.attemptNumber}
+          startCount={interview.startCount}
+          maxStarts={MAX_INTERVIEW_STARTS}
+          maxDurationSeconds={maxDurationSeconds}
+          language={language}
+          resume={resume}
+          entry={entry}
+          counts={counts}
+          offer={offer}
+          devHooks={devToolsAllowed()}
+        />
+      </div>
     </ClientMessages>
   );
 }

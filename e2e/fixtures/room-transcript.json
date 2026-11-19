@@ -1,10 +1,14 @@
 {
-  "about": "Invented 24-line call for the layout check of the live room: no real call, no real person.",
+  "about": "Invented call for the room preview and its layout check: 24 lines, and three for the scripted turns. No real call, no real person.",
   "role": {
     "en": "Senior Data Engineer",
     "es": "Ingeniero de Datos Senior"
   },
   "company": "Northwind Labs",
+  "candidate": {
+    "en": "Martin",
+    "es": "Martina"
+  },
   "en": [
     {
       "role": "agent",
@@ -200,5 +204,35 @@
       "role": "user",
       "text": "Gracias a ti."
     }
-  ]
+  ],
+  "turns": {
+    "en": [
+      {
+        "role": "agent",
+        "text": "Let's talk about your pipelines. Which one would you rebuild first if you joined us, and why that one?"
+      },
+      {
+        "role": "user",
+        "text": "The nightly sales load. It works, but every new branch means a manual change, and I would make the branch list data instead of code."
+      },
+      {
+        "role": "agent",
+        "text": "How would you roll that change out without stopping the morning dashboards?"
+      }
+    ],
+    "es": [
+      {
+        "role": "agent",
+        "text": "Hablemos de tus procesos de datos. ¿Cuál reconstruirías primero si te sumaras al equipo, y por qué ese?"
+      },
+      {
+        "role": "user",
+        "text": "La carga nocturna de ventas. Funciona, pero cada sucursal nueva exige un cambio a mano, y yo haría que la lista de sucursales sea un dato y no código."
+      },
+      {
+        "role": "agent",
+        "text": "¿Cómo pondrías ese cambio en marcha sin frenar los tableros de la mañana?"
+      }
+    ]
+  }
 }

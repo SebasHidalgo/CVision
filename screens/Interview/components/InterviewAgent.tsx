@@ -3,16 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Loader2, Phone, PhoneOff, RotateCcw } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import Eyebrow from "@/components/layout/Eyebrow";
-import { Button } from "@/components/ui/button";
-import VoiceOrb, { type VoiceOrbState } from "@/components/voice/VoiceOrb";
+import { textLinkClass } from "@/components/design-system/Button";
+import { RoomButton } from "@/components/interview/room/RoomButton";
+import type { TranscriptLine } from "@/components/interview/room/RoomTranscript";
+import { PanelLine, PanelSub, RoomView, TURN_STATUS, type RoomClock, type RoomFacts, type RoomNotice, type RoomStatus } from "@/components/interview/room/RoomView";
+import { speechLevel } from "@/components/interview/room/levels";
+import type { Turn, TurnEvent } from "@/components/interview/room/turn";
+import type { MeterLevels } from "@/components/interview/room/VoiceMeter";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
-import { INTERVIEW_LANGUAGES, type InterviewLanguage } from "@/lib/ai/postingLanguage";
+import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import type { RoomEntry } from "@/lib/interviewEntry";
 import type { InterviewSessionResponse } from "@/lib/schemas/interviewSessionSchema";
 import { cn } from "@/lib/utils";
+import { useTurn } from "../hooks/useTurn";
 import {
   countdownNoticeKey,
   countdownPhase,
@@ -25,8 +30,35 @@ import { roomHangUpSeconds, stepClosing, TURN_TEXT_WAIT_MS, waitsForTurnText, ty
 import { dueTimeNote, type TimeNoteId } from "@/lib/voice/timeNotes";
 import { hasWords } from "@/lib/voice/transcript";
 import { useVoiceCall, VoiceCallProvider } from "./elevenlabs/VoiceCall";
-import RoomOffer, { type RoomOfferFacts } from "./RoomOffer";
-import Transcript, { type TranscriptLine } from "./Transcript";
+import RoomOffer, { type PurchasePreview, type RoomOfferFacts } from "./RoomOffer";
+
+/** Why the microphone could not be opened; each has its copy under room.microphone. */
+type MicProblem = "insecure" | "denied" | "missing" | "failed";
+
+/** Where a preview opens: the room's phases, named as the dev preview names them. */
+type PreviewPhase = "idle" | "microphone" | "session" | "connecting" | "queued" | "live" | "ending" | "dropped" | "early-end" | "silent-drop";
+
+/** Dev-only layout harness (/dev/room-preview): a room in any state, with invented lines; never calls the platform or the server. */
+export type RoomPreview = {
+  lines: TranscriptLine[];
+  /** Lines that arrive one by one, as in a call. */
+  later?: TranscriptLine[];
+  everyMs?: number;
+  /** Live unless said otherwise. */
+  phase?: PreviewPhase;
+  /** Who holds the turn in a live preview. */
+  turn?: Turn;
+  /** The call's turn events (and the line each brings), replayed from the moment the preview opens. */
+  turns?: { at: number; event: TurnEvent; line?: TranscriptLine }[];
+  /** Seconds of the call already used. */
+  elapsed?: number;
+  /** The interviewer is saying the goodbye the room allowed. */
+  goodbye?: boolean;
+  /** The microphone's refusal, as the room shows it. */
+  problem?: MicProblem;
+  /** A purchase made from the room, still landing. */
+  purchase?: PurchasePreview;
+};
 
 export type InterviewAgentProps = {
   interviewId: string;
@@ -56,8 +88,8 @@ export type InterviewAgentProps = {
   counts: { period: number; periodLimit: number; credits: number } | null;
   /** The plans and prices an offer names, from config. */
   offer: RoomOfferFacts;
-  /** Dev-only layout harness (/dev/room-preview): opens live with these lines, never calls the platform or the server. */
-  preview?: { lines: TranscriptLine[]; later?: TranscriptLine[]; everyMs?: number };
+  /** Dev-only layout harness (/dev/room-preview): opens in the given state, never calls the platform or the server. */
+  preview?: RoomPreview;
   /** Dev tools only: window.__cvisionRoom lets the voice e2e send a [time] line and a typed candidate line. */
   devHooks?: boolean;
 };
@@ -71,7 +103,8 @@ const isBlocked = (entry: RoomEntry): entry is BlockedEntry => entry.kind === "n
  * and the variables it issued, which go to the SDK untouched. What the
  * candidate says is transcribed by the platform and delivered to the server
  * by webhook; the transcript shown here is for the candidate's eyes and is
- * never sent anywhere.
+ * never sent anywhere. What it looks like is components/interview/room
+ * (the landing plays the same view from a script).
  */
 export default function InterviewAgent(props: InterviewAgentProps) {
   return (
@@ -91,8 +124,23 @@ type Phase =
   // early: the platform ended the call with paid time left; that time is still the candidate's.
   | { kind: "dropped"; silent?: boolean; early?: boolean };
 
-/** Why the microphone could not be opened; each has its copy under room.microphone. */
-type MicProblem = "insecure" | "denied" | "missing" | "failed";
+const PREVIEW_PHASES: Record<PreviewPhase, Phase> = {
+  idle: { kind: "idle" },
+  microphone: { kind: "starting", step: "microphone" },
+  session: { kind: "starting", step: "session" },
+  connecting: { kind: "starting", step: "connecting" },
+  queued: { kind: "starting", step: "queued" },
+  live: { kind: "live" },
+  ending: { kind: "ending" },
+  dropped: { kind: "dropped" },
+  "early-end": { kind: "dropped", early: true },
+  "silent-drop": { kind: "dropped", silent: true },
+};
+
+function initialPhase(preview: RoomPreview | undefined, resume: InterviewAgentProps["resume"]): Phase {
+  if (preview) return PREVIEW_PHASES[preview.phase ?? "live"];
+  return resume ? { kind: "dropped", early: resume.early === true } : { kind: "idle" };
+}
 
 /**
  * Asks for the microphone before anything is paid for: a denied permission
@@ -144,15 +192,17 @@ function InterviewRoom({
   const router = useRouter();
   const { t } = useTranslation("interview");
   const errorCopy = useErrorCopy();
-  const [phase, setPhase] = useState<Phase>(preview ? { kind: "live" } : resume ? { kind: "dropped", early: resume.early === true } : { kind: "idle" });
+  const [phase, setPhase] = useState<Phase>(() => initialPhase(preview, resume));
   const [language, setLanguage] = useState<InterviewLanguage>(proposedLanguage);
   // Seconds of the interview used by earlier calls; the clock after a drop starts from what is left.
   const [usedBefore, setUsedBefore] = useState(resume?.usedSeconds ?? 0);
   const [finishing, setFinishing] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() => (preview?.problem ? t(`room.microphone.${preview.problem}`) : null));
   const [startsUsed, setStartsUsed] = useState(startCount);
   const [session, setSession] = useState<InterviewSessionResponse | null>(null);
-  const [connectedAt, setConnectedAt] = useState<number | null>(() => (preview ? Date.now() : null));
+  const [connectedAt, setConnectedAt] = useState<number | null>(() =>
+    preview && (preview.phase ?? "live") === "live" ? Date.now() - (preview.elapsed ?? 0) * 1000 : null,
+  );
   const [now, setNow] = useState(() => Date.now());
   const [lines, setLines] = useState<TranscriptLine[]>(() => preview?.lines ?? []);
 
@@ -186,10 +236,16 @@ function InterviewRoom({
     if (!state) return;
     for (const answer of state.held.splice(0)) answer(state.result);
   }, []);
-  const [closingAt, setClosingAt] = useState<number | null>(null);
+  const [closingAt, setClosingAt] = useState<number | null>(() => (preview?.goodbye ? Date.now() : null));
   const modeRef = useRef<string>("listening");
   // End requests waiting for the interviewer's next line.
   const lineWaiters = useRef(new Set<() => void>());
+
+  // Who holds the turn, from the call's events; it reads the microphone through a ref filled once the call hook exists.
+  const micLevel = useRef<() => number>(() => 0);
+  const readMic = useCallback(() => micLevel.current(), []);
+  const callTurn = useTurn(readMic, Boolean(preview?.turns));
+  const pushTurn = callTurn.push;
 
   // The room's answer to end_interview once it has decided; an allowed end is held until the goodbye was heard.
   const answerEndRequest = (reason: unknown, { elapsed, callSeconds, decision }: { elapsed: number; callSeconds: number; decision: EndToolDecision }): string | Promise<string> => {
@@ -230,15 +286,16 @@ function InterviewRoom({
 
   const goToFeedback = useCallback(() => {
     setPhase({ kind: "ended" });
-    router.push(feedbackHref);
-  }, [router, feedbackHref]);
+    // A preview has no interview to open.
+    if (!preview) router.push(feedbackHref);
+  }, [router, feedbackHref, preview]);
 
   const failStart = useCallback((copy: string) => {
     setNotice(copy);
     setPhase({ kind: "idle" });
   }, []);
 
-  const { start: startCall, end: endCall, notify, say, candidateLevel, mode } = useVoiceCall({
+  const { start: startCall, end: endCall, notify, say, candidateLevel, interviewerLevel, mode } = useVoiceCall({
     onConnect: () => {
       notesSent.current = new Set();
       closing.current = null;
@@ -247,6 +304,9 @@ function InterviewRoom({
       setNow(Date.now());
       setNotice(null);
       setPhase({ kind: "live" });
+      // The interviewer opens the call: its turn, silent until the greeting plays.
+      pushTurn("connected");
+      if (modeRef.current === "speaking") pushTurn("voice-start");
     },
     onEnd: (end) => {
       // A tool call still held open has nobody left to answer.
@@ -320,6 +380,7 @@ function InterviewRoom({
       setConnectedAt(Date.now());
       setNow(Date.now());
       setPhase({ kind: "live" });
+      pushTurn("connected");
     },
     onEndRequest: (reason) => {
       const decide = () => {
@@ -357,10 +418,13 @@ function InterviewRoom({
       // A refusal waiting for this turn's text reads the ref before React renders.
       linesRef.current = [...linesRef.current, { role: speaker, text }];
       for (const wake of [...lineWaiters.current]) wake();
+      // The interviewer's line comes as it starts speaking; the candidate's once the platform ends their turn.
+      pushTurn(speaker === "agent" ? "interviewer-line" : "candidate-line");
     },
     // An interrupted agent line is reported as what was planned, then
     // corrected to what was actually said.
     onLineCorrected: ({ original, corrected }) => {
+      pushTurn("interrupted");
       setLines((prev) => {
         const index = prev.findLastIndex((line) => line.role === "agent" && line.text === original);
         if (index < 0) return prev;
@@ -371,9 +435,16 @@ function InterviewRoom({
         return next;
       });
     },
+    onInterrupted: () => pushTurn("interrupted"),
   });
 
+  useEffect(() => {
+    micLevel.current = candidateLevel;
+  }, [candidateLevel]);
+
   const handleStart = async () => {
+    // A preview has nothing to start.
+    if (preview) return;
     setNotice(null);
     setLines([]);
     setConnectedAt(null);
@@ -418,18 +489,21 @@ function InterviewRoom({
       // The callbacks read the phase by ref: a second hang-up in the same tick must see this one.
       phaseRef.current = { kind: "ending" };
       setPhase({ kind: "ending" });
+      // A preview has no call to end.
+      if (preview) return;
       endCall();
       endFallback.current = window.setTimeout(() => {
         if (phaseRef.current.kind === "ending") goToFeedback();
       }, END_FALLBACK_MS);
     },
-    [endCall, goToFeedback],
+    [endCall, goToFeedback, preview],
   );
 
   const handleEnd = () => hangUp("user");
 
   // After a drop: close the interview with what was said, and go to its feedback.
   const handleFinish = async () => {
+    if (preview) return;
     setFinishing(true);
     await reportInterviewEnded(interviewId, "finish", fetch, "finish");
     goToFeedback();
@@ -447,6 +521,19 @@ function InterviewRoom({
     }, preview.everyMs ?? 1_500);
     return () => window.clearInterval(timer);
   }, [preview]);
+
+  // The dev preview's scripted turns: the events of a call, with the lines they bring, at their times.
+  useEffect(() => {
+    const script = preview?.turns;
+    if (!script || script.length === 0) return;
+    const timers = script.map(({ at, event, line }) =>
+      window.setTimeout(() => {
+        if (line) setLines((prev) => [...prev, line]);
+        pushTurn(event);
+      }, at),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [preview, pushTurn]);
 
   // A tab closed mid-call: tell the server on the way out, so the interview is resumable at once.
   useEffect(() => {
@@ -505,12 +592,13 @@ function InterviewRoom({
   // The warnings follow the interface language, not the language the session speaks.
   const clockNoticeKey = live ? countdownNoticeKey(clockPhase) : null;
 
-  // The tool's callback reads who is speaking by ref.
+  // The tool's callback reads who is speaking by ref; the turn hears the interviewer's audio start and stop.
   useEffect(() => {
+    if (modeRef.current === mode) return;
     modeRef.current = mode;
-  }, [mode]);
+    if (phaseRef.current.kind === "live" && !preview) pushTurn(mode === "speaking" ? "voice-start" : "voice-stop");
+  }, [mode, preview, pushTurn]);
 
-  const speaking = live && mode === "speaking";
   const queued = phase.kind === "starting" && phase.step === "queued";
 
   useEffect(() => {
@@ -574,39 +662,37 @@ function InterviewRoom({
     };
   }, [devHooks, notify, say]);
 
-  const orbState: VoiceOrbState =
-    phase.kind === "ending" || phase.kind === "ended"
-      ? "ended"
-      : starting
-        ? "connecting"
-        : live
-          ? speaking
-            ? "speaking"
-            : "listening"
-          : "idle";
+  // Who holds the turn: the call's events, or what the preview sets.
+  const turn: Turn = preview?.turn ?? callTurn.turn;
+  const voiceOn = preview?.turn ? preview.turn === "interviewer" : callTurn.voice;
+  // The meters: the call's real levels; a preview's invented voices follow its turn.
+  const levels: MeterLevels | null = !live
+    ? null
+    : preview
+      ? { interviewer: () => (voiceOn ? speechLevel(performance.now(), 0.7) : 0), candidate: () => (turn === "candidate" ? speechLevel(performance.now(), 2.3) : 0) }
+      : { interviewer: interviewerLevel, candidate: candidateLevel };
 
-  const statusKey =
-    phase.kind === "starting"
-      ? queued
-        ? "room.status.queued"
-        : "room.status.connecting"
-      : phase.kind === "live"
-        ? speaking
-          ? "room.status.speaking"
-          : "room.status.yourTurn"
-        : phase.kind === "ending"
-          ? "room.status.ending"
-          : phase.kind === "ended"
-            ? "room.status.ended"
+  const status: RoomStatus = starting
+    ? queued
+      ? "queued"
+      : "connecting"
+    : live
+      ? TURN_STATUS[turn]
+      : phase.kind === "ending"
+        ? "ending"
+        : phase.kind === "ended"
+          ? "ended"
+          : earlyEnd
+            ? "endedEarly"
             : dropped
-              ? "room.status.dropped"
+              ? "dropped"
               : atCap
-                ? "room.status.noStarts"
+                ? "noStarts"
                 : entry.kind === "voice-down"
-                  ? "room.status.voiceDown"
+                  ? "voiceDown"
                   : blocked
-                    ? "room.status.noInterviews"
-                    : "room.status.ready";
+                    ? "noInterviews"
+                    : "ready";
 
   const startKey =
     phase.kind === "starting"
@@ -622,218 +708,113 @@ function InterviewRoom({
         : earlyEnd
           ? "room.startButton.continue"
           : dropped
-          ? "room.startButton.reconnect"
-        : "room.startButton.start";
+            ? "room.startButton.reconnect"
+            : "room.startButton.start";
 
   // Start (or Reconnect, Continue) is on offer; without it the footer has no hint to give.
   const startOffered = !(atCap || blocked || (dropped && !canResume));
-  const hintKey = live ? "room.hint.live" : phase.kind === "ended" ? "room.hint.ended" : "room.hint.idle";
+  const inCall = starting || live || phase.kind === "ending" || phase.kind === "ended";
+  // Ending and ended both lead to the feedback; the hint about the questions is for before a call.
+  const hintKey = live ? "room.hint.live" : phase.kind === "ended" || phase.kind === "ending" ? "room.hint.ended" : "room.hint.idle";
+
+  const clock: RoomClock | null =
+    blocked && phase.kind === "idle" ? null : { label: live ? "timeLeft" : "length", text: timeUp ? t("room.clock.closing") : formatClock(remaining), closing: timeUp };
+
+  const facts: RoomFacts | null =
+    phase.kind === "idle" && !atCap && !blocked ? { minutes: Math.round(maxSeconds / 60), source: sourceLine, language, onLanguage: setLanguage } : null;
+
+  const roomNotice: RoomNotice | null = notice
+    ? { text: notice, tone: "problem" }
+    : timeUp || sayingGoodbye
+      ? { text: t(timeUp ? "room.countdown.closing" : "room.countdown.goodbye"), tone: "strong" }
+      : clockNoticeKey
+        ? { text: t(clockNoticeKey), tone: "strong" }
+        : queued
+          ? { text: t("room.queue.short"), tone: "strong" }
+          : canResume
+            ? { text: t(earlyEnd ? "room.continueStarts" : "room.reconnect", { count: startsLeft }), tone: "strong" }
+            : startOffered || live || phase.kind === "ended"
+              ? { text: t(hintKey), tone: "hint" }
+              : null;
+
+  const showOffer = blocked && !atCap && (phase.kind === "idle" || (dropped && entry.kind === "voice-down"));
+  const panelParts = [
+    lengthChanged && (
+      <PanelLine key="length" role="note" className="text-ed-ink-2">
+        {t("room.lengthChanged", { count: Math.round(maxSeconds / 60), promised: Math.round(maxDurationSeconds / 60) })}
+      </PanelLine>
+    ),
+    phase.kind === "idle" && atCap && (
+      <div key="cap">
+        <PanelLine className="text-ed-ink-2">{errorCopy("INTERVIEW_START_LIMIT")}</PanelLine>
+        <Link href={`/resume/analysis/${analysisId}`} className={cn(textLinkClass, "mt-2 gap-2 text-ed-ink underline decoration-ed-ink-3 underline-offset-4")}>
+          {t("room.backToAnalysis")}
+          <ArrowRight aria-hidden className="size-4" />
+        </Link>
+      </div>
+    ),
+    showOffer && <RoomOffer key="offer" entry={entry} facts={offer} preview={preview?.purchase} />,
+    queued && (
+      <PanelLine key="queue" role="note" className="text-ed-ink-2">
+        {t("room.queue.waiting")}
+      </PanelLine>
+    ),
+    silentDrop && (
+      <PanelLine key="silent" role="note">
+        {t("room.dropped.silent", { count: Math.round(leftAfterDrop / 60) })}
+      </PanelLine>
+    ),
+    dropped && !silentDrop && (
+      <div key="dropped">
+        <PanelLine>
+          {earlyEnd
+            ? t("room.dropped.early", { left: formatClock(leftAfterDrop) })
+            : t("room.dropped.at", { at: formatClock(usedBefore), left: formatClock(leftAfterDrop) })}
+        </PanelLine>
+        <PanelSub>
+          {canResume
+            ? t(earlyEnd ? "room.dropped.earlyResume" : "room.dropped.resume")
+            : startsLeft === 0
+              ? t("room.dropped.noStarts")
+              : t("room.dropped.noTime")}
+        </PanelSub>
+        <RoomButton tone="quiet" icon="next" busy={finishing} onClick={handleFinish} disabled={finishing || starting} className="mt-5">
+          {t("room.dropped.finish")}
+        </RoomButton>
+      </div>
+    ),
+  ].filter(Boolean);
+
+  const action = live ? (
+    <RoomButton tone="danger" icon="end" onClick={handleEnd}>
+      {t("room.end")}
+    </RoomButton>
+  ) : phase.kind === "ending" || phase.kind === "ended" ? (
+    <RoomButton busy disabled>
+      {phase.kind === "ending" ? t("room.ending") : t("room.openingFeedback")}
+    </RoomButton>
+  ) : !startOffered ? null : (
+    <RoomButton icon={dropped ? "again" : "call"} busy={starting} onClick={handleStart} disabled={starting || finishing}>
+      {t(startKey)}
+    </RoomButton>
+  );
 
   return (
-    // Desktop: the viewport under the header (h-16 + border), so the transcript ends above the controls.
-    <div className="flex flex-1 flex-col lg:h-[calc(100dvh-4rem-1px)] lg:flex-none">
-      <div className="wrap flex min-h-0 flex-1 flex-col py-8 lg:py-6">
-        <header className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
-          <div>
-            <Eyebrow tick>{t("room.eyebrow", { attempt: attemptNumber })}</Eyebrow>
-            <h1 className="display-md mt-3">{role}</h1>
-            <p className="mt-2 text-ink-2">{company}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden
-              className={cn(
-                "size-2 rounded-full",
-                live
-                  ? "glow-signal bg-signal animate-blink"
-                  : phase.kind === "ended" || dropped
-                    ? "bg-ink-3"
-                    : "bg-line-strong",
-              )}
-            />
-            <span className="eyebrow text-ink">{t(statusKey)}</span>
-            {!(blocked && phase.kind === "idle") && <span
-              className={cn(
-                "eyebrow tabular border-l border-line pl-4",
-                clockPhase === "final" && "text-signal",
-                clockPhase === "warning" && "text-ink",
-              )}
-              aria-label={live ? t("room.clock.timeLeft") : t("room.clock.length")}
-            >
-              {timeUp ? t("room.clock.closing") : formatClock(remaining)}
-            </span>}
-          </div>
-        </header>
-
-        <div className="grid flex-1 gap-12 py-10 lg:min-h-0 lg:grid-cols-12 lg:gap-16 lg:py-8">
-          <section aria-label={t("room.interviewer")} className="flex flex-col items-center lg:col-span-5 lg:min-h-0 lg:overflow-y-auto lg:px-2">
-            <VoiceOrb state={orbState} className="w-56 sm:w-64 lg:w-72 lg:[@media(max-height:820px)]:w-48" />
-
-            <div className="mt-10 text-center">
-              <p className="font-medium">{candidateName ?? t("room.you")}</p>
-              <p className="eyebrow mt-1">{t("room.candidate")}</p>
-            </div>
-
-            {phase.kind === "idle" && !atCap && !blocked && (
-              <dl className="mt-12 w-full max-w-sm text-sm">
-                <div>
-                  <dt className="eyebrow">{t("room.length")}</dt>
-                  <dd className="mt-1 text-ink">{t("room.upTo", { count: Math.round(maxSeconds / 60) })}</dd>
-                  {sourceLine && <dd className="mt-1 text-ink-2">{sourceLine}</dd>}
-                </div>
-                <div className="mt-6">
-                  <dt className="eyebrow">
-                    <label htmlFor="interview-language">{t("room.language.label")}</label>
-                  </dt>
-                  <dd className="mt-1">
-                    <select
-                      id="interview-language"
-                      value={language}
-                      onChange={(event) => setLanguage(event.target.value as InterviewLanguage)}
-                      className="h-10 w-full border-b border-line-strong bg-transparent text-ink focus-visible:border-ink focus-visible:outline-none"
-                    >
-                      {INTERVIEW_LANGUAGES.map((code) => (
-                        <option key={code} value={code}>
-                          {t(`room.language.${code}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </dd>
-                  <dd className="mt-2 text-ink-2">{t("room.language.note")}</dd>
-                </div>
-              </dl>
-            )}
-
-            {lengthChanged && (
-              <p role="note" className="mt-6 w-full max-w-sm text-sm leading-relaxed text-ink-2">
-                {t("room.lengthChanged", {
-                  count: Math.round(maxSeconds / 60),
-                  promised: Math.round(maxDurationSeconds / 60),
-                })}
-              </p>
-            )}
-
-            {phase.kind === "idle" && atCap && (
-              <div className="mt-12 w-full max-w-sm">
-                <p className="text-sm leading-relaxed text-ink-2">
-                  {errorCopy("INTERVIEW_START_LIMIT")}
-                </p>
-                <Link
-                  href={`/resume/analysis/${analysisId}`}
-                  className="link-rule mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink"
-                >
-                  {t("room.backToAnalysis")}
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-            )}
-
-            {blocked && !atCap && (phase.kind === "idle" || (dropped && entry.kind === "voice-down")) && <RoomOffer entry={entry} facts={offer} />}
-
-            {queued && (
-              <p role="note" className="mt-12 w-full max-w-sm text-sm leading-relaxed text-ink-2">
-                {t("room.queue.waiting")}
-              </p>
-            )}
-
-            {silentDrop && (
-              <p role="note" className="mt-12 w-full max-w-sm text-sm leading-relaxed text-ink">
-                {t("room.dropped.silent", { count: Math.round(leftAfterDrop / 60) })}
-              </p>
-            )}
-
-            {dropped && !silentDrop && (
-              <div className="mt-12 w-full max-w-sm">
-                <p className="text-sm leading-relaxed text-ink">
-                  {earlyEnd
-                    ? t("room.dropped.early", { left: formatClock(leftAfterDrop) })
-                    : t("room.dropped.at", { at: formatClock(usedBefore), left: formatClock(leftAfterDrop) })}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                  {canResume
-                    ? t(earlyEnd ? "room.dropped.earlyResume" : "room.dropped.resume")
-                    : startsLeft === 0
-                      ? t("room.dropped.noStarts")
-                      : t("room.dropped.noTime")}
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleFinish}
-                  disabled={finishing || starting}
-                  className="mt-5 h-11 gap-2 px-5"
-                >
-                  {finishing ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
-                  {t("room.dropped.finish")}
-                </Button>
-              </div>
-            )}
-          </section>
-
-          <Transcript
-            lines={lines}
-            live={live}
-            className="h-[clamp(14rem,calc(100dvh-16rem),26rem)] lg:col-span-7 lg:h-full lg:min-h-0"
-          />
-        </div>
-
-        <footer className="sticky bottom-0 -mx-[clamp(1.25rem,4vw,3rem)] mt-auto border-t border-line bg-paper/90 px-[clamp(1.25rem,4vw,3rem)] py-4 backdrop-blur-[6px]">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div role="status" aria-live="polite" className="min-h-5 text-sm">
-              {notice ? (
-                <p className="flex items-center gap-2 text-signal">
-                  <span aria-hidden className="size-1.5 shrink-0 bg-signal" />
-                  {notice}
-                </p>
-              ) : timeUp || sayingGoodbye ? (
-                <p className="font-medium text-signal">{t(timeUp ? "room.countdown.closing" : "room.countdown.goodbye")}</p>
-              ) : clockNoticeKey ? (
-                <p className={cn("font-medium", clockPhase === "final" ? "text-signal" : "text-ink")}>
-                  {t(clockNoticeKey)}
-                </p>
-              ) : queued ? (
-                <p className="font-medium text-ink">{t("room.queue.short")}</p>
-              ) : canResume ? (
-                <p className="font-medium text-ink">{t(earlyEnd ? "room.continueStarts" : "room.reconnect", { count: startsLeft })}</p>
-              ) : startOffered || live || phase.kind === "ended" ? (
-                <p className="text-ink-2">{t(hintKey)}</p>
-              ) : null}
-            </div>
-
-            {live ? (
-              <Button
-                variant="destructive"
-                size="lg"
-                onClick={handleEnd}
-                className="h-12 gap-2 px-6 text-base"
-              >
-                <PhoneOff className="size-5" />
-                {t("room.end")}
-              </Button>
-            ) : phase.kind === "ending" || phase.kind === "ended" ? (
-              <Button size="lg" disabled className="h-12 gap-2 px-6 text-base">
-                <Loader2 className="size-5 animate-spin" />
-                {phase.kind === "ending" ? t("room.ending") : t("room.openingFeedback")}
-              </Button>
-            ) : !startOffered ? null : (
-              <Button
-                size="lg"
-                onClick={handleStart}
-                disabled={starting || finishing}
-                className="h-12 gap-2 px-6 text-base"
-              >
-                {starting ? (
-                  <Loader2 className="size-5 animate-spin" />
-                ) : dropped ? (
-                  <RotateCcw className="size-5" />
-                ) : (
-                  <Phone className="size-5" />
-                )}
-                {t(startKey)}
-              </Button>
-            )}
-          </div>
-        </footer>
-      </div>
-    </div>
+    <RoomView
+      variant="page"
+      inCall={inCall}
+      attempt={attemptNumber}
+      role={role}
+      company={company}
+      status={status}
+      turn={live ? turn : null}
+      meter={inCall || startOffered ? { candidate: candidateName ?? t("room.you"), levels } : null}
+      clock={clock}
+      facts={facts}
+      panel={panelParts.length > 0 ? <div className="grid gap-5">{panelParts}</div> : null}
+      lines={lines}
+      notice={roomNotice}
+      action={action}
+    />
   );
 }

@@ -2,11 +2,14 @@
 import { WORKLET_PATHS } from "@/lib/voice/elevenlabs/worklets";
 import { createI18n } from "@/lib/i18n/instance";
 import { RESOURCES } from "@/lib/i18n/resources";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DisconnectionDetails } from "@elevenlabs/react";
 import { I18nextProvider } from "react-i18next";
+import { ROOM_PARTS } from "@/components/interview/room/RoomView";
+import { TURN_HOLD_MS } from "@/components/interview/room/turn";
 import InterviewAgent, { type InterviewAgentProps } from "./InterviewAgent";
+import { PREVIEW_STATES, previewProps } from "../utils/previewStates";
 
 /**
  * The SDK is stubbed at its module boundary: a provider that renders its
@@ -211,7 +214,7 @@ const GOODBYE = "Thanks for practicing, Ana. Your feedback will appear on your s
 const clock = () => screen.getByLabelText("Time left").textContent;
 
 beforeAll(() => {
-  // jsdom has neither; framer-motion reads the first, the transcript log calls the second.
+  // jsdom has neither: the reduced-motion hook reads the first, the transcript log calls the second.
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -430,14 +433,23 @@ describe("InterviewAgent: starting", () => {
 });
 
 describe("InterviewAgent: during the call", () => {
-  it("drives the state indicator from the SDK's mode and shows the transcript with corrections", async () => {
+  it("says whose turn it is from the call's events, not from the SDK's mode alone, and shows the transcript with corrections", async () => {
+    vi.useFakeTimers();
     render(<InterviewAgent {...props} />);
     await connect();
 
-    expect(screen.getByText("Your turn")).toBeTruthy();
+    // The interviewer opens the call: its turn before the greeting plays, never "Your turn".
+    expect(screen.getByText("Interviewer's turn")).toBeTruthy();
     act(() => sdk.setMode("speaking"));
     expect(screen.getByText("Interviewer speaking")).toBeTruthy();
+    // A pause between two sentences: the mode drops, the turn stays.
     act(() => sdk.setMode("listening"));
+    tick(TURN_HOLD_MS - 300);
+    expect(screen.getByText("Interviewer speaking")).toBeTruthy();
+    act(() => sdk.setMode("speaking"));
+    act(() => sdk.setMode("listening"));
+    // Quiet for the hold: the candidate's turn.
+    tick(TURN_HOLD_MS + 50);
     expect(screen.getByText("Your turn")).toBeTruthy();
 
     await act(async () => {
@@ -446,8 +458,10 @@ describe("InterviewAgent: during the call", () => {
     });
     expect(screen.getByText("Tell me about Kubernetes, and also about Docker.")).toBeTruthy();
     expect(screen.getByText("We run everything on EKS.")).toBeTruthy();
-    expect(screen.getByText("Interviewer")).toBeTruthy();
-    expect(screen.getByText("You")).toBeTruthy();
+    expect(within(screen.getByRole("log")).getByText("Interviewer")).toBeTruthy();
+    expect(within(screen.getByRole("log")).getByText("You")).toBeTruthy();
+    // The candidate's line ended their turn: the interviewer composes its reply.
+    expect(screen.getByText("Interviewer's turn")).toBeTruthy();
 
     await act(async () => {
       callbacks().onAgentResponseCorrection?.({
@@ -1482,5 +1496,74 @@ describe("InterviewAgent: a call that drops before the candidate said anything",
       callbacks().onDisconnect?.({ reason: "error", message: "x", context: { type: "close" } });
     });
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
+  });
+});
+
+describe("InterviewAgent: the turn and the room's parts", () => {
+  /** The room's parts in document order, as the shared view tags them. */
+  const roomParts = (root: ParentNode) => [...root.querySelectorAll("[data-room-part]")].map((el) => el.getAttribute("data-room-part"));
+
+  it("renders the shared room view: the landing's replica has the same parts in the same order", async () => {
+    const { container } = render(<InterviewAgent {...props} />);
+    expect(container.querySelector('[data-room-part="frame"]')!.getAttribute("data-variant")).toBe("page");
+    expect(roomParts(container)).toEqual(ROOM_PARTS.filter((part) => part !== "panel"));
+    await connect();
+    expect(roomParts(container)).toEqual(ROOM_PARTS.filter((part) => part !== "panel" && part !== "facts"));
+  });
+
+  it("hands the turn over at once when the candidate cuts the interviewer off", async () => {
+    vi.useFakeTimers();
+    const { container } = render(<InterviewAgent {...props} />);
+    await connect();
+    act(() => sdk.setMode("speaking"));
+    expect(container.querySelector('[data-room-part="status"]')!.getAttribute("data-turn")).toBe("interviewer");
+    act(() => (callbacks() as Callbacks & { onInterruption?: () => void }).onInterruption?.());
+    expect(screen.getByText("Your turn")).toBeTruthy();
+    expect(container.querySelector('[data-meter="candidate"]')!.getAttribute("data-floor")).toBe("has");
+  });
+
+  it("gives the turn to a candidate heard inside the interviewer's pause, before the hold runs out", async () => {
+    vi.useFakeTimers();
+    render(<InterviewAgent {...props} />);
+    await connect();
+    act(() => sdk.setMode("speaking"));
+    act(() => sdk.setMode("listening"));
+    sdk.inputLevel = 0.3;
+    tick(300);
+    expect(screen.getByText("Your turn")).toBeTruthy();
+  });
+
+  it("marks the interviewer's meter as holding the turn while it composes, and as speaking while its voice plays", async () => {
+    vi.useFakeTimers();
+    const { container } = render(<InterviewAgent {...props} />);
+    await connect();
+    const floor = () => container.querySelector('[data-meter="interviewer"]')!.getAttribute("data-floor");
+    expect(floor()).toBe("held");
+    act(() => sdk.setMode("speaking"));
+    expect(floor()).toBe("has");
+  });
+});
+
+describe("InterviewAgent: the dev preview", () => {
+  const LINES = [
+    { role: "agent" as const, text: "Which pipeline would you rebuild first?" },
+    { role: "user" as const, text: "The nightly load." },
+    { role: "agent" as const, text: "How would you roll it out?" },
+  ];
+
+  it.each(PREVIEW_STATES)("%s renders the room without a request or a call", (state) => {
+    vi.stubGlobal("fetch", vi.fn());
+    const { container } = render(<InterviewAgent {...props} {...previewProps(state, { calls: LINES, turns: LINES }, { fullSeconds: 720, trialSeconds: 300 })} />);
+    expect(container.querySelector('[data-room-part="status"]')?.textContent).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(sdk.startSession).not.toHaveBeenCalled();
+  });
+
+  it("a preview's Start does nothing: no microphone, no session", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<InterviewAgent {...props} {...previewProps("ready", { calls: LINES, turns: LINES }, { fullSeconds: 720, trialSeconds: 300 })} />);
+    await clickStart();
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
