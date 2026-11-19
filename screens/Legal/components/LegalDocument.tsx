@@ -64,7 +64,7 @@ export default function LegalDocument({ t, locale, page, sections }: LegalDocume
 
   return (
     <div className={cn("root flex-1", fontText.variable)}>
-      <article aria-labelledby="legal-title" className="wrap pt-[clamp(24px,4vw,48px)] pb-section">
+      <article aria-labelledby="legal-title" className="wrap pt-[clamp(24px,4vw,48px)] pb-section lg:pb-0">
         <p role="note" className="surface max-w-[92ch] border-dashed border-ink-3 px-5 py-4 text-small text-ink sm:px-6">
           {t("draft.banner")}
         </p>
@@ -81,7 +81,24 @@ export default function LegalDocument({ t, locale, page, sections }: LegalDocume
 
         <div className="page-grid gap-y-10 pt-[clamp(32px,4.5vw,56px)]">
           <aside className="lg:col-[1/span_3]">
-            {/* The rail stays in view under the 64 px header; a long contents list scrolls inside it. */}
+            {/* On a phone the footer, right under the text, has the same three links. */}
+            <nav aria-label={t("nav.label")} className="mb-10 max-lg:hidden">
+              <p className="cap">{t("nav.label")}</p>
+              <ul className="mt-3 border-t border-line">
+                {PAGES.map((other) => (
+                  <li key={other.href} className="border-b border-line">
+                    <Link
+                      href={other.href}
+                      aria-current={other.page === page ? "page" : undefined}
+                      className={cn(RAIL_LINK, "aria-[current=page]:text-ink aria-[current=page]:font-medium")}
+                    >
+                      {t(`${other.page}.title`)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            {/* Only the contents stick: short enough to stay in its column at the last sections; a long list scrolls. */}
             <div className="lg:sticky lg:top-[calc(var(--spacing-header)+32px)] lg:max-h-[calc(100dvh-var(--spacing-header)-48px)] lg:overflow-y-auto lg:[scrollbar-width:thin] lg:[scrollbar-color:var(--color-line-2)_transparent]">
               <nav aria-labelledby={TOC_ID}>
                 <p id={TOC_ID} className="cap">
@@ -100,27 +117,11 @@ export default function LegalDocument({ t, locale, page, sections }: LegalDocume
                   ))}
                 </ol>
               </nav>
-              {/* On a phone the footer, right under the text, has the same three links. */}
-              <nav aria-label={t("nav.label")} className="mt-10 max-lg:hidden">
-                <p className="cap">{t("nav.label")}</p>
-                <ul className="mt-3 border-t border-line">
-                  {PAGES.map((other) => (
-                    <li key={other.href} className="border-b border-line">
-                      <Link
-                        href={other.href}
-                        aria-current={other.page === page ? "page" : undefined}
-                        className={cn(RAIL_LINK, "aria-[current=page]:text-ink aria-[current=page]:font-medium")}
-                      >
-                        {t(`${other.page}.title`)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
             </div>
           </aside>
 
-          <div className="min-w-0 lg:col-[5/span_8]">
+          {/* On large screens the page's bottom space lives in the row, so the sticky contents keep their column. */}
+          <div className="min-w-0 lg:col-[5/span_8] lg:pb-section">
             {entries.map(({ section, anchor, n, heading }) => (
               <section
                 key={anchor}
