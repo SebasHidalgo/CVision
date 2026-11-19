@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { retryInterviewFeedbackAction } from "@/screens/InterviewFeedback/actions/retryInterviewFeedbackAction";
 
@@ -37,18 +37,18 @@ export default function RetryFeedbackButton({ interviewId }: RetryFeedbackButton
   };
 
   return (
-    <Button onClick={handleRetry} disabled={isRetrying} className="h-11 gap-2 px-5">
+    <button type="button" onClick={handleRetry} disabled={isRetrying} className={buttonClass({ className: "disabled:cursor-progress disabled:opacity-70" })}>
       {isRetrying ? (
         <>
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" />
           {t("retry.generating")}
         </>
       ) : (
         <>
-          <RotateCcw className="size-4" />
+          <RotateCcw aria-hidden className="size-4" />
           {t("retry.again")}
         </>
       )}
-    </Button>
+    </button>
   );
 }

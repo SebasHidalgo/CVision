@@ -42,7 +42,6 @@
     "accountBody": "The language of the interface, and of your analyses and interview feedback. Quotes from your CV, lines of the posting and suggested bullets stay as written."
   },
   "score": {
-    "meter": "Score",
     "scoreOf": "{{label}} score",
     "outOf": "/ 100",
     "tone": {

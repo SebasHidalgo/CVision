@@ -1,7 +1,8 @@
 {
   "header": {
     "eyebrow": "Interview feedback · {{date}}",
-    "kicker": "Mock interview"
+    "kicker": "Mock interview",
+    "attempt": "Attempt {{number}}"
   },
   "actions": {
     "allInterviews": "All interviews",
@@ -10,6 +11,7 @@
   },
   "report": {
     "overall": "Overall performance",
+    "short": "Short for a {{minutes}}-minute interview, so read these scores as low-confidence.",
     "gaps": {
       "eyebrow": "Your weak spots, in the room",
       "none": "The analysis found no gaps to probe.",
@@ -31,8 +33,13 @@
       "eyebrow": "Five readings",
       "title": "Where the interview held up, and where it didn't."
     },
+    "points": {
+      "eyebrow": "For next time",
+      "title": "What to keep, and what to work on."
+    },
     "strengths": "What worked",
     "improve": "Work on this",
+    "onGap": "About the gap: {{requirement}}",
     "finalAssessment": "Final assessment"
   },
   "categories": {
@@ -48,8 +55,7 @@
     "wordsEach_one": "{{count}} word each",
     "wordsEach_other": "{{count}} words each",
     "onFloor_one": "about {{count}} min on the floor",
-    "onFloor_other": "about {{count}} min on the floor",
-    "short": "short interview, low-confidence scores"
+    "onFloor_other": "about {{count}} min on the floor"
   },
   "transcript": {
     "title": "Transcript",
@@ -135,6 +141,24 @@
     "unknown": {
       "title": "This interview didn't complete.",
       "body": "Something went wrong on our side and we couldn't score it. Rehearse again from the analysis."
+    }
+  },
+  "next": {
+    "eyebrow": "Next",
+    "title": "Rehearse it again.",
+    "lede": "Every attempt is scored on its own against the same posting and the same gaps, so you can see what changed.",
+    "action": "Rehearse again",
+    "actionAnalysis": "Open the analysis",
+    "note": {
+      "period_one": "{{count}} of {{limit}} interviews left this period",
+      "period_other": "{{count}} of {{limit}} interviews left this period",
+      "credits_one": "{{count}} credit",
+      "credits_other": "{{count}} credits",
+      "creditsLeft_one": "{{count}} credit left",
+      "creditsLeft_other": "{{count}} credits left",
+      "trial": "Your free {{minutes}}-minute trial is still available",
+      "periodUsed": "This period's interviews are used. They come back {{date}}.",
+      "needsPro": "Voice interviews are part of Pro."
     }
   }
 }

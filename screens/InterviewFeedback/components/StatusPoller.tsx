@@ -10,6 +10,9 @@ import {
   type InterviewStatusSnapshot,
 } from "@/lib/schemas/interviewSessionSchema";
 import { POLL_CEILING_MS, pollDelayMs } from "@/lib/pollDelay";
+import { textLinkClass } from "@/components/design-system/Button";
+import { cn } from "@/lib/utils";
+import { StatusLine } from "./StatusLine";
 
 type StatusPollerProps = {
   interviewId: string;
@@ -105,17 +108,10 @@ export default function StatusPoller({ interviewId, seen, attemptsHref, children
 
   return (
     <>
-      <p className="flex items-center gap-3 text-lg text-ink">
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-fair" />
-        {t("poller.stalled")}
-      </p>
-      <p className="lede mt-4 max-w-xl">{t("poller.reload")}</p>
-      <Link
-        href={attemptsHref}
-        className="link-rule mt-6 inline-flex items-center gap-2 text-sm font-medium text-ink"
-      >
+      <StatusLine kind="stopped" title={t("poller.stalled")} body={t("poller.reload")} />
+      <Link href={attemptsHref} className={cn(textLinkClass, "mt-6 gap-2 text-ed-ink underline decoration-ed-ink-3 underline-offset-4")}>
         {t("poller.seeAttempts")}
-        <ArrowRight className="size-4" />
+        <ArrowRight aria-hidden className="size-4" />
       </Link>
     </>
   );

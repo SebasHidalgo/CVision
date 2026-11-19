@@ -14,16 +14,19 @@ import { isStranded } from "@/lib/voice/postCall";
 import { reconcileChangedRow, reconcileStrandedInterview } from "@/lib/voice/reconcile";
 import { finalizeLapsedInterviews } from "@/lib/database/interviewResume";
 import { fetchResumeById } from "@/lib/database/resume";
+import { currentInterviewEntitlement } from "@/lib/database/usage";
 import { formatLongDate } from "@/lib/format";
 import { getLocale } from "@/lib/i18n/server";
 import AttemptNotScored from "./components/AttemptNotScored";
 import FeedbackFailed from "./components/FeedbackFailed";
+import { FeedbackPage } from "./components/FeedbackPage";
 import FeedbackPending from "./components/FeedbackPending";
 import FeedbackReport from "./components/FeedbackReport";
 import FeedbackUnavailable from "./components/FeedbackUnavailable";
 import InterviewMayBeLive from "./components/InterviewMayBeLive";
 import { translateFeedbackAction } from "./actions/translateFeedbackAction";
 import { decideFeedbackView } from "./utils/feedbackView";
+import { rehearseNote } from "./utils/rehearseNote";
 
 type InterviewFeedbackScreenProps = {
   interviewId: string;
@@ -159,13 +162,16 @@ export default async function InterviewFeedbackScreen({
         />
       );
     case "report": {
-      const [feedback, transcript] = await Promise.all([
+      const analysisId = interview.resumeAnalysisId;
+      const [feedback, transcript, entitlement] = await Promise.all([
         fetchFeedbackByInterviewId(interview.id),
         fetchInterviewTranscript(interview.id),
+        // What the plan has left for the next attempt, said under "Rehearse again".
+        analysisId ? currentInterviewEntitlement() : null,
       ]);
       if (!feedback) return <FeedbackUnavailable role={interview.role} date={date} />;
       // The model's prose from its stored translation; code-made words come from the locale files.
-      const analysis = locale !== "en" && interview.resumeAnalysisId ? await fetchResumeById(interview.resumeAnalysisId) : null;
+      const analysis = locale !== "en" && analysisId ? await fetchResumeById(analysisId) : null;
       const { report, state } = await localizedFeedback(
         {
           id: feedback.id,
@@ -177,14 +183,26 @@ export default async function InterviewFeedbackScreen({
         { original },
       );
       return (
-        <>
-          {state === "pending" ? (
-            <TranslationPending translate={translateFeedbackAction} input={{ interviewId: interview.id }} className="wrap mt-8" />
-          ) : (
-            <TranslationNotice state={state} className="wrap mt-8" />
-          )}
-          <FeedbackReport feedback={{ ...feedback, report }} transcript={transcript} date={date} />
-        </>
+        <FeedbackPage>
+          <FeedbackReport
+            feedback={{ ...feedback, report }}
+            transcript={transcript}
+            date={date}
+            company={interview.resumeAnalysis?.companyName ?? null}
+            attempt={interview.attemptNumber}
+            analysisId={analysisId}
+            rehearse={entitlement ? rehearseNote(entitlement) : null}
+            locale={locale}
+            // No translation yet: the prose shows skeletons and this line asks for it; a mixed page says so.
+            notice={
+              state === "pending" ? (
+                <TranslationPending translate={translateFeedbackAction} input={{ interviewId: interview.id }} className="mt-8" />
+              ) : (
+                <TranslationNotice state={state} className="mt-8" />
+              )
+            }
+          />
+        </FeedbackPage>
       );
     }
   }

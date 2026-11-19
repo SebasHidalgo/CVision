@@ -42,7 +42,6 @@
     "accountBody": "El idioma de la interfaz, y de tus análisis y del feedback de tus entrevistas. Las citas de tu CV, las líneas de la oferta y las viñetas sugeridas se quedan como están escritas."
   },
   "score": {
-    "meter": "Puntaje",
     "scoreOf": "Puntaje de {{label}}",
     "outOf": "/ 100",
     "tone": {

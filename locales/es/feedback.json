@@ -1,7 +1,8 @@
 {
   "header": {
     "eyebrow": "Feedback de la entrevista · {{date}}",
-    "kicker": "Entrevista de práctica"
+    "kicker": "Entrevista de práctica",
+    "attempt": "Intento {{number}}"
   },
   "actions": {
     "allInterviews": "Todas las entrevistas",
@@ -10,6 +11,7 @@
   },
   "report": {
     "overall": "Desempeño general",
+    "short": "Fue corta para una entrevista de {{minutes}} minutos: toma estos puntajes con cautela.",
     "gaps": {
       "eyebrow": "Tus puntos débiles, en la entrevista",
       "none": "El análisis no encontró brechas para indagar.",
@@ -31,8 +33,13 @@
       "eyebrow": "Cinco lecturas",
       "title": "Dónde se sostuvo la entrevista y dónde no."
     },
+    "points": {
+      "eyebrow": "Para la próxima",
+      "title": "Qué mantener y en qué trabajar."
+    },
     "strengths": "Lo que funcionó",
     "improve": "Trabaja en esto",
+    "onGap": "Sobre la brecha: {{requirement}}",
     "finalAssessment": "Valoración final"
   },
   "categories": {
@@ -51,8 +58,7 @@
     "wordsEach_other": "{{count}} palabras por respuesta",
     "onFloor_one": "alrededor de {{count}} min con la palabra",
     "onFloor_many": "unos {{count}} min con la palabra",
-    "onFloor_other": "unos {{count}} min con la palabra",
-    "short": "entrevista corta, puntajes poco confiables"
+    "onFloor_other": "unos {{count}} min con la palabra"
   },
   "transcript": {
     "title": "Transcripción",
@@ -141,6 +147,27 @@
     "unknown": {
       "title": "Esta entrevista no se completó.",
       "body": "Algo salió mal de nuestro lado y no pudimos puntuarla. Vuelve a ensayar desde el análisis."
+    }
+  },
+  "next": {
+    "eyebrow": "Lo siguiente",
+    "title": "Vuelve a ensayarla.",
+    "lede": "Cada intento se califica por separado según la misma oferta y las mismas brechas, para que veas qué cambió.",
+    "action": "Ensayar de nuevo",
+    "actionAnalysis": "Abrir el análisis",
+    "note": {
+      "period_one": "Te queda {{count}} de {{limit}} entrevistas de este período",
+      "period_many": "Te quedan {{count}} de {{limit}} entrevistas de este período",
+      "period_other": "Te quedan {{count}} de {{limit}} entrevistas de este período",
+      "credits_one": "{{count}} crédito",
+      "credits_many": "{{count}} créditos",
+      "credits_other": "{{count}} créditos",
+      "creditsLeft_one": "Te queda {{count}} crédito",
+      "creditsLeft_many": "Te quedan {{count}} créditos",
+      "creditsLeft_other": "Te quedan {{count}} créditos",
+      "trial": "Tu prueba gratis de {{minutes}} minutos sigue disponible",
+      "periodUsed": "Ya usaste las entrevistas de este período. Vuelven el {{date}}.",
+      "needsPro": "Las entrevistas de voz son parte de Pro."
     }
   }
 }

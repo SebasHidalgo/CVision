@@ -1,14 +1,20 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FEEDBACK_CATEGORIES, type InterviewFeedbackReport } from "@/lib/ai/schemas";
+import { InterviewReport } from "@/components/interview/feedback/InterviewReport";
+import { REPORT } from "@/components/interview/feedback/report.stub";
+import { PENDING_PROSE } from "@/lib/i18n/analysisView";
 import type { Locale, Namespace } from "@/lib/i18n/config";
+import { tFor } from "@/lib/i18n/testing";
 import type { InterviewFeedback } from "@/types/interview";
-import FeedbackReport from "./FeedbackReport";
+import FeedbackReport, { feedbackReportData } from "./FeedbackReport";
 
 // Link needs the app router at runtime; a plain anchor is enough to render.
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -23,138 +29,71 @@ afterEach(() => {
   request.locale = "en";
 });
 
-const renderReport = async (props: Parameters<typeof FeedbackReport>[0]) => renderToStaticMarkup(await FeedbackReport(props));
-
-const report: InterviewFeedbackReport = {
-  gapFollowThrough: [
-    {
-      requirement: "Experience deploying and operating services on Kubernetes",
-      outcome: "addressed",
-      quote: "Last year we moved the six orders services to a managed Kubernetes cluster.",
-      note: "Migration owned end to end.",
-    },
-    { requirement: "GraphQL API design", outcome: "dodged", quote: "", note: "Stayed at familiar with." },
-    { requirement: "On-call rotation", outcome: "not_raised", quote: "", note: "Never asked." },
-  ],
-  notableAnswers: [
-    { quote: "I rolled back the deploy first to stop the bleeding.", worked: true, why: "Own part and a result." },
-    { quote: "I think I would handle it well.", worked: false, why: "No example." },
-  ],
-  categoryScores: FEEDBACK_CATEGORIES.map((name, i) => ({ name, score: 55 + i * 8, comment: `About ${name}.` })),
-  strengths: [{ point: "Acts first under pressure", anchor: { source: "notableAnswers", index: 0 } }],
-  areasForImprovement: [
-    { point: "Bring a GraphQL example", anchor: { source: "gapFollowThrough", index: 1 } },
-    { point: "Dangling anchor is tolerated", anchor: { source: "notableAnswers", index: 9 } },
-  ],
-  finalAssessment: "Specific where it counted; vague on GraphQL.",
-  totalScore: 71,
-  interviewStats: {
-    totalTurns: 12,
-    candidateTurns: 6,
-    candidateWords: 420,
-    averageCandidateTurnWords: 70,
-    candidateOnFloorSeconds: 301,
-    longestTurnGapSeconds: 40,
-    durationSeconds: 400,
-    short: false,
-  },
-};
-
 const feedback: InterviewFeedback = {
   id: "feedback_1",
   interviewId: "interview_1",
   role: "Backend Engineer",
   createdAt: "2026-10-11T10:00:00.000Z",
   totalScore: 71,
-  report,
+  report: REPORT,
 };
 
-describe("FeedbackReport", () => {
-  it("renders the gap follow-through first, with outcomes, quotes and anchored points", async () => {
-    const html = await renderReport({
-      feedback,
-      transcript: [
-        { role: "agent", message: "Tell me about the Kubernetes migration.", time_in_call_secs: 12 },
-        { role: "user", message: "Last year we moved the six orders services to a managed Kubernetes cluster.", time_in_call_secs: 15 },
-      ],
-      date: "October 11, 2026",
-    });
+const props = {
+  feedback,
+  transcript: [
+    { role: "agent", message: "Tell me about the Kubernetes migration.", time_in_call_secs: 12 },
+    { role: "user", message: "Last year we moved the six orders services to a managed Kubernetes cluster.", time_in_call_secs: 15 },
+  ],
+  date: "October 11, 2026",
+  company: "Northwind",
+  attempt: 2,
+  analysisId: "analysis_1",
+  rehearse: { canStart: true, parts: [{ key: "period" as const, count: 3, limit: 4 }, { key: "credits" as const, count: 2 }] },
+  locale: "en" as Locale,
+};
 
-    // The lead section, one row per gap, with its outcome label and quote.
-    const gaps = html.indexOf("Your weak spots, in the room");
-    const readings = html.indexOf("Five readings");
-    expect(gaps).toBeGreaterThan(-1);
-    expect(gaps).toBeLessThan(readings);
-    expect(html).toContain("Experience deploying and operating services on Kubernetes");
-    expect(html).toContain("Addressed");
-    expect(html).toContain("Dodged");
-    expect(html).toContain("Not raised");
-    expect(html).toContain("moved the six orders services to a managed Kubernetes cluster");
+const text = (html: string) => {
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  return root.textContent ?? "";
+};
 
-    // Notable answers with their verdicts.
-    expect(html).toContain("Answers that stood out");
-    expect(html).toContain("Worked");
-    expect(html).toContain("Didn&#x27;t land");
-
-    // Scores, stats line, prose.
-    for (const name of FEEDBACK_CATEGORIES) expect(html).toContain(name);
-    expect(html).toContain("6 answers · 70 words each · about 5 min on the floor");
-    expect(html).toContain("Specific where it counted; vague on GraphQL.");
-
-    // A strength shows the words it rests on; a gap-anchored area shows the
-    // requirement when the row has no quote; a dangling anchor shows the point alone.
-    expect(html).toContain("Acts first under pressure");
-    expect(html).toContain("rolled back the deploy first");
-    expect(html).toContain("Bring a GraphQL example");
-    expect(html).toContain("Dangling anchor is tolerated");
-
-    // The transcript closes the page, collapsed, with speaker and time.
-    const transcript = html.indexOf("<details");
-    expect(transcript).toBeGreaterThan(html.indexOf("Final assessment"));
-    expect(html).toContain("Tell me about the Kubernetes migration.");
-    expect(html).toContain("0:15");
-    expect(html).not.toContain("recording");
+describe("FeedbackReport (the page's report)", () => {
+  it("is the shared report tree, fed from the stored feedback", async () => {
+    const page = renderToStaticMarkup(await FeedbackReport(props));
+    const shared = renderToStaticMarkup(<InterviewReport {...feedbackReportData(props, tFor("feedback"))} t={tFor("feedback")} common={tFor("common")} />);
+    expect(page).toBe(shared);
   });
 
-  it("renders no transcript section when the row has none", async () => {
-    const html = await renderReport({ feedback, transcript: null, date: "October 11, 2026" });
-    expect(html).not.toContain("<details");
+  it("shows a skeleton where the model's prose waits for its translation", async () => {
+    const pending = { ...props, feedback: { ...feedback, report: { ...REPORT, finalAssessment: PENDING_PROSE } } };
+    const html = renderToStaticMarkup(await FeedbackReport(pending));
+    expect(html).toContain("data-prose-pending");
+    expect(html).not.toContain(PENDING_PROSE);
   });
 
-  it("says so when the analysis found nothing to probe", async () => {
-    const html = await renderReport({
-      feedback: { ...feedback, report: { ...report, gapFollowThrough: [] } },
-      transcript: null,
-      date: "October 11, 2026",
-    });
-    expect(html).toContain("The analysis found no gaps to probe.");
+  it("closes on the analysis with what the plan has left for the next attempt", async () => {
+    const data = feedbackReportData(props, tFor("feedback"));
+    expect(data.next).toEqual({ href: "/resume/analysis/analysis_1#interview-cta-title", action: "again", note: "3 of 4 interviews left this period · 2 credits" });
+    expect(data.allInterviewsHref).toBe("/interviews");
+    expect(text(renderToStaticMarkup(await FeedbackReport(props)))).toContain("3 of 4 interviews left this period · 2 credits");
   });
 
-  it("hides a notable answer whose quote the guardrail dropped, and the section when none is left", async () => {
-    const html = await renderReport({
-      feedback: { ...feedback, report: { ...report, notableAnswers: [{ quote: "", worked: true, why: "Clear ownership." }] } },
-      transcript: null,
-      date: "October 11, 2026",
-    });
-    expect(html).not.toContain("Clear ownership.");
-    expect(html).not.toContain("Answers that stood out");
-    expect(html).not.toContain("“”");
+  it("says why when nothing is left, and offers the analysis instead of a rehearsal", () => {
+    const data = feedbackReportData({ ...props, rehearse: { canStart: false, parts: [{ key: "periodUsed", resetsAt: "2026-12-01T00:00:00.000Z" }] } }, tFor("feedback"));
+    expect(data.next).toMatchObject({ action: "analysis", note: "This period's interviews are used. They come back December 1, 2026." });
   });
 
-  it("labels the page in Spanish and leaves the report's own words exactly as stored", async () => {
+  it("has nowhere to rehearse from once the analysis is gone", () => {
+    expect(feedbackReportData({ ...props, analysisId: null }, tFor("feedback")).next).toBeNull();
+  });
+
+  it("dates the reset in the reader's language", async () => {
     request.locale = "es";
-    const html = await renderReport({ feedback, transcript: null, date: "11 de octubre de 2026" });
-
-    expect(html).toContain("Tus puntos débiles, en la entrevista");
-    expect(html).toContain("Abordada");
-    expect(html).toContain("Habilidades de comunicación");
-    expect(html).toContain("6 respuestas · 70 palabras por respuesta · unos 5 min con la palabra");
-    // The stored category value is only a lookup: its English name is not the heading.
-    expect(html).not.toContain(">Communication Skills</h3>");
-    // Requirement names, quotes, notes, points and the assessment are the strings the component received.
-    expect(html).toContain("Experience deploying and operating services on Kubernetes");
-    expect(html).toContain("Migration owned end to end.");
-    expect(html).toContain("Acts first under pressure");
-    expect(html).toContain("Specific where it counted; vague on GraphQL.");
+    const data = feedbackReportData(
+      { ...props, locale: "es", rehearse: { canStart: false, parts: [{ key: "periodUsed", resetsAt: "2026-12-01T00:00:00.000Z" }] } },
+      tFor("feedback", "es"),
+    );
+    expect(data.next?.note).toBe("Ya usaste las entrevistas de este período. Vuelven el 1 de diciembre de 2026.");
   });
 });

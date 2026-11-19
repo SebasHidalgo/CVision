@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Namespace } from "@/lib/i18n/config";
 import AttemptNotScored from "./AttemptNotScored";
 
+// The page carries the design system's face (next/font, which only runs under Next).
+vi.mock("next/font/google", () => ({ Host_Grotesk: () => ({ variable: "font-text" }) }));
+
 // A server component: its t comes from the request, here the English resources.
 vi.mock("@/lib/i18n/server", async () => {
   const { tFor } = await import("@/lib/i18n/testing");

@@ -1,8 +1,8 @@
-import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import Eyebrow from "@/components/layout/Eyebrow";
-import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import { ButtonLink } from "@/components/design-system/Button";
 import { getT } from "@/lib/i18n/server";
+import { FeedbackState } from "./FeedbackPage";
+import { StatusLine } from "./StatusLine";
 
 type AttemptNotScoredProps = {
   interview: { id: string; role: string };
@@ -29,38 +29,22 @@ export default async function AttemptNotScored({ interview, reason, startsLeft, 
   const t = await getT("feedback");
 
   return (
-    <article className="wrap py-10 lg:py-14">
-      <header className="border-b border-line pb-10 lg:pb-12">
-        <Eyebrow tick>{t("header.eyebrow", { date })}</Eyebrow>
-        <p className="mt-6 text-lg text-ink-2">{t("header.kicker")}</p>
-        <h1 className="display-lg mt-1 text-ink">{interview.role}</h1>
-      </header>
-
-      <section className="py-12 lg:py-16">
-        <p className="flex items-center gap-3 text-lg text-ink">
-          <span aria-hidden className="size-2 shrink-0 rounded-full bg-weak" />
-          {t(`notScored.${reason}.title`)}
-        </p>
-        <p className="lede mt-4 max-w-xl">
-          {t(`notScored.${reason}.body`)} {t(STARTS_KEY[reason], { count: startsLeft })}
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center gap-3">
-          <Button asChild className="h-11 gap-2 px-5">
-            <Link href={`/interview/${interview.id}`}>
-              {t("actions.backToRoom")}
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-          <Link
-            href="/interviews"
-            className="link-rule inline-flex items-center gap-2 px-2 text-sm text-ink-2"
-          >
-            <ArrowLeft className="size-4" />
-            {t("actions.allInterviews")}
-          </Link>
-        </div>
-      </section>
-    </article>
+    <FeedbackState
+      role={interview.role}
+      date={date}
+      t={t}
+      actions={
+        <ButtonLink href={`/interview/${interview.id}`}>
+          {t("actions.backToRoom")}
+          <ArrowRight aria-hidden className="size-4" />
+        </ButtonLink>
+      }
+    >
+      <StatusLine
+        kind="stopped"
+        title={t(`notScored.${reason}.title`)}
+        body={`${t(`notScored.${reason}.body`)} ${t(STARTS_KEY[reason], { count: startsLeft })}`}
+      />
+    </FeedbackState>
   );
 }
