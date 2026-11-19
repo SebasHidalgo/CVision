@@ -10,7 +10,7 @@ import { buttonClass } from "@/components/design-system/Button";
 import { useLocaleSwitch } from "@/hooks/useLocaleSwitch";
 import { LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
-import { ACCOUNT_LINKS, currentFor, LANDING_SECTIONS, SIGNED_IN_NAV, SIGNED_OUT_NAV, type HeaderVariant, type NavItem } from "./nav";
+import { accountLinks, currentFor, LANDING_SECTIONS, SIGNED_IN_NAV, SIGNED_OUT_NAV, type HeaderVariant, type NavItem } from "./nav";
 import UserAvatar, { UserIdentity } from "./UserAvatar";
 
 type MenuSheetProps = {
@@ -19,6 +19,8 @@ type MenuSheetProps = {
   desktopQuery: string;
   /** Applied to the trigger; the header hides it at its desktop width. */
   className?: string;
+  /** Whether the account links include Pricing: not for Pro (the server decides). */
+  offerPricing: boolean;
 };
 
 // The sheet slides from the right edge; its backdrop fades. Both run their exit too (`transition-discrete`).
@@ -38,7 +40,7 @@ const ACCOUNT_ROW =
  * native <dialog> gives the focus trap and an inert page behind it; Escape and every close return focus to the
  * trigger. No Radix menu goes inside: those portal into <body>, which is inert while the dialog is open.
  */
-export default function MenuSheet({ variant, desktopQuery, className }: MenuSheetProps) {
+export default function MenuSheet({ variant, desktopQuery, className, offerPricing }: MenuSheetProps) {
   const { t } = useTranslation("common");
   const pathname = usePathname();
   const { user } = useUser();
@@ -187,7 +189,7 @@ export default function MenuSheet({ variant, desktopQuery, className }: MenuShee
                     {t("nav.account")}
                   </button>
                 </li>
-                {ACCOUNT_LINKS.map((item) => {
+                {accountLinks(offerPricing).map((item) => {
                   const active = currentFor(item, pathname);
                   return (
                     <li key={item.href}>

@@ -33,11 +33,16 @@ export const LANDING_SECTIONS: readonly NavItem[] = [
   { href: "#faq", labelKey: "nav.faq", section: [] },
 ];
 
-/** The account's pages; "Account" (Clerk's profile) and "Sign out" are actions, not links. */
-export const ACCOUNT_LINKS: readonly NavItem[] = [
-  { href: "/account/billing", labelKey: "nav.planBilling", section: ["/account/billing"] },
-  { href: "/pricing", labelKey: "nav.pricing", section: ["/pricing"] },
-];
+const PLAN_BILLING: NavItem = { href: "/account/billing", labelKey: "nav.planBilling", section: ["/account/billing"] };
+const PRICING: NavItem = { href: "/pricing", labelKey: "nav.pricing", section: ["/pricing"] };
+
+/**
+ * The account's pages; "Account" (Clerk's profile) and "Sign out" are actions, not links. Pricing only when it
+ * has something to sell: not to Pro, whose plan and packs live under Plan & billing.
+ */
+export function accountLinks(offerPricing: boolean): readonly NavItem[] {
+  return offerPricing ? [PLAN_BILLING, PRICING] : [PLAN_BILLING];
+}
 
 /**
  * `aria-current` for a nav link: "page" on the page itself, "true" anywhere else in its section

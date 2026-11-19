@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { SiteHeader } from "./SiteHeader";
+import { currentShellPlan } from "@/lib/database/usage";
+import { SiteHeader as ServerSiteHeader } from "./SiteHeader";
+import { SiteHeaderClient as SiteHeader } from "./SiteHeaderClient";
 
 const session = vi.hoisted(() => ({ signedIn: false, pathname: "/" }));
 const clerk = vi.hoisted(() => ({ openSignIn: vi.fn(), openSignUp: vi.fn(), openUserProfile: vi.fn(), signOut: vi.fn() }));
@@ -22,6 +24,8 @@ vi.mock("@clerk/nextjs", () => ({
   useClerk: () => clerk,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => session.pathname }));
+// The server wrapper's one read: the plan, derived on the server.
+vi.mock("@/lib/database/usage", () => ({ currentShellPlan: vi.fn(async () => null) }));
 // next/font only runs under Next.
 vi.mock("@/components/design-system/fonts", () => ({ fontText: { variable: "font-text", style: { fontFamily: "font-text" } } }));
 vi.mock("next/link", () => ({
@@ -210,5 +214,54 @@ describe("the menu sheet", () => {
     expect(localeSwitch.switchTo).toHaveBeenCalledWith("es");
     // In place, off the landing: the other language's strings were fetched when the sheet opened.
     expect(localeSwitch.prefetch).toHaveBeenCalledWith("es");
+  });
+});
+
+describe("Pricing in the account menu", () => {
+  beforeEach(() => {
+    session.signedIn = true;
+    session.pathname = "/resume/analyses";
+  });
+
+  const menuLinks = () => {
+    fireEvent.keyDown(within(banner()).getByRole("button", { name: "Account menu" }), { key: "Enter" });
+    return within(screen.getByRole("menu"))
+      .getAllByRole("menuitem")
+      .map((item) => item.textContent);
+  };
+  const sheetLinks = () => {
+    fireEvent.click(within(banner()).getByRole("button", { name: "Open menu" }));
+    return within(screen.getByRole("dialog"))
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+  };
+
+  it("is offered to Free, in the menu and in the sheet", () => {
+    render(<SiteHeader offerPricing />);
+    expect(menuLinks()).toEqual(["Account", "Plan & billing", "Pricing", "Sign out"]);
+    cleanup();
+    render(<SiteHeader offerPricing />);
+    expect(sheetLinks()).toContain("/pricing");
+  });
+
+  it("is left out for Pro, in the menu and in the sheet, Plan & billing kept", () => {
+    render(<SiteHeader offerPricing={false} />);
+    expect(menuLinks()).toEqual(["Account", "Plan & billing", "Sign out"]);
+    cleanup();
+    render(<SiteHeader offerPricing={false} />);
+    const sheet = sheetLinks();
+    expect(sheet).toContain("/account/billing");
+    expect(sheet).not.toContain("/pricing");
+  });
+
+  it("the server header decides from the derived plan: hidden for Pro only; signed out or unreadable keeps it", async () => {
+    vi.mocked(currentShellPlan).mockResolvedValueOnce("PRO");
+    expect((await ServerSiteHeader({})).props).toEqual({ variant: "app", offerPricing: false });
+
+    vi.mocked(currentShellPlan).mockResolvedValueOnce("FREE");
+    expect((await ServerSiteHeader({ variant: "marketing" })).props).toEqual({ variant: "marketing", offerPricing: true });
+
+    vi.mocked(currentShellPlan).mockResolvedValueOnce(null);
+    expect((await ServerSiteHeader({})).props).toEqual({ variant: "app", offerPricing: true });
   });
 });

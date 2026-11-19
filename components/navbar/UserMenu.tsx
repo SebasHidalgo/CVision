@@ -7,15 +7,14 @@ import { useTranslation } from "react-i18next";
 import { fontText } from "@/components/design-system/fonts";
 import { cn } from "@/lib/utils";
 import { MENU_CONTENT, MENU_ITEM, MENU_SEPARATOR } from "./menuStyles";
-import { ACCOUNT_LINKS } from "./nav";
+import { accountLinks } from "./nav";
 import UserAvatar, { UserIdentity } from "./UserAvatar";
 
 /**
  * The account menu behind the avatar, from the header's desktop width (below it the same entries live in the
- * sheet). Pricing is offered to everyone: the plan is derived on the server and the client has no cheap way to
- * know it.
+ * sheet). Pricing is left out for Pro: the server, which derives the plan, says so through `offerPricing`.
  */
-export default function UserMenu() {
+export default function UserMenu({ offerPricing }: { offerPricing: boolean }) {
   const { user, isLoaded } = useUser();
   const { openUserProfile, signOut } = useClerk();
   const { t } = useTranslation("common");
@@ -45,7 +44,7 @@ export default function UserMenu() {
           <DropdownMenu.Item className={MENU_ITEM} onSelect={() => openUserProfile()}>
             {t("nav.account")}
           </DropdownMenu.Item>
-          {ACCOUNT_LINKS.map((item) => (
+          {accountLinks(offerPricing).map((item) => (
             <DropdownMenu.Item key={item.href} asChild className={MENU_ITEM}>
               <Link href={item.href}>{t(item.labelKey)}</Link>
             </DropdownMenu.Item>
