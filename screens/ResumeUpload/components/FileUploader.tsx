@@ -73,7 +73,7 @@ export default function FileUploader({ file, onFileSelect, labelId, describedBy,
                 ? cn(CONTROL_EDGE, "bg-ed-panel hover:border-ed-ink-2")
                 : cn(CONTROL_EDGE, "border-dashed bg-ed-panel/50 hover:border-ed-ink-2"),
             invalid && !file && !isDragActive && "border-ed-ink",
-            disabled && "cursor-not-allowed opacity-50 hover:border-ed-ink-2/55",
+            disabled && "cursor-not-allowed opacity-50 hover:border-ed-field",
           )}
         >
           {/* Disabled too, so its label cannot open a file dialog whose pick would be ignored. */}

@@ -1,11 +1,8 @@
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * The edge of a control: ink-2 at 55 % is the faintest edge that keeps 3:1 against both the page and the panel
- * fill (WCAG 1.4.11); `ed-line-2` is 1.6:1, enough for a surface but not for a field.
- */
-export const CONTROL_EDGE = "border-ed-ink-2/55";
+/** The edge of a control: the design system's field edge, 3:1 or more on every ground (WCAG 1.4.11). */
+export const CONTROL_EDGE = "border-ed-field";
 
 /** A text control on the design system: panel fill, a visible edge, 48 px tall, 16 px text (no zoom on iOS). */
 export const fieldClass =
@@ -16,10 +13,10 @@ export const fieldClass =
 /** The id of a field's error line, for the control's `aria-describedby`. */
 export const errorIdOf = (id: string) => `${id}-error`;
 
-/** An error in words, marked by shape rather than colour. */
+/** An error in words, marked by shape as well as colour. */
 export function ErrorText({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
-    <p id={id} className="flex items-start gap-2 text-ed-body text-ed-ink">
+    <p id={id} className="flex items-start gap-2 text-ed-body text-ed-danger-text">
       <CircleAlert aria-hidden className="mt-[0.2em] size-4 shrink-0" />
       <span>{children}</span>
     </p>
