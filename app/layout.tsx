@@ -6,7 +6,7 @@ import I18nProvider from "@/components/providers/I18nProvider";
 import Providers from "@/components/providers/Providers";
 import { BOOT_SCRIPT } from "@/lib/bootScript";
 import { appUrl, BRAND } from "@/lib/brand";
-import { clerkAppearance } from "@/lib/clerkAppearance";
+import { CLERK_JS_VERSION, clerkAppearance } from "@/lib/clerkAppearance";
 import { clerkLocalization } from "@/lib/clerkLocalization";
 import { GLOBAL_CLIENT_NAMESPACES } from "@/lib/i18n/config";
 import { pickResources } from "@/lib/i18n/resources";
@@ -61,7 +61,8 @@ export default async function RootLayout({
   return (
     // One appearance for everything Clerk renders, its modals included.
     // No telemetry: a development instance would send it to a host the CSP blocks (lib/securityHeaders.ts).
-    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization(locale)} telemetry={false}>
+    // One clerk-js release, the one the appearance was written against: never "the latest 5.x" at runtime.
+    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization(locale)} telemetry={false} clerkJSVersion={CLERK_JS_VERSION}>
       {/* BOOT_SCRIPT adds data-js (and, on the landing, data-loading) to <html> before hydration. */}
       <html lang={locale} suppressHydrationWarning>
         <head>

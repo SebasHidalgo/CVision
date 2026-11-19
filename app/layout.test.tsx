@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { CLERK_JS_VERSION } from "@/lib/clerkAppearance";
 import RootLayout, { viewport } from "./layout";
 
 vi.mock("./globals.css", () => ({}));
@@ -13,7 +14,7 @@ vi.mock("@clerk/nextjs", () => ({ ClerkProvider: ({ children }: { children: Reac
 vi.mock("@/components/providers/I18nProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/providers/Providers", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 
-type Element = ReactElement<{ children?: ReactNode; telemetry?: unknown; dangerouslySetInnerHTML?: { __html: string } }>;
+type Element = ReactElement<{ children?: ReactNode; telemetry?: unknown; clerkJSVersion?: unknown; dangerouslySetInnerHTML?: { __html: string } }>;
 
 /** Runs an inline script against a stand-in <html> and returns the attributes it set. */
 function attributesSetBy(script: string) {
@@ -42,6 +43,11 @@ describe("the root layout", () => {
   it("turns Clerk's telemetry off: a development instance would send it to a host the CSP blocks", async () => {
     const { provider } = await tree();
     expect(provider.props.telemetry).toBe(false);
+  });
+
+  it("loads the one clerk-js release the appearance was written against, never the latest 5.x", async () => {
+    const { provider } = await tree();
+    expect(provider.props.clerkJSVersion).toBe(CLERK_JS_VERSION);
   });
 
   it("gives the browser one theme color, not a light/dark pair", () => {

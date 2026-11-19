@@ -7,9 +7,17 @@ import { ED_COLOR as ED, ED_RADIUS } from "@/components/design-system/tokens";
  * values: the design system's tokens.ts, which a test keeps equal to tokens.css. The modals portal into <body>,
  * outside any design root: the text face goes by its family name (its @font-face loads with this module), and
  * Fraunces by the variable the root layout puts on <body>.
+ *
+ * Written against clerk-js 5.128.3: the element keys and the data-variant, data-color and data-feedback attributes
+ * below are that release's markup, not a documented API. The provider loads exactly that release
+ * (CLERK_JS_VERSION); moving the pin means checking every selector here again, and this line with it.
  */
 
-const FOCUS = { outline: `2px solid ${ED.ink}`, outlineOffset: "2px" };
+/** The clerk-js release the root layout's provider loads, instead of the latest 5.x Clerk would pick at runtime. */
+export const CLERK_JS_VERSION = "5.128.3";
+
+// The design system's ring: 2 px of ink, 3 px off the element.
+const FOCUS = { outline: `2px solid ${ED.ink}`, outlineOffset: "3px" };
 
 // Clerk draws an input's edge as a 1 px shadow in its border colour at 11 % (28 % on hover): 1.03:1 on the
 // card. These replace it at the same selector, so they win by order, with the field token's edge, an ink ring
