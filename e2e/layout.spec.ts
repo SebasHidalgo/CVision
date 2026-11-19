@@ -124,7 +124,7 @@ for (const width of WIDTHS) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const found: LayoutViolation[] = [];
 
-    await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"], ["not found", "/no-such-page"]], found);
+    await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"], ["privacy", "/privacy"], ["refunds", "/refunds"], ["not found", "/no-such-page"]], found);
     await checkLandingReport(page, t, found);
 
     const account: TestAccount = await createAccount(`layout-${width}-${localeOf(testInfo)}`);
