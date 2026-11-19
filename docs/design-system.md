@@ -79,7 +79,7 @@ header and the footer are the app shell's (below):
 | `background/` | The silk ground: a shader that runs while the hero is on screen, clamped to a luminance ceiling, with a WebP still for every case it cannot draw. |
 | `story/` | One ledger carried through the pipeline in six steps: a sticky object on large screens, still figures on phones and under reduced motion. `layout.ts` is pure and tested. |
 | `analysis/`, `pricing/`, `faq/` | The example analysis (verdict counted like the app's), plans with every figure from `lib/plans.ts` and the catalog, questions that open smoothly in every engine. |
-| `interview/` | Replicas of the room and the feedback page playing an eight-line call. Sound is off by default and no audio is requested until it is turned on. Audio in `public/landing/voice/{en,es}/`. |
+| `interview/` | The app's own room (`RoomView`) and report (`InterviewReport`) playing an eight-line call: `talk.ts` turns the script into the room's view model (the same turn rule), `exampleReport.ts` into the report's data. No copies of either screen. Sound is off by default and no audio is requested until it is turned on. Audio in `public/landing/voice/{en,es}/`. |
 | `loader/` | The full-page loader (below). |
 | `closing/` | The last call to action. |
 
@@ -142,6 +142,29 @@ The analysis page and the interview feedback page share three pieces, drawn in t
 - `Prose` renders model prose, or its skeleton while the translation is on its way: bars on `ed-line-2` that pulse
   only when motion is allowed, `data-prose-pending`, hidden from assistive tech.
 
+## The interview screens (M11-D, `components/interview/`)
+
+The room, the feedback page and the landing's interview section are the same components:
+
+- `room/RoomView.tsx`: the room as a view model and slots (status, turn, meter, clock, facts, panel, lines, notice,
+  action), every part marked `data-room-part` in the order of `ROOM_PARTS`. No SDK, no server: `InterviewAgent`
+  computes the view model from the call, the landing from its script. App-only panels (the offers with checkout,
+  the drop panel, the start cap) go in the `panel` slot.
+- `room/turn.ts`: who holds the turn (interviewer, waiting, candidate), pure. The interviewer keeps it 1.2 s after
+  its audio stops, so a pause between two sentences or the moment after an answer is never "Your turn".
+- `room/VoiceMeter.tsx`: the speaking indicator. Two channels of thin ink bars from the real output and input
+  levels; whoever holds the turn is full ink. No glow and no green; still under reduced motion; `aria-hidden`,
+  because the turn is also said in words.
+- `feedback/InterviewReport.tsx`: the report as one tree with no hooks, rendered on the server by the feedback page
+  (no client JS) and on the client by the landing, each passing its own `t`. Outcome marks are shapes in ink
+  (filled, half, empty, dashed): an answer in a rehearsal is not a CV proof, so never the signal green.
+- `TranscriptLines.tsx`: a call's lines (who, time, words, the resumed-call marker) for the live room, the feedback
+  transcript and the landing.
+- `ui.ts`: the eyebrow, its tick and the thin scrollbar as classes.
+
+The room preview (`/dev/room-preview?state=<name>`, dev tools only) renders every state through the real room;
+the names are in `screens/Interview/RoomPreviewScreen.tsx`.
+
 ## The verdict rule
 
 One copy, in `common:verdictRule` (`weak`, `fair`, `strong`, `notShown`, and `term` for the label before each
@@ -151,7 +174,7 @@ paragraph. The verdict words are `common:score.fit.*`.
 ## Migrated pages and the rest
 
 Migrated: the landing (M11-B); the shell, the upload page, the analysis page, the analyses list and the 404
-(M11-C). Not yet: the interviews list, the room and the feedback page (M11-D); pricing, account and the legal pages
+(M11-C); the interviews list, the room and the feedback page (M11-D). Not yet: pricing, account and the legal pages
 (M11-E). Those keep the old light look (paper, ink, red signal; Schibsted Grotesk) under the dark header and
 footer until their phase.
 
