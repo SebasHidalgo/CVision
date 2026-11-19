@@ -91,7 +91,29 @@ describe("storeConversationTranscript: one interview, several calls", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  const GOODBYE = { role: "agent", message: "Thanks for practicing. Your feedback will appear on your screen in a moment.", time_in_call_secs: 470 };
+  it("keeps the interview's start on its first call: the resumed call's delivery never moves it, and each segment keeps its own start", async () => {
+    const FIRST = 1_759_999_700;
+    // The first call: answered, then dropped. Its record writes the start.
+    findFirst.mockResolvedValueOnce(row({ conversationId: "conv_1", issuedConversationIds: ["conv_1"], startCount: 1 }) as never);
+    await storeConversationTranscript({ data: toCallRecord(payload({ conversation_id: "conv_1", metadata: { ...DROPPED, start_time_unix_secs: FIRST } })), eventTimestamp: null });
+    const first = updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(first.data.startedAt).toEqual(new Date(FIRST * 1000));
+
+    // The reconnect carried that call into the segments (the session route derives its start from endedAt - duration).
+    const carried = { conversationId: "conv_1", turns: payload().transcript, durationSeconds: 200, startTimeSeconds: FIRST };
+    findFirst.mockResolvedValueOnce(row({ issuedConversationIds: ["conv_1", "conv_2"], segments: [carried], finishRequestedAt: new Date() }) as never);
+    expect(await storeConversationTranscript({ data: toCallRecord(payload({ metadata: DROPPED })), eventTimestamp: null })).toMatchObject({ status: "FEEDBACK_PENDING" });
+
+    const second = updateMany.mock.calls[1][0] as { data: { startedAt?: unknown; endedAt: unknown; segments: Array<{ conversationId: string; startTimeSeconds: number | null }> } };
+    expect(second.data).not.toHaveProperty("startedAt");
+    expect(second.data.endedAt).toEqual(new Date((1_760_000_000 + 200) * 1000));
+    expect(second.data.segments.map((segment) => [segment.conversationId, segment.startTimeSeconds])).toEqual([
+      ["conv_1", FIRST],
+      ["conv_2", 1_760_000_000],
+    ]);
+  });
+
+  const GOODBYE ={ role: "agent", message: "Thanks for practicing. Your feedback will appear on your screen in a moment.", time_in_call_secs: 470 };
 
   it("the resumed call's goodbye closes it: every call merged in order, with the marker between them, the time summed and each end kept", async () => {
     vi.setSystemTime(new Date((1_760_000_000 + 540) * 1000));
@@ -313,7 +335,7 @@ describe("storeConversationTranscript: how a delivery finds its row", () => {
   });
 
   it("writes the times the delivery carries, and leaves them alone when it carries none", async () => {
-    findFirst.mockResolvedValueOnce(row() as never);
+    findFirst.mockResolvedValueOnce(row({ issuedConversationIds: ["conv_2"], startCount: 1 }) as never);
     await storeConversationTranscript({ data: toCallRecord(payload()), eventTimestamp: null });
     expect(updateMany.mock.calls[0][0]).toMatchObject({
       data: { startedAt: new Date(1_760_000_000 * 1000), endedAt: new Date((1_760_000_000 + 200) * 1000), durationSeconds: 200 },

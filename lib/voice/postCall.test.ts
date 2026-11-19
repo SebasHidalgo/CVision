@@ -271,6 +271,40 @@ describe("decidePostCallOutcome", () => {
   });
 });
 
+describe("decidePostCallOutcome: the interview's start is its first call's", () => {
+  const FIRST_START = START - 400;
+  const first = { conversationId: "conv_0", turns: [{ role: "user", message: "First call.", time_in_call_secs: 3 }], durationSeconds: 100, startTimeSeconds: FIRST_START };
+  const DROP = { start_time_unix_secs: START, call_duration_secs: 60, termination_reason: "Client disconnected: 1005" };
+  const at = (r: PostCallRow, p: PostCallTranscription) =>
+    decidePostCallOutcome({ row: r, data: toCallRecord(p), eventTimestamp: null, maxStarts: 3, plannedSeconds: 720, now: new Date((START + 70) * 1000) });
+
+  it("the first call's record writes it, with or without a later session issued", () => {
+    expect(at(row({ issuedConversationIds: ["conv_1"] }), payload({ metadata: DROP }))).toMatchObject({ startedAt: new Date(START * 1000) });
+    // A row from before the issued list existed has nothing to compare: the record writes.
+    expect(at(row(), payload({ metadata: DROP }))).toMatchObject({ startedAt: new Date(START * 1000) });
+  });
+
+  it("a resumed call's record never moves it, scored or not, and each call keeps its own start on its segment", () => {
+    const resumed = row({ issuedConversationIds: ["conv_0", "conv_1"], segments: [first] });
+
+    const dropped = at(resumed, payload({ metadata: DROP }));
+    expect(dropped).toMatchObject({ kind: "store", status: "IN_PROGRESS", startedAt: null, endedAt: new Date((START + 60) * 1000) });
+
+    const finished = at({ ...resumed, finishRequestedAt: new Date() }, payload({ metadata: DROP }));
+    expect(finished).toMatchObject({ kind: "store", status: "FEEDBACK_PENDING", startedAt: null });
+    expect((finished as { segments: { conversationId: string; startTimeSeconds: number | null }[] }).segments).toEqual([
+      expect.objectContaining({ conversationId: "conv_0", startTimeSeconds: FIRST_START }),
+      expect.objectContaining({ conversationId: "conv_1", startTimeSeconds: START }),
+    ]);
+  });
+
+  it("a later call after a silent or lost first one does not move it either", () => {
+    const later = row({ issuedConversationIds: ["conv_0", "conv_1"] });
+    expect(at(later, payload({ metadata: DROP }))).toMatchObject({ kind: "store", startedAt: null });
+    expect(at(later, payload({ transcript: [{ role: "agent", message: "Hi" }], metadata: DROP }))).toMatchObject({ failureReason: NO_CANDIDATE_TURNS, startedAt: null });
+  });
+});
+
 describe("callOverrunSeconds: a call that ran past what its session allowed", () => {
   it("reports only what passes the tolerance: the grace and a margin", () => {
     expect(CALL_OVERRUN_TOLERANCE_SECONDS).toBe(105);

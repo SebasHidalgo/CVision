@@ -111,7 +111,7 @@ export async function storeConversationTranscript({
     // Two concurrent deliveries of the same call (the webhook and the API fetch) write once:
     // the second finds the row past the startable states, or its transcript already stored.
     // Times only when the delivery carries them: a payload without metadata
-    // must not blank what the room reported.
+    // must not blank what the room reported. startedAt only from the first call's record.
     // A start the platform could not run is given back in the same write,
     // and only once: the second delivery of the same failed call is a
     // duplicate by the transcript check above.

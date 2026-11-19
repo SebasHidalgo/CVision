@@ -212,6 +212,8 @@ export type PostCallRow = {
   transcript: unknown;
   issuedContext: unknown;
   startCount: number;
+  /** Every conversation the session endpoint issued, oldest first: the first is the interview's first call. */
+  issuedConversationIds?: string[];
   /** Earlier calls of the interview that counted; none for a first call. */
   segments?: CallSegment[];
   /** The candidate asked to finish (End, or "Finish and get feedback"). */
@@ -230,6 +232,7 @@ export type PostCallOutcome =
       status: Extract<InterviewStatus, "FEEDBACK_PENDING" | "IN_PROGRESS" | "FAILED">;
       failureReason: string | null;
       contextMismatch: boolean;
+      /** The interview's start, from its first call's record only; null leaves the column as it is. */
       startedAt: Date | null;
       endedAt: Date | null;
       durationSeconds: number | null;
@@ -324,10 +327,14 @@ export function decidePostCallOutcome({
 
   const startSecs = data.startTimeSeconds;
   const durationSecs = data.durationSeconds;
-  const startedAt = startSecs !== null ? new Date(startSecs * 1000) : null;
+  const callStartedAt = startSecs !== null ? new Date(startSecs * 1000) : null;
+  // Interview.startedAt is the first session's, kept across reconnects: only the first call's record writes it.
+  // A later call's own start lives on its segment (startTimeSeconds).
+  const firstIssued = row.issuedConversationIds?.[0];
+  const startedAt = firstIssued === undefined || firstIssued === data.conversationId ? callStartedAt : null;
   const endedAt =
-    startedAt && durationSecs !== null
-      ? new Date(startedAt.getTime() + durationSecs * 1000)
+    callStartedAt && durationSecs !== null
+      ? new Date(callStartedAt.getTime() + durationSecs * 1000)
       : typeof eventTimestamp === "number"
         ? new Date(eventTimestamp * 1000)
         : null;
@@ -386,8 +393,7 @@ export function decidePostCallOutcome({
       ...base,
       status: "FEEDBACK_PENDING",
       failureReason: null,
-      // The interview began with its first call.
-      startedAt: earlier.length === 0 ? startedAt : null,
+      startedAt,
       durationSeconds: Math.round(used),
       transcript: mergeSegments(all),
       segments: all.length > 1 ? all : null,
@@ -403,7 +409,7 @@ export function decidePostCallOutcome({
     earlyEnd,
     status: "IN_PROGRESS",
     failureReason: null,
-    startedAt: earlier.length === 0 ? startedAt : null,
+    startedAt,
     durationSeconds: durationSecs !== null ? Math.round(durationSecs) : null,
     transcript: data.turns,
     segments: null,
