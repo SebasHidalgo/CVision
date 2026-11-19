@@ -8,15 +8,18 @@ import { z } from "zod";
 import type { InterviewLanguage } from "@/lib/ai/postingLanguage";
 import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@/lib/voice/postCall";
 import { readCallEnd, withLateClaim, type CallEnd, type EndDetail, type RoomEndClaim } from "@/lib/voice/callEnd";
-import { readSegments, type CallSegment } from "@/lib/voice/segments";
-import type { InterviewTierId } from "@/lib/plans";
-import type { Interview, InterviewFeedback } from "@/types/interview";
+import { readSegments, resumeState, type CallSegment } from "@/lib/voice/segments";
+import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
+import type { InterviewFeedback, InterviewListItem } from "@/types/interview";
 import { expireAbandonedInterviews } from "./interviewExpiry";
+import { storedCallCounts } from "./interviewResume";
 import {
   feedbackInclude,
+  interviewListSelect,
   interviewOmit,
-  mapDbInterview,
   mapDbInterviewFeedback,
+  mapDbInterviewListItem,
 } from "./mappers";
 import { isVisible, visibleAnalysisIds } from "./visibility";
 
@@ -122,29 +125,62 @@ export async function createInterview(
 
 export type VisibleInterviews = {
   /** The caller's interviews whose analysis the plan shows, newest first. */
-  interviews: Interview[];
+  interviews: InterviewListItem[];
   /** Interviews of analyses hidden by the plan's history rule. */
   hidden: number;
 };
 
-/** The caller's interviews within the plan's history (an interview follows its analysis), and how many are hidden. */
-export async function fetchVisibleInterviews(): Promise<VisibleInterviews> {
+/**
+ * The caller's interviews within the plan's history (an interview follows its analysis), and how many are hidden.
+ * Newest first, the id breaking ties. A resumable one (a dropped call, or one the interviewer ended early) carries the
+ * interview time it has left, read from its calls the way the room reads it; only those rows load their transcripts.
+ */
+export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleInterviews> {
   try {
     const userId = await requireUserId();
     // A list is a read of every interview: the sweep for abandoned ones runs first.
-    await expireAbandonedInterviews(userId);
+    await expireAbandonedInterviews(userId, now);
 
     const [rows, visible] = await Promise.all([
       prisma.interview.findMany({
         where: { userId },
-        omit: interviewOmit,
-        orderBy: { createdAt: "desc" },
+        select: interviewListSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       }),
       visibleAnalysisIds(userId),
     ]);
     const shown = rows.filter((row) => isVisible(visible, row.resumeAnalysisId));
 
-    return { interviews: shown.map(mapDbInterview), hidden: rows.length - shown.length };
+    const resumableIds = shown.filter((row) => row.status === "IN_PROGRESS" && row.resumableUntil && row.resumableUntil.getTime() > now.getTime()).map((row) => row.id);
+    const left = new Map<string, number>();
+    if (resumableIds.length > 0) {
+      const calls = await prisma.interview.findMany({
+        where: { id: { in: resumableIds }, userId },
+        select: { id: true, tier: true, status: true, startCount: true, resumableUntil: true, segments: true, transcript: true, transcriptSource: true, durationSeconds: true, lastSessionAt: true, endedAt: true },
+      });
+      for (const row of calls) {
+        const segments = readSegments(row.segments);
+        const state = resumeState(
+          {
+            segments,
+            latestRecorded: row.transcriptSource !== null,
+            latestSpoke: storedCallCounts(row.transcript) || segments.length > 0,
+            latestDurationSeconds: row.durationSeconds,
+            lastSessionAt: row.lastSessionAt,
+            endedAt: row.endedAt,
+            status: row.status,
+            resumableUntil: row.resumableUntil,
+            startCount: row.startCount,
+          },
+          INTERVIEW_TIERS[row.tier ?? "FULL"].seconds,
+          MAX_INTERVIEW_STARTS,
+          now,
+        );
+        if (state.resumable) left.set(row.id, state.remainingSeconds);
+      }
+    }
+
+    return { interviews: shown.map((row) => mapDbInterviewListItem(row, left.get(row.id) ?? null)), hidden: rows.length - shown.length };
   } catch (error) {
     handleError(error, "Failed to retrieve the interview records");
   }

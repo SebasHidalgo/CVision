@@ -1,115 +1,72 @@
-import { HistoryLine } from "./components/HistoryLine";
-import EmptyState from "@/components/layout/EmptyState";
-import IndexRow from "@/components/layout/IndexRow";
-import PageIntro from "@/components/layout/PageIntro";
+import { fontText } from "@/components/design-system/fonts";
+import { PageHeading } from "@/components/design-system/PageHeading";
+import { Surface } from "@/components/design-system/Surface";
 import { fetchVisibleInterviews } from "@/lib/database/interview";
 import { currentInterviewEntitlement } from "@/lib/database/usage";
-import { waitingInterviewEntry, waitingReading } from "@/lib/interviewEntry";
-import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
-import { formatDate, ordinal } from "@/lib/format";
+import { ordinal } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
-import { interviewDestination, type InterviewPhase } from "@/lib/interviewStatus";
 import { cn } from "@/lib/utils";
+import { EmptyList } from "./components/EmptyList";
+import { HistoryLine } from "./components/HistoryLine";
+import { InterviewRow } from "./components/InterviewRow";
+import { PlanLine } from "./components/PlanLine";
+import { listState } from "./utils/listState";
+import { planLine } from "./utils/planLine";
 
-const VISIBLE_TECH = 4;
-
-/** The reading on the right of each row, by phase. */
-const READING: Record<InterviewPhase, { key: `list.reading.${InterviewPhase}`; dot: string }> = {
-  ready: { key: "list.reading.ready", dot: "glow-signal bg-signal animate-blink" },
-  pending: { key: "list.reading.pending", dot: "bg-fair animate-blink" },
-  done: { key: "list.reading.done", dot: "bg-strong" },
-  failed: { key: "list.reading.failed", dot: "bg-weak" },
-  expired: { key: "list.reading.expired", dot: "bg-ink-3" },
-};
+const HEADING_ID = "interviews-title";
 
 export default async function InterviewsScreen() {
-  // An interview follows its analysis: hidden analyses hide their rehearsals too.
-  const [{ interviews, hidden }, t, locale] = await Promise.all([fetchVisibleInterviews(), getT("interview"), getLocale()]);
-  // A waiting interview reads as its room does: ready only when the plan can start it.
-  const waiting = interviews.some((interview) => interviewDestination(interview).phase === "ready");
-  const entitlement = waiting ? await currentInterviewEntitlement() : null;
+  // An interview follows its analysis: hidden analyses hide their rehearsals too. The list's read sweeps abandoned
+  // interviews first, so the entitlement after it counts their refunds.
+  const [{ interviews, hidden }, t, common, locale] = await Promise.all([fetchVisibleInterviews(), getT("interview"), getT("common"), getLocale()]);
+  // What the plan has left: the line under the heading, and whether a waiting interview can start.
+  const entitlement = await currentInterviewEntitlement();
+  const now = new Date();
   const completed = interviews.filter((interview) => interview.status === "COMPLETED").length;
 
   return (
-    <div className="wrap py-12 lg:py-16">
-      <PageIntro
-        eyebrow={t("list.eyebrow")}
-        title={t("list.title")}
-        aside={
-          interviews.length > 0 && (
-            <dl className="flex gap-10 md:gap-14">
-              <div>
-                <dt className="eyebrow">{t("list.count")}</dt>
-                <dd className="figure mt-3 text-5xl text-ink">
-                  {interviews.length}
-                </dd>
-              </div>
-              <div>
-                <dt className="eyebrow">{t("list.completed")}</dt>
-                <dd className="figure mt-3 text-5xl text-ink">{completed}</dd>
-              </div>
-            </dl>
-          )
-        }
-      />
-
-      {interviews.length === 0 && hidden === 0 ? (
-        <EmptyState
-          title={t("list.emptyTitle")}
-          body={t("list.emptyBody")}
-          action={{ href: "/resume/analyses", label: t("list.emptyAction") }}
+    <div className={cn("ed-root flex-1", fontText.variable)}>
+      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+        <PageHeading
+          id={HEADING_ID}
+          ruled
+          title={t("list.title")}
+          aside={
+            interviews.length > 0 && (
+              <dl className="flex flex-wrap gap-x-8 gap-y-2">
+                <div className="flex items-baseline gap-2.5">
+                  <dt className="text-ed-small text-ed-ink-2">{t("list.count")}</dt>
+                  <dd className="ed-mono text-[17px] text-ed-ink">{interviews.length}</dd>
+                </div>
+                <div className="flex items-baseline gap-2.5">
+                  <dt className="text-ed-small text-ed-ink-2">{t("list.completed")}</dt>
+                  <dd className="ed-mono text-[17px] text-ed-ink">{completed}</dd>
+                </div>
+              </dl>
+            )
+          }
         />
-      ) : (
-        <ol className="divide-y divide-line border-b border-line">
-          {interviews.map((interview, i) => {
-            const hidden = interview.techstack.length - VISIBLE_TECH;
-            const destination = interviewDestination(interview);
-            const reading = READING[destination.phase];
-            const lacks = destination.phase === "ready" && entitlement ? waitingReading(waitingInterviewEntry(interview, entitlement, MAX_INTERVIEW_STARTS)) : "ready";
+        <PlanLine line={planLine(entitlement)} t={t} common={common} locale={locale} />
 
-            return (
-              <IndexRow
+        {interviews.length === 0 ? (
+          hidden === 0 && <EmptyList title={t("list.emptyTitle")} body={t("list.emptyBody")} action={{ href: "/resume/analyses", label: t("list.emptyAction") }} />
+        ) : (
+          <Surface as="ol" aria-label={t("list.listLabel")} className="mt-10 divide-y divide-ed-line overflow-hidden">
+            {interviews.map((interview, i) => (
+              <InterviewRow
                 key={interview.id}
-                index={ordinal(i)}
-                href={destination.href}
-                title={
-                  <>
-                    {interview.role}
-                    <span className="eyebrow ml-3 align-middle">{t("list.attempt", { number: interview.attemptNumber })}</span>
-                  </>
-                }
-                subtitle={
-                  interview.techstack.length > 0 ? (
-                    <span className="flex flex-wrap gap-1.5">
-                      {interview.techstack.slice(0, VISIBLE_TECH).map((tech) => (
-                        <span
-                          key={tech}
-                          className="border border-line px-1.5 py-px font-mono text-[11px] text-ink-2"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                      {hidden > 0 && (
-                        <span className="px-1 py-px font-mono text-[11px] text-ink-3">
-                          +{hidden}
-                        </span>
-                      )}
-                    </span>
-                  ) : undefined
-                }
-                meta={formatDate(interview.createdAt, locale)}
-                reading={
-                  <p className="flex items-center gap-3 text-sm font-medium text-ink">
-                    <span aria-hidden className={cn("size-2 rounded-full", lacks === "ready" ? reading.dot : "bg-ink-3")} />
-                    {lacks === "ready" ? t(reading.key) : t(`list.reading.${lacks}`)}
-                  </p>
-                }
+                interview={interview}
+                state={listState(interview, entitlement, now)}
+                n={ordinal(i)}
+                locale={locale}
+                t={t}
+                common={common}
               />
-            );
-          })}
-        </ol>
-      )}
-      <HistoryLine hidden={hidden} />
+            ))}
+          </Surface>
+        )}
+        <HistoryLine hidden={hidden} />
+      </div>
     </div>
   );
 }

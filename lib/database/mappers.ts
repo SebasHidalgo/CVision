@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import type { ResumeAnalysis } from "@/types/resume";
-import type { Interview, InterviewFeedback } from "@/types/interview";
+import type { InterviewFeedback, InterviewListItem } from "@/types/interview";
 import { interviewFeedbackReportSchema } from "@/lib/ai/schemas";
+import { readCallEnd } from "@/lib/voice/callEnd";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
 
 /** Single source for the resume + feedback read shape. */
@@ -38,8 +39,6 @@ export const interviewOmit = {
   issuedContext: true,
   segments: true,
 } satisfies Prisma.InterviewOmit;
-
-export type DbInterview = Prisma.InterviewGetPayload<{ omit: typeof interviewOmit }>;
 
 /** Feedback plus what the report needs from its interview. */
 export const feedbackInclude = {
@@ -87,24 +86,50 @@ export function mapDbResume(db: DbResumeWithFeedback): ResumeAnalysis {
   };
 }
 
-export function mapDbInterview(db: DbInterview): Interview {
+/** What the interviews list reads of a row: never the transcript, the segments or the issued context. */
+export const interviewListSelect = {
+  id: true,
+  role: true,
+  status: true,
+  createdAt: true,
+  resumeAnalysisId: true,
+  attemptNumber: true,
+  conversationId: true,
+  transcriptSource: true,
+  startCount: true,
+  startedAt: true,
+  endedAt: true,
+  failureReason: true,
+  usageEventId: true,
+  resumableUntil: true,
+  callEnd: true,
+  resumeAnalysis: { select: { companyName: true } },
+  InterviewFeedback: { select: { totalScore: true } },
+} satisfies Prisma.InterviewSelect;
+
+export type DbInterviewListRow = Prisma.InterviewGetPayload<{ select: typeof interviewListSelect }>;
+
+/** A list row in the list's words; `secondsLeft` is the interview time a resumable one has left, read apart. */
+export function mapDbInterviewListItem(db: DbInterviewListRow, secondsLeft: number | null): InterviewListItem {
   return {
     id: db.id,
     role: db.role,
-    techstack: db.techstack,
-    userId: db.userId,
     status: db.status,
     createdAt: db.createdAt,
-    resumeAnalysisId: db.resumeAnalysisId,
+    analysisId: db.resumeAnalysisId,
+    companyName: db.resumeAnalysis?.companyName ?? null,
     attemptNumber: db.attemptNumber,
     conversationId: db.conversationId,
+    hasTranscript: db.transcriptSource != null,
     startCount: db.startCount,
-    startedAt: db.startedAt,
-    endedAt: db.endedAt,
-    durationSeconds: db.durationSeconds,
-    failureReason: db.failureReason,
-    held: db.usageEventId !== null,
-    resumableUntil: db.resumableUntil,
+    startedAt: db.startedAt ?? null,
+    endedAt: db.endedAt ?? null,
+    failureReason: db.failureReason ?? null,
+    held: db.usageEventId != null,
+    resumableUntil: db.resumableUntil ?? null,
+    lastEnd: readCallEnd(db.callEnd)?.reason ?? null,
+    score: db.InterviewFeedback?.totalScore ?? null,
+    secondsLeft,
   };
 }
 

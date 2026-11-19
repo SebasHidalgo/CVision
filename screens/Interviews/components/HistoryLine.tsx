@@ -9,9 +9,9 @@ export async function HistoryLine({ hidden }: { hidden: number }) {
   if (hidden === 0) return null;
   const t = await getT("billing");
   return (
-    <p className="mt-6 text-sm text-ink-2">
+    <p data-history-line className="mt-6 max-w-[75ch] text-ed-body text-ed-ink-2">
       {t("history.line.interviews", { count: hidden, limit: LIMIT })}{" "}
-      <Link href="/pricing" className="link-rule font-medium text-ink">
+      <Link href="/pricing" className="inline-flex min-h-11 items-center text-ed-ink underline decoration-ed-ink-3 underline-offset-4 hover:decoration-ed-ink">
         {t("history.seePro")}
       </Link>
     </p>
