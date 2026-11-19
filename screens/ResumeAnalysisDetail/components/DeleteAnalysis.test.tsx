@@ -56,6 +56,19 @@ describe("DeleteAnalysis", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  it("gives focus back to the button that opened it, on Escape and on cancel", async () => {
+    mount();
+    const trigger = screen.getByRole("button", { name: /delete analysis/i });
+    for (const close of [() => fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" }), () => fireEvent.click(screen.getByRole("button", { name: /keep it/i }))]) {
+      trigger.focus();
+      await openDialog();
+      expect(document.activeElement).not.toBe(trigger);
+      await act(async () => close());
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    }
+  });
+
   it("deletes on confirm and goes to the analyses list", async () => {
     mount();
     await openDialog();
