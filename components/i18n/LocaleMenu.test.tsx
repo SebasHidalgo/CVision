@@ -27,11 +27,11 @@ const open = () => {
 };
 
 describe("LocaleMenu", () => {
-  it("names the current language on its button", () => {
+  it("names the current language on its button, and shows its full name", () => {
     render(<LocaleMenu />);
     const trigger = screen.getByRole("button", { name: "EN, language: English" });
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
-    expect(trigger.textContent).toBe("en");
+    expect(trigger.textContent).toBe("English");
   });
 
   it("lists every language in its own language, the current one checked", () => {
@@ -52,10 +52,5 @@ describe("LocaleMenu", () => {
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Español" }));
     expect(switchTo).toHaveBeenCalledExactlyOnceWith("es");
     expect(screen.queryByRole("menu")).toBeNull();
-  });
-
-  it("shows the language's full name in the settings variant", () => {
-    render(<LocaleMenu variant="full" />);
-    expect(screen.getByRole("button", { name: "EN, language: English" }).textContent).toBe("English");
   });
 });

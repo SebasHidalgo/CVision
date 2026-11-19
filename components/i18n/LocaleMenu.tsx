@@ -15,17 +15,15 @@ import { isLocale, LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
 type LocaleMenuProps = {
-  /** `compact`: globe and code, for the header. `full`: the language's name, for a settings row. */
-  variant?: "compact" | "full";
   className?: string;
 };
 
 /**
- * The interface language as a menu: every locale named in its own language, the current one
- * checked. The other languages' strings are fetched on intent (hover, focus, opening), so the
- * switch itself is immediate.
+ * The interface language as a menu for a settings row (the account page): the current language's
+ * name on the button, every locale named in its own language, the current one checked. The other
+ * languages' strings are fetched on intent (hover, focus, opening), so the switch itself is immediate.
  */
-export default function LocaleMenu({ variant = "compact", className }: LocaleMenuProps) {
+export default function LocaleMenu({ className }: LocaleMenuProps) {
   const { t } = useTranslation("common");
   const { current, pending, switchTo, prefetch } = useLocaleSwitch();
 
@@ -43,22 +41,13 @@ export default function LocaleMenu({ variant = "compact", className }: LocaleMen
         onPointerEnter={prefetchOthers}
         onFocus={prefetchOthers}
         className={cn(
-          "inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-md transition-colors duration-200",
-          variant === "compact"
-            ? "h-9 gap-1.5 px-2.5 text-ink-2 hover:bg-paper-2 hover:text-ink data-[state=open]:bg-paper-2 data-[state=open]:text-ink"
-            : "h-10 gap-2 border border-line-strong px-3 text-sm text-ink hover:bg-paper-2 data-[state=open]:bg-paper-2",
+          "inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-md border border-line-strong px-3 text-sm text-ink transition-colors duration-200 hover:bg-paper-2 data-[state=open]:bg-paper-2",
           className,
         )}
       >
         <Icon aria-hidden className={cn("size-4", pending && "animate-spin")} />
-        {variant === "compact" ? (
-          <span className="font-mono text-[11px] font-medium uppercase tracking-wider">{current}</span>
-        ) : (
-          <>
-            <span lang={current}>{LOCALE_NAMES[current]}</span>
-            <ChevronDown aria-hidden className="size-4 text-ink-3" />
-          </>
-        )}
+        <span lang={current}>{LOCALE_NAMES[current]}</span>
+        <ChevronDown aria-hidden className="size-4 text-ink-3" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" sideOffset={12} className="w-48 rounded-md border-line-strong p-1.5 shadow-float">
