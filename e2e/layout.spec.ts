@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
 import { openRoom } from "./support/app";
-import { copyFor, localeOf } from "./support/copy";
+import { copyFor, literal, localeOf, type Copy } from "./support/copy";
 import { assertSandbox } from "./support/env";
 import { layoutViolations, openDetails, settle, type LayoutViolation } from "./support/layout";
 import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
@@ -13,7 +13,7 @@ import { seedFeedbackState, seedListInterview } from "./support/seedInterviews";
  * text over or under a button, a card, an illustration or other text, no text leaving its block, no
  * button that clips its text, no text cut short with an ellipsis outside the allowlist. Every <details> is opened
  * first. One seeded analysis (no model call for it; in Spanish, its translation on first view), its room before
- * Start and again with the trial used (the Pro offer), the analyses list with Free's hidden block, the 404 page, the room live with an invented 24-line call (the dev-only
+ * Start and again with the trial used (the Pro offer), the landing with its "After" tab chosen (the example report), the analyses list with Free's hidden block, the 404 page, the room live with an invented 24-line call (the dev-only
  * preview route), and a finished Spanish interview's feedback page with its transcript (seeded, no call).
  */
 
@@ -25,6 +25,19 @@ const WIDTHS = [375, 768, 1024, 1280, 1366, 1440, 1920] as const;
 const HEIGHT: Record<(typeof WIDTHS)[number], number> = { 375: 812, 768: 1024, 1024: 768, 1280: 900, 1366: 768, 1440: 900, 1920: 1080 };
 
 test.beforeAll(() => assertSandbox());
+
+/** The landing again with its "After" tab chosen: the feedback report inside the app frame is measured too. */
+async function checkLandingReport(page: import("@playwright/test").Page, t: Copy, found: LayoutViolation[]) {
+  await page.goto("/");
+  await settle(page);
+  const after = page.getByRole("tab", { name: literal(t("landingInterview:screens.after")) });
+  await after.click();
+  await expect(after).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: literal(t("landingInterview:screens.after")) })).toBeVisible();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await openDetails(page);
+  found.push(...(await layoutViolations(page, "landing, After tab (the feedback report)")));
+}
 
 async function check(page: import("@playwright/test").Page, urls: Array<[string, string]>, found: LayoutViolation[]) {
   for (const [label, url] of urls) {
@@ -112,6 +125,7 @@ for (const width of WIDTHS) {
     const found: LayoutViolation[] = [];
 
     await check(page, [["landing", "/"], ["pricing", "/pricing"], ["terms", "/terms"], ["not found", "/no-such-page"]], found);
+    await checkLandingReport(page, t, found);
 
     const account: TestAccount = await createAccount(`layout-${width}-${localeOf(testInfo)}`);
     try {

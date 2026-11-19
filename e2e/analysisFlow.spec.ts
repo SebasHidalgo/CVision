@@ -4,7 +4,7 @@ import { createAccount, deleteAccount, signIn, type TestAccount } from "./suppor
 import { copyFor, localeOf } from "./support/copy";
 import { db } from "./support/db";
 import { assertSandbox } from "./support/env";
-import { seedAnalysis, type SeededRequirement } from "./support/seed";
+import { seedAnalysis, seedCompletedInterview, type SeededRequirement } from "./support/seed";
 
 /**
  * The analysis flow's rules a reader relies on: the owner's requirement order on the analysis page, Free's hidden
@@ -104,9 +104,13 @@ test("a Free account sees its older analyses hidden, and deletes them one by one
   const t = copyFor(localeOf(testInfo));
   const free = await createAccount(`hidden-${localeOf(testInfo)}`);
   try {
-    // Five analyses an hour apart: Free shows the last three, "Role 1" and "Role 2" are the hidden ones.
+    // Five analyses an hour apart: Free shows the last three, "Role 1" and "Role 2" are the hidden ones. "Role 1" has
+    // two finished interviews (no conversation issued: deleting them asks nothing of the voice platform).
     const start = Date.now() - 10 * 86_400_000;
-    for (let i = 0; i < 5; i += 1) await seedAnalysis(free, { createdAt: new Date(start + i * 3_600_000), jobTitle: `Role ${i + 1}` });
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i += 1) ids.push(await seedAnalysis(free, { createdAt: new Date(start + i * 3_600_000), jobTitle: `Role ${i + 1}` }));
+    const interviews = [await seedCompletedInterview(free, ids[0]), await seedCompletedInterview(free, ids[0])];
+    const { companyName } = await db.resumeAnalysis.findUniqueOrThrow({ where: { id: ids[0] }, select: { companyName: true } });
     await signIn(page, free);
     await page.goto("/resume/analyses");
 
@@ -120,10 +124,16 @@ test("a Free account sees its older analyses hidden, and deletes them one by one
     // A hidden row names its analysis but never opens it.
     await expect(hidden.locator("a")).toHaveCount(0);
 
+    // Its dialog names the interviews that go with it (the date is the page's own formatting: checked around it).
     await hidden.filter({ hasText: "Role 1" }).getByRole("button").click();
-    await page.getByRole("alertdialog").getByRole("button", { name: t("analyses:confirm.oneConfirm") }).click();
+    const dialog = page.getByRole("alertdialog");
+    const body = t("analyses:confirm.oneBodyInterviews", { count: 2, jobTitle: "Role 1", companyName, date: "\u0000" });
+    for (const part of body.split("\u0000")) await expect(dialog).toContainText(part.trim());
+    await dialog.getByRole("button", { name: t("analyses:confirm.oneConfirm") }).click();
     await expect(hidden).toHaveCount(1);
     await expect(block).not.toContainText("Role 1");
+    expect(await db.interview.count({ where: { id: { in: interviews } } })).toBe(0);
+    expect(await db.interviewFeedback.count({ where: { interviewId: { in: interviews } } })).toBe(0);
 
     await block.getByRole("button", { name: t("analyses:hidden.deleteAll", { count: 1 }), exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: t("analyses:confirm.allConfirm", { count: 1 }), exact: true }).click();

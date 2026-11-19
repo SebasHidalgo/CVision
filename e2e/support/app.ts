@@ -96,6 +96,16 @@ export async function accountText(page: Page, t: Copy): Promise<string> {
   return mainText(page);
 }
 
+/** The account page (plan, usage, language, sign-in, deletion) after a fresh load, once its standing is drawn. */
+export async function accountOverview(page: Page, t: Copy): Promise<{ text: string; usage: string; standing: string | null }> {
+  await page.goto("/account");
+  await page.getByRole("heading", { level: 1, name: literal(t("account:meta.accountTitle")) }).waitFor({ timeout: 30_000 });
+  const plan = page.locator("[data-standing]").first();
+  await plan.waitFor({ timeout: 30_000 });
+  const usage = (await page.locator("[data-usage]").innerText()).replace(/\s+/g, " ").trim();
+  return { text: await mainText(page), usage, standing: await plan.getAttribute("data-standing") };
+}
+
 /** Reloads the account page until its text satisfies `predicate`, for a change a webhook has to land. */
 export async function waitForAccount(page: Page, t: Copy, predicate: (text: string) => boolean, { timeoutMs = 150_000, everyMs = 5_000 } = {}): Promise<string> {
   const until = Date.now() + timeoutMs;
@@ -117,7 +127,7 @@ export async function warmRoutes(): Promise<void> {
   for (const route of ["/api/webhooks/paddle", "/api/webhooks/clerk", "/api/webhooks/elevenlabs"]) {
     await fetch(`${BASE_URL}${route}`, { method: "POST", body: "{}", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(120_000) }).catch(() => {});
   }
-  for (const route of ["/pricing", "/account/billing"]) {
+  for (const route of ["/pricing", "/account", "/account/billing"]) {
     await fetch(`${BASE_URL}${route}`, { signal: AbortSignal.timeout(120_000), redirect: "manual" }).catch(() => {});
   }
 }

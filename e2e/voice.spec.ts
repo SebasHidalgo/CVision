@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { accountText, mainText, openRoom, warmRoutes } from "./support/app";
+import { accountOverview, mainText, openRoom, warmRoutes } from "./support/app";
 import { db } from "./support/db";
 import { copyFor } from "./support/copy";
 import { assertSandbox } from "./support/env";
@@ -96,7 +96,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
     const status = (await page.getByRole("status").first().textContent()) ?? "";
     expect(status).toContain("Voice interviews are temporarily unavailable. Nothing was charged.");
     await expect(page.getByRole("button", { name: /start the interview/i })).toBeEnabled();
-    const text = await accountText(page, t);
+    const text = await trialText(page);
     expect(text).toContain(TRIAL_AVAILABLE);
     expect(text).not.toContain("pending return");
     const row = await db.interview.findFirst({ where: { userId: account.id }, orderBy: { createdAt: "desc" } });
@@ -186,7 +186,7 @@ test("one start on the trial: refused before any charge, failed by the platform 
     // The typed line was heard as the candidate's: the interview counted, End closed it, and the stored turns hold three fields.
     expect((row.callEnd as { reason?: string } | null)?.reason).toBe("user");
     for (const turn of row.transcript as Record<string, unknown>[]) expect(Object.keys(turn).filter((key) => !["role", "message", "time_in_call_secs"].includes(key))).toEqual([]);
-    expect(await accountText(page, t)).not.toContain(TRIAL_AVAILABLE);
+    expect(await trialText(page)).not.toContain(TRIAL_AVAILABLE);
     return;
   }
   // No answer was ever heard: the trial was not spent.
@@ -222,12 +222,17 @@ async function printPlatformTimeline(): Promise<void> {
   console.log(`[e2e voice] platform record after End: ${seen.join(" -> ")}`);
 }
 
+/** The account page's text: the trial and the credits pending return live there. */
+async function trialText(page: Parameters<typeof signIn>[0]): Promise<string> {
+  return (await accountOverview(page, t)).text;
+}
+
 async function waitForAccountTrial(page: Parameters<typeof signIn>[0]): Promise<string> {
   const until = Date.now() + 150_000;
-  let text = await accountText(page, t);
+  let text = await trialText(page);
   while (!text.includes(TRIAL_AVAILABLE) && Date.now() < until) {
     await page.waitForTimeout(5_000);
-    text = await accountText(page, t);
+    text = await trialText(page);
   }
   return text;
 }

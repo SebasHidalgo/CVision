@@ -96,3 +96,8 @@ export async function seedFeedbackState(account: Pick<TestAccount, "id">, analys
 export async function setCreatedAt(interviewId: string, minutesAgo: number): Promise<void> {
   await db.interview.update({ where: { id: interviewId }, data: { createdAt: new Date(Date.now() - minutesAgo * 60_000) } });
 }
+
+/** Renames an interview's role, so a spec can tell seeded interviews of the same fixture apart in a list. */
+export async function setRole(interviewId: string, role: string): Promise<void> {
+  await db.interview.update({ where: { id: interviewId }, data: { role } });
+}

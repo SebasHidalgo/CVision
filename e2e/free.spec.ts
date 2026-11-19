@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { accountText, interviewCta, mainText, openRoom, roomLength, warmRoutes } from "./support/app";
+import { accountOverview, accountText, interviewCta, mainText, openRoom, roomLength, warmRoutes } from "./support/app";
 import { copyFor, literal, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
 import { seedAnalysis } from "./support/seed";
@@ -29,15 +29,16 @@ test.afterAll(async () => {
 test("a new account is on Free, with the trial available and no credits", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
   await signIn(page, account);
-  const text = await accountText(page, t);
-  expect(text).toMatch(literal(t("account:intro.titleFree")));
+  expect(await accountText(page, t)).toMatch(literal(t("account:intro.titleFree")));
+  const { usage, standing } = await accountOverview(page, t);
+  expect(standing).toBe("free");
   // innerText carries the page's uppercase styling and glues the figure to its unit.
-  expect(text).toMatch(new RegExp(`${literal(t("account:trial.label")).source}\\s*${literal(t("account:trial.available")).source}`, "i"));
-  expect(text).toContain(t("account:trial.availableNote", { minutes: 5 }));
+  expect(usage).toMatch(new RegExp(`${literal(t("account:trial.label")).source}\\s*${literal(t("account:trial.available")).source}`, "i"));
+  expect(usage).toContain(t("account:trial.availableNote", { minutes: 5 }));
   // Free has no period of interviews and, with no pack ever bought, no credits line.
-  expect(text).not.toMatch(literal(t("account:interviews.label"), "i"));
-  expect(text).not.toMatch(literal(t("account:credits.label"), "i"));
-  expect(text).toMatch(new RegExp(`${literal(t("account:analyses.label")).source}\\s*3\\s*${literal(t("account:analyses.ofMonth", { limit: 3 })).source}`, "i"));
+  expect(usage).not.toMatch(literal(t("account:interviews.label"), "i"));
+  expect(usage).not.toMatch(literal(t("account:credits.label"), "i"));
+  expect(usage).toMatch(new RegExp(`${literal(t("account:analyses.label")).source}\\s*3\\s*${literal(t("account:analyses.left", { limit: 3 })).source}`, "i"));
 });
 
 test("an analysis offers the 5-minute trial, and the room promises five minutes on the trial", async ({ page }, testInfo) => {
