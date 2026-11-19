@@ -119,7 +119,8 @@ production's functions must sit in the database's region (`vercel.json`).
 | `User` | one row per Clerk account: the id, a manual comp (`compPlan`), timestamps. Everything else hangs from it with `onDelete: Cascade` |
 | `ResumeAnalysis`, `ResumeFeedback` | the posting and the CV's key; the analysis and its guardrail stats |
 | `Interview`, `InterviewFeedback` | a rehearsal: sessions issued, transcript, failure reason, what paid for it; the feedback report |
-| `UsageEvent` | the usage ledger: analyses, interviews, trials, credit grants and revokes; refunds mark, never delete. An analysis unit is `settledAt` (spent for good) right before its row is saved; a held one whose request died is given back (docs/billing.md). A partial unique index (`UsageEvent_one_live_trial`, raw SQL in its migration) allows one unrefunded `INTERVIEW_TRIAL` per user |
+| `UsageEvent` | the usage ledger: analyses, interviews, trials, credit grants and revokes; refunds mark, never delete. An analysis unit is `settledAt` (spent for good) in the transaction that saves its row; a held one whose request died is given back (docs/billing.md). A partial unique index (`UsageEvent_one_live_trial`, raw SQL in its migration) allows one unrefunded `INTERVIEW_TRIAL` per user |
+| `TrialClaim` | one row per email hash that spent the free trial (HMAC of the normalized email; no user id, no FK): outlives the account, removed only when that trial is refunded (docs/billing.md) |
 | `RateLimitCounter` | fixed hourly windows per user and action, pruned on the next hit |
 | `BillingCustomer`, `Subscription`, `BillingEvent` | the provider's customer id, a mirror of each subscription, and every accepted event id (no payload; outlives the account) |
 | `GuardStatDaily` | anonymous daily tallies of what the guardrails did; never deleted |
@@ -128,5 +129,8 @@ Access rules, from `CLAUDE.md`'s data-layer section: every module under
 `lib/database/` is `server-only`, resolves the session inside
 (`requireUserId`) except the no-session modules the webhooks use, puts
 ownership in the `where`, and answers `null` for a row that is missing or
-someone else's. The only raw SQL in the app is the rate limiter's single
-upsert statement, parameterized.
+someone else's. Raw SQL in the app is two fixed, parameterized statements:
+the rate limiter's single upsert, and the abandoned-unit sweep's read,
+whose `WHERE` repeats the partial index `UsageEvent_held_analysis` word
+for word (Prisma sends an enum as `CAST($1::text AS "UsageKind")`, which
+the planner cannot match to an index predicate; measured with `EXPLAIN`).

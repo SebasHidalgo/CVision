@@ -11,7 +11,7 @@ and nothing else hard-codes one.
 | Analyses | 3 a month, counted down on the upload page | up to 50 a month, said that way on the landing, pricing, account, terms and the Paddle catalog; the upload page counts down only Free, so Pro sees the number again only in the refusal when it is hit |
 | Voice interviews | one 5-minute trial, once, for an account that never had voice | 4 per billing period, 12 minutes each, then pack credits |
 | Interview pack | — | $9 one-time, 4 credits, bought while Pro is in force; each credit is a full 12-minute interview, usable on any plan, never expires |
-| History | the last 3 analyses; older ones are hidden, never deleted | everything |
+| History | everything | everything (the limits apply to what you create, never to what you see) |
 | Period | calendar month, UTC | the subscription's billing period (calendar month for a comped Pro) |
 
 The plan is derived, never stored (`lib/billing/access.ts`): a subscription
@@ -34,13 +34,16 @@ the key is known to be the caller's, a refused analysis also removes the
 uploaded object.
 
 A request killed by its `maxDuration` never runs its own refund, so the
-unit is spent for good (`settledAt`) only right before the analysis row is
-saved, and only while it is still held. A held unit older than any request
+unit is spent for good (`settledAt`) only in the transaction that saves the
+analysis row, and only while it is still held: no request can die between
+the charge and the row. A held unit older than any request
 can live, never settled, belonged to a dead request: a retry of the same
 submission gives it back before it reserves, and the daily cron
 (`/api/cron/storage-gc`, `refundAbandonedAnalyses`) gives back the rest
 after an hour, when no analysis row exists under it. A request that comes
-back after its unit was given back cannot settle it and saves nothing. A
+back after its unit was given back cannot settle it and saves nothing: it
+answers with the analysis the retry saved, or `ANALYSIS_IN_PROGRESS`, and
+removes its own upload. A
 settled unit (its analysis deleted since) is never given back.
 
 An interview reserves on its first session token, which is the moment it
@@ -57,6 +60,24 @@ transaction. Which interview a start gets (a Pro's period interview, a
 credit on the main agent for twelve minutes, the five-minute trial, or
 nothing) is decided in one place, `lib/interviewEntitlement.ts`, read by
 the pages, the create action and the session endpoint alike.
+
+The trial is also one per email, across deleted and re-created accounts.
+When it would otherwise be offered, the account's verified emails are read
+from Clerk, normalized (`lib/trialClaim.ts`: lowercase, `+tag` cut on every
+domain, `-tag` on Yahoo's, Gmail dots removed, googlemail.com read as
+gmail.com) and hashed with HMAC-SHA256 keyed by the server-only
+`TRIAL_CLAIM_PEPPER`; any hash in `TrialClaim` means no trial (reason
+`trial-claimed`: the room, the analysis page, `/account` and `/pricing` say
+the email already used it, with the Pro offer). Spending the trial inserts
+one `TrialClaim` per hash in the reservation's transaction and keeps the
+hashes on the unit (`trialClaimHashes`); a claim another account took first
+is the quota refusal. A refund of that unit deletes them in its
+transaction; account deletion never does (no FK). Fail closed: no pepper
+(or under 32 characters; one loud log line per ten minutes), no verified
+email, or Clerk not answering means no trial (reason `trial-unavailable`,
+shown as the generic Pro line), never a failed Pro or credit start. Set the
+pepper once per environment and never rotate it: a new value forgets every
+claim.
 
 ## Rate limits
 

@@ -20,7 +20,7 @@ M11-B). Pages move to it one phase at a time; the landing is the first.
 | `Bone.tsx` | The skeleton block of every loading state: `aria-hidden`, divider tone, pulses only under `motion-safe` (M11-E). |
 | `oneSystem.test.ts` | Fails if an `ed-` name or any name of the old light system comes back. |
 | `PageHeading.tsx` | A working page's head: the title over eight columns, a lede or a block in the right rail (M11-C). |
-| `ConfirmDialog.tsx` | A destructive confirmation on Radix's alert dialog; it portals out of the page, so it carries `root` and the font itself (M11-C). |
+| `ConfirmDialog.tsx` | A destructive confirmation on Radix's alert dialog; it portals out of the page, so it carries `root` and the font itself (M11-C). Never taller than the viewport (`100dvh` − 32 px): the body (with an optional `note` paragraph, read as part of the description) scrolls on its own and becomes a tab stop only when it overflows; the title and the actions stay in view. |
 | `Logo.tsx` | The wordmark. |
 
 Tokens have plain names (`ink`, `line`, `panel`, `text-body`, `font-display`…). Until M11-E they carried an `ed-` prefix
@@ -194,11 +194,9 @@ the left four columns, content over the right eight; `UsageRow`, `Figure`, `Cell
 ## Shared by two routes (M11-E)
 
 - `components/pricing/`: `pricingView` (pure: every figure from `lib/plans.ts` and the catalog), `PlanComparison`
-  (a table from 1024 px, plan cards below; no hooks), `PackAddon`, `PaymentNote`, `SignUpButton`. The landing's
+  (a table from 1024 px, plan cards below; no hooks; the plan names are headings at `headingLevel` in both layouts,
+  `<hN>` in the cards and `role="heading"` in the table's column headers, since HTML keeps `<hN>` out of a `<th>`), `PackAddon`, `PaymentNote`, `SignUpButton`. The landing's
   pricing section and `/pricing` render the same tree; each passes its own actions. No green on plan features.
-- `components/history/HiddenBlock.tsx`: the block of what Free's history hides, for analyses and interviews alike
-  (count, why, role, company and date, delete one or all through `ConfirmDialog`); `deletionSummary.ts` words the
-  outcome.
 - `components/interview/ui.ts` holds the eyebrow and the thin scrollbar only.
 
 ## The verdict rule
