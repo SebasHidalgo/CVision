@@ -1,6 +1,13 @@
 {
   "title": "Check for free. Rehearse with Pro.",
-  "lede": "Two plans, and a pack for when you need more interviews. Prices in {{currency}}.",
+  "lede": "Two plans, and a pack for when you need more interviews.",
+  "cta": {
+    "free": "Create a free account",
+    "freeSignedIn": "Analyze my CV",
+    "pro": "Subscribe to Pro",
+    "proSignedIn": "See the Pro plan",
+    "rowLabel": "Get started"
+  },
   "perMonth": "a month",
   "plansLabel": "Free and Pro compared",
   "rows": {
@@ -23,13 +30,6 @@
       "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
       "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
     }
-  },
-  "cta": {
-    "rowLabel": "Get started",
-    "free": "Create a free account",
-    "freeSignedIn": "Analyze my CV",
-    "pro": "Subscribe to Pro",
-    "proSignedIn": "See the Pro plan"
   },
   "pack": {
     "label": "Add-on pack",

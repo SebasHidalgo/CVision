@@ -3,15 +3,45 @@
     "title": "Precios"
   },
   "intro": {
-    "eyebrow": "Precios",
     "title": "Dos planes. Uno es gratis.",
-    "lede": "Compara tu propio CV con los puestos que te interesan y practica la entrevista en voz alta con un entrevistador de IA. Paga solo cuando quieras más entrevistas."
+    "lede": "Compara tu propio CV con los puestos que te interesan y practica la entrevista en voz alta con un entrevistador de IA. Paga solo cuando quieras más entrevistas.",
+    "eyebrow": "Precios"
   },
-  "currentPlan": "Tu plan actual",
+  "compare": {
+    "caption": "Gratis y Pro, comparados",
+    "standing": "Tu cuenta",
+    "actions": "Qué puedes hacer"
+  },
+  "perMonth": "al mes",
+  "rows": {
+    "analyses": {
+      "label": "Análisis de CV",
+      "free_one": "{{count}} al mes",
+      "free_many": "{{count}} al mes",
+      "free_other": "{{count}} al mes",
+      "pro": "Hasta {{count}} al mes"
+    },
+    "history": {
+      "label": "Historial",
+      "last_one": "Tu último análisis",
+      "last_many": "Tus {{count}} últimos análisis",
+      "last_other": "Tus {{count}} últimos análisis",
+      "all": "Todo tu historial"
+    },
+    "interviews": {
+      "label": "Entrevista de voz",
+      "trial_one": "Una de práctica de {{minutes}} minutos, una vez, para cuentas que nunca tuvieron Pro",
+      "trial_many": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
+      "trial_other": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
+      "perMonth_one": "{{count}} al mes, de hasta {{minutes}} minutos",
+      "perMonth_many": "{{count}} al mes, de hasta {{minutes}} minutos cada una",
+      "perMonth_other": "{{count}} al mes, de hasta {{minutes}} minutos cada una"
+    }
+  },
   "free": {
-    "cadence": "para siempre",
     "start": "Empieza gratis",
     "includedInPro": "Incluido en Pro",
+    "cadence": "para siempre",
     "promises": {
       "analyses_one": "{{count}} análisis de CV al mes",
       "analyses_many": "{{count}} análisis de CV al mes",
@@ -23,9 +53,9 @@
     }
   },
   "pro": {
-    "cadence": "al mes",
     "signUp": "Crea tu cuenta y hazte Pro",
     "checkout": "Hazte Pro · {{price}} al mes",
+    "cadence": "al mes",
     "promises": {
       "analyses": "Hasta {{limit}} análisis al mes",
       "interviews_one": "{{count}} entrevista por voz al mes, de hasta {{minutes}} minutos",
@@ -35,5 +65,47 @@
       "history": "Todo tu historial"
     }
   },
+  "actions": {
+    "buyPack_one": "Comprar {{count}} entrevista · {{price}}",
+    "buyPack_many": "Comprar {{count}} entrevistas · {{price}}",
+    "buyPack_other": "Comprar {{count}} entrevistas · {{price}}",
+    "portal": {
+      "fixPayment": "Actualizar el método de pago",
+      "payments": "Pagos y facturas"
+    }
+  },
+  "state": {
+    "loading": "Cargando tu plan…",
+    "mark": {
+      "yourPlan": "Tu plan",
+      "paused": "En pausa",
+      "pending": "Actualizándose",
+      "from": "Tu plan desde el {{date}}"
+    },
+    "detail": {
+      "trialAvailable": "Tu entrevista de práctica gratis de {{minutes}} minutos te espera: empiézala desde cualquier análisis.",
+      "trialUsed": "Ya hiciste tu entrevista de práctica gratis. Más entrevistas vienen con Pro.",
+      "noTrial": "La entrevista de práctica gratis es para cuentas que nunca tuvieron Pro.",
+      "afterPro": "Tu suscripción a Pro terminó. No se borró nada: con Pro recuperas todo tu historial.",
+      "renews": "Se renueva el {{date}}.",
+      "comp": "Pro, cortesía de la casa: no se cobra nada.",
+      "pastDue": "El último pago no se procesó y Paddle lo está reintentando. Actualiza tu método de pago para conservar Pro.",
+      "canceling": "Pro hasta el {{date}}: tu cancelación está programada y no se te cobrará nada más. Después pasas a Gratis, y los créditos de entrevista que tengas siguen sirviendo.",
+      "paused": "Tu suscripción a Pro está en pausa. Reanúdala en el portal de facturación; no puede empezar una suscripción nueva mientras esta siga abierta.",
+      "pending": "Tu suscripción a Pro se está actualizando. Revísala en el portal de facturación; un cambio puede tardar unos minutos en llegarnos."
+    }
+  },
+  "pack": {
+    "label": "Paquete adicional",
+    "lead_one": "{{count}} entrevista más por {{price}}.",
+    "lead_many": "{{count}} entrevistas más por {{price}}.",
+    "lead_other": "{{count}} entrevistas más por {{price}}.",
+    "body": "Se compra con Pro activo. Las entrevistas no vencen y sirven aunque Pro termine.",
+    "held_one": "Tienes {{count}} crédito de entrevista: una entrevista completa de {{minutes}} minutos, en cualquier plan.",
+    "held_many": "Tienes {{count}} créditos de entrevista, cada uno una entrevista completa de {{minutes}} minutos, en cualquier plan.",
+    "held_other": "Tienes {{count}} créditos de entrevista, cada uno una entrevista completa de {{minutes}} minutos, en cualquier plan."
+  },
+  "note": "Precios en {{currency}}. Los pagos los gestiona {{merchant}}, el comerciante registrado (merchant of record), que cobra al momento del pago los impuestos que correspondan. Cancela cuando quieras desde tu cuenta; Pro sigue activo hasta el final del período que pagaste. Lee la <refunds>política de reembolsos</refunds> y los <terms>términos</terms>.",
+  "currentPlan": "Tu plan actual",
   "finePrint": "Precios en {{currency}}. Los pagos los gestiona {{merchant}}, el comerciante registrado (merchant of record), que cobra al momento del pago los impuestos que correspondan. Cancela cuando quieras desde tu cuenta; Pro sigue activo hasta el final del período que pagaste. Consulta la <refunds>política de reembolsos</refunds> y los <terms>términos</terms>."
 }

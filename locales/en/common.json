@@ -60,6 +60,13 @@
       "strong": "Convincing"
     }
   },
+  "verdict": {
+    "cap": "Verdict",
+    "required": "Required",
+    "preferred": "Preferred",
+    "notShown_one": "Not shown in your CV",
+    "notShown_other": "Not shown in your CV"
+  },
   "verdictRule": {
     "term": "{{verdict}}:",
     "weak": "A required item is missing, or two or more are only partly met.",

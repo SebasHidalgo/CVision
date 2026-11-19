@@ -1,27 +1,88 @@
 {
   "meta": {
-    "title": "Plan y facturación"
+    "title": "Plan y facturación",
+    "accountTitle": "Cuenta"
+  },
+  "loading": "Cargando tu cuenta…",
+  "tabs": {
+    "label": "Páginas de la cuenta",
+    "account": "Cuenta",
+    "billing": "Plan y facturación"
   },
   "intro": {
-    "eyebrow": "Plan y facturación",
     "titlePro": "Tienes el plan Pro.",
-    "titleFree": "Tienes el plan Gratis."
+    "titleFree": "Tienes el plan Gratis.",
+    "eyebrow": "Plan y facturación"
+  },
+  "standing": {
+    "free": "Sin suscripción",
+    "canceled": "Suscripción terminada",
+    "paused": "Suscripción en pausa",
+    "comp": "Otorgado",
+    "active": "Activa",
+    "pastDue": "Pago fallido",
+    "cancels": "Termina el {{date}}"
   },
   "planLine": {
-    "comp": "Pro, cortesía de la casa.",
-    "cancels": "Pro hasta el {{date}}. Tu cancelación está programada; no se te cobrará nada más.",
-    "pastDue": "Pro. El último pago no se procesó y Paddle lo está reintentando. Actualiza la tarjeta desde \"Administrar suscripción\" para conservar Pro después del {{date}}.",
-    "renews": "Pro, se renueva el {{date}}.",
-    "canceled": "Gratis. Tu suscripción a Pro terminó; no se borró nada, y con Pro recuperas todo.",
-    "paused": "Gratis mientras tu suscripción está en pausa. Reanúdala desde \"Administrar suscripción\".",
+    "comp": "Pro está otorgado a tu cuenta sin costo: no se renueva nada y no se cobra nada.",
+    "cancels": "Tu cancelación está programada: conservas Pro hasta el {{date}} y no se te cobrará nada más.",
+    "pastDue": "El último pago no se procesó y Paddle lo está reintentando. Actualiza tu método de pago para conservar Pro después del {{date}}.",
+    "renews": "Se renueva el {{date}}. Cancela cuando quieras; conservas Pro hasta el final del período que pagaste.",
+    "canceled": "Tu suscripción a Pro terminó. No se borró nada, y con Pro recuperas todo tu historial.",
+    "paused": "Tu suscripción está en pausa, así que tienes el plan Gratis hasta que la reanudes.",
     "free": "{{analyses}} análisis al mes, y tus últimos {{history}} guardados en tu historial."
   },
+  "overview": {
+    "plan": {
+      "title": "Plan",
+      "billing": "Plan y facturación",
+      "seePro": "Ver Pro"
+    },
+    "usage": {
+      "title": "Este período",
+      "resets": "Se reinicia el {{date}}.",
+      "proEnds": "Pro termina el {{date}}; desde entonces rige lo que incluye el plan Gratis."
+    },
+    "signIn": {
+      "title": "Inicio de sesión",
+      "body": "Tu correo, tus métodos de inicio de sesión y tus sesiones activas los guarda Clerk, nuestro proveedor de inicio de sesión. Los cambios que hagas ahí se aplican de inmediato.",
+      "signedInAs": "Sesión iniciada como",
+      "open": "Inicio de sesión y seguridad"
+    },
+    "delete": {
+      "title": "Eliminar la cuenta",
+      "lede": "Eliminar tu cuenta es inmediato y no se puede deshacer.",
+      "removedTitle": "Se elimina",
+      "removed": {
+        "analyses": "Tus análisis y los CV que subiste",
+        "interviews": "Tus entrevistas, con sus transcripciones, su feedback y sus traducciones",
+        "voice": "Las conversaciones de las entrevistas en ElevenLabs, nuestro proveedor de voz",
+        "billing": "Cualquier suscripción, cancelada al instante para que no se cobre nada más, y tus créditos de entrevista sin usar",
+        "signIn": "Tu inicio de sesión en Clerk: correo, métodos de inicio de sesión y sesiones"
+      },
+      "keptTitle": "Se conserva",
+      "kept": {
+        "paddle": "Paddle, el comerciante registrado (merchant of record), conserva tus facturas, tus transacciones y tu registro de cliente: son registros fiscales.",
+        "log": "Un registro de los eventos de facturación (identificadores, tipos y horas) queda para nuestra contabilidad, ligado solo a un identificador de cuenta que ya no existe."
+      },
+      "action": "Eliminar la cuenta",
+      "confirmTitle": "¿Eliminar tu cuenta?",
+      "confirmBody": "Se elimina ahora: tus análisis y tus CV; tus entrevistas con sus transcripciones, su feedback y sus traducciones; las conversaciones en nuestro proveedor de voz; los créditos sin usar. Cualquier suscripción se cancela al instante. Paddle conserva tus facturas y tu registro de cliente como registros fiscales. Se cerrará tu sesión y no se puede deshacer.",
+      "confirmBodySubscribed": "Se elimina ahora: tus análisis y tus CV; tus entrevistas con sus transcripciones, su feedback y sus traducciones; las conversaciones en nuestro proveedor de voz; los créditos sin usar. Tu suscripción se cancela al instante, así que Pro termina ahora y no al final del período. Paddle conserva tus facturas y tu registro de cliente como registros fiscales. No se puede deshacer.",
+      "confirm": "Eliminar mi cuenta",
+      "cancel": "Conservar mi cuenta",
+      "deleting": "Eliminando tu cuenta…",
+      "done": "Tu cuenta se eliminó. Cerrando tu sesión…"
+    }
+  },
   "interviews": {
-    "label": "Entrevistas de este período",
-    "of": "de {{limit}}",
-    "resets": "Se reinician el {{date}}.",
+    "label": "Entrevistas",
+    "left": "de {{limit}} disponibles",
+    "length": "Hasta {{minutes}} minutos cada una.",
     "creditsCover": "Tus créditos cubren entrevistas completas; Pro suma {{perMonth}} al mes.",
-    "proOnly": "Las entrevistas por voz son parte de Pro."
+    "proOnly": "Las entrevistas por voz son parte de Pro.",
+    "of": "de {{limit}}",
+    "resets": "Se reinician el {{date}}."
   },
   "trial": {
     "label": "Entrevista de prueba gratis",
@@ -42,9 +103,21 @@
   },
   "analyses": {
     "label": "Análisis",
+    "left": "de {{limit}} disponibles",
+    "upTo": "Hasta {{limit}} al mes",
+    "reached": "Ya usaste los {{limit}} de este período.",
     "ofMonth": "de {{limit}} este mes",
     "pro": "Hasta {{limit}} análisis al mes.",
     "free": "El plan Gratis muestra tus últimos {{limit}} análisis."
+  },
+  "subscription": {
+    "title": "Suscripción",
+    "offer": "Pro cuesta {{price}} al mes: {{interviews}} entrevistas por voz de hasta {{minutes}} minutos, hasta {{analyses}} análisis y todo tu historial.",
+    "comp": "No hay ninguna suscripción que administrar."
+  },
+  "packs": {
+    "title": "Paquetes de entrevistas",
+    "proOnly": "Los paquetes de {{count}} entrevistas más se venden con Pro. Los créditos que ya tienes sirven en cualquier plan."
   },
   "actions": {
     "confirming": "Confirmando tu pago…",

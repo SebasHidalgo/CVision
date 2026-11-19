@@ -3,14 +3,14 @@
   "lede": "El veredicto no es un puntaje: sale de contar los requisitos que cumples. Abre cualquier fila y revisa la cuenta.",
   "verdict": {
     "label": "Veredicto del ejemplo",
+    "count": "{{met}} de {{total}}",
+    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte",
     "cap": "Veredicto",
     "required": "Obligatorios",
     "preferred": "Deseables",
     "notShown_one": "No aparece en tu CV",
     "notShown_many": "No aparecen en tu CV",
-    "notShown_other": "No aparecen en tu CV",
-    "count": "{{met}} de {{total}}",
-    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte"
+    "notShown_other": "No aparecen en tu CV"
   },
   "requirements": {
     "listLabel": "Requisitos de la oferta de ejemplo",

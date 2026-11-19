@@ -3,15 +3,41 @@
     "title": "Pricing"
   },
   "intro": {
-    "eyebrow": "Pricing",
     "title": "Two plans. One is free.",
-    "lede": "Check your own CV against the jobs you want, and practice the interview out loud with an AI interviewer. Pay only when you want more interviews."
+    "lede": "Check your own CV against the jobs you want, and practice the interview out loud with an AI interviewer. Pay only when you want more interviews.",
+    "eyebrow": "Pricing"
   },
-  "currentPlan": "Your current plan",
+  "compare": {
+    "caption": "Free and Pro compared",
+    "standing": "Your account",
+    "actions": "What you can do"
+  },
+  "perMonth": "a month",
+  "rows": {
+    "analyses": {
+      "label": "CV analyses",
+      "free_one": "{{count}} a month",
+      "free_other": "{{count}} a month",
+      "pro": "Up to {{count}} a month"
+    },
+    "history": {
+      "label": "History",
+      "last_one": "Your last analysis",
+      "last_other": "Your last {{count}} analyses",
+      "all": "Your full history"
+    },
+    "interviews": {
+      "label": "Voice interview",
+      "trial_one": "One {{minutes}}-minute practice interview, once, for accounts that never had Pro",
+      "trial_other": "{{count}} practice interviews of {{minutes}} minutes, for accounts that never had Pro",
+      "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
+      "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
+    }
+  },
   "free": {
-    "cadence": "forever",
     "start": "Start free",
     "includedInPro": "Included in Pro",
+    "cadence": "forever",
     "promises": {
       "analyses_one": "{{count}} CV check per month",
       "analyses_other": "{{count}} CV checks per month",
@@ -21,9 +47,9 @@
     }
   },
   "pro": {
-    "cadence": "per month",
     "signUp": "Sign up for Pro",
     "checkout": "Get Pro · {{price}} a month",
+    "cadence": "per month",
     "promises": {
       "analyses": "Up to {{limit}} analyses a month",
       "interviews_one": "{{count}} voice interview per month, up to {{minutes}} minutes",
@@ -32,5 +58,44 @@
       "history": "Your full history"
     }
   },
+  "actions": {
+    "buyPack_one": "Buy {{count}} interview · {{price}}",
+    "buyPack_other": "Buy {{count}} interviews · {{price}}",
+    "portal": {
+      "fixPayment": "Update payment method",
+      "payments": "Payments and invoices"
+    }
+  },
+  "state": {
+    "loading": "Loading your plan…",
+    "mark": {
+      "yourPlan": "Your plan",
+      "paused": "Paused",
+      "pending": "Being updated",
+      "from": "Yours from {{date}}"
+    },
+    "detail": {
+      "trialAvailable": "Your free {{minutes}}-minute practice interview is waiting: start it from any analysis.",
+      "trialUsed": "You've had your free practice interview. More interviews come with Pro.",
+      "noTrial": "The free practice interview is for accounts that never had Pro.",
+      "afterPro": "Your Pro subscription ended. Nothing was deleted: Pro brings your full history back.",
+      "renews": "Renews on {{date}}.",
+      "comp": "Pro on the house: nothing is billed.",
+      "pastDue": "Your last payment didn't go through and Paddle is retrying it. Update your payment method to keep Pro.",
+      "canceling": "Pro until {{date}}: your cancellation is scheduled and nothing more will be charged. After that you're on Free, and any interview credits you hold still work.",
+      "paused": "Your Pro subscription is paused. Resume it in the billing portal; a new subscription can't start while this one is open.",
+      "pending": "Your Pro subscription is being updated. Check it in the billing portal; a change can take a few minutes to reach us."
+    }
+  },
+  "pack": {
+    "label": "Add-on pack",
+    "lead_one": "{{count}} more interview for {{price}}.",
+    "lead_other": "{{count}} more interviews for {{price}}.",
+    "body": "You buy it while Pro is active. The interviews never expire, and they still work after Pro ends.",
+    "held_one": "You hold {{count}} interview credit: one full {{minutes}}-minute interview, on any plan.",
+    "held_other": "You hold {{count}} interview credits, each a full {{minutes}}-minute interview, on any plan."
+  },
+  "note": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. Read the <refunds>refund policy</refunds> and the <terms>terms</terms>.",
+  "currentPlan": "Your current plan",
   "finePrint": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. See the <refunds>refund policy</refunds> and the <terms>terms</terms>."
 }

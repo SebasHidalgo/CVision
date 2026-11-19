@@ -1,7 +1,8 @@
 {
   "intro": {
     "title": "Measure your CV against one job.",
-    "lede": "One posting, one PDF. The verdict is back in seconds."
+    "lede": "One posting, one PDF. The verdict is back in seconds.",
+    "loading": "Loading the form"
   },
   "rows": {
     "role": {

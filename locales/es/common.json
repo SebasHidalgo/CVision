@@ -60,6 +60,14 @@
       "strong": "Convincente"
     }
   },
+  "verdict": {
+    "cap": "Veredicto",
+    "required": "Obligatorios",
+    "preferred": "Deseables",
+    "notShown_one": "No aparece en tu CV",
+    "notShown_many": "No aparecen en tu CV",
+    "notShown_other": "No aparecen en tu CV"
+  },
   "verdictRule": {
     "term": "{{verdict}}:",
     "weak": "Te falta un obligatorio, o dos o más están solo en parte.",

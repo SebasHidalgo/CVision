@@ -2,7 +2,8 @@
   "header": {
     "eyebrow": "Feedback de la entrevista · {{date}}",
     "kicker": "Entrevista de práctica",
-    "attempt": "Intento {{number}}"
+    "attempt": "Intento {{number}}",
+    "loading": "Cargando el feedback"
   },
   "actions": {
     "allInterviews": "Todas las entrevistas",

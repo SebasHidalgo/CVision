@@ -1,7 +1,8 @@
 {
   "intro": {
     "title": "Mide tu CV frente a un puesto.",
-    "lede": "Una oferta, un PDF. El veredicto llega en segundos."
+    "lede": "Una oferta, un PDF. El veredicto llega en segundos.",
+    "loading": "Cargando el formulario"
   },
   "rows": {
     "role": {

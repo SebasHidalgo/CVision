@@ -1,6 +1,5 @@
 {
   "room": {
-    "title": "Sala de entrevista",
     "loading": "Cargando la sala de entrevista.",
     "eyebrow": "Sala de entrevista · Intento {{attempt}}",
     "status": {
@@ -141,7 +140,8 @@
     },
     "continueStarts_one": "Continuar — te queda {{count}} conexión",
     "continueStarts_many": "Continuar — te quedan {{count}} conexiones",
-    "continueStarts_other": "Continuar — te quedan {{count}} conexiones"
+    "continueStarts_other": "Continuar — te quedan {{count}} conexiones",
+    "title": "Sala de entrevista"
   },
   "list": {
     "title": "Cada ensayo, registrado.",
@@ -186,6 +186,50 @@
       "needsPro": "Necesita Pro para empezar",
       "needsPack": "Sin entrevistas en este período",
       "noStarts": "No te quedan conexiones"
+    },
+    "hidden": {
+      "title_one": "{{count}} entrevista está oculta",
+      "title_many": "{{count}} entrevistas están ocultas",
+      "title_other": "{{count}} entrevistas están ocultas",
+      "why": "El plan Gratis muestra tus últimos {{limit}} análisis y sus entrevistas; estas son de análisis anteriores. Siguen guardadas, con sus transcripciones, hasta que las borres. Pro vuelve a mostrarlas todas.",
+      "seePro": "Ver Pro",
+      "deleteAll_one": "Borrarla",
+      "deleteAll_many": "Borrar las {{count}}",
+      "deleteAll_other": "Borrar las {{count}}",
+      "listLabel": "Entrevistas ocultas, de la más reciente a la más antigua",
+      "delete": "Borrar",
+      "deleteLabel": "Borrar la entrevista de {{role}} en {{companyName}}, {{date}}",
+      "confirm": {
+        "oneTitle": "¿Borrar esta entrevista?",
+        "oneBody": "{{role}} en {{companyName}}, {{date}}: la entrevista, su transcripción y su feedback se borran, aquí y en nuestro proveedor de voz. Su análisis se queda. No se puede deshacer.",
+        "oneConfirm": "Borrar entrevista",
+        "allTitle_one": "¿Borrar {{count}} entrevista oculta?",
+        "allTitle_many": "¿Borrar {{count}} entrevistas ocultas?",
+        "allTitle_other": "¿Borrar {{count}} entrevistas ocultas?",
+        "allBody": "Sus transcripciones y su feedback se borran, aquí y en nuestro proveedor de voz. Sus análisis y las entrevistas que ves se quedan. No se puede deshacer.",
+        "allConfirm_one": "Borrarla",
+        "allConfirm_many": "Borrar las {{count}}",
+        "allConfirm_other": "Borrar las {{count}}",
+        "keep": "Conservarla",
+        "keepAll": "Conservarlas",
+        "deleting": "Borrando…"
+      },
+      "result": {
+        "deletedOne": "Borraste la entrevista de {{role}} en {{companyName}}.",
+        "deleted_one": "Borraste {{count}} entrevista.",
+        "deleted_many": "Borraste {{count}} entrevistas.",
+        "deleted_other": "Borraste {{count}} entrevistas.",
+        "busy_one": "{{count}} no se borró: está en curso. Vuelve a intentarlo cuando termine.",
+        "busy_many": "{{count}} no se borraron: están en curso. Vuelve a intentarlo cuando terminen.",
+        "busy_other": "{{count}} no se borraron: están en curso. Vuelve a intentarlo cuando terminen.",
+        "failed_one": "{{count}} no se pudo borrar. Vuelve a intentarlo.",
+        "failed_many": "{{count}} no se pudieron borrar. Vuelve a intentarlo.",
+        "failed_other": "{{count}} no se pudieron borrar. Vuelve a intentarlo.",
+        "remaining_one": "Falta {{count}}: vuelve a borrar para terminar.",
+        "remaining_many": "Faltan {{count}}: vuelve a borrar para terminar.",
+        "remaining_other": "Faltan {{count}}: vuelve a borrar para terminar.",
+        "unchanged": "No se borró nada: tu historial cambió desde que se cargó esta página. Revisa la lista y vuelve a intentarlo."
+      }
     }
   }
 }

@@ -3,13 +3,13 @@
   "lede": "The verdict isn't a score: it comes from counting the requirements you meet. Open any row and check the count yourself.",
   "verdict": {
     "label": "The example's verdict",
+    "count": "{{met}} of {{total}}",
+    "countWithPartial": "{{met}} of {{total}}, {{partial}} partly",
     "cap": "Verdict",
     "required": "Required",
     "preferred": "Preferred",
     "notShown_one": "Not shown in your CV",
-    "notShown_other": "Not shown in your CV",
-    "count": "{{met}} of {{total}}",
-    "countWithPartial": "{{met}} of {{total}}, {{partial}} partly"
+    "notShown_other": "Not shown in your CV"
   },
   "requirements": {
     "listLabel": "The example posting's requirements",

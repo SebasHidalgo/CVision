@@ -1,6 +1,13 @@
 {
   "title": "Mide gratis. Ensaya con Pro.",
-  "lede": "Dos planes y un paquete para quien necesita más entrevistas. Precios en {{currency}}.",
+  "lede": "Dos planes y un paquete para quien necesita más entrevistas.",
+  "cta": {
+    "free": "Crear cuenta gratis",
+    "freeSignedIn": "Analizar mi CV",
+    "pro": "Suscribirme a Pro",
+    "proSignedIn": "Ver el plan Pro",
+    "rowLabel": "Empezar"
+  },
   "perMonth": "al mes",
   "plansLabel": "Gratis y Pro, comparados",
   "rows": {
@@ -27,13 +34,6 @@
       "perMonth_many": "{{count}} al mes, de hasta {{minutes}} minutos",
       "perMonth_other": "{{count}} al mes, de hasta {{minutes}} minutos"
     }
-  },
-  "cta": {
-    "rowLabel": "Empezar",
-    "free": "Crear cuenta gratis",
-    "freeSignedIn": "Analizar mi CV",
-    "pro": "Suscribirme a Pro",
-    "proSignedIn": "Ver el plan Pro"
   },
   "pack": {
     "label": "Paquete adicional",

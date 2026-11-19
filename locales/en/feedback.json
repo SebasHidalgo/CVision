@@ -2,7 +2,8 @@
   "header": {
     "eyebrow": "Interview feedback · {{date}}",
     "kicker": "Mock interview",
-    "attempt": "Attempt {{number}}"
+    "attempt": "Attempt {{number}}",
+    "loading": "Loading the feedback"
   },
   "actions": {
     "allInterviews": "All interviews",

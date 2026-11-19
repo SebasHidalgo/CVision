@@ -1,27 +1,88 @@
 {
   "meta": {
-    "title": "Plan & billing"
+    "title": "Plan & billing",
+    "accountTitle": "Account"
+  },
+  "loading": "Loading your account…",
+  "tabs": {
+    "label": "Account pages",
+    "account": "Account",
+    "billing": "Plan & billing"
   },
   "intro": {
-    "eyebrow": "Plan & billing",
     "titlePro": "You're on Pro.",
-    "titleFree": "You're on Free."
+    "titleFree": "You're on Free.",
+    "eyebrow": "Plan & billing"
+  },
+  "standing": {
+    "free": "No subscription",
+    "canceled": "Subscription ended",
+    "paused": "Subscription paused",
+    "comp": "Granted",
+    "active": "Active",
+    "pastDue": "Payment failed",
+    "cancels": "Ends {{date}}"
   },
   "planLine": {
-    "comp": "Pro, on the house.",
-    "cancels": "Pro, until {{date}}. Your cancellation is scheduled; nothing more will be charged.",
-    "pastDue": "Pro. The last payment did not go through; Paddle is retrying. Update the card from \"Manage subscription\" to keep Pro past {{date}}.",
-    "renews": "Pro, renews {{date}}.",
-    "canceled": "Free. Your Pro subscription ended; nothing was deleted, and Pro brings it all back.",
-    "paused": "Free while your subscription is paused. Resume it from \"Manage subscription\".",
+    "comp": "Pro is granted to your account at no charge: nothing renews and nothing is billed.",
+    "cancels": "Your cancellation is scheduled: Pro stays until {{date}}, and nothing more will be charged.",
+    "pastDue": "The last payment didn't go through, and Paddle is retrying it. Update your payment method to keep Pro after {{date}}.",
+    "renews": "Renews on {{date}}. Cancel any time; Pro stays until the end of the period you paid for.",
+    "canceled": "Your Pro subscription ended. Nothing was deleted, and Pro brings your whole history back.",
+    "paused": "Your subscription is paused, so you're on Free until you resume it.",
     "free": "{{analyses}} analyses a month, and your last {{history}} kept in your history."
   },
+  "overview": {
+    "plan": {
+      "title": "Plan",
+      "billing": "Plan & billing",
+      "seePro": "See Pro"
+    },
+    "usage": {
+      "title": "This period",
+      "resets": "Resets on {{date}}.",
+      "proEnds": "Pro ends on {{date}}; Free's allowance applies after that."
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "body": "Your email, sign-in methods and active sessions are kept by Clerk, our sign-in provider. Changes there apply at once.",
+      "signedInAs": "Signed in as",
+      "open": "Sign-in and security"
+    },
+    "delete": {
+      "title": "Delete account",
+      "lede": "Deleting your account is immediate, and it can't be undone.",
+      "removedTitle": "Deleted",
+      "removed": {
+        "analyses": "Your analyses, and the CVs you uploaded",
+        "interviews": "Your interviews, with their transcripts, feedback and translations",
+        "voice": "The interview conversations at ElevenLabs, our voice provider",
+        "billing": "Any subscription, canceled at once so nothing more is charged, and your unused interview credits",
+        "signIn": "Your sign-in at Clerk: email, sign-in methods and sessions"
+      },
+      "keptTitle": "Kept",
+      "kept": {
+        "paddle": "Paddle, the merchant of record, keeps your invoices, transactions and customer record: they are tax records.",
+        "log": "A log of billing events (ids, types and times) stays for our accounting, tied only to an account id that no longer exists."
+      },
+      "action": "Delete account",
+      "confirmTitle": "Delete your account?",
+      "confirmBody": "Deleted now: your analyses and CVs; your interviews with their transcripts, feedback and translations; the conversations at our voice provider; any unused credits. Any subscription is canceled at once. Paddle keeps your invoices and customer record as tax records. You'll be signed out, and this can't be undone.",
+      "confirmBodySubscribed": "Deleted now: your analyses and CVs; your interviews with their transcripts, feedback and translations; the conversations at our voice provider; any unused credits. Your subscription is canceled at once, so Pro ends now, not at the end of the period. Paddle keeps your invoices and customer record as tax records. This can't be undone.",
+      "confirm": "Delete my account",
+      "cancel": "Keep my account",
+      "deleting": "Deleting your account…",
+      "done": "Your account is deleted. Signing you out…"
+    }
+  },
   "interviews": {
-    "label": "Interviews this period",
-    "of": "of {{limit}}",
-    "resets": "Resets {{date}}.",
+    "label": "Interviews",
+    "left": "of {{limit}} left",
+    "length": "Up to {{minutes}} minutes each.",
     "creditsCover": "Your credits cover full interviews; Pro adds {{perMonth}} a month.",
-    "proOnly": "Voice interviews are part of Pro."
+    "proOnly": "Voice interviews are part of Pro.",
+    "of": "of {{limit}}",
+    "resets": "Resets {{date}}."
   },
   "trial": {
     "label": "Free trial interview",
@@ -41,9 +102,21 @@
   },
   "analyses": {
     "label": "Analyses",
+    "left": "of {{limit}} left",
+    "upTo": "Up to {{limit}} a month",
+    "reached": "You've used this period's {{limit}}.",
     "ofMonth": "of {{limit}} this month",
     "pro": "Up to {{limit}} analyses a month.",
     "free": "Free shows your last {{limit}} analyses."
+  },
+  "subscription": {
+    "title": "Subscription",
+    "offer": "Pro is {{price}} a month: {{interviews}} voice interviews of up to {{minutes}} minutes, up to {{analyses}} analyses and your whole history.",
+    "comp": "There's no subscription to manage."
+  },
+  "packs": {
+    "title": "Interview packs",
+    "proOnly": "Packs of {{count}} more interviews are sold with Pro. Credits you already hold work on any plan."
   },
   "actions": {
     "confirming": "Confirming your payment…",

@@ -36,6 +36,7 @@
     "PACK_REQUIRES_PRO": "Los paquetes de entrevistas son para suscriptores de Pro. Suscríbete a Pro primero.",
     "NO_BILLING_ACCOUNT": "Todavía no tienes una cuenta de facturación. Se crea con tu primera compra.",
     "BILLING_PORTAL_UNAVAILABLE": "La gestión de la facturación no está disponible por ahora. Inténtalo más tarde.",
+    "ACCOUNT_DELETION_FAILED": "No pudimos eliminar tu cuenta y no se borró nada. Vuelve a intentarlo en unos minutos.",
     "REQUEST_FAILED": "La solicitud no se completó. Revisa tu conexión e inténtalo de nuevo. Si sigue fallando, recarga la página.",
     "CHECKOUT_NOT_OPENED": "No se pudo abrir el pago. No se cobró nada. Inténtalo de nuevo.",
     "UNKNOWN": "Algo salió mal de nuestro lado. Inténtalo de nuevo."
