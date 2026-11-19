@@ -5,10 +5,5 @@
   },
   "portal": {
     "manage": "Administrar suscripción"
-  },
-  "history": {
-    "seePro": "Ver Pro",
-    "body": "Este análisis es anterior a los últimos {{limit}} de tu cuenta. El plan Gratis muestra los {{limit}} más recientes; Pro los muestra todos, y aquí no se borra nada. Mejora tu plan y el análisis vuelve tal como estaba, con sus entrevistas. Para borrarlo, usa tu lista de análisis.",
-    "back": "Volver a tus análisis"
   }
 }

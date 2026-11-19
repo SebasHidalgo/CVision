@@ -112,7 +112,7 @@
       "pro": {
         "title": "You've used your free trial.",
         "titleHadVoice": "Voice interviews are part of Pro.",
-        "titleClaimed": "This email address already used its free trial.",
+      "titleClaimed": "This email address already used its free trial.",
         "body": "Go Pro to do this interview: {{perMonth}} interviews a month, up to {{minutes}} minutes each, every one scored against its posting.",
         "checkout": "Get Pro · {{price}} a month",
         "seePricing": "See everything in Pro"
@@ -185,42 +185,6 @@
       "keep": "Keep it",
       "deleting": "Deleting…",
       "deleted": "Deleted the interview for {{role}} at {{companyName}}."
-    },
-    "hidden": {
-      "title_one": "{{count}} interview is hidden",
-      "title_other": "{{count}} interviews are hidden",
-      "why": "Free shows your last {{limit}} analyses and their interviews; these belong to older analyses. They stay stored, transcripts included, until you delete them. Pro shows them all again.",
-      "seePro": "See Pro",
-      "deleteAll_one": "Delete it",
-      "deleteAll_other": "Delete all {{count}}",
-      "listLabel": "Hidden interviews, newest first",
-      "delete": "Delete",
-      "deleteLabel": "Delete the interview for {{role}} at {{companyName}}, {{date}}",
-      "confirm": {
-        "oneTitle": "Delete this interview?",
-        "oneBody": "{{role}} at {{companyName}}, {{date}}: the interview, its transcript and its feedback are deleted, here and at our voice provider. Its analysis stays. This can't be undone.",
-        "oneConfirm": "Delete interview",
-        "allTitle_one": "Delete {{count}} hidden interview?",
-        "allTitle_other": "Delete {{count}} hidden interviews?",
-        "allBody": "Their transcripts and feedback are deleted, here and at our voice provider. Their analyses and the interviews you can see stay. This can't be undone.",
-        "allConfirm_one": "Delete it",
-        "allConfirm_other": "Delete {{count}}",
-        "keep": "Keep it",
-        "keepAll": "Keep them",
-        "deleting": "Deleting…"
-      },
-      "result": {
-        "deletedOne": "Deleted the interview for {{role}} at {{companyName}}.",
-        "deleted_one": "Deleted {{count}} interview.",
-        "deleted_other": "Deleted {{count}} interviews.",
-        "busy_one": "{{count}} wasn't deleted: it's in progress. Try again when it ends.",
-        "busy_other": "{{count}} weren't deleted: they're in progress. Try again when they end.",
-        "failed_one": "{{count}} couldn't be deleted. Try again.",
-        "failed_other": "{{count}} couldn't be deleted. Try again.",
-        "remaining_one": "{{count}} is left: delete again to finish.",
-        "remaining_other": "{{count}} are left: delete again to finish.",
-        "unchanged": "Nothing was deleted: your history changed since this page loaded. Check the list and try again."
-      }
     }
   }
 }

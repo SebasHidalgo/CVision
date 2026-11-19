@@ -25,12 +25,6 @@
       "trial_other": "{{count}} practice interviews of {{minutes}} minutes, for accounts that never had Pro",
       "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
       "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
-    },
-    "history": {
-      "label": "History",
-      "last_one": "Your last analysis",
-      "last_other": "Your last {{count}} analyses",
-      "all": "Your full history"
     }
   },
   "free": {

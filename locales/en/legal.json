@@ -22,7 +22,7 @@
     "plans": {
       "heading": "Plans, prices and billing",
       "p1": "Free includes {{freeAnalyses}} CV analyses per month and one {{trialMinutes}}-minute practice interview, once per email address, for an account that has never had Pro or a full interview. Pro is a monthly subscription that includes up to {{proAnalyses}} CV analyses a month and {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each. The limits apply to what you create: every plan shows your whole history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
-      "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from your account page, and Pro stays active until the end of the period you paid for. Deleting your account is different: it cancels the subscription at once, Pro ends at that moment, and the rest of the period you paid for is forfeited; it is not refunded unless the refunds policy says otherwise.",
+      "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from Plan & billing, which opens {{merchant}}’s portal, and Pro stays active until the end of the period you paid for. Deleting your account is different: it cancels the subscription at once, Pro ends at that moment, and the rest of the period you paid for is forfeited; it is not refunded unless the refunds policy says otherwise.",
       "p3": "[PLACEHOLDER: price changes and how they are notified.]"
     },
     "fairUse": {
@@ -103,7 +103,7 @@
     },
     "subscriptions": {
       "heading": "Subscriptions",
-      "p1": "You can cancel Pro at any time from your account page. Cancelling stops the next charge; Pro stays active until the end of the period you already paid for, and nothing is deleted when it ends. Deleting your account is not cancelling: it ends the subscription and Pro at once, and the rest of the period is forfeited. [PLACEHOLDER: whether deleting the account refunds any of the current period.] [PLACEHOLDER: whether a refund of the current period is offered, and under what conditions, e.g. within N days of a charge if no interview was run.]"
+      "p1": "You can cancel Pro at any time from Plan & billing, which opens the merchant’s portal. Cancelling stops the next charge; Pro stays active until the end of the period you already paid for, and nothing is deleted when it ends. Deleting your account is not cancelling: it ends the subscription and Pro at once, and the rest of the period is forfeited. [PLACEHOLDER: whether a refund of the current period is offered, including when the account is deleted, and under what conditions, e.g. within N days of a charge if no interview was run.]"
     },
     "packs": {
       "heading": "Interview packs",

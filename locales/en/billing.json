@@ -5,10 +5,5 @@
   },
   "portal": {
     "manage": "Manage subscription"
-  },
-  "history": {
-    "seePro": "See Pro",
-    "body": "This analysis is older than the last {{limit}} on your account. Free shows the most recent {{limit}}; Pro shows all of them, and nothing here is deleted. Upgrade and it comes back exactly as it was, with its interviews. To delete it, use your analyses list.",
-    "back": "Back to your analyses"
   }
 }

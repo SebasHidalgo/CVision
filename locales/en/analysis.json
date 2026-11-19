@@ -1,7 +1,6 @@
 {
   "detail": {
-    "loading": "Loading analysis",
-    "historyTitle": "This analysis is in your history."
+    "loading": "Loading analysis"
   },
   "header": {
     "eyebrow": "Analysis · {{date}}",

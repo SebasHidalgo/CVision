@@ -1,7 +1,6 @@
 {
   "detail": {
-    "loading": "Cargando el análisis",
-    "historyTitle": "Este análisis está en tu historial."
+    "loading": "Cargando el análisis"
   },
   "header": {
     "eyebrow": "Análisis · {{date}}",
