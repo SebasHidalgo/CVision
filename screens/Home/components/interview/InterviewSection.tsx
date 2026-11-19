@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeading } from "@/components/design-system/SectionHeading";
-import { useReducedMotion } from "@/screens/Home/hooks/useMediaQuery";
+import { useReducedMotion } from "@/hooks/useMediaQuery";
 import { useLocale } from "@/hooks/useLocale";
 import type { Locale } from "@/lib/i18n/config";
 import { Facts } from "./Facts";

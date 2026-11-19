@@ -7,7 +7,7 @@
 // The context is released only once the canvas has really left the page.
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "@/screens/Home/hooks/useMediaQuery";
+import { useReducedMotion } from "@/hooks/useMediaQuery";
 import { markReady } from "@/screens/Home/utils/readiness";
 import { createSilkEngine, STILL_T, STILL_URL, type SilkEngine } from "./silkEngine";
 

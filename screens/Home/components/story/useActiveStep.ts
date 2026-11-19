@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useReducedMotion } from "@/screens/Home/hooks/useMediaQuery";
+import { useReducedMotion } from "@/hooks/useMediaQuery";
 
 // The band, as a share of the viewport's height, whose crossing makes a step the current one: just above the middle.
 const BAND_TOP = 0.45;

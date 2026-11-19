@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useReducedMotion } from "@/screens/Home/hooks/useMediaQuery";
+import { useReducedMotion } from "@/hooks/useMediaQuery";
 import { isLoading, REVEALED_EVENT } from "@/lib/bootScript";
 
 /**
