@@ -43,7 +43,7 @@ export default async function AccountScreen() {
           <div className="mt-[clamp(8px,2vw,16px)]">
             <AccountSection n="01" id="account-plan" title={t("overview.plan.title")}>
               <div data-standing={view.standing.kind} className="flex flex-wrap items-end gap-x-6 gap-y-3">
-                <p className="display text-[clamp(64px,9vw,112px)] leading-[0.82] text-ink">{common(`plan.${summary.plan}`)}</p>
+                <p className="display text-[clamp(64px,9vw,112px)] leading-none text-ink">{common(`plan.${summary.plan}`)}</p>
                 <p className="flex items-center gap-2.5 pb-1.5 text-small font-medium text-ink">
                   <Mark shape={standing.shape} />
                   {standing.label}
