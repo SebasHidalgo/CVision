@@ -9,10 +9,10 @@ import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { recordGuardStatsDaily } from "./guardStats";
 import { mapDbResume, resumeInclude } from "./mappers";
-import { hiddenAnalysisRows, isVisible, visibleAnalysisIds } from "./visibility";
+import { analysisHistory, hiddenAnalysisRows, isVisible, NEWEST_FIRST, visibleAnalysisIds, type AnalysisSummary } from "./visibility";
 
 export type CreateResumeData = {
-  /** Minted by the action before the usage unit is reserved, so the ledger can name the analysis. */
+  /** Derived by the action from the submission before the unit is reserved, so the ledger can name the analysis. */
   id: string;
   companyName: string;
   jobTitle: string;
@@ -84,7 +84,7 @@ export type HiddenResume = {
   createdAt: string;
 };
 
-const toHiddenResume = (row: { id: string; jobTitle: string; companyName: string; createdAt: Date }): HiddenResume => ({
+const toHiddenResume = (row: AnalysisSummary): HiddenResume => ({
   id: row.id,
   jobTitle: row.jobTitle,
   companyName: row.companyName,
@@ -100,21 +100,24 @@ export type VisibleResumes = {
   hiddenAnalyses: HiddenResume[];
 };
 
-/** The caller's analyses within the plan's history, and the ones hidden beyond it. */
+/**
+ * The caller's analyses within the plan's history, and the ones hidden beyond
+ * it. Only the shown ones are read with their content: the split comes from
+ * a read of summaries, then the shown rows by id.
+ */
 export async function fetchVisibleResumes(): Promise<VisibleResumes> {
   try {
     const userId = await requireUserId();
 
-    const [dbResumes, visible] = await Promise.all([
-      prisma.resumeAnalysis.findMany({
-        where: { userId },
-        include: resumeInclude,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      }),
-      visibleAnalysisIds(userId),
-    ]);
-    const shown = dbResumes.filter((row) => isVisible(visible, row.id));
-    const hidden = dbResumes.filter((row) => !isVisible(visible, row.id));
+    const { visibleIds, hidden } = await analysisHistory(userId);
+    const shown =
+      visibleIds?.length === 0
+        ? []
+        : await prisma.resumeAnalysis.findMany({
+            where: visibleIds === null ? { userId } : { userId, id: { in: visibleIds } },
+            include: resumeInclude,
+            orderBy: NEWEST_FIRST,
+          });
 
     return { analyses: shown.map(mapDbResume), hidden: hidden.length, hiddenAnalyses: hidden.map(toHiddenResume) };
   } catch (error) {

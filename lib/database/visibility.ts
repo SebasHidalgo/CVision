@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { handleError } from "@/lib/error/handleError";
 import { PLANS } from "@/lib/plans";
@@ -14,6 +15,14 @@ import { resolvePlanStanding } from "./billing";
  * resolved; the reads that apply this live in resume.ts and interview.ts.
  */
 
+/** The one order of a user's analyses, in the lists and in the history rule: newest first, the id breaking ties. */
+export const NEWEST_FIRST: Prisma.ResumeAnalysisOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "desc" }];
+
+/** What the list shows of an analysis beyond the history: no content. */
+const SUMMARY = { id: true, jobTitle: true, companyName: true, createdAt: true } as const;
+
+export type AnalysisSummary = Prisma.ResumeAnalysisGetPayload<{ select: typeof SUMMARY }>;
+
 /** The ids the user may see, or null when every analysis is visible. */
 export async function visibleAnalysisIds(userId: string, now = new Date()): Promise<Set<string> | null> {
   try {
@@ -23,13 +32,40 @@ export async function visibleAnalysisIds(userId: string, now = new Date()): Prom
 
     const rows = await prisma.resumeAnalysis.findMany({
       where: { userId },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: NEWEST_FIRST,
       take: limit,
       select: { id: true },
     });
     return new Set(rows.map((row) => row.id));
   } catch (error) {
     handleError(error, `Failed to resolve the visible analyses (user=${userId})`);
+  }
+}
+
+export type AnalysisHistory = {
+  /** The analyses the list shows in full, newest first; null when the plan shows every one. */
+  visibleIds: string[] | null;
+  /** The ones beyond the history, newest first, without content; empty when the plan shows every one. */
+  hidden: AnalysisSummary[];
+};
+
+/**
+ * The user's analyses split by the plan's history, from one read of their
+ * summaries (never their content): the split cannot disagree with itself,
+ * and a Free account with a long history costs a few small columns per
+ * row, not every analysis's JSON. The plan and the read run together.
+ */
+export async function analysisHistory(userId: string, now = new Date()): Promise<AnalysisHistory> {
+  try {
+    const [{ plan }, rows] = await Promise.all([
+      resolvePlanStanding(userId, now),
+      prisma.resumeAnalysis.findMany({ where: { userId }, orderBy: NEWEST_FIRST, select: SUMMARY }),
+    ]);
+    const limit = PLANS[plan].historyLimit;
+    if (limit === null) return { visibleIds: null, hidden: [] };
+    return { visibleIds: rows.slice(0, limit).map((row) => row.id), hidden: rows.slice(limit) };
+  } catch (error) {
+    handleError(error, `Failed to read the analysis history (user=${userId})`);
   }
 }
 
@@ -47,9 +83,9 @@ export async function hiddenAnalysisRows(userId: string, now = new Date()) {
 
     return await prisma.resumeAnalysis.findMany({
       where: { userId },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: NEWEST_FIRST,
       skip: limit,
-      select: { id: true, jobTitle: true, companyName: true, createdAt: true },
+      select: SUMMARY,
     });
   } catch (error) {
     handleError(error, `Failed to read the hidden analyses (user=${userId})`);

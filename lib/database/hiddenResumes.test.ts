@@ -23,8 +23,9 @@ beforeEach(() => {
   vi.mocked(requireUserId).mockResolvedValue("user_1");
   vi.mocked(resolvePlanStanding).mockResolvedValue(standing("FREE"));
   // Answers like the database would for user_1 only: a where on anyone else matches nothing.
-  vi.mocked(prisma.resumeAnalysis.findMany).mockImplementation((async (args: { where: { userId: string }; take?: number; skip?: number }) => {
+  vi.mocked(prisma.resumeAnalysis.findMany).mockImplementation((async (args: { where: { userId: string; id?: { in: string[] } }; take?: number; skip?: number }) => {
     if (args.where.userId !== "user_1") return [];
+    if (args.where.id) return ALL.filter((row) => args.where.id?.in.includes(row.id));
     if (args.take !== undefined) return ALL.slice(0, args.take);
     if (args.skip !== undefined) return ALL.slice(args.skip);
     return ALL;
@@ -79,5 +80,43 @@ describe("fetchVisibleResumes", () => {
     const pro = await fetchVisibleResumes();
     expect(pro.hidden).toBe(0);
     expect(pro.hiddenAnalyses).toEqual([]);
+  });
+
+  it("reads content only for the shown ones: summaries split the history, newest first, then the shown rows by id", async () => {
+    await fetchVisibleResumes();
+
+    const calls = vi.mocked(prisma.resumeAnalysis.findMany).mock.calls.map(([args]) => args);
+    expect(calls).toEqual([
+      {
+        where: { userId: "user_1" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true, jobTitle: true, companyName: true, createdAt: true },
+      },
+      {
+        where: { userId: "user_1", id: { in: ["a5", "a4", "a3"] } },
+        include: expect.any(Object),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      },
+    ]);
+    // No read with content reaches the hidden ones.
+    expect(calls.some((args) => args && "include" in args && !("id" in (args.where ?? {})))).toBe(false);
+  });
+
+  it("for Pro, reads every analysis with its content in the same order, and hides none", async () => {
+    vi.mocked(resolvePlanStanding).mockResolvedValue(standing("PRO"));
+    const pro = await fetchVisibleResumes();
+
+    expect(pro.analyses.map((a) => a.id)).toEqual(["a5", "a4", "a3", "a2", "a1"]);
+    expect(prisma.resumeAnalysis.findMany).toHaveBeenLastCalledWith({
+      where: { userId: "user_1" },
+      include: expect.any(Object),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+  });
+
+  it("with no analyses, reads no content at all", async () => {
+    vi.mocked(prisma.resumeAnalysis.findMany).mockResolvedValue([]);
+    expect(await fetchVisibleResumes()).toEqual({ analyses: [], hidden: 0, hiddenAnalyses: [] });
+    expect(prisma.resumeAnalysis.findMany).toHaveBeenCalledTimes(1);
   });
 });

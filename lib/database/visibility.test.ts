@@ -31,8 +31,8 @@ const ALL = ["a5", "a4", "a3", "a2", "a1"].map((id) => ({ id, jobTitle: "", comp
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(resolvePlanStanding).mockResolvedValue(standing("FREE"));
-  vi.mocked(prisma.resumeAnalysis.findMany).mockImplementation((async (args: { take?: number }) =>
-    args?.take ? ALL.slice(0, args.take) : ALL) as never);
+  vi.mocked(prisma.resumeAnalysis.findMany).mockImplementation((async (args: { take?: number; where?: { id?: { in: string[] } } }) =>
+    args?.where?.id ? ALL.filter((row) => args.where?.id?.in.includes(row.id)) : args?.take ? ALL.slice(0, args.take) : ALL) as never);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
