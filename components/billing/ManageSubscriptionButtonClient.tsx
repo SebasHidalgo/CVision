@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { cn } from "@/lib/utils";
 import { createPortalSessionAction } from "./actions/createPortalSessionAction";
+import { BILLING_BUTTON } from "./buttonStyle";
 
 export type ManageSubscriptionButtonProps = {
   /** "Manage subscription" unless the screen says otherwise. */
@@ -49,12 +50,18 @@ export default function ManageSubscriptionButtonClient({ label, className, varia
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <Button onClick={handleClick} disabled={busy} variant={variant} className={cn("gap-2", className)}>
-        {busy ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={busy}
+        aria-busy={busy || undefined}
+        className={buttonClass({ variant: variant === "default" ? "solid" : "ghost", className: cn(BILLING_BUTTON, className) })}
+      >
+        {busy ? <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : <ExternalLink aria-hidden className="size-4" />}
         {label ?? t("portal.manage")}
-      </Button>
+      </button>
       {problem && (
-        <p role="alert" className="text-sm text-ink-2">
+        <p role="alert" className="max-w-[52ch] text-ed-small text-ed-danger-text">
           {problem}
         </p>
       )}

@@ -43,7 +43,7 @@ describe("CheckoutButton", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/account/billing?activating=interview_pack&txn=${TXN}`));
     expect(createCheckoutAction).toHaveBeenCalledWith({ item: "interview_pack" });
     // In the interface's language: the test instance is English.
-    expect(openCheckout).toHaveBeenCalledWith(TXN, "light", "en", { signal: expect.any(AbortSignal), onLoaded: expect.any(Function) });
+    expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", "en", { signal: expect.any(AbortSignal), onLoaded: expect.any(Function) });
     // Paid, not "opening": the label says so until the page takes over.
     expect(button().textContent).toMatch(/Payment received/);
     expect(button()).toHaveProperty("disabled", true);
@@ -58,7 +58,7 @@ describe("CheckoutButton", () => {
       </I18nProvider>,
     );
     fireEvent.click(button());
-    await waitFor(() => expect(openCheckout).toHaveBeenCalledWith(TXN, "light", "es", expect.any(Object)));
+    await waitFor(() => expect(openCheckout).toHaveBeenCalledWith(TXN, "dark", "es", expect.any(Object)));
     expect(button().textContent).toBe("Abriendo el pago…");
 
     await act(async () => {

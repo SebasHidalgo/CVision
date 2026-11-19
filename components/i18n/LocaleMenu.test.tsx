@@ -3,6 +3,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import LocaleMenu from "./LocaleMenu";
 
+// The design system's face comes from next/font, which only runs under Next.
+vi.mock("next/font/google", () => ({ Host_Grotesk: () => ({ variable: "font-text" }) }));
+
 const switchTo = vi.fn();
 const prefetch = vi.fn();
 vi.mock("@/hooks/useLocaleSwitch", () => ({

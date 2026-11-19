@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { useLocale } from "@/hooks/useLocale";
 import { activationHref, type Activation } from "@/lib/billing/activation";
 import type { CheckoutItem } from "@/lib/billing/types";
 import { cn } from "@/lib/utils";
 import { createCheckoutAction } from "./actions/createCheckoutAction";
+import { BILLING_BUTTON } from "./buttonStyle";
 import { openCheckout } from "./paddle/paddleCheckout";
 
 export type CheckoutButtonProps = {
@@ -42,8 +43,12 @@ type Phase = "idle" | "opening" | "open" | "paid";
  */
 export const PAID_RESET_MS = 8_000;
 
-// The overlay matches the pages that sell, on the light paper until their redesign.
-const OVERLAY_THEME = "light";
+// The overlay matches the site, which has one dark design.
+const OVERLAY_THEME = "dark";
+
+// The callers' sizes and variants (the old buttons' names) on the design system's pill.
+const SIZE = { default: "md", lg: "md", sm: "sm" } as const;
+const VARIANT = { default: "solid", outline: "ghost" } as const;
 
 /**
  * One purchase: the server mints the transaction, the provider's overlay
@@ -128,20 +133,26 @@ export default function CheckoutButtonClient({ item, label, className, size = "l
   };
 
   return (
-    <Button onClick={handleClick} disabled={phase !== "idle"} size={size} variant={variant} className={cn("gap-2", className)}>
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={phase !== "idle"}
+      aria-busy={phase === "opening" || undefined}
+      className={buttonClass({ variant: VARIANT[variant], size: SIZE[size], className: cn(BILLING_BUTTON, className) })}
+    >
       {phase === "opening" ? (
         <>
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
           {t("checkout.opening")}
         </>
       ) : phase === "paid" ? (
         <>
-          <Check className="size-4" />
+          <Check aria-hidden className="size-4" />
           {t("checkout.paid")}
         </>
       ) : (
         label
       )}
-    </Button>
+    </button>
   );
 }
