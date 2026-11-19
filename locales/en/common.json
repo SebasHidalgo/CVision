@@ -61,6 +61,13 @@
       "strong": "Convincing"
     }
   },
+  "verdictRule": {
+    "term": "{{verdict}}:",
+    "weak": "A required item is missing, or two or more are only partly met.",
+    "fair": "You meet the required items (one may be partly met) and fewer than two preferred ones.",
+    "strong": "The same, with two or more preferred; a partly met one counts as half.",
+    "notShown": "Whatever a CV can't show stays out of the count."
+  },
   "tally": {
     "part": "{{met}} of {{total}} {{label}}",
     "partWithPartial": "{{met}} of {{total}} {{label}} (+{{partial}} partial)",

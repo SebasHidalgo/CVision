@@ -9,8 +9,7 @@
     "notShown_one": "Not shown in your CV",
     "notShown_other": "Not shown in your CV",
     "count": "{{met}} of {{total}}",
-    "countWithPartial": "{{met}} of {{total}}, {{partial}} partly",
-    "rule": "<b>Weak:</b> a required item is missing, or two or more are only partly met. <b>Partial:</b> you meet the required items (one may be partly met) and fewer than two preferred ones. <b>Strong:</b> the same, with two or more preferred; a partly met one counts as half. Whatever a CV can't show stays out of the count."
+    "countWithPartial": "{{met}} of {{total}}, {{partial}} partly"
   },
   "requirements": {
     "listLabel": "The example posting's requirements",

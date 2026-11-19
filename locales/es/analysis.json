@@ -18,10 +18,6 @@
     "notShown_other": "No aparecen en tu CV",
     "ruleTitle": "Cómo se cuenta",
     "rule": {
-      "weak": "Te falta un obligatorio, o dos o más están solo en parte.",
-      "fair": "Cumples los obligatorios (uno puede estar en parte) y menos de dos deseables.",
-      "strong": "Lo mismo, con dos deseables o más; uno en parte cuenta como medio.",
-      "notShown": "Lo que un CV no puede mostrar queda fuera de la cuenta.",
       "empty": "No se encontraron requisitos obligatorios en esta oferta, así que no hay nada que contar.",
       "applies": "se aplica a este análisis"
     }

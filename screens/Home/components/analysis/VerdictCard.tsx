@@ -1,10 +1,13 @@
 "use client";
 
-import { Trans, useTranslation } from "react-i18next";
+import { Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { Surface } from "@/components/design-system/Surface";
 import { toneKey, type ScoreTone } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import type { CaseTally, KindCount } from "./tally";
+
+const RULES: readonly ScoreTone[] = ["weak", "fair", "strong"];
 
 /** The verdict word, its arithmetic, and the rule that turns one into the other. */
 export function VerdictCard({ tone, tally, className }: { tone: ScoreTone; tally: CaseTally; className?: string }) {
@@ -34,8 +37,15 @@ export function VerdictCard({ tone, tally, className }: { tone: ScoreTone; tally
           </div>
         ))}
       </dl>
+      {/* The app's rule, word for word: the analysis page prints the same sentences. */}
       <p className="text-[14px] text-ed-ink-3">
-        <Trans t={t} i18nKey="verdict.rule" components={{ b: <strong className="font-semibold text-ed-ink-2" /> }} />
+        {RULES.map((rule) => (
+          <Fragment key={rule}>
+            <strong className="font-semibold text-ed-ink-2">{common("verdictRule.term", { verdict: common(toneKey("fit", rule)) })}</strong>{" "}
+            {common(`verdictRule.${rule}`)}{" "}
+          </Fragment>
+        ))}
+        {common("verdictRule.notShown")}
       </p>
     </Surface>
   );

@@ -74,13 +74,13 @@ export function VerdictCard({ verdict, t, common, className }: VerdictCardProps)
                     {common(toneKey("fit", rule))}
                     {applies && <span className="sr-only"> ({t("verdict.rule.applies")})</span>}
                   </dt>
-                  <dd>{t(`verdict.rule.${rule}`)}</dd>
+                  <dd>{common(`verdictRule.${rule}`)}</dd>
                 </div>
               );
             })}
           </dl>
         )}
-        <p className="mt-3 text-[15px] text-ed-ink-2">{t("verdict.rule.notShown")}</p>
+        <p className="mt-3 text-[15px] text-ed-ink-2">{common("verdictRule.notShown")}</p>
       </div>
     </Surface>
   );

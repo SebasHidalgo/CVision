@@ -10,8 +10,7 @@
     "notShown_many": "No aparecen en tu CV",
     "notShown_other": "No aparecen en tu CV",
     "count": "{{met}} de {{total}}",
-    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte",
-    "rule": "<b>Baja:</b> te falta un obligatorio, o dos o más están solo en parte. <b>Parcial:</b> cumples los obligatorios (uno puede estar en parte) y menos de dos deseables. <b>Alta:</b> lo mismo, con dos deseables o más; uno en parte cuenta como medio. Lo que un CV no puede mostrar queda fuera de la cuenta."
+    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte"
   },
   "requirements": {
     "listLabel": "Requisitos de la oferta de ejemplo",

@@ -61,6 +61,13 @@
       "strong": "Convincente"
     }
   },
+  "verdictRule": {
+    "term": "{{verdict}}:",
+    "weak": "Te falta un obligatorio, o dos o más están solo en parte.",
+    "fair": "Cumples los obligatorios (uno puede estar en parte) y menos de dos deseables.",
+    "strong": "Lo mismo, con dos deseables o más; uno en parte cuenta como medio.",
+    "notShown": "Lo que un CV no puede mostrar queda fuera de la cuenta."
+  },
   "tally": {
     "part": "{{met}} de {{total}} {{label}}",
     "partWithPartial": "{{met}} de {{total}} {{label}} (+{{partial}} en parte)",
