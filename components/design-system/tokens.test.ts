@@ -55,6 +55,17 @@ describe("design tokens", () => {
     expect(contrast("#ffffff", ED_COLOR.danger)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("the End button keeps a 3:1 boundary on every ground in both states, through its edge, with white text at 4.5:1 or more", () => {
+    for (const [ground, value] of Object.entries(GROUNDS)) {
+      expect(contrast(ED_COLOR.dangerEdge, value), ground).toBeGreaterThanOrEqual(3);
+    }
+    // Why the edge exists: the fill alone falls under 3:1 on raise, and the hover fill under it everywhere.
+    expect(contrast(ED_COLOR.danger, ED_COLOR.raise)).toBeLessThan(3);
+    expect(contrast(ED_COLOR.dangerHover, ED_COLOR.bg)).toBeLessThan(3);
+    expect(contrast("#ffffff", ED_COLOR.danger)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#ffffff", ED_COLOR.dangerHover)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("a control's edge reaches 3:1 on every ground (WCAG 1.4.11); the dividers do not, so they are not edges", () => {
     for (const [ground, value] of Object.entries(GROUNDS)) {
       expect(contrast(ED_COLOR.field, value), ground).toBeGreaterThanOrEqual(3);

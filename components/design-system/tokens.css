@@ -27,6 +27,9 @@
      text: it is 3.1:1 on the panel. */
   --color-ed-danger: #b4382a;
   --color-ed-danger-hover: #a03024;
+  /* The End button's edge: the fill alone is 2.99:1 on raise and darker on hover, so the button draws its boundary
+     in this, 3:1 or more on every ground (WCAG 1.4.11) in both states: bg 3.89, panel 3.71, raise 3.54, sheet 3.68. */
+  --color-ed-danger-edge: #c44332;
   /* Danger as text (an error message): ed-danger's hue, lightened to 7:1 or more on every ground:
      bg 7.89, panel 7.54, raise 7.20, sheet 7.48. Filled, it takes ed-bg text (7.89:1); white on it is 2.5:1. */
   --color-ed-danger-text: #ff7f71;

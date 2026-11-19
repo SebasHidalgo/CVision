@@ -4,11 +4,15 @@ import { cn } from "@/lib/utils";
 /** The edge of a control: the design system's field edge, 3:1 or more on every ground (WCAG 1.4.11). */
 export const CONTROL_EDGE = "border-ed-field";
 
+/** A control in error: the danger text colour as its edge (7:1 or more on every ground), kept on hover and focus. */
+export const INVALID_EDGE = "border-ed-danger-text hover:border-ed-danger-text focus:border-ed-danger-text";
+
 /** A text control on the design system: panel fill, a visible edge, 48 px tall, 16 px text (no zoom on iOS). */
 export const fieldClass =
   `block w-full min-h-12 rounded-ed-field border ${CONTROL_EDGE} bg-ed-panel px-3.5 py-3 text-ed-body text-ed-ink caret-ed-ink ` +
   "placeholder:text-ed-ink-3 transition-[border-color] duration-200 ease-ed-out hover:border-ed-ink-2 focus:border-ed-ink " +
-  "aria-invalid:border-ed-ink motion-reduce:transition-none";
+  // Stacked variants outrank the plain hover and focus edges, whatever order Tailwind emits them in.
+  "aria-invalid:border-ed-danger-text aria-invalid:hover:border-ed-danger-text aria-invalid:focus:border-ed-danger-text motion-reduce:transition-none";
 
 /** The id of a field's error line, for the control's `aria-describedby`. */
 export const errorIdOf = (id: string) => `${id}-error`;

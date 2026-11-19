@@ -8,7 +8,7 @@ import { MAX_RESUME_BYTES, MAX_RESUME_SIZE_LABEL } from "@/lib/uploadLimits";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/screens/ResumeUpload/utils/format";
 import CvSheet from "./CvSheet";
-import { CONTROL_EDGE, ErrorText } from "./Field";
+import { CONTROL_EDGE, ErrorText, INVALID_EDGE } from "./Field";
 
 /** The drop area's id: the form focuses it when the file is the only thing missing. */
 export const DROPZONE_ID = "resume-drop";
@@ -72,7 +72,7 @@ export default function FileUploader({ file, onFileSelect, labelId, describedBy,
               : file
                 ? cn(CONTROL_EDGE, "bg-ed-panel hover:border-ed-ink-2")
                 : cn(CONTROL_EDGE, "border-dashed bg-ed-panel/50 hover:border-ed-ink-2"),
-            invalid && !file && !isDragActive && "border-ed-ink",
+            (invalid || rejected) && !file && !isDragActive && INVALID_EDGE,
             disabled && "cursor-not-allowed opacity-50 hover:border-ed-field",
           )}
         >

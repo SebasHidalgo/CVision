@@ -16,6 +16,7 @@ export const ED_COLOR = {
   signalWash: "rgb(62 220 138 / 0.08)",
   danger: "#b4382a",
   dangerHover: "#a03024",
+  dangerEdge: "#c44332",
   dangerText: "#ff7f71",
 } as const;
 

@@ -15,7 +15,10 @@ type RoomButtonProps = {
   busy?: boolean;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
-/** The room's buttons: pills of the design system; End in the danger colour, white text on it at 6.4:1. */
+/**
+ * The room's buttons: pills of the design system. End is filled in the danger colour (white text on it at 5.9:1,
+ * 7.1:1 on hover) inside its edge token, which keeps the boundary at 3:1 on every ground in both states.
+ */
 export function RoomButton({ tone = "primary", icon, busy = false, className, children, type = "button", ...rest }: RoomButtonProps) {
   const Icon = icon ? ICONS[icon] : null;
   return (
@@ -25,7 +28,7 @@ export function RoomButton({ tone = "primary", icon, busy = false, className, ch
       className={cn(
         buttonClass({ variant: tone === "quiet" ? "ghost" : "solid", size: "md" }),
         "w-full sm:w-auto",
-        tone === "danger" && "border-ed-danger bg-ed-danger text-white hover:border-ed-danger-hover hover:bg-ed-danger-hover",
+        tone === "danger" && "border-ed-danger-edge bg-ed-danger text-white hover:bg-ed-danger-hover",
         "disabled:cursor-default disabled:opacity-75 disabled:hover:translate-y-0 disabled:active:scale-100",
         "aria-disabled:cursor-default aria-disabled:opacity-75 aria-disabled:hover:translate-y-0 aria-disabled:active:scale-100",
         className,
