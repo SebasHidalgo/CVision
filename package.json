@@ -60,7 +60,6 @@
     "ai": "^7.0.99",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.23.22",
     "i18next": "26.5.11",
     "lucide-react": "^0.545.0",
     "next": "16.4.6",
@@ -77,6 +76,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@clerk/backend": "2.33.8",
     "@clerk/testing": "^2.2.50",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
@@ -88,6 +88,7 @@
     "@types/three": "0.186.0",
     "jsdom": "^29.1.1",
     "knip": "6.45.1",
+    "playwright": "1.64.1",
     "prisma": "^6.17.0",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
