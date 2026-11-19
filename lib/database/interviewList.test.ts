@@ -6,7 +6,10 @@ import { fetchVisibleInterviews } from "./interview";
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
-vi.mock("./visibility", () => ({ visibleAnalysisIds: vi.fn(async () => null), isVisible: () => true }));
+vi.mock("./visibility", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./visibility")>()),
+  visibleAnalysisIds: vi.fn(async () => null),
+}));
 vi.mock("@/lib/prisma", () => ({ default: { interview: { findMany: vi.fn() } } }));
 
 const NOW = new Date("2026-11-18T12:00:00.000Z");
@@ -52,7 +55,7 @@ describe("fetchVisibleInterviews", () => {
     expect(args.orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
     expect(args.select.transcript).toBeUndefined();
     expect(args.select.segments).toBeUndefined();
-    expect(hidden).toBe(0);
+    expect(hidden).toEqual([]);
     expect(interviews).toEqual([
       expect.objectContaining({ id: "i1", companyName: "Northwind", analysisId: "a1", score: 74, held: true, hasTranscript: true, lastEnd: "user", secondsLeft: null }),
     ]);

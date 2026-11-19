@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   collectDetachedConversationIds,
   deleteAnalysisRows,
+  deleteInterviewRows,
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
 import { deleteUserRows } from "@/lib/database/userById";
@@ -9,10 +10,11 @@ import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/voice";
 import { AnalysisBusyError, VoiceUnavailableError } from "@/lib/error/errors";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
-import { deleteAccountCascade, deleteAnalysisCascade, PLATFORM_DELETE_CONCURRENCY } from "./deletion";
+import { deleteAccountCascade, deleteAnalysisCascade, deleteInterviewCascade, PLATFORM_DELETE_CONCURRENCY } from "./deletion";
 
 vi.mock("@/lib/database/deletion", () => ({
   deleteAnalysisRows: vi.fn(),
+  deleteInterviewRows: vi.fn(),
   listAnalysisIdsOfUser: vi.fn(),
   collectDetachedConversationIds: vi.fn(async () => []),
 }));
@@ -31,6 +33,7 @@ const KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(deleteAnalysisRows).mockResolvedValue({ deleted: true, resumeKey: KEY, conversationIds: ["conv_1", "conv_2", "conv_1"] });
+  vi.mocked(deleteInterviewRows).mockResolvedValue({ deleted: true, conversationIds: ["conv_a", "conv_b", "conv_c"] });
   vi.mocked(deleteConversation).mockResolvedValue("deleted");
   vi.mocked(removeObject).mockResolvedValue(true);
   vi.mocked(listObjects).mockResolvedValue([]);
@@ -95,6 +98,71 @@ describe("deleteAnalysisCascade", () => {
     });
     expect(deleteAnalysisRows).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("conversation=conv_1"), expect.anything());
+  });
+});
+
+const INTERVIEW_ID = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b";
+
+describe("deleteInterviewCascade", () => {
+  it("deletes the row first, then every conversation issued for it, through the voice interface; never storage", async () => {
+    const outcome = await deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" });
+
+    expect(deleteInterviewRows).toHaveBeenCalledWith({ interviewId: INTERVIEW_ID, userId: "user_1" });
+    expect(vi.mocked(deleteConversation).mock.calls.map(([id]) => id)).toEqual(["conv_a", "conv_b", "conv_c"]);
+    expect(outcome).toEqual({
+      kind: "deleted",
+      conversations: [
+        { id: "conv_a", outcome: "deleted" },
+        { id: "conv_b", outcome: "deleted" },
+        { id: "conv_c", outcome: "deleted" },
+      ],
+    });
+    // The analysis and its CV are not this cascade's.
+    expect(removeObject).not.toHaveBeenCalled();
+    expect(deleteAnalysisRows).not.toHaveBeenCalled();
+    expect(vi.mocked(deleteInterviewRows).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(deleteConversation).mock.invocationCallOrder[0]);
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining(`interview=${INTERVIEW_ID} deleted`));
+  });
+
+  it("lets the busy refusal through untouched, before anything external", async () => {
+    vi.mocked(deleteInterviewRows).mockRejectedValue(new AnalysisBusyError("The interview is in progress"));
+
+    await expect(deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "ANALYSIS_BUSY" });
+    expect(deleteConversation).not.toHaveBeenCalled();
+  });
+
+  it("touches nothing external for an interview that is not there (or not the user's)", async () => {
+    vi.mocked(deleteInterviewRows).mockResolvedValue({ deleted: false });
+
+    expect(await deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_2" })).toEqual({ kind: "not-found" });
+    expect(deleteConversation).not.toHaveBeenCalled();
+  });
+
+  it("reports a platform failure by id without undoing the deletion: the row stays gone", async () => {
+    vi.mocked(deleteConversation)
+      .mockRejectedValueOnce(new VoiceUnavailableError())
+      .mockResolvedValueOnce("not-found")
+      .mockResolvedValueOnce("deleted");
+
+    const outcome = await deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" });
+
+    expect(outcome).toEqual({
+      kind: "deleted",
+      conversations: [
+        { id: "conv_a", outcome: "failed" },
+        { id: "conv_b", outcome: "not-found" },
+        { id: "conv_c", outcome: "deleted" },
+      ],
+    });
+    expect(deleteInterviewRows).toHaveBeenCalledTimes(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("conversation=conv_a"), expect.anything());
+  });
+
+  it("asks nothing of the platform for an interview that never had a session", async () => {
+    vi.mocked(deleteInterviewRows).mockResolvedValue({ deleted: true, conversationIds: [] });
+
+    expect(await deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" })).toEqual({ kind: "deleted", conversations: [] });
+    expect(deleteConversation).not.toHaveBeenCalled();
   });
 });
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { decideEntitlement, type EntitlementFacts } from "@/lib/interviewEntitlement";
 import type { InterviewAttempt } from "@/types/resume";
 import { anyWaiting, attemptSummary } from "./attemptSummary";
-import { deletionSummary } from "./deletionSummary";
 
 const now = new Date("2026-11-20T10:00:00.000Z");
 const entitlement = (facts: Partial<EntitlementFacts>) =>
@@ -49,18 +48,5 @@ describe("attemptSummary", () => {
   it("anyWaiting looks at each analysis's latest rehearsal", () => {
     expect(anyWaiting([[], [attempt({ status: "COMPLETED" })]])).toBe(false);
     expect(anyWaiting([[attempt({ status: "COMPLETED" })], [attempt({ status: "SCHEDULED" })]])).toBe(true);
-  });
-});
-
-describe("deletionSummary", () => {
-  it("says what went, then why the rest didn't, and that nothing changed when nothing did", () => {
-    expect(deletionSummary({ deleted: 3, busy: 0, failed: 0, remaining: 0 })).toEqual([{ key: "result.deleted", count: 3 }]);
-    expect(deletionSummary({ deleted: 2, busy: 1, failed: 1, remaining: 4 })).toEqual([
-      { key: "result.deleted", count: 2 },
-      { key: "result.busy", count: 1 },
-      { key: "result.failed", count: 1 },
-      { key: "result.remaining", count: 4 },
-    ]);
-    expect(deletionSummary({ deleted: 0, busy: 0, failed: 0, remaining: 0 })).toEqual([{ key: "result.unchanged" }]);
   });
 });

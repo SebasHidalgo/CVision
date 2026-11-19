@@ -48,7 +48,7 @@ export function listState(item: InterviewListItem, entitlement: InterviewEntitle
 
   const sessionOpen = item.status === "IN_PROGRESS" && item.conversationId !== null && !item.hasTranscript;
   if (sessionOpen) {
-    const over = item.endedAt !== null || isStranded({ status: item.status, conversationId: item.conversationId, hasTranscript: item.hasTranscript, startedAt: item.startedAt, endedAt: item.endedAt }, now, MAX_CALL_SECONDS);
+    const over = item.endedAt !== null || isStranded({ status: item.status, conversationId: item.conversationId, hasTranscript: item.hasTranscript, startedAt: item.startedAt, lastSessionAt: item.lastSessionAt, callAllowedSeconds: item.callAllowedSeconds, endedAt: item.endedAt }, now, MAX_CALL_SECONDS);
     return { kind: over ? "saving" : "live" };
   }
 

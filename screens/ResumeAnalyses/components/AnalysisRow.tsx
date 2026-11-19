@@ -63,7 +63,14 @@ export function AnalysisRow({ analysis, n, locale, t, common, entitlement, headi
         {title}
         <p className="text-ed-ink-2 [grid-area:fit]">{t("row.unreadable")}</p>
         <div className="[grid-area:int]">
-          <DeleteUnreadable resumeId={analysis.id} jobTitle={analysis.jobTitle} companyName={analysis.companyName} date={date} returnFocusTo={headingId} />
+          <DeleteUnreadable
+            resumeId={analysis.id}
+            jobTitle={analysis.jobTitle}
+            companyName={analysis.companyName}
+            date={date}
+            interviews={analysis.interviews.length}
+            returnFocusTo={headingId}
+          />
         </div>
       </li>
     );

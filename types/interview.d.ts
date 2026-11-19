@@ -22,6 +22,9 @@ export type InterviewListItem = {
   hasTranscript: boolean;
   startCount: number;
   startedAt: Date | null;
+  /** The latest session's issue, and what that call was allowed: a reconnect is measured on its own clock. */
+  lastSessionAt: Date | null;
+  callAllowedSeconds: number | null;
   endedAt: Date | null;
   /** Why the latest step produced nothing; see `FEEDBACK_FAILURE_REASONS`. */
   failureReason: string | null;

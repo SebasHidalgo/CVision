@@ -16,13 +16,13 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-const mount = () =>
+const mount = (interviews = 0) =>
   render(
     <>
       <h1 id="analyses-title" tabIndex={-1}>
         Analyses
       </h1>
-      <DeleteUnreadable resumeId="a1" jobTitle="Backend Engineer" companyName="Contoso" date="Oct 9, 2026" returnFocusTo="analyses-title" />
+      <DeleteUnreadable resumeId="a1" jobTitle="Backend Engineer" companyName="Contoso" date="Oct 9, 2026" interviews={interviews} returnFocusTo="analyses-title" />
     </>,
   );
 
@@ -43,6 +43,17 @@ describe("DeleteUnreadable", () => {
     expect(toast.success).toHaveBeenCalledWith("Deleted Backend Engineer at Contoso.");
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(document.activeElement?.id).toBe("analyses-title");
+  });
+
+  it("names the interviews that go with it, and gives focus back to its button on cancel", async () => {
+    mount(2);
+    const opener = screen.getByRole("button", { name: "Delete Backend Engineer at Contoso, Oct 9, 2026" });
+    opener.focus();
+    await click(opener);
+    expect(screen.getByRole("alertdialog").textContent).toMatch(/the CV, the analysis and its 2 interviews, with their transcripts and feedback, go with it/);
+    await click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep it" }));
+    expect(deleteOneAnalysisAction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(opener);
   });
 
   it("shows a refusal as an error toast and keeps the row", async () => {

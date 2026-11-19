@@ -1,10 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { collectDetachedConversationIds, deleteAnalysisRows, listAnalysisIdsOfUser } from "./deletion";
+import { collectDetachedConversationIds, deleteAnalysisRows, deleteInterviewRows, listAnalysisIdsOfUser } from "./deletion";
 
 const tx = {
   resumeAnalysis: { findFirst: vi.fn(), deleteMany: vi.fn() },
+  interview: { findFirst: vi.fn(), deleteMany: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
   default: {
@@ -27,6 +28,8 @@ beforeEach(() => {
   vi.mocked(prisma.$transaction).mockImplementation(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
   tx.resumeAnalysis.findFirst.mockResolvedValue(row(["COMPLETED", "FAILED"]));
   tx.resumeAnalysis.deleteMany.mockResolvedValue({ count: 1 });
+  tx.interview.findFirst.mockResolvedValue({ status: "COMPLETED", issuedConversationIds: ["conv_a", "conv_b"] });
+  tx.interview.deleteMany.mockResolvedValue({ count: 1 });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -78,6 +81,51 @@ describe("deleteAnalysisRows", () => {
       .mockImplementationOnce(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
 
     expect((await deleteAnalysisRows({ analysisId: ANALYSIS_ID, userId: "user_1", allowBusy: false })).deleted).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+});
+
+const INTERVIEW_ID = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b";
+
+describe("deleteInterviewRows", () => {
+  it("reads every issued conversation id, then deletes the interview of that user, serializably; the analysis stays", async () => {
+    const result = await deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" });
+
+    expect(result).toEqual({ deleted: true, conversationIds: ["conv_a", "conv_b"] });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+    expect(tx.interview.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: INTERVIEW_ID, userId: "user_1" } }));
+    expect(tx.interview.deleteMany).toHaveBeenCalledWith({ where: { id: INTERVIEW_ID, userId: "user_1" } });
+    expect(tx.resumeAnalysis.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["IN_PROGRESS", "GENERATING"])("refuses with ANALYSIS_BUSY while it is %s, deleting nothing", async (status) => {
+    tx.interview.findFirst.mockResolvedValue({ status, issuedConversationIds: ["conv_a"] });
+
+    await expect(deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "ANALYSIS_BUSY" });
+    expect(tx.interview.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["SCHEDULED", "FEEDBACK_PENDING", "COMPLETED", "FAILED", "EXPIRED"])("deletes one that is %s", async (status) => {
+    tx.interview.findFirst.mockResolvedValue({ status, issuedConversationIds: [] });
+
+    expect(await deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" })).toEqual({ deleted: true, conversationIds: [] });
+  });
+
+  it("reports not deleted for a missing or foreign interview, without deleting", async () => {
+    tx.interview.findFirst.mockResolvedValue(null);
+
+    expect(await deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_2" })).toEqual({ deleted: false });
+    expect(tx.interview.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("retries once on a serialization failure", async () => {
+    vi.mocked(prisma.$transaction)
+      .mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("raced", { code: "P2034", clientVersion: "test" }))
+      .mockImplementationOnce(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
+
+    expect((await deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" })).deleted).toBe(true);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 });

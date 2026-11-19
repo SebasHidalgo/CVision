@@ -3,6 +3,7 @@ import "server-only";
 import {
   collectDetachedConversationIds,
   deleteAnalysisRows,
+  deleteInterviewRows,
   listAnalysisIdsOfUser,
 } from "@/lib/database/deletion";
 import { deleteUserRows } from "@/lib/database/userById";
@@ -11,9 +12,10 @@ import { deleteConversation } from "@/lib/voice";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
 
 /**
- * Deletion that leaves nothing behind, in one routine with two entry
- * points: the delete action (one analysis, refused while a rehearsal is
- * live) and the Clerk webhook (the whole account, nothing refused).
+ * Deletion that leaves nothing behind, in one routine with three entry
+ * points: the delete actions (one analysis, refused while a rehearsal is
+ * live; one interview, refused while it is live) and the Clerk webhook (the
+ * whole account, nothing refused).
  *
  * Rows first, the outside world second. A row that outlives its file would
  * render a broken drawer and a dead rehearsal; a file or a platform
@@ -52,6 +54,26 @@ export async function deleteAnalysisCascade(params: {
     `${LOG} analysis=${params.analysisId} deleted; object ${objectRemoved ? "removed" : "LEFT (collector)"}; conversations ${describe(conversations)}`,
   );
   return { kind: "deleted", objectRemoved, conversations };
+}
+
+export type InterviewDeletion =
+  | { kind: "not-found" }
+  | { kind: "deleted"; conversations: ConversationCleanup[] };
+
+/**
+ * One interview: its row first (transcript, calls, feedback and the feedback's translations go with it; the analysis
+ * and the usage ledger stay), then every conversation the session endpoint issued for it, at the voice platform. A
+ * platform failure is logged with its id and never brings the row back. ANALYSIS_BUSY while it is in a call or being
+ * scored, before anything external is touched.
+ */
+export async function deleteInterviewCascade(params: { interviewId: string; userId: string }): Promise<InterviewDeletion> {
+  const rows = await deleteInterviewRows({ interviewId: params.interviewId, userId: params.userId });
+  if (!rows.deleted) return { kind: "not-found" };
+
+  const conversations = await cleanUpConversations(rows.conversationIds);
+
+  console.info(`${LOG} interview=${params.interviewId} deleted; conversations ${describe(conversations)}`);
+  return { kind: "deleted", conversations };
 }
 
 export type AccountDeletion = {

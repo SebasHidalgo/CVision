@@ -26,6 +26,8 @@ const interview: InterviewListItem = {
   hasTranscript: true,
   startCount: 1,
   startedAt: null,
+  lastSessionAt: null,
+  callAllowedSeconds: null,
   endedAt: null,
   failureReason: null,
   held: true,

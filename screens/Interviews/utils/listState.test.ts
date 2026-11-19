@@ -19,6 +19,8 @@ const item = (overrides: Partial<InterviewListItem> = {}): InterviewListItem => 
   hasTranscript: false,
   startCount: 0,
   startedAt: null,
+  lastSessionAt: null,
+  callAllowedSeconds: null,
   endedAt: null,
   failureReason: null,
   held: false,
@@ -60,6 +62,13 @@ describe("listState", () => {
     expect(state({ ...open, startedAt: minutesAgo(3) })).toEqual({ kind: "live" });
     expect(state({ ...open, startedAt: minutesAgo(3), endedAt: minutesAgo(3) })).toEqual({ kind: "saving" });
     expect(state({ ...open, startedAt: minutesAgo(40) })).toEqual({ kind: "saving" });
+  });
+
+  it("a late reconnect is live on its own clock, not the first call's", () => {
+    // First call 16 min ago, reconnect issued 2 min ago with 6 min left: the old rule read it as saving.
+    const open = { status: "IN_PROGRESS" as const, conversationId: "c2", hasTranscript: false, held: true, startCount: 2 };
+    expect(state({ ...open, startedAt: minutesAgo(16), lastSessionAt: minutesAgo(2), callAllowedSeconds: 360 })).toEqual({ kind: "live" });
+    expect(state({ ...open, startedAt: minutesAgo(30), lastSessionAt: minutesAgo(12), callAllowedSeconds: 360 })).toEqual({ kind: "saving" });
   });
 
   it("a waiting one is ready only when the plan can start it, and says what it lacks otherwise", () => {

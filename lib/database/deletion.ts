@@ -6,14 +6,14 @@ import { AnalysisBusyError } from "@/lib/error/errors";
 import { handleError } from "@/lib/error/handleError";
 
 /**
- * Data access for deleting an analysis or an account. Two callers: the
- * delete action, which resolved the session and passes its own user id, and
- * the Clerk webhook, which has no session and passes the id the signed
- * delivery named. Every write is scoped by that id, so neither path can
- * reach another account's rows.
+ * Data access for deleting an analysis, an interview or an account. Two
+ * callers: the delete actions, which resolved the session and pass their own
+ * user id, and the Clerk webhook, which has no session and passes the id the
+ * signed delivery named. Every write is scoped by that id, so neither path
+ * can reach another account's rows.
  */
 
-/** Rows the foreign keys remove with the analysis: its feedback, its interviews, their feedback. */
+/** An interview a delete refuses to take: in a call, or being scored. */
 export const BUSY_INTERVIEW_STATUSES: ReadonlySet<InterviewStatus> = new Set(["IN_PROGRESS", "GENERATING"]);
 
 export type DeletedAnalysis =
@@ -79,6 +79,56 @@ export async function deleteAnalysisRows(params: {
     throw new Error("unreachable");
   } catch (error) {
     handleError(error, `Failed to delete the analysis rows (analysis=${params.analysisId}, user=${params.userId})`);
+  }
+}
+
+export type DeletedInterview =
+  /** No such interview for this user. */
+  | { deleted: false }
+  /** Gone, with the conversations the voice platform still holds of it. */
+  | { deleted: true; conversationIds: string[] };
+
+/**
+ * Deletes one interview of one user: its transcript and calls (columns of the
+ * row), its feedback and that feedback's stored translations (the foreign
+ * keys cascade). Its analysis stays. The usage ledger is not touched: a unit
+ * the interview spent stays spent, as when its analysis is deleted. Refuses
+ * while it is in a call or being scored, in the same serializable transaction
+ * as the delete, like `deleteAnalysisRows`. Every issued conversation id is
+ * read before the row goes, for the caller to delete on the platform.
+ */
+export async function deleteInterviewRows(params: { interviewId: string; userId: string }): Promise<DeletedInterview> {
+  try {
+    for (let round = 0; round < DELETE_ATTEMPTS; round += 1) {
+      try {
+        return await prisma.$transaction(
+          async (tx) => {
+            const row = await tx.interview.findFirst({
+              where: { id: params.interviewId, userId: params.userId },
+              select: { status: true, issuedConversationIds: true },
+            });
+            if (!row) return { deleted: false as const };
+
+            if (BUSY_INTERVIEW_STATUSES.has(row.status)) throw new AnalysisBusyError("The interview is in progress");
+
+            const removed = await tx.interview.deleteMany({
+              where: { id: params.interviewId, userId: params.userId },
+            });
+            if (removed.count === 0) return { deleted: false as const };
+
+            return { deleted: true as const, conversationIds: row.issuedConversationIds };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        const raced =
+          error instanceof Prisma.PrismaClientKnownRequestError && RACE_CODES.has(error.code);
+        if (!raced || round === DELETE_ATTEMPTS - 1) throw error;
+      }
+    }
+    throw new Error("unreachable");
+  } catch (error) {
+    handleError(error, `Failed to delete the interview rows (interview=${params.interviewId}, user=${params.userId})`);
   }
 }
 

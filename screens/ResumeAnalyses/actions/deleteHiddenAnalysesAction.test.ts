@@ -12,7 +12,7 @@ vi.mock("@/lib/database/resume", () => ({ fetchHiddenResumes: vi.fn() }));
 vi.mock("@/lib/deletion", () => ({ deleteAnalysisCascade: vi.fn() }));
 
 const id = (n: number) => `3f2b8c1e-8a4d-4c2e-9b1a-2d3e4f5a6b${String(n).padStart(2, "0")}`;
-const hidden = (n: number) => ({ id: id(n), jobTitle: `Role ${n}`, companyName: `Company ${n}`, createdAt: "2026-11-01T00:00:00.000Z" });
+const hidden = (n: number) => ({ id: id(n), jobTitle: `Role ${n}`, companyName: `Company ${n}`, createdAt: "2026-11-01T00:00:00.000Z", interviews: 0 });
 const deleted = { kind: "deleted" as const, objectRemoved: true, conversations: [] };
 
 beforeEach(() => {

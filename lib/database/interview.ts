@@ -21,7 +21,7 @@ import {
   mapDbInterviewFeedback,
   mapDbInterviewListItem,
 } from "./mappers";
-import { isVisible, visibleAnalysisIds } from "./visibility";
+import { hiddenInterviewRows, isVisible, NEWEST_INTERVIEWS_FIRST, visibleAnalysisIds, type InterviewSummary } from "./visibility";
 
 /**
  * The room needs the posting; the session endpoint also needs the parts of
@@ -123,17 +123,37 @@ export async function createInterview(
   }
 }
 
+/**
+ * What the list shows of an interview the plan hides (its analysis is beyond the history): enough to tell it apart and
+ * delete it, nothing of its transcript or feedback (opening it stays a Pro feature).
+ */
+export type HiddenInterview = {
+  id: string;
+  role: string;
+  companyName: string;
+  createdAt: string;
+};
+
+const toHiddenInterview = (row: Pick<InterviewSummary, "id" | "role" | "createdAt" | "resumeAnalysis">): HiddenInterview => ({
+  id: row.id,
+  role: row.role,
+  // A hidden interview always has its analysis: one without is never hidden.
+  companyName: row.resumeAnalysis?.companyName ?? "",
+  createdAt: row.createdAt.toISOString(),
+});
+
 export type VisibleInterviews = {
   /** The caller's interviews whose analysis the plan shows, newest first. */
   interviews: InterviewListItem[];
-  /** Interviews of analyses hidden by the plan's history rule. */
-  hidden: number;
+  /** The interviews of analyses hidden by the plan's history rule, newest first; empty for Pro. */
+  hidden: HiddenInterview[];
 };
 
 /**
- * The caller's interviews within the plan's history (an interview follows its analysis), and how many are hidden.
- * Newest first, the id breaking ties. A resumable one (a dropped call, or one the interviewer ended early) carries the
- * interview time it has left, read from its calls the way the room reads it; only those rows load their transcripts.
+ * The caller's interviews split by the plan's history (an interview follows its analysis): the shown ones, and the
+ * hidden ones as summaries. Newest first, the id breaking ties. A resumable one (a dropped call, or one the interviewer
+ * ended early) carries the interview time it has left, read from its calls the way the room reads it; only those rows
+ * load their transcripts.
  */
 export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleInterviews> {
   try {
@@ -145,11 +165,12 @@ export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleI
       prisma.interview.findMany({
         where: { userId },
         select: interviewListSelect,
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        orderBy: NEWEST_INTERVIEWS_FIRST,
       }),
-      visibleAnalysisIds(userId),
+      visibleAnalysisIds(userId, now),
     ]);
     const shown = rows.filter((row) => isVisible(visible, row.resumeAnalysisId));
+    const hidden = rows.filter((row) => !isVisible(visible, row.resumeAnalysisId));
 
     const resumableIds = shown.filter((row) => row.status === "IN_PROGRESS" && row.resumableUntil && row.resumableUntil.getTime() > now.getTime()).map((row) => row.id);
     const left = new Map<string, number>();
@@ -180,9 +201,23 @@ export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleI
       }
     }
 
-    return { interviews: shown.map((row) => mapDbInterviewListItem(row, left.get(row.id) ?? null)), hidden: rows.length - shown.length };
+    return { interviews: shown.map((row) => mapDbInterviewListItem(row, left.get(row.id) ?? null)), hidden: hidden.map(toHiddenInterview) };
   } catch (error) {
     handleError(error, "Failed to retrieve the interview records");
+  }
+}
+
+/**
+ * The caller's interviews beyond the plan's history, read now, newest first: what a delete of "the hidden ones" may
+ * act on. Empty for Pro.
+ */
+export async function fetchHiddenInterviews(): Promise<HiddenInterview[]> {
+  try {
+    const userId = await requireUserId();
+    const rows = await hiddenInterviewRows(userId);
+    return rows.map(toHiddenInterview);
+  } catch (error) {
+    handleError(error, "Failed to retrieve the hidden interviews");
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { HiddenDeletion } from "@/components/history/deletionSummary";
 import { requireUserId } from "@/lib/auth";
 import { fetchHiddenResumes } from "@/lib/database/resume";
 import { deleteAnalysisCascade } from "@/lib/deletion";
@@ -16,16 +17,6 @@ const MAX_IDS = 1000;
 const DELETE_BUDGET_MS = 40_000;
 
 const inputSchema = z.object({ ids: z.array(z.uuid()).min(1).max(MAX_IDS) });
-
-export type HiddenDeletion = {
-  deleted: number;
-  /** Not deleted: a rehearsal of it is in a call or being scored. */
-  busy: number;
-  /** Not deleted: the database or the cascade failed (logged with the id). */
-  failed: number;
-  /** Not attempted: the time budget ran out; deleting again finishes them. */
-  remaining: number;
-};
 
 /**
  * Deletes the caller's hidden analyses, one cascade each (lib/deletion.ts).

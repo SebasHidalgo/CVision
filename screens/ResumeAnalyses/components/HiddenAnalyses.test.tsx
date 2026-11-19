@@ -18,8 +18,8 @@ vi.mock("@/screens/ResumeAnalyses/actions/deleteOneAnalysisAction", () => ({ del
 vi.mock("@/screens/ResumeAnalyses/actions/deleteHiddenAnalysesAction", () => ({ deleteHiddenAnalysesAction: vi.fn() }));
 
 const ITEMS: HiddenItem[] = [
-  { id: "a2", n: "04", jobTitle: "Data Analyst", companyName: "Northwind", date: "Nov 2, 2026", dateTime: "2026-11-02T00:00:00.000Z" },
-  { id: "a1", n: "05", jobTitle: "Backend Engineer", companyName: "Contoso", date: "Oct 9, 2026", dateTime: "2026-10-09T00:00:00.000Z" },
+  { id: "a2", n: "04", jobTitle: "Data Analyst", companyName: "Northwind", date: "Nov 2, 2026", dateTime: "2026-11-02T00:00:00.000Z", interviews: 2 },
+  { id: "a1", n: "05", jobTitle: "Backend Engineer", companyName: "Contoso", date: "Oct 9, 2026", dateTime: "2026-10-09T00:00:00.000Z", interviews: 0 },
 ];
 
 beforeEach(() => {
@@ -44,7 +44,7 @@ describe("HiddenAnalyses", () => {
   it("says how many are hidden and why, links to Pro, and lists each by company, role and date without a link to open it", () => {
     render(<HiddenAnalyses items={ITEMS} limit={3} />);
     expect(block().textContent).toMatch(/2 older analyses are hidden/);
-    expect(block().textContent).toMatch(/Free shows your last 3 analyses\. The older ones stay stored, CVs included, until you delete them\. Pro shows them all again\./);
+    expect(block().textContent).toMatch(/Free shows your last 3 analyses\. The older ones stay stored, CVs and interviews included, until you delete them\. Pro shows them all again\./);
     expect(within(block()).getByRole("link", { name: "See Pro" }).getAttribute("href")).toBe("/pricing");
     // The only link in the block is the Pro one: hidden analyses never open.
     expect(within(block()).getAllByRole("link")).toHaveLength(1);
@@ -64,11 +64,11 @@ describe("HiddenAnalyses", () => {
     expect(outcome().textContent).toBe("");
   });
 
-  it("deletes one after confirming, saying what goes, and reports it", async () => {
+  it("deletes one after confirming, saying what goes (its interviews counted), and reports it", async () => {
     render(<HiddenAnalyses items={ITEMS} limit={3} />);
     await click(screen.getByRole("button", { name: "Delete Data Analyst at Northwind, Nov 2, 2026" }));
     expect(dialog().textContent).toMatch(/Delete this analysis\?/);
-    expect(dialog().textContent).toMatch(/Data Analyst at Northwind, Nov 2, 2026: the CV, the analysis, its interview rehearsals and their feedback go with it/);
+    expect(dialog().textContent).toMatch(/Data Analyst at Northwind, Nov 2, 2026: the CV, the analysis and its 2 interviews, with their transcripts and feedback, go with it\. This can't be undone\./);
     expect(deleteOneAnalysisAction).not.toHaveBeenCalled();
 
     await click(within(dialog()).getByRole("button", { name: "Delete analysis" }));
@@ -78,19 +78,36 @@ describe("HiddenAnalyses", () => {
     expect(document.activeElement).toBe(outcome());
   });
 
-  it("keeps everything on cancel", async () => {
+  it("names no interviews for an analysis without any, and says so for one with exactly one", async () => {
+    const { rerender } = render(<HiddenAnalyses items={ITEMS} limit={3} />);
+    await click(screen.getByRole("button", { name: "Delete Backend Engineer at Contoso, Oct 9, 2026" }));
+    expect(dialog().textContent).toMatch(/Backend Engineer at Contoso, Oct 9, 2026: the CV and the analysis go with it\. This can't be undone\./);
+    await click(within(dialog()).getByRole("button", { name: "Keep it" }));
+
+    rerender(<HiddenAnalyses items={[{ ...ITEMS[0], interviews: 1 }]} limit={3} />);
+    await click(screen.getByRole("button", { name: "Delete Data Analyst at Northwind, Nov 2, 2026" }));
+    expect(dialog().textContent).toMatch(/the CV, the analysis and its interview, with its transcript and feedback, go with it\./);
+    await click(within(dialog()).getByRole("button", { name: "Keep it" }));
+    await click(screen.getByRole("button", { name: "Delete it" }));
+    expect(dialog().textContent).toMatch(/Their CVs, the analyses, and 1 interview with its transcript and feedback go with them\. Your last 3 stay\./);
+  });
+
+  it("keeps everything on cancel, and gives focus back to the button that opened the dialog", async () => {
     render(<HiddenAnalyses items={ITEMS} limit={3} />);
-    await click(screen.getByRole("button", { name: "Delete all 2" }));
+    const opener = screen.getByRole("button", { name: "Delete all 2" });
+    opener.focus();
+    await click(opener);
     await click(within(dialog()).getByRole("button", { name: "Keep them" }));
     expect(deleteHiddenAnalysesAction).not.toHaveBeenCalled();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 
   it("deletes all the listed ones after confirming, sending the ids it showed", async () => {
     render(<HiddenAnalyses items={ITEMS} limit={3} />);
     await click(screen.getByRole("button", { name: "Delete all 2" }));
     expect(dialog().textContent).toMatch(/Delete 2 older analyses\?/);
-    expect(dialog().textContent).toMatch(/Your last 3 stay\. This can't be undone\./);
+    expect(dialog().textContent).toMatch(/Their CVs, the analyses and their 2 interviews, with transcripts and feedback, go with them\. Your last 3 stay\. This can't be undone\./);
 
     await click(within(dialog()).getByRole("button", { name: "Delete 2" }));
     expect(deleteHiddenAnalysesAction).toHaveBeenCalledWith({ ids: ["a2", "a1"] });

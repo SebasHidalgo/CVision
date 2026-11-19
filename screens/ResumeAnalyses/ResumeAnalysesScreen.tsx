@@ -33,6 +33,7 @@ export default async function ResumeAnalysesScreen() {
     companyName: analysis.companyName,
     date: formatDate(analysis.createdAt, locale),
     dateTime: analysis.createdAt,
+    interviews: analysis.interviews,
   }));
 
   return (

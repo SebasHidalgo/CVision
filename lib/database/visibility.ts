@@ -7,21 +7,43 @@ import { PLANS } from "@/lib/plans";
 import { resolvePlanStanding } from "./billing";
 
 /**
- * The Free history rule: a Free account sees its most recent analyses
- * (`PLANS.FREE.historyLimit`), the rest are hidden, never deleted. Hidden
- * means left out of the lists, an upgrade notice instead of the page, and
- * the same for the interviews that hang from them. Pro has no limit, so
- * upgrading reveals everything. No session: the callers pass the id they
- * resolved; the reads that apply this live in resume.ts and interview.ts.
+ * The Free history rule, one rule for both lists: a Free account sees its
+ * most recent analyses (`PLANS.FREE.historyLimit`) and the interviews that
+ * hang from them; the rest are hidden, never deleted. Hidden means a block
+ * of its own in the list (told apart, deletable, never opened), an upgrade
+ * notice instead of the analysis page, and the interviews list for the room
+ * and the feedback page. An interview with no analysis is never hidden. Pro
+ * has no limit, so upgrading reveals everything. No session: the callers
+ * pass the id they resolved; the reads that apply this live in resume.ts and
+ * interview.ts.
  */
 
 /** The one order of a user's analyses, in the lists and in the history rule: newest first, the id breaking ties. */
 export const NEWEST_FIRST: Prisma.ResumeAnalysisOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "desc" }];
 
-/** What the list shows of an analysis beyond the history: no content. */
-const SUMMARY = { id: true, jobTitle: true, companyName: true, createdAt: true } as const;
+/** The one order of a user's interviews in the list: newest first, the id breaking ties. */
+export const NEWEST_INTERVIEWS_FIRST: Prisma.InterviewOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "desc" }];
+
+/** What the list shows of an analysis beyond the history: no content, and how many interviews a delete takes with it. */
+const SUMMARY = {
+  id: true,
+  jobTitle: true,
+  companyName: true,
+  createdAt: true,
+  _count: { select: { interviews: true } },
+} satisfies Prisma.ResumeAnalysisSelect;
 
 export type AnalysisSummary = Prisma.ResumeAnalysisGetPayload<{ select: typeof SUMMARY }>;
+
+/** What the list shows of an interview beyond the history: no transcript, no feedback. */
+const INTERVIEW_SUMMARY = {
+  id: true,
+  role: true,
+  createdAt: true,
+  resumeAnalysis: { select: { companyName: true } },
+} satisfies Prisma.InterviewSelect;
+
+export type InterviewSummary = Prisma.InterviewGetPayload<{ select: typeof INTERVIEW_SUMMARY }>;
 
 /** The ids the user may see, or null when every analysis is visible. */
 export async function visibleAnalysisIds(userId: string, now = new Date()): Promise<Set<string> | null> {
@@ -89,6 +111,28 @@ export async function hiddenAnalysisRows(userId: string, now = new Date()) {
     });
   } catch (error) {
     handleError(error, `Failed to read the hidden analyses (user=${userId})`);
+  }
+}
+
+/**
+ * The interviews of the analyses beyond the plan's history, newest first, read
+ * now: what a delete of "the hidden interviews" may act on. None when every
+ * analysis is visible. The hidden analyses first, then their interviews, both
+ * scoped to the user; an interview cannot be created on a hidden analysis
+ * between the two (its page is the upgrade notice).
+ */
+export async function hiddenInterviewRows(userId: string, now = new Date()): Promise<InterviewSummary[]> {
+  try {
+    const hidden = await hiddenAnalysisRows(userId, now);
+    if (hidden.length === 0) return [];
+
+    return await prisma.interview.findMany({
+      where: { userId, resumeAnalysisId: { in: hidden.map((analysis) => analysis.id) } },
+      orderBy: NEWEST_INTERVIEWS_FIRST,
+      select: INTERVIEW_SUMMARY,
+    });
+  } catch (error) {
+    handleError(error, `Failed to read the hidden interviews (user=${userId})`);
   }
 }
 

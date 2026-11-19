@@ -82,6 +82,8 @@ export type HiddenResume = {
   jobTitle: string;
   companyName: string;
   createdAt: string;
+  /** Its interviews, which a delete takes with it. */
+  interviews: number;
 };
 
 const toHiddenResume = (row: AnalysisSummary): HiddenResume => ({
@@ -89,6 +91,7 @@ const toHiddenResume = (row: AnalysisSummary): HiddenResume => ({
   jobTitle: row.jobTitle,
   companyName: row.companyName,
   createdAt: row.createdAt.toISOString(),
+  interviews: row._count.interviews,
 });
 
 export type VisibleResumes = {
