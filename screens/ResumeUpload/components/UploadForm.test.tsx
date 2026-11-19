@@ -146,3 +146,24 @@ describe("UploadForm: one key per submission", () => {
     expect(changed).not.toBe(first);
   });
 });
+
+describe("UploadForm: a field in error", () => {
+  it("draws every invalid control's edge in the danger text colour, the dropzone included, never in ink", async () => {
+    const { container } = render(<UploadForm quota={pro(40)} />);
+    fireEvent.click(screen.getByRole("button", { name: /run the analysis/i }));
+
+    const fields = await waitFor(() => {
+      const invalid = [...container.querySelectorAll<HTMLElement>("input[aria-invalid=true], textarea[aria-invalid=true]")].filter((el) => el.id !== "resume");
+      expect(invalid.map((el) => el.id).sort()).toEqual(["company-name", "job-description", "job-title"]);
+      return invalid;
+    });
+    for (const field of fields) {
+      expect(field.className).toContain("aria-invalid:border-ed-danger-text");
+      expect(field.className).toContain("aria-invalid:focus:border-ed-danger-text");
+      expect(field.className).not.toContain("aria-invalid:border-ed-ink");
+    }
+    const dropzone = container.querySelector<HTMLElement>("#resume-drop");
+    expect(dropzone?.className.split(/\s+/)).toEqual(expect.arrayContaining(["border-ed-danger-text", "hover:border-ed-danger-text"]));
+    expect(dropzone?.className.split(/\s+/)).not.toContain("hover:border-ed-ink-2");
+  });
+});

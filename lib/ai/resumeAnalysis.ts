@@ -73,6 +73,12 @@ export type AnalyzeResumeInput = {
   accentsComposed?: number;
   /** For log lines only: the analysis id, or the eval fixture. */
   logId?: string;
+  /**
+   * When every model call must be over (epoch ms): the request's budget. The analysis call's timeout is clipped to
+   * it, and the optional calls (the English retry, the repair) run only if they still fit. Without it, the timeouts
+   * alone decide (the eval harness).
+   */
+  deadline?: number;
 };
 
 /** What stands in for the CV text when only the PDF is attached. */
@@ -103,6 +109,8 @@ export type AnalyzeResumeResult = {
 
 // Below this the English retry of a repair is skipped: it would not finish inside the repair's budget.
 const MIN_RETRY_MS = 5_000;
+// Below this before the deadline the repair is skipped: it would not finish (it takes about a third of the analysis).
+const MIN_REPAIR_MS = 5_000;
 
 /** The repair's prose: the notes its entries carry. */
 const repairNotes = (entries: RepairEntry[]) => entries.flatMap((entry) => [entry.note, entry.softenedClause.note]);
@@ -135,7 +143,10 @@ export async function analyzeResume({
   now = new Date(),
   accentsComposed = 0,
   logId,
+  deadline,
 }: AnalyzeResumeInput): Promise<AnalyzeResumeResult> {
+  // What is left before the request's deadline; unbounded without one.
+  const left = () => (deadline === undefined ? Number.POSITIVE_INFINITY : deadline - Date.now());
   const { text, ...sent } = truncateResumeText(resumeText);
   if (inputMode !== "text" && !pdf) throw new Error(`inputMode ${inputMode} needs the PDF bytes`);
 
@@ -159,7 +170,7 @@ export async function analyzeResume({
     generateJson({
       prompt: withPrompt,
       schema: analysisResponseSchema,
-      timeoutMs,
+      timeoutMs: Math.max(1, Math.min(timeoutMs, left())),
       ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
     });
   let answer = await ask(prompt);
@@ -167,7 +178,11 @@ export async function analyzeResume({
   // Always English (owner decision, M8-D): prose in another language is asked for once more.
   const language: Intervention[] = [];
   const firstFields = nonEnglishFields(analysisProse(answer));
-  if (firstFields > 0) {
+  if (firstFields > 0 && left() < timeoutMs) {
+    // The first answer stands: a whole second call no longer fits the request.
+    console.warn(`[CVision][ai] English retry skipped: ${Math.max(0, Math.round(left() / 1000))} s left (${logId ?? "no id"})`);
+    language.push({ check: "language", action: "recorded", path: "analysis", value: `${firstFields} field(s) not in English`, replacement: "kept: no time to ask again" });
+  } else if (firstFields > 0) {
     try {
       answer = await ask(`${prompt}\n\n${ENGLISH_RETRY}`);
       language.push({ check: "language", action: "regenerated", path: "analysis", value: `${firstFields} field(s) not in English`, replacement: `${nonEnglishFields(analysisProse(answer))} after asking again` });
@@ -180,7 +195,10 @@ export async function analyzeResume({
   // Qualification lines no entry covers: one repair call, merged before any guard runs (M8-F).
   const uncovered = uncoveredBullets(jobDescription, answer.jobFit.requirements);
   let repair: RepairAnswer | undefined;
-  if (uncovered.length > 0) {
+  if (uncovered.length > 0 && left() < MIN_REPAIR_MS) {
+    console.warn(`[CVision][ai] requirement lines uncovered: ${uncovered.length}, repair skipped: no time left (${logId ?? "no id"})`);
+    repair = { requirements: null, error: "NO_TIME" };
+  } else if (uncovered.length > 0) {
     console.warn(`[CVision][ai] requirement lines uncovered: ${uncovered.length} (${logId ?? "no id"})`);
     const repairPrompt = requirementRepairPrompt({
       jobTitle,
@@ -191,18 +209,18 @@ export async function analyzeResume({
       today: formatToday(now),
     });
     // The repair and its English retry share one budget, so the route's maxDuration holds.
-    const deadline = Date.now() + Math.min(REPAIR_TIMEOUT_MS, timeoutMs);
+    const repairDeadline = Date.now() + Math.min(REPAIR_TIMEOUT_MS, timeoutMs, left());
     const askRepair = (withPrompt: string) =>
       generateJson({
         prompt: withPrompt,
         schema: requirementRepairSchema,
-        timeoutMs: Math.max(1, deadline - Date.now()),
+        timeoutMs: Math.max(1, repairDeadline - Date.now()),
         ...(inputMode !== "text" && pdf ? { files: [{ data: pdf, mediaType: "application/pdf" }] } : {}),
       });
     try {
       let repaired = await askRepair(repairPrompt);
       const notEnglish = nonEnglishFields(repairNotes(repaired.requirements));
-      if (notEnglish > 0 && deadline - Date.now() >= MIN_RETRY_MS) {
+      if (notEnglish > 0 && repairDeadline - Date.now() >= MIN_RETRY_MS) {
         try {
           repaired = await askRepair(`${repairPrompt}
 

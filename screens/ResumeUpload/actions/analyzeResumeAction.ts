@@ -6,7 +6,7 @@ import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { toGuardStats } from "@/lib/ai/schemas";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume, fetchResumeKey } from "@/lib/database/resume";
-import { refundUsage, reserveAnalysis, type Reservation } from "@/lib/database/usage";
+import { refundUsage, reserveAnalysis, settleAnalysisUnit, type Reservation } from "@/lib/database/usage";
 import { ensureUser } from "@/lib/database/user";
 import {
   AnalysisInProgressError,
@@ -24,6 +24,14 @@ import { isResumeKeyOf } from "@/lib/supabase/resumeKey";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 import { analysisIdFor } from "@/screens/ResumeUpload/utils/analysisId";
+import {
+  ACTION_BUDGET_MS,
+  MIN_TRANSLATION_MS,
+  modelDeadline,
+  REQUEST_LIFETIME_MS,
+  SUBMISSION_POLL_MS,
+  submissionWaitUntil,
+} from "@/screens/ResumeUpload/utils/budget";
 import type { ActionResult } from "@/types/action";
 
 /**
@@ -50,16 +58,13 @@ import type { ActionResult } from "@/types/action";
  * Two requests that both reach the insert (only after the first outlived
  * `REQUEST_LIFETIME_MS`) collide on the primary key: the loser gives its
  * unit back and answers with the winner's analysis.
+ *
+ * The unit is settled (spent for good) right before the insert, and only if
+ * it is still held: a unit the abandoned-request sweep or a retry already gave
+ * back is never saved under. The time budget (utils/budget.ts) bounds the
+ * wait and hands the model a deadline, so a retry that waited still fits the
+ * page's maxDuration: its optional steps are skipped, not its analysis.
  */
-// The upload page's maxDuration (100 s) less a margin: the translation at the end only uses what is left.
-const ACTION_BUDGET_MS = 95_000;
-// Less than this left and the translation waits for the first view instead.
-const MIN_TRANSLATION_MS = 8_000;
-// No request outlives the upload page's maxDuration (100 s); the margin covers clock skew between instances.
-const REQUEST_LIFETIME_MS = 110_000;
-// How long a retry waits for the first request of its submission; what is left still fits an analysis.
-const SUBMISSION_WAIT_MS = 40_000;
-const SUBMISSION_POLL_MS = 1_500;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -104,7 +109,7 @@ export async function analyzeResumeAction(
 
     // The unit, before the download and the model call; or the analysis an
     // earlier request for this submission saved, or is about to.
-    const waitUntil = Date.now() + SUBMISSION_WAIT_MS;
+    const waitUntil = submissionWaitUntil(Date.now(), deadline);
     for (;;) {
       const savedKey = await fetchResumeKey(resumeId);
       if (savedKey !== null) {
@@ -140,7 +145,13 @@ export async function analyzeResumeAction(
       resumeText,
       accentsComposed,
       logId: resumeId,
+      deadline: modelDeadline(deadline),
     });
+
+    // Spent for good from here, unless it was given back meanwhile: then nothing is saved under it.
+    if (!(await settleAnalysisUnit(reservation.eventId))) {
+      throw new Error(`Analysis unit ${reservation.eventId} is no longer held; not saving under it`);
+    }
 
     try {
       await createResume({

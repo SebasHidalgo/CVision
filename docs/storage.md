@@ -64,7 +64,9 @@ logic is `lib/supabase/gc.ts` and the decision `lib/supabase/gcClassify.ts`.
 In production the same collector runs daily as a Vercel cron
 (`vercel.json` → `GET /api/cron/storage-gc`, authenticated by the
 `CRON_SECRET` bearer Vercel sends; the route refuses everything, loudly,
-when the secret is not configured).
+when the secret is not configured). Before the bucket, the same run gives
+back the analysis units of requests that died (docs/billing.md, the usage
+ledger); each half runs even when the other fails.
 
 `NEXT_PUBLIC_SUPABASE_URL` is read on the server only; the prefix is
 history and exposes nothing (the URL travels inside every signed URL).

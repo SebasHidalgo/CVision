@@ -33,7 +33,7 @@ vi.mock("./billing", () => ({
 vi.mock("@/lib/billing/reconcile", () => ({ reconcileIfStale: vi.fn(async () => false) }));
 
 const tx = {
-  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
+  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), groupBy: vi.fn(), updateMany: vi.fn() },
   interview: { count: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
@@ -131,6 +131,7 @@ beforeEach(() => {
   tx.usageEvent.findUnique.mockResolvedValue(null);
   tx.usageEvent.findMany.mockResolvedValue([]);
   tx.usageEvent.groupBy.mockResolvedValue([]);
+  tx.usageEvent.updateMany.mockResolvedValue({ count: 0 });
   tx.interview.count.mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([] as never);
@@ -153,7 +154,7 @@ describe("reserveAnalysis", () => {
     });
     expect(tx.usageEvent.findMany).toHaveBeenCalledWith({
       where: { userId: "user_1", kind: "ANALYSIS", refId: { startsWith: "analysis_1" } },
-      select: { createdAt: true, refundedAt: true },
+      select: { id: true, createdAt: true, refundedAt: true, settledAt: true },
     });
     expect(resolvePlanStandingIn).toHaveBeenCalledWith(tx, "user_1", NOW);
     expect(tx.usageEvent.count).toHaveBeenCalledWith({
@@ -166,7 +167,7 @@ describe("reserveAnalysis", () => {
   });
 
   it("takes nothing while an earlier request for the same submission holds a live unit: the caller waits for its row", async () => {
-    tx.usageEvent.findMany.mockResolvedValue([{ createdAt: ago(20_000), refundedAt: null }]);
+    tx.usageEvent.findMany.mockResolvedValue([{ id: "evt_0", createdAt: ago(20_000), refundedAt: null, settledAt: null }]);
 
     expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "in-flight" });
     expect(resolvePlanStandingIn).not.toHaveBeenCalled();
@@ -175,8 +176,8 @@ describe("reserveAnalysis", () => {
 
   it("after a refunded earlier unit, takes a new one under <id>#<n>, the refunded row kept", async () => {
     tx.usageEvent.findMany.mockResolvedValue([
-      { createdAt: ago(60_000), refundedAt: ago(50_000) },
-      { createdAt: ago(30_000), refundedAt: ago(25_000) },
+      { id: "evt_a", createdAt: ago(60_000), refundedAt: ago(50_000), settledAt: null },
+      { id: "evt_b", createdAt: ago(30_000), refundedAt: ago(25_000), settledAt: null },
     ]);
 
     expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
@@ -186,16 +187,37 @@ describe("reserveAnalysis", () => {
     });
   });
 
-  it("a live unit older than any request can live (a killed request, or a deleted analysis) is not waited for and not refunded: a new unit is taken", async () => {
-    tx.usageEvent.findMany.mockResolvedValue([{ createdAt: ago(IN_FLIGHT_MS), refundedAt: null }]);
+  it("a held unit older than any request can live and never settled (its request was killed) is given back before the count, and a new unit is taken", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([{ id: "evt_0", createdAt: ago(IN_FLIGHT_MS), refundedAt: null, settledAt: null }]);
+    tx.usageEvent.updateMany.mockResolvedValue({ count: 1 });
+    vi.spyOn(console, "info").mockImplementation(() => {});
 
     expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
+    // Conditional: a unit its request settled (or a refund) in the meantime is not touched.
+    expect(tx.usageEvent.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["evt_0"] }, refundedAt: null, settledAt: null },
+      data: { refundedAt: NOW, refundReason: "ABANDONED_REQUEST" },
+    });
+    expect(tx.usageEvent.updateMany.mock.invocationCallOrder[0]).toBeLessThan(tx.usageEvent.count.mock.invocationCallOrder[0]);
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
       data: { userId: "user_1", kind: "ANALYSIS", refId: "analysis_1#2", createdAt: NOW },
       select: { id: true },
     });
-    // It still counts against the period: the quota is the count, and the old unit stays spent.
-    expect(tx.usageEvent.count).toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith("[CVision][usage] analysis unit(s) of a dead request refunded on retry: user=user_1 analysis=analysis_1 events=evt_0");
+  });
+
+  it("a settled unit (its analysis saved, then deleted) is never given back: the new unit is charged on top", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([{ id: "evt_0", createdAt: ago(IN_FLIGHT_MS * 10), refundedAt: null, settledAt: ago(IN_FLIGHT_MS * 10 - 9_000) }]);
+
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
+    expect(tx.usageEvent.updateMany).not.toHaveBeenCalled();
+    expect(tx.usageEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ refId: "analysis_1#2" }) }));
+  });
+
+  it("a settled unit younger than a request (between its settle and its insert) is still waited for", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([{ id: "evt_0", createdAt: ago(30_000), refundedAt: null, settledAt: ago(1_000) }]);
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "in-flight" });
+    expect(tx.usageEvent.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses the fourth Free analysis of the month with the reset date, inserting nothing", async () => {

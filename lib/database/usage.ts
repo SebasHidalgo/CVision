@@ -40,7 +40,9 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
  * it was given.
  *
  * The primitives, and nothing else touches the table: `reserveAnalysis`
- * (check and insert in one serializable transaction),
+ * (check and insert in one serializable transaction), `settleAnalysisUnit`
+ * (the unit spent for good, right before its row is saved),
+ * `refundAbandonedAnalyses` (the daily sweep of units whose request died),
  * `reserveInterview` (the unit the entitlement names, same discipline),
  * `refundUsage`, `revokeUnusedInterviewCredits`, and in credits.ts (no
  * `lib/auth` in its graph, for the reconcile script) the credit balance
@@ -56,6 +58,19 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
 
 const RACE_CODES = new Set(["P2034"]);
 const RESERVE_ATTEMPTS = 3;
+const LOG = "[CVision][usage]";
+
+/** Why a held analysis unit was given back without its request: the request died before its own catch could. */
+export const ABANDONED_REQUEST = "ABANDONED_REQUEST";
+
+/**
+ * A held analysis unit this old was not held by a live request: the upload page's maxDuration is 100 s. The sweep
+ * waits far longer than that, so a slow request is never raced; the settle guard makes a race harmless anyway.
+ */
+export const ABANDONED_ANALYSIS_MS = 60 * 60_000;
+
+/** An analysis unit's refId: the analysis id, or `<analysisId>#<n>` for a later unit of the same submission. */
+const ANALYSIS_REF = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(#\d+)?$/i;
 
 export type Reservation = { eventId: string };
 
@@ -94,11 +109,13 @@ async function serializable<T>(run: (tx: Prisma.TransactionClient) => Promise<T>
  * a retry of the same submission names the same analysis. While an earlier
  * request for it holds a live unit younger than `inFlightMs` (the longest a
  * request can live), nothing is taken and the caller waits for that
- * request's row instead of paying for a second one. A refunded earlier unit,
- * or a live one older than that (a request killed before its catch ran, or
- * an analysis deleted since), stays as it is and a new unit is taken under
- * `<analysisId>#<n>`, n counting every earlier one: `(kind, refId)` is
- * unique and refunds mark, never delete.
+ * request's row instead of paying for a second one. An older unit that was
+ * never settled belonged to a request killed before its catch ran (its row
+ * was never saved): it is given back in the same transaction, before the
+ * count. A settled one (its analysis deleted since) and a refunded one stay
+ * as they are. Either way a new unit is taken under `<analysisId>#<n>`, n
+ * counting every earlier one: `(kind, refId)` is unique and refunds mark,
+ * never delete.
  */
 export async function reserveAnalysis(
   userId: string,
@@ -110,10 +127,20 @@ export async function reserveAnalysis(
     return await serializable(async (tx) => {
       const earlier = await tx.usageEvent.findMany({
         where: { userId, kind: "ANALYSIS", refId: { startsWith: analysisId } },
-        select: { createdAt: true, refundedAt: true },
+        select: { id: true, createdAt: true, refundedAt: true, settledAt: true },
       });
-      const live = earlier.some((event) => event.refundedAt === null && now.getTime() - event.createdAt.getTime() < inFlightMs);
-      if (live) return { kind: "in-flight" as const };
+      const held = earlier.filter((event) => event.refundedAt === null);
+      if (held.some((event) => now.getTime() - event.createdAt.getTime() < inFlightMs)) return { kind: "in-flight" as const };
+
+      // Older than any request can live and never settled: its request died without saving, so it is not charged.
+      const dead = held.filter((event) => event.settledAt === null).map((event) => event.id);
+      if (dead.length > 0) {
+        const given = await tx.usageEvent.updateMany({
+          where: { id: { in: dead }, refundedAt: null, settledAt: null },
+          data: { refundedAt: now, refundReason: ABANDONED_REQUEST },
+        });
+        if (given.count > 0) console.info(`${LOG} analysis unit(s) of a dead request refunded on retry: user=${userId} analysis=${analysisId} events=${dead.join(",")}`);
+      }
 
       const standing = await resolvePlanStandingIn(tx, userId, now);
       const period = quotaPeriodFor(standing, now);
@@ -133,6 +160,79 @@ export async function reserveAnalysis(
     });
   } catch (error) {
     handleError(error, "Failed to reserve an analysis");
+  }
+}
+
+/**
+ * Spends an analysis unit for good, right before the row it pays for is saved: false when the unit is no longer
+ * held (given back by the sweep, by a retry of the same submission, or refunded), and the caller must then not save
+ * under it. One conditional update, so it and a refund of the same unit cannot both win. A failure after this (the
+ * insert itself) still refunds normally: a refund does not look at settledAt.
+ */
+export async function settleAnalysisUnit(eventId: string, now = new Date()): Promise<boolean> {
+  try {
+    const result = await prisma.usageEvent.updateMany({
+      where: { id: eventId, kind: "ANALYSIS", refundedAt: null, settledAt: null },
+      data: { settledAt: now },
+    });
+    return result.count === 1;
+  } catch (error) {
+    handleError(error, `Failed to settle analysis unit ${eventId}`);
+  }
+}
+
+export type AbandonedAnalysesReport = {
+  /** Held units old enough to look at. */
+  examined: number;
+  refunded: number;
+  /** Held units whose analysis row exists (saved by a deploy that did not settle yet): marked spent, never refunded. */
+  settled: number;
+};
+
+/**
+ * Gives back the analysis units whose request died before it could: held (neither refunded nor settled), older
+ * than `ABANDONED_ANALYSIS_MS`, and with no analysis row under their id. Runs from the daily cron, across users,
+ * at most `limit` units a run (the oldest first; the next run takes the rest). The refund is one conditional
+ * update over the ids, so a unit that its request settled meanwhile is not touched; and a request that comes back
+ * after its unit was given back finds it unsettleable and saves nothing. One log line per refund, ids only.
+ */
+export async function refundAbandonedAnalyses(now = new Date(), { limit = 500 }: { limit?: number } = {}): Promise<AbandonedAnalysesReport> {
+  try {
+    const cutoff = new Date(now.getTime() - ABANDONED_ANALYSIS_MS);
+    const held = await prisma.usageEvent.findMany({
+      where: { kind: "ANALYSIS", refundedAt: null, settledAt: null, createdAt: { lt: cutoff } },
+      select: { id: true, refId: true },
+      orderBy: { createdAt: "asc" },
+      take: limit,
+    });
+    const units = held.flatMap((event) => {
+      const analysisId = ANALYSIS_REF.exec(event.refId)?.[1];
+      return analysisId ? [{ id: event.id, analysisId }] : [];
+    });
+    if (units.length === 0) return { examined: held.length, refunded: 0, settled: 0 };
+
+    const ids = [...new Set(units.map((unit) => unit.analysisId))];
+    const saved = new Set((await prisma.resumeAnalysis.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((row) => row.id));
+    const withRow = units.filter((unit) => saved.has(unit.analysisId)).map((unit) => unit.id);
+    const withoutRow = units.filter((unit) => !saved.has(unit.analysisId)).map((unit) => unit.id);
+
+    const settled = withRow.length
+      ? (await prisma.usageEvent.updateMany({ where: { id: { in: withRow }, refundedAt: null, settledAt: null }, data: { settledAt: now } })).count
+      : 0;
+    const refunded = withoutRow.length
+      ? await prisma.usageEvent.updateManyAndReturn({
+          where: { id: { in: withoutRow }, refundedAt: null, settledAt: null },
+          data: { refundedAt: now, refundReason: ABANDONED_REQUEST },
+          select: { id: true, userId: true, refId: true, createdAt: true },
+        })
+      : [];
+    for (const unit of refunded) {
+      const ageMinutes = Math.round((now.getTime() - unit.createdAt.getTime()) / 60_000);
+      console.info(`${LOG} abandoned analysis unit refunded: event=${unit.id} user=${unit.userId} ref=${unit.refId} age=${ageMinutes}min`);
+    }
+    return { examined: held.length, refunded: refunded.length, settled };
+  } catch (error) {
+    handleError(error, "Failed to refund abandoned analysis units");
   }
 }
 

@@ -83,6 +83,11 @@ model UsageEvent {
   refundedAt   DateTime?
   /// Why it was given back: the error code or the interview's failure reason.
   refundReason String?
+  /// When an analysis unit was spent for good: set right before the row it
+  /// pays for is saved, and only while the unit is still held. Null while a
+  /// request holds it (and on every other kind). A held unit whose request
+  /// died is given back; a settled one never is (lib/database/usage.ts).
+  settledAt    DateTime?
 
   @@unique([kind, refId])
   @@index([userId, kind, createdAt])

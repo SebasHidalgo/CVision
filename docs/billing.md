@@ -33,6 +33,16 @@ it: every failure gives the unit back, the user's own file included. Once
 the key is known to be the caller's, a refused analysis also removes the
 uploaded object.
 
+A request killed by its `maxDuration` never runs its own refund, so the
+unit is spent for good (`settledAt`) only right before the analysis row is
+saved, and only while it is still held. A held unit older than any request
+can live, never settled, belonged to a dead request: a retry of the same
+submission gives it back before it reserves, and the daily cron
+(`/api/cron/storage-gc`, `refundAbandonedAnalyses`) gives back the rest
+after an hour, when no analysis row exists under it. A request that comes
+back after its unit was given back cannot settle it and saves nothing. A
+settled unit (its analysis deleted since) is never given back.
+
 An interview reserves on its first session token, which is the moment it
 costs, and gets the unit back if the token is not issued, if the call
 produces no candidate turns, if the platform has no record of the session,

@@ -5,7 +5,7 @@ import { emptyGuardReport } from "@/lib/ai/analysisGuardrails";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume, fetchResumeKey } from "@/lib/database/resume";
-import { refundUsage, reserveAnalysis } from "@/lib/database/usage";
+import { refundUsage, reserveAnalysis, settleAnalysisUnit } from "@/lib/database/usage";
 import {
   AiBillingError,
   AiRateLimitedError,
@@ -21,12 +21,13 @@ import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
 import { translateAnalysis } from "@/lib/ai/contentTranslation";
 import { getLocale } from "@/lib/i18n/server";
 import { analysisIdFor } from "@/screens/ResumeUpload/utils/analysisId";
+import { ACTION_BUDGET_MS, FILE_MS, MODEL_CALL_MS, SAVE_RESERVE_MS } from "@/screens/ResumeUpload/utils/budget";
 import { analyzeResumeAction } from "./analyzeResumeAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
-vi.mock("@/lib/database/usage", () => ({ reserveAnalysis: vi.fn(), refundUsage: vi.fn(async () => true) }));
+vi.mock("@/lib/database/usage", () => ({ reserveAnalysis: vi.fn(), refundUsage: vi.fn(async () => true), settleAnalysisUnit: vi.fn(async () => true) }));
 vi.mock("@/lib/supabase/server", () => ({ downloadObject: vi.fn(), removeObject: vi.fn(async () => true) }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
@@ -70,6 +71,7 @@ beforeEach(() => {
   vi.mocked(reserveAnalysis).mockResolvedValue({ kind: "reserved", eventId: "evt_1" });
   vi.mocked(fetchResumeKey).mockResolvedValue(null);
   vi.mocked(refundUsage).mockResolvedValue(true);
+  vi.mocked(settleAnalysisUnit).mockResolvedValue(true);
   vi.mocked(createResume).mockImplementation(async (data) => data.id);
   vi.mocked(downloadObject).mockResolvedValue(pdfBytes());
   vi.mocked(extractPdfText).mockResolvedValue({ text: "Jane Doe. Frontend engineer.", accentsComposed: 0 });
@@ -226,6 +228,35 @@ describe("analyzeResumeAction: every failure refunds", () => {
   });
 });
 
+describe("analyzeResumeAction: the unit is spent only with its row", () => {
+  it("settles the unit after the model and right before the insert", async () => {
+    expect((await analyzeResumeAction(input())).ok).toBe(true);
+
+    expect(settleAnalysisUnit).toHaveBeenCalledExactlyOnceWith("evt_1");
+    const order = (fn: unknown) => vi.mocked(fn as () => unknown).mock.invocationCallOrder[0];
+    expect(order(analyzeResume)).toBeLessThan(order(settleAnalysisUnit));
+    expect(order(settleAnalysisUnit)).toBeLessThan(order(createResume));
+  });
+
+  it("a unit given back meanwhile (the abandoned-request sweep, a retry) is never saved under: no row, the upload removed", async () => {
+    vi.mocked(settleAnalysisUnit).mockResolvedValueOnce(false);
+
+    expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "UNKNOWN" });
+    expect(createResume).not.toHaveBeenCalled();
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
+    // The refund is conditional on the unit still being held: this one changes nothing, and no second unit is taken.
+    expect(reserveAnalysis).toHaveBeenCalledTimes(1);
+  });
+
+  it("a row that fails after the settle still gives the unit back", async () => {
+    vi.mocked(createResume).mockRejectedValueOnce(new Error("connection reset"));
+
+    expect(await analyzeResumeAction(input())).toMatchObject({ ok: false, code: "UNKNOWN" });
+    expect(settleAnalysisUnit).toHaveBeenCalledWith("evt_1");
+    expect(refundUsage).toHaveBeenCalledWith("evt_1", "UNKNOWN");
+  });
+});
+
 describe("analyzeResumeAction: after the download", () => {
   it("deletes the object when the model fails, so no file outlives a flow with no row", async () => {
     vi.mocked(analyzeResume).mockRejectedValue(new AiUnavailableError());
@@ -331,6 +362,35 @@ describe("analyzeResumeAction: a retry of the same submission", () => {
     expect(analyzeResume).toHaveBeenCalledTimes(1);
     expect(createResume).toHaveBeenCalledWith(expect.objectContaining({ id: SUBMITTED_ID, resumeKey: OWN_KEY }));
     expect(removeObject).not.toHaveBeenCalled();
+  });
+
+  it("hands the model the request's deadline less the save's reserve", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-19T12:00:00Z"));
+    const start = Date.now();
+
+    expect((await analyzeResumeAction(input())).ok).toBe(true);
+    expect(vi.mocked(analyzeResume).mock.calls[0][0].deadline).toBe(start + ACTION_BUDGET_MS - SAVE_RESERVE_MS);
+  });
+
+  it("a retry that waited the longest for a first request that then failed still leaves its file and a whole analysis call before the deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-19T12:00:00Z"));
+    const start = Date.now();
+    // In flight until the wait is nearly over, then the first request's unit is back and this one takes its own.
+    vi.mocked(reserveAnalysis).mockImplementation(async () => (Date.now() - start < 39_000 ? { kind: "in-flight" } : { kind: "reserved", eventId: "evt_2" }));
+    let calledAt = 0;
+    vi.mocked(analyzeResume).mockImplementationOnce(async () => {
+      calledAt = Date.now();
+      return { feedback: {} as never, resumeText: { chars: 10, charsSent: 10, truncated: false }, guard: { violations: [], interventions: [], counts: emptyGuardReport().counts } };
+    });
+
+    expect(await settleWithClock(analyzeResumeAction(input(OWN_KEY)))).toEqual({ ok: true, data: { resumeId: SUBMITTED_ID } });
+    const { deadline } = vi.mocked(analyzeResume).mock.calls[0][0];
+    expect(calledAt - start).toBeGreaterThanOrEqual(39_000);
+    // The file had its reserve and the analysis call still has its full timeout; the optional calls take what is left.
+    expect(deadline).toBe(start + ACTION_BUDGET_MS - SAVE_RESERVE_MS);
+    expect((deadline ?? 0) - calledAt).toBeGreaterThanOrEqual(FILE_MS + MODEL_CALL_MS);
   });
 
   it("says ANALYSIS_IN_PROGRESS when the first request outlasts the wait: nothing taken, nothing analyzed, its own upload removed", async () => {

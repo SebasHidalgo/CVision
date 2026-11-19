@@ -16,6 +16,7 @@ vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => 
 vi.mock("@/lib/database/usage", () => ({
   reserveAnalysis: vi.fn(async () => ({ kind: "reserved", eventId: "evt_1" })),
   refundUsage: vi.fn(async () => true),
+  settleAnalysisUnit: vi.fn(async () => true),
 }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
@@ -309,6 +310,31 @@ describe("the analysis language", () => {
     expect(provider.requests).toHaveLength(2);
     expect(feedback.overall.summaryText).toContain("Tu experiencia");
   });
+
+  it("with the request's deadline too close for a whole second call, keeps the first answer and records why", async () => {
+    const provider = installFakeProvider(() => reply.json(SPANISH));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV, deadline: Date.now() + 10_000, logId: "resume_7" });
+
+    expect(provider.requests).toHaveLength(1);
+    expect(feedback.overall.summaryText).toContain("Tu experiencia");
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "language", action: "recorded", replacement: "kept: no time to ask again" }));
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^\[CVision\]\[ai\] English retry skipped: \d+ s left \(resume_7\)$/));
+  });
+
+  it("with a deadline that leaves room, asks again exactly as without one", async () => {
+    const provider = installFakeProvider(() => reply.json(provider.requests.length === 1 ? SPANISH : VALID_FEEDBACK));
+    await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV, deadline: Date.now() + 90_000 });
+    expect(provider.requests).toHaveLength(2);
+  });
+});
+
+describe("the request's deadline", () => {
+  it("clips the analysis call's own timeout: a model that hangs fails at the deadline, not 30 s later", async () => {
+    installFakeProvider(() => reply.hang());
+    const startedAt = Date.now();
+    await expect(analyzeResume({ jobTitle: JOB_TITLE, jobDescription: JOB_DESCRIPTION, resumeText: SHORT_CV, deadline: startedAt + 200 })).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
+    expect(Date.now() - startedAt).toBeLessThan(5_000);
+  });
 });
 
 describe("the requirement repair", () => {
@@ -390,5 +416,15 @@ describe("the requirement repair", () => {
     expect(feedback.jobFit.requirements).toHaveLength(1);
     expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "requirement-coverage", action: "recorded", replacement: "repair failed: AI_UNAVAILABLE" }));
     expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement repair failed: AI_UNAVAILABLE (resume_9)");
+  });
+
+  it("skips the repair when the request's deadline leaves less than it needs, and records it as a repair that did not run", async () => {
+    const provider = installFakeProvider(() => reply.json(answer([REACT])));
+    const { feedback, guard } = await analyzeResume({ jobTitle: JOB_TITLE, jobDescription: POSTING, resumeText: SHORT_CV, logId: "resume_9", deadline: Date.now() + 3_000 });
+
+    expect(provider.requests).toHaveLength(1);
+    expect(feedback.jobFit.requirements).toHaveLength(1);
+    expect(guard.interventions).toContainEqual(expect.objectContaining({ check: "requirement-coverage", action: "recorded", replacement: "repair failed: NO_TIME" }));
+    expect(warn).toHaveBeenCalledWith("[CVision][ai] requirement lines uncovered: 1, repair skipped: no time left (resume_9)");
   });
 });
