@@ -8,9 +8,12 @@
   --color-ed-raise: #17181c;
   --color-ed-sheet: #131417;
 
-  /* Edges */
+  /* Edges. line and line-2 divide and frame; they are not a control's edge. */
   --color-ed-line: #24262b;
   --color-ed-line-2: #34363c;
+  /* A form control's edge (input, select, textarea): 3:1 or more on every ground (WCAG 1.4.11):
+     bg 3.81, panel 3.64, raise 3.47, sheet 3.61. */
+  --color-ed-field: #6b6e75;
 
   /* Ink. ink-3 depends on what it sits on: see `.ed-root` and `.ed-surface` below. */
   --color-ed-ink: #ededea;
@@ -20,9 +23,13 @@
   --color-ed-signal: #3edc8a;
   --color-ed-signal-wash: rgb(62 220 138 / 0.08);
 
-  /* Ending a live call: the room's End button (white text on it is 6.4:1) */
+  /* Ending a live call: the room's End button (white text on it is 5.93:1, 7.14:1 on hover). A fill, never
+     text: it is 3.1:1 on the panel. */
   --color-ed-danger: #b4382a;
   --color-ed-danger-hover: #a03024;
+  /* Danger as text (an error message): ed-danger's hue, lightened to 7:1 or more on every ground:
+     bg 7.89, panel 7.54, raise 7.20, sheet 7.48. Filled, it takes ed-bg text (7.89:1); white on it is 2.5:1. */
+  --color-ed-danger-text: #ff7f71;
 
   /* Type scale */
   --text-ed-h1: clamp(52px, 7.9vw, 116px);
