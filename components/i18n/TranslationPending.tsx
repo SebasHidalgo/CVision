@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { ActionResult } from "@/types/action";
+import { STATUS_LINE, STATUS_LINK, StatusText } from "./TranslationStatus";
 
 type TranslationPendingProps<I> = {
   /** The screen's translate action; the server decides what to translate and whether it is the caller's. */
@@ -37,10 +38,9 @@ export default function TranslationPending<I>({ translate, input, className }: T
 
   if (failed) {
     return (
-      <p role="status" className={cn("eyebrow flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-2", className)}>
-        <span aria-hidden className="size-1.5 shrink-0 bg-fair" />
-        {t("translation.unavailable")}
-        <Link href={`${pathname}?original=1`} className="link-rule text-ink">
+      <p role="status" className={cn(STATUS_LINE, className)}>
+        <StatusText>{t("translation.unavailable")}</StatusText>
+        <Link href={`${pathname}?original=1`} className={STATUS_LINK}>
           {t("translation.showOriginal")}
         </Link>
       </p>
@@ -48,9 +48,8 @@ export default function TranslationPending<I>({ translate, input, className }: T
   }
 
   return (
-    <p role="status" aria-live="polite" className={cn("eyebrow flex items-center gap-3 text-ink-2", className)}>
-      <span aria-hidden className="size-1.5 shrink-0 animate-pulse bg-signal" />
-      {t("translation.pending")}
+    <p role="status" aria-live="polite" className={cn(STATUS_LINE, className)}>
+      <StatusText pulse>{t("translation.pending")}</StatusText>
     </p>
   );
 }

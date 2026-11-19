@@ -1,10 +1,10 @@
+import Prose from "@/components/i18n/Prose";
 import { getT } from "@/lib/i18n/server";
 import type { InterviewQuotaView } from "@/lib/plans";
 import type { FitVerdict } from "@/lib/schemas/resumeSchema";
 import { scoreTone, toneKey } from "@/lib/score";
 import type { ResumeAnalysis } from "@/types/resume";
 import InterviewCta from "./InterviewCta";
-import ProseText from "./ProseText";
 import ResumeDrawer from "./ResumeDrawer";
 import { ScoreBar } from "./ScoreBar";
 import { VerdictCard } from "./VerdictCard";
@@ -53,7 +53,7 @@ export default async function AnalysisHeader({
 
       <div className="lg:col-[1/span_7] lg:row-start-2">
         <p className="max-w-[62ch] text-ed-lede text-ed-ink">
-          <ProseText text={summary} lines={3} />
+          <Prose text={summary} lines={3} />
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />

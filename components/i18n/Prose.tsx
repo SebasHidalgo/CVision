@@ -13,13 +13,20 @@ export const isPendingProse = (text: string | undefined) => text === PENDING_PRO
 /**
  * Model-written prose, or its skeleton while the translation is on its way. Only prose waits:
  * scores, statuses, quotes and row titles render around it. The page's status line announces it.
+ * The bars pulse only when motion is allowed.
  */
 export default function Prose({ text, lines = 2, className }: ProseProps) {
   if (!isPendingProse(text)) return <>{text}</>;
   return (
     <span data-prose-pending aria-hidden className={cn("block space-y-2 py-1", className)}>
       {Array.from({ length: lines }, (_, i) => (
-        <span key={i} className={cn("block h-[0.8em] animate-pulse rounded-sm bg-paper-3", i === lines - 1 && lines > 1 ? "w-3/5" : "w-full")} />
+        <span
+          key={i}
+          className={cn(
+            "block h-[0.8em] rounded-sm bg-ed-line-2 motion-safe:animate-pulse",
+            i === lines - 1 && lines > 1 ? "w-3/5" : "w-full",
+          )}
+        />
       ))}
     </span>
   );

@@ -1,12 +1,12 @@
 import type { TFunction } from "i18next";
 import { StatusMark, type MarkStatus } from "@/components/design-system/StatusMark";
 import { Surface } from "@/components/design-system/Surface";
+import Prose from "@/components/i18n/Prose";
 import { termDisplay, type TermChip } from "@/lib/ai/requirementGuardrails";
 import type { KeyTerms, Requirement, RequirementStatus, requirementTally } from "@/lib/schemas/resumeSchema";
 import { cn } from "@/lib/utils";
 import { groupRequirements, shownKind, type RequirementGroupId } from "../utils/requirementOrder";
 import { CvQuote } from "./CvQuote";
-import ProseText from "./ProseText";
 
 type AnalysisT = TFunction<"analysis">;
 
@@ -98,7 +98,7 @@ function RequirementRow({ requirement, label, t }: { requirement: Requirement; l
         {keyTerms && <KeyTermList keyTerms={keyTerms} quote={requirement.sourceQuote ?? ""} t={t} />}
         {requirement.note && (
           <p className="text-ed-body text-ed-ink-2">
-            <ProseText text={requirement.note} lines={1} />
+            <Prose text={requirement.note} lines={1} />
           </p>
         )}
         {evidence && <CvQuote text={evidence} proof={claimed} caption={t("requirements.fromCv")} />}

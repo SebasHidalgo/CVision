@@ -1,9 +1,9 @@
 import { Surface } from "@/components/design-system/Surface";
+import Prose from "@/components/i18n/Prose";
 import { ordinal } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import type { ResumeAnalysisFeedback } from "@/types/resume";
-import ProseText from "./ProseText";
 
 type PriorityFixesProps = {
   fixes: ResumeAnalysisFeedback["overall"]["prioritizedFixes"];
@@ -52,10 +52,10 @@ export default async function PriorityFixes({ fixes, className }: PriorityFixesP
             </span>
             <div className="min-w-0 max-w-[65ch]">
               <h3 className="text-[17px] leading-[1.4] font-semibold text-ed-ink">
-                <ProseText text={fix.title} lines={1} className="w-2/3" />
+                <Prose text={fix.title} lines={1} className="w-2/3" />
               </h3>
               <p className="mt-2 text-ed-body text-ed-ink-2">
-                <ProseText text={fix.action} />
+                <Prose text={fix.action} />
               </p>
             </div>
             <span

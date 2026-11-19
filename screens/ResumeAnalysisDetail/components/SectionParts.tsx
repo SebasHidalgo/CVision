@@ -1,11 +1,11 @@
 import type { TFunction } from "i18next";
 import { Plus } from "lucide-react";
+import Prose from "@/components/i18n/Prose";
 import { ordinal } from "@/lib/format";
 import type { QuantifiedAchievement } from "@/lib/schemas/resumeSchema";
 import { scoreTone, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import { CvQuote } from "./CvQuote";
-import ProseText from "./ProseText";
 import { ScoreBar } from "./ScoreBar";
 
 /* Building blocks for the six report sections. Server components: the screen hands them its t. */
@@ -52,7 +52,7 @@ export function Section({ id, index, total, label, score, description, common, c
       </header>
 
       <p className="mt-6 max-w-[65ch] text-ed-lede text-ed-ink">
-        <ProseText text={description} lines={3} />
+        <Prose text={description} lines={3} />
       </p>
 
       <div className="mt-10 grid gap-12">{children}</div>
@@ -87,7 +87,7 @@ export function MarkedList({ title, items, mark }: MarkedListProps) {
           <li key={i} className="grid grid-cols-[10px_minmax(0,1fr)] gap-x-3.5 text-ed-body text-ed-ink">
             <span aria-hidden className={cn("block", MARKER[mark])} />
             <span className="max-w-[65ch]">
-              <ProseText text={item} lines={1} />
+              <Prose text={item} lines={1} />
             </span>
           </li>
         ))}
@@ -124,7 +124,7 @@ export function NumberedList({ title, items }: { title: string; items: string[] 
               {ordinal(i)}
             </span>
             <span className="max-w-[65ch]">
-              <ProseText text={item} lines={1} />
+              <Prose text={item} lines={1} />
             </span>
           </li>
         ))}
