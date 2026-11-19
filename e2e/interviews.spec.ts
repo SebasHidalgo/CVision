@@ -5,13 +5,13 @@ import { mainText } from "./support/app";
 import { copyFor, localeOf } from "./support/copy";
 import { db } from "./support/db";
 import { assertSandbox } from "./support/env";
-import { seedAnalysis, seedCompletedInterview, setUsage } from "./support/seed";
-import { seedListInterview, setCreatedAt, setRole } from "./support/seedInterviews";
+import { seedAnalysis, seedCompletedInterview } from "./support/seed";
+import { seedFeedbackState, seedListInterview, setCreatedAt } from "./support/seedInterviews";
 
-// The interviews list: every state a row can be in, newest first, each row's way to its analysis, the plan line,
-// the empty list, and the interviews Free's history hides (their own block, deleted one by one and all at once).
-// Seeded, no call, no model; no pending feedback page is opened (it would generate). The seeded finished interviews
-// issued no conversation, so deleting them asks nothing of the voice platform.
+// The interviews list: every state a row can be in, newest first, never a room that didn't start, each row's way to
+// its analysis, the plan line, the empty list, and a row's delete. Seeded, no call, no model; no pending feedback page
+// is opened (it would generate). The seeded finished interviews issued no conversation, so deleting them asks nothing
+// of the voice platform.
 
 let account: TestAccount;
 let empty: TestAccount;
@@ -34,19 +34,31 @@ test("lists every interview newest first, says where each stands, and links each
   const done = await seedCompletedInterview(account, analysisId);
   await setCreatedAt(done, 70);
   const seeded: [string, string][] = [["done", done]];
-  for (const [state, minutesAgo] of [["expired", 60], ["failed", 50], ["pending", 40], ["endedEarly", 30], ["dropped", 20], ["live", 10], ["scheduled", 0]] as const) {
+  for (const [state, minutesAgo] of [["expired", 60], ["failed", 50], ["pending", 40], ["endedEarly", 30], ["dropped", 20], ["live", 10]] as const) {
     seeded.push([state, await seedListInterview(account, analysisId, state, { minutesAgo })]);
   }
+  // A call nobody spoke in: it started, so it is listed, waiting to start again.
+  const silent = await seedFeedbackState(account, analysisId, "silent");
+  await setCreatedAt(silent, 5);
+  seeded.push(["silent", silent]);
+  // A room opened and never started: not an interview, never listed.
+  const unstarted = await seedListInterview(account, analysisId, "scheduled", { minutesAgo: 0 });
 
   await signIn(page, account);
   await page.goto("/interviews");
   const rows = page.locator("[data-interview-row]");
   await expect(rows).toHaveCount(seeded.length);
+  await expect(page.locator(`a[href="/interview/${unstarted}"]`)).toHaveCount(0);
 
   // Newest first.
   const order = await rows.evaluateAll((items) => items.map((item) => item.querySelector("[data-row-link]")?.getAttribute("href") ?? ""));
   const expected = [...seeded].reverse().map(([state, id]) => (["done", "expired", "failed", "pending"].includes(state) ? `/interview/${id}/feedback` : `/interview/${id}`));
   expect(order).toEqual(expected);
+
+  // A delete only where the cascade accepts one: finished rows, never one in a call or being scored.
+  await expect(page.locator('[data-interview-row][data-state="done"] button')).toHaveCount(1);
+  await expect(page.locator('[data-interview-row][data-state="live"] button')).toHaveCount(0);
+  await expect(page.locator('[data-interview-row][data-state="pending"] button')).toHaveCount(0);
 
   // Each state in its words (a Free account that never had voice: its trial makes a waiting interview ready).
   const states = await rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-state")));
@@ -81,74 +93,38 @@ test("with no interviews, the list says how to start one", async ({ page }, test
   await expect(page.locator("[data-interview-row]")).toHaveCount(0);
 });
 
-test("Pro to Free: the interviews of hidden analyses come apart, and are deleted one by one and all at once with their feedback", async ({ page }, testInfo) => {
+test("a row deletes its interview with its feedback; its analysis and the other interviews stay", async ({ page }, testInfo) => {
   const t = copyFor(localeOf(testInfo));
-  const moved = await createAccount(`interviews-moved-${localeOf(testInfo)}`);
+  const owner = await createAccount(`interviews-delete-${localeOf(testInfo)}`);
   try {
-    await setUsage(moved, { plan: "PRO" });
-    // Five analyses an hour apart, an interview on the two oldest and on the newest. Free shows the last three analyses.
-    const start = Date.now() - 10 * 86_400_000;
-    const analyses: string[] = [];
-    for (let i = 0; i < 5; i += 1) analyses.push(await seedAnalysis(moved, { createdAt: new Date(start + i * 3_600_000), jobTitle: `Role ${i + 1}`, translated: false }));
-    const seeded: Record<"first" | "second" | "newest", string> = { first: "", second: "", newest: "" };
-    for (const [name, at, minutesAgo] of [["first", 0, 30], ["second", 1, 20], ["newest", 4, 10]] as const) {
-      seeded[name] = await seedCompletedInterview(moved, analyses[at]);
-      await setRole(seeded[name], `Interview ${at + 1}`);
-      await setCreatedAt(seeded[name], minutesAgo);
-    }
-    const feedbackOf = async (interviewId: string) => (await db.interviewFeedback.findUniqueOrThrow({ where: { interviewId }, select: { id: true } })).id;
-    const firstFeedback = await feedbackOf(seeded.first);
-    const secondFeedback = await feedbackOf(seeded.second);
-    const { companyName } = await db.resumeAnalysis.findUniqueOrThrow({ where: { id: analyses[0] }, select: { companyName: true } });
+    const analysisId = await seedAnalysis(owner);
+    const older = await seedCompletedInterview(owner, analysisId);
+    await setCreatedAt(older, 30);
+    const newer = await seedCompletedInterview(owner, analysisId);
+    const feedbackId = (await db.interviewFeedback.findUniqueOrThrow({ where: { interviewId: older }, select: { id: true } })).id;
+    const { companyName } = await db.resumeAnalysis.findUniqueOrThrow({ where: { id: analysisId }, select: { companyName: true } });
+    const { role } = await db.interview.findUniqueOrThrow({ where: { id: older }, select: { role: true } });
 
-    await signIn(page, moved);
+    await signIn(page, owner);
     await page.goto("/interviews");
     const rows = page.locator("[data-interview-row]");
-    const block = page.locator("[data-hidden-interviews]");
-    const hidden = block.locator("[data-hidden-interview]");
-    // Pro shows everything.
-    await expect(rows).toHaveCount(3, { timeout: 60_000 });
-    await expect(block).toHaveCount(0);
+    await expect(rows).toHaveCount(2, { timeout: 60_000 });
 
-    // The plan ends: the two interviews of the analyses beyond the last three come apart, named but never opened.
-    await setUsage(moved, { plan: "FREE" });
-    await page.reload();
-    await expect(rows).toHaveCount(1, { timeout: 60_000 });
-    await expect(hidden).toHaveCount(2);
-    await expect(block).toContainText(t("interview:list.hidden.title", { count: 2 }));
-    await expect(block).toContainText(t("interview:list.hidden.why", { limit: 3 }));
-    await expect(hidden.first()).toContainText("Interview 2");
-    await expect(hidden.first()).toContainText(companyName);
-    await expect(hidden.locator("a")).toHaveCount(0);
-    expect(await rows.allInnerTexts()).not.toContainEqual(expect.stringContaining("Interview 1"));
-    // Its room and its feedback page don't open: both come back to the list, where the block is.
-    for (const path of [`/interview/${seeded.first}`, `/interview/${seeded.first}/feedback`]) {
-      await page.goto(path);
-      await page.waitForURL((url) => url.pathname === "/interviews");
-    }
-    await expect(hidden).toHaveCount(2, { timeout: 60_000 });
-
-    // One: the row, its feedback and that feedback's translation go; its analysis stays.
-    await hidden.filter({ hasText: "Interview 1" }).getByRole("button").click();
-    await page.getByRole("alertdialog").getByRole("button", { name: t("interview:list.hidden.confirm.oneConfirm") }).click();
-    await expect(hidden).toHaveCount(1);
-    await expect(page.locator("[data-deletion-outcome]")).toHaveText(t("interview:list.hidden.result.deletedOne", { role: "Interview 1", companyName }));
-    expect(await db.interview.count({ where: { id: seeded.first } })).toBe(0);
-    expect(await db.interviewFeedback.count({ where: { id: firstFeedback } })).toBe(0);
-    expect(await db.contentTranslation.count({ where: { interviewFeedbackId: firstFeedback } })).toBe(0);
-    expect(await db.resumeAnalysis.count({ where: { id: analyses[0] } })).toBe(1);
-
-    // All: the last hidden one goes; the visible interview and every analysis stay.
-    await block.getByRole("button", { name: t("interview:list.hidden.deleteAll", { count: 1 }), exact: true }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: t("interview:list.hidden.confirm.allConfirm", { count: 1 }), exact: true }).click();
-    await expect(block).toHaveCount(0);
-    await expect(page.locator("[data-deletion-outcome]")).toHaveText(t("interview:list.hidden.result.deleted", { count: 1 }));
+    // The older one is the second row; its delete names it.
+    await rows.nth(1).getByRole("button", { name: t("interview:list.delete.button"), exact: false }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText(t("interview:list.delete.title"));
+    await dialog.getByRole("button", { name: t("interview:list.delete.confirm") }).click();
+    await expect(page.getByText(t("interview:list.delete.deleted", { role, companyName }))).toBeVisible();
     await expect(rows).toHaveCount(1);
-    expect(await db.interview.findMany({ where: { userId: moved.id }, select: { id: true } })).toEqual([{ id: seeded.newest }]);
-    expect(await db.interviewFeedback.count({ where: { id: { in: [firstFeedback, secondFeedback] } } })).toBe(0);
-    expect(await db.contentTranslation.count({ where: { interviewFeedbackId: { in: [firstFeedback, secondFeedback] } } })).toBe(0);
-    expect(await db.resumeAnalysis.count({ where: { userId: moved.id } })).toBe(5);
+    await expect(rows.first().locator("[data-row-link]")).toHaveAttribute("href", `/interview/${newer}/feedback`);
+
+    expect(await db.interview.count({ where: { id: older } })).toBe(0);
+    expect(await db.interviewFeedback.count({ where: { id: feedbackId } })).toBe(0);
+    expect(await db.contentTranslation.count({ where: { interviewFeedbackId: feedbackId } })).toBe(0);
+    expect(await db.interview.count({ where: { id: newer } })).toBe(1);
+    expect(await db.resumeAnalysis.count({ where: { id: analysisId } })).toBe(1);
   } finally {
-    await deleteAccount(moved);
+    await deleteAccount(owner);
   }
 });

@@ -13,7 +13,7 @@ import { seedFeedbackState, seedListInterview } from "./support/seedInterviews";
  * text over or under a button, a card, an illustration or other text, no text leaving its block, no
  * button that clips its text, no text cut short with an ellipsis outside the allowlist. Every <details> is opened
  * first. One seeded analysis (no model call for it; in Spanish, its translation on first view), its room before
- * Start and again with the trial used (the Pro offer), the landing with its "After" tab chosen (the example report), the analyses list with Free's hidden block, the 404 page, the room live with an invented 24-line call (the dev-only
+ * Start and again with the trial used (the Pro offer), the landing with its "After" tab chosen (the example report), the analyses list with five rows, the 404 page, the room live with an invented 24-line call (the dev-only
  * preview route), and a finished Spanish interview's feedback page with its transcript (seeded, no call).
  */
 
@@ -130,7 +130,7 @@ for (const width of WIDTHS) {
     const account: TestAccount = await createAccount(`layout-${width}-${localeOf(testInfo)}`);
     try {
       await signIn(page, account);
-      // Four older analyses first: Free shows the last three, so the list has its hidden block.
+      // Four older analyses first: the list shows all five, on every plan.
       const older = Date.now() - 10 * 86_400_000;
       const olderIds: string[] = [];
       for (let i = 0; i < 4; i += 1) olderIds.push(await seedAnalysis(account, { createdAt: new Date(older + i * 3_600_000) }));
@@ -139,7 +139,7 @@ for (const width of WIDTHS) {
       await settle(page);
       const room = new URL(await openRoom(page, t)).pathname;
       const feedback = `/interview/${await seedCompletedInterview(account, analysisId)}/feedback`;
-      // The list in its states, on the two older analyses Free still shows (one live interview per analysis).
+      // The list in its states, on two older analyses (one live interview per analysis; the room above never started, so it isn't listed).
       const pending = await seedListInterview(account, olderIds[2], "pending", { minutesAgo: 30 });
       await seedListInterview(account, olderIds[2], "expired", { minutesAgo: 60 });
       const failed = await seedFeedbackState(account, olderIds[2], "feedbackFailed");
@@ -150,7 +150,7 @@ for (const width of WIDTHS) {
         page,
         [
           ["upload", "/resume/upload"],
-          ["analyses (two hidden)", "/resume/analyses"],
+          ["analyses (five)", "/resume/analyses"],
           ["analysis", `/resume/analysis/${analysisId}`],
           ["interview room", room],
           ["interview room, live (24 lines)", "/dev/room-preview"],

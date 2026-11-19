@@ -32,7 +32,12 @@ export function isTestAccount(user: Pick<User, "emailAddresses">): boolean {
 }
 
 export async function createAccount(label: string): Promise<TestAccount> {
-  const email = testEmail(label);
+  return createAccountWithEmail(testEmail(label), label);
+}
+
+/** An account on a given address (a test one: `e2e-…+clerk_test@example.com`), e.g. one a deleted account had. Backend API addresses are verified. */
+export async function createAccountWithEmail(email: string, label = "again"): Promise<TestAccount> {
+  if (!email.startsWith(TEST_EMAIL_PREFIX) || !email.includes(TEST_EMAIL_TAG)) throw new Error(`${email} is not a test address`);
   const user = await backend().users.createUser({
     emailAddress: [email],
     firstName: "E2E",

@@ -93,10 +93,11 @@ test("Free with the trial used and no credits: the Pro offer, no Start; the anal
   expect(cta).toContain(t("errors:codes.INTERVIEW_QUOTA_EXCEEDED"));
   expect(cta).not.toMatch(literal(t("analysis:cta.openRoom"), "i"));
   expect(cta).not.toMatch(literal(t("analysis:cta.tryTrial", { minutes: 5 }), "i"));
-  expect(cta).toMatch(literal(t("analysis:attempts.reading.needsPro"), "i"));
+  // The room never started: it is not an attempt, and the interviews list doesn't show it.
+  expect(cta).not.toMatch(literal(t("analysis:attempts.reading.needsPro"), "i"));
 
   await page.goto("/interviews");
-  expect(await mainText(page)).toMatch(literal(t("interview:list.reading.needsPro"), "i"));
+  await expect(page.getByRole("heading", { name: t("interview:list.emptyTitle") })).toBeVisible();
 });
 
 test("Free with a pack credit: the room says one credit pays", async ({ page }, testInfo) => {

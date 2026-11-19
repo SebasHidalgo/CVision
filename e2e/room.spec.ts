@@ -143,6 +143,10 @@ const STATES: Record<string, (page: Page, t: Copy) => Promise<void>> = {
   "needs-pro-had-voice": async (page, t) => {
     await expect(room(page)).toContainText(t("interview:room.offer.pro.titleHadVoice"));
   },
+  "needs-pro-claimed": async (page, t) => {
+    await expect(room(page)).toContainText(t("interview:room.offer.pro.titleClaimed"));
+    await expect(room(page).getByRole("button", { name: literal(before(t, "interview:room.offer.pro.checkout", { price: "\u0000" }), "i") })).toBeVisible();
+  },
   paused: async (page, t) => {
     await expect(room(page)).toContainText(t("interview:room.offer.subscription.paused"));
     await expect(room(page).getByRole("button", { name: literal(t("billing:portal.manage"), "i") })).toBeVisible();

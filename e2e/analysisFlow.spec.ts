@@ -2,13 +2,12 @@ import { expect } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
 import { copyFor, localeOf } from "./support/copy";
-import { db } from "./support/db";
 import { assertSandbox } from "./support/env";
-import { seedAnalysis, seedCompletedInterview, type SeededRequirement } from "./support/seed";
+import { seedAnalysis, type SeededRequirement } from "./support/seed";
 
 /**
- * The analysis flow's rules a reader relies on: the owner's requirement order on the analysis page, Free's hidden
- * analyses (shown as a count, deleted one by one and all at once), and the public edges of the app (robots.txt, an unknown URL, a private page signed out). Seeded data only, no model call.
+ * The analysis flow's rules a reader relies on: the owner's requirement order on the analysis page and the public
+ * edges of the app (robots.txt, an unknown URL, a private page signed out). Seeded data only, no model call.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -98,49 +97,4 @@ test("robots.txt is served, an unknown URL is a 404 page, and a private page sti
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.goto("/resume/analysis/00000000-0000-4000-8000-000000000000");
   await page.waitForURL((url) => url.pathname === "/resume/analyses");
-});
-
-test("a Free account sees its older analyses hidden, and deletes them one by one and all at once", async ({ page }, testInfo) => {
-  const t = copyFor(localeOf(testInfo));
-  const free = await createAccount(`hidden-${localeOf(testInfo)}`);
-  try {
-    // Five analyses an hour apart: Free shows the last three, "Role 1" and "Role 2" are the hidden ones. "Role 1" has
-    // two finished interviews (no conversation issued: deleting them asks nothing of the voice platform).
-    const start = Date.now() - 10 * 86_400_000;
-    const ids: string[] = [];
-    for (let i = 0; i < 5; i += 1) ids.push(await seedAnalysis(free, { createdAt: new Date(start + i * 3_600_000), jobTitle: `Role ${i + 1}` }));
-    const interviews = [await seedCompletedInterview(free, ids[0]), await seedCompletedInterview(free, ids[0])];
-    const { companyName } = await db.resumeAnalysis.findUniqueOrThrow({ where: { id: ids[0] }, select: { companyName: true } });
-    await signIn(page, free);
-    await page.goto("/resume/analyses");
-
-    const rows = page.locator("[data-analysis-row]");
-    const block = page.locator("[data-hidden-analyses]");
-    const hidden = block.locator("[data-hidden-analysis]");
-    await expect(rows).toHaveCount(3, { timeout: 60_000 });
-    await expect(hidden).toHaveCount(2);
-    await expect(block).toContainText(t("analyses:hidden.title", { count: 2 }));
-    expect(await rows.allInnerTexts()).not.toContainEqual(expect.stringContaining("Role 1"));
-    // A hidden row names its analysis but never opens it.
-    await expect(hidden.locator("a")).toHaveCount(0);
-
-    // Its dialog names the interviews that go with it (the date is the page's own formatting: checked around it).
-    await hidden.filter({ hasText: "Role 1" }).getByRole("button").click();
-    const dialog = page.getByRole("alertdialog");
-    const body = t("analyses:confirm.oneBodyInterviews", { count: 2, jobTitle: "Role 1", companyName, date: "\u0000" });
-    for (const part of body.split("\u0000")) await expect(dialog).toContainText(part.trim());
-    await dialog.getByRole("button", { name: t("analyses:confirm.oneConfirm") }).click();
-    await expect(hidden).toHaveCount(1);
-    await expect(block).not.toContainText("Role 1");
-    expect(await db.interview.count({ where: { id: { in: interviews } } })).toBe(0);
-    expect(await db.interviewFeedback.count({ where: { interviewId: { in: interviews } } })).toBe(0);
-
-    await block.getByRole("button", { name: t("analyses:hidden.deleteAll", { count: 1 }), exact: true }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: t("analyses:confirm.allConfirm", { count: 1 }), exact: true }).click();
-    await expect(page.locator("[data-hidden-analyses]")).toHaveCount(0);
-    await expect(rows).toHaveCount(3);
-    expect(await db.resumeAnalysis.count({ where: { userId: free.id } })).toBe(3);
-  } finally {
-    await deleteAccount(free);
-  }
 });

@@ -1,7 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { mainText } from "./support/app";
 import { copyFor, localeOf } from "./support/copy";
 import { assertSandbox } from "./support/env";
 import { seedAnalysis, seedCompletedInterview, seedInterviewAwaitingFeedback } from "./support/seed";
@@ -97,12 +96,12 @@ test("each state with no report says what happened and what is left to do", asyn
 
   const failed = await seedFeedbackState(account, analysisId, "feedbackFailed");
   await page.goto(`/interview/${failed}/feedback`);
-  expect(await mainText(page)).toContain(t("feedback:failure.feedbackFailed.title"));
+  await expect(page.locator("main").first()).toContainText(t("feedback:failure.feedbackFailed.title"));
   await expect(page.getByRole("button", { name: t("feedback:retry.again") })).toBeVisible();
 
   const expired = await seedListInterview(account, analysisId, "expired");
   await page.goto(`/interview/${expired}/feedback`);
-  expect(await mainText(page)).toContain(t("feedback:failure.expired.title"));
+  await expect(page.locator("main").first()).toContainText(t("feedback:failure.expired.title"));
 
   const unreadable = await seedFeedbackState(account, analysisId, "unreadable");
   await page.goto(`/interview/${unreadable}/feedback`);
