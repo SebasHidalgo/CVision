@@ -9,11 +9,6 @@
   "history": {
     "seePro": "Ver Pro",
     "body": "Este análisis es anterior a los últimos {{limit}} de tu cuenta. El plan Gratis muestra los {{limit}} más recientes; Pro los muestra todos, y aquí no se borra nada. Mejora tu plan y el análisis vuelve tal como estaba, con sus entrevistas. Para borrarlo, usa tu lista de análisis.",
-    "back": "Volver a tus análisis",
-    "line": {
-      "interviews_one": "Hay {{count}} entrevista anterior en tu historial. El plan Gratis muestra tus últimos {{limit}} análisis; Pro muestra todo, y no se borra nada.",
-      "interviews_many": "Hay {{count}} entrevistas anteriores en tu historial. El plan Gratis muestra tus últimos {{limit}} análisis; Pro muestra todo, y no se borra nada.",
-      "interviews_other": "Hay {{count}} entrevistas anteriores en tu historial. El plan Gratis muestra tus últimos {{limit}} análisis; Pro muestra todo, y no se borra nada."
-    }
+    "back": "Volver a tus análisis"
   }
 }

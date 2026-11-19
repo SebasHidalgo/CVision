@@ -11,8 +11,7 @@
   },
   "intro": {
     "titlePro": "You're on Pro.",
-    "titleFree": "You're on Free.",
-    "eyebrow": "Plan & billing"
+    "titleFree": "You're on Free."
   },
   "standing": {
     "free": "No subscription",
@@ -80,9 +79,7 @@
     "left": "of {{limit}} left",
     "length": "Up to {{minutes}} minutes each.",
     "creditsCover": "Your credits cover full interviews; Pro adds {{perMonth}} a month.",
-    "proOnly": "Voice interviews are part of Pro.",
-    "of": "of {{limit}}",
-    "resets": "Resets {{date}}."
+    "proOnly": "Voice interviews are part of Pro."
   },
   "trial": {
     "label": "Free trial interview",
@@ -104,10 +101,7 @@
     "label": "Analyses",
     "left": "of {{limit}} left",
     "upTo": "Up to {{limit}} a month",
-    "reached": "You've used this period's {{limit}}.",
-    "ofMonth": "of {{limit}} this month",
-    "pro": "Up to {{limit}} analyses a month.",
-    "free": "Free shows your last {{limit}} analyses."
+    "reached": "You've used this period's {{limit}}."
   },
   "subscription": {
     "title": "Subscription",

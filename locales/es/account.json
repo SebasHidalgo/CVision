@@ -11,8 +11,7 @@
   },
   "intro": {
     "titlePro": "Tienes el plan Pro.",
-    "titleFree": "Tienes el plan Gratis.",
-    "eyebrow": "Plan y facturación"
+    "titleFree": "Tienes el plan Gratis."
   },
   "standing": {
     "free": "Sin suscripción",
@@ -80,9 +79,7 @@
     "left": "de {{limit}} disponibles",
     "length": "Hasta {{minutes}} minutos cada una.",
     "creditsCover": "Tus créditos cubren entrevistas completas; Pro suma {{perMonth}} al mes.",
-    "proOnly": "Las entrevistas por voz son parte de Pro.",
-    "of": "de {{limit}}",
-    "resets": "Se reinician el {{date}}."
+    "proOnly": "Las entrevistas por voz son parte de Pro."
   },
   "trial": {
     "label": "Entrevista de prueba gratis",
@@ -105,10 +102,7 @@
     "label": "Análisis",
     "left": "de {{limit}} disponibles",
     "upTo": "Hasta {{limit}} al mes",
-    "reached": "Ya usaste los {{limit}} de este período.",
-    "ofMonth": "de {{limit}} este mes",
-    "pro": "Hasta {{limit}} análisis al mes.",
-    "free": "El plan Gratis muestra tus últimos {{limit}} análisis."
+    "reached": "Ya usaste los {{limit}} de este período."
   },
   "subscription": {
     "title": "Suscripción",

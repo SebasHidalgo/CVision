@@ -4,13 +4,7 @@
   "verdict": {
     "label": "Veredicto del ejemplo",
     "count": "{{met}} de {{total}}",
-    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte",
-    "cap": "Veredicto",
-    "required": "Obligatorios",
-    "preferred": "Deseables",
-    "notShown_one": "No aparece en tu CV",
-    "notShown_many": "No aparecen en tu CV",
-    "notShown_other": "No aparecen en tu CV"
+    "countWithPartial": "{{met}} de {{total}}, {{partial}} en parte"
   },
   "requirements": {
     "listLabel": "Requisitos de la oferta de ejemplo",

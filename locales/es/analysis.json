@@ -14,13 +14,7 @@
     "rule": {
       "empty": "No se encontraron requisitos obligatorios en esta oferta, así que no hay nada que contar.",
       "applies": "se aplica a este análisis"
-    },
-    "cap": "Veredicto",
-    "required": "Obligatorios",
-    "preferred": "Deseables",
-    "notShown_one": "No aparece en tu CV",
-    "notShown_many": "No aparecen en tu CV",
-    "notShown_other": "No aparecen en tu CV"
+    }
   },
   "status": {
     "met": "Cumplido",

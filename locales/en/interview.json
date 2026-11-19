@@ -132,8 +132,7 @@
       }
     },
     "continueStarts_one": "Continue — {{count}} start left",
-    "continueStarts_other": "Continue — {{count}} starts left",
-    "title": "Interview room"
+    "continueStarts_other": "Continue — {{count}} starts left"
   },
   "list": {
     "title": "Every rehearsal, on the record.",

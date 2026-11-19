@@ -4,8 +4,7 @@
   },
   "intro": {
     "title": "Two plans. One is free.",
-    "lede": "Check your own CV against the jobs you want, and practice the interview out loud with an AI interviewer. Pay only when you want more interviews.",
-    "eyebrow": "Pricing"
+    "lede": "Check your own CV against the jobs you want, and practice the interview out loud with an AI interviewer. Pay only when you want more interviews."
   },
   "compare": {
     "caption": "Free and Pro compared",
@@ -36,27 +35,11 @@
   },
   "free": {
     "start": "Start free",
-    "includedInPro": "Included in Pro",
-    "cadence": "forever",
-    "promises": {
-      "analyses_one": "{{count}} CV check per month",
-      "analyses_other": "{{count}} CV checks per month",
-      "trial": "One {{minutes}}-minute practice interview with the AI interviewer, once per account (not for accounts that had Pro)",
-      "history_one": "Your last analysis",
-      "history_other": "Your last {{count}} analyses"
-    }
+    "includedInPro": "Included in Pro"
   },
   "pro": {
     "signUp": "Sign up for Pro",
-    "checkout": "Get Pro · {{price}} a month",
-    "cadence": "per month",
-    "promises": {
-      "analyses": "Up to {{limit}} analyses a month",
-      "interviews_one": "{{count}} voice interview per month, up to {{minutes}} minutes",
-      "interviews_other": "{{count}} voice interviews per month, up to {{minutes}} minutes",
-      "packs": "Interview packs: {{credits}} more for {{price}}",
-      "history": "Your full history"
-    }
+    "checkout": "Get Pro · {{price}} a month"
   },
   "actions": {
     "buyPack_one": "Buy {{count}} interview · {{price}}",
@@ -95,7 +78,5 @@
     "held_one": "You hold {{count}} interview credit: one full {{minutes}}-minute interview, on any plan.",
     "held_other": "You hold {{count}} interview credits, each a full {{minutes}}-minute interview, on any plan."
   },
-  "note": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. Read the <refunds>refund policy</refunds> and the <terms>terms</terms>.",
-  "currentPlan": "Your current plan",
-  "finePrint": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. See the <refunds>refund policy</refunds> and the <terms>terms</terms>."
+  "note": "Prices in {{currency}}. Payments are handled by {{merchant}}, the merchant of record, which collects any applicable tax at checkout. Cancel any time from your account; Pro stays active until the end of the period you paid for. Read the <refunds>refund policy</refunds> and the <terms>terms</terms>."
 }

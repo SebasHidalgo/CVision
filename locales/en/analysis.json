@@ -14,12 +14,7 @@
     "rule": {
       "empty": "No required items were found in this posting, so there is nothing to count.",
       "applies": "applies to this analysis"
-    },
-    "cap": "Verdict",
-    "required": "Required",
-    "preferred": "Preferred",
-    "notShown_one": "Not shown in your CV",
-    "notShown_other": "Not shown in your CV"
+    }
   },
   "status": {
     "met": "Met",

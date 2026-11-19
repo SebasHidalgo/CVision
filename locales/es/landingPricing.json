@@ -5,42 +5,6 @@
     "free": "Crear cuenta gratis",
     "freeSignedIn": "Analizar mi CV",
     "pro": "Suscribirme a Pro",
-    "proSignedIn": "Ver el plan Pro",
-    "rowLabel": "Empezar"
-  },
-  "perMonth": "al mes",
-  "plansLabel": "Gratis y Pro, comparados",
-  "rows": {
-    "analyses": {
-      "label": "Análisis de CV",
-      "free_one": "{{count}} al mes",
-      "free_many": "{{count}} al mes",
-      "free_other": "{{count}} al mes",
-      "pro": "Hasta {{count}} al mes"
-    },
-    "history": {
-      "label": "Historial",
-      "last_one": "Tu último análisis",
-      "last_many": "Tus {{count}} últimos análisis",
-      "last_other": "Tus {{count}} últimos análisis",
-      "all": "Todo tu historial"
-    },
-    "interviews": {
-      "label": "Entrevista de voz",
-      "trial_one": "Una de práctica de {{minutes}} minutos, una vez, para cuentas que nunca tuvieron Pro",
-      "trial_many": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
-      "trial_other": "{{count}} de práctica de {{minutes}} minutos, para cuentas que nunca tuvieron Pro",
-      "perMonth_one": "{{count}} al mes, de hasta {{minutes}} minutos",
-      "perMonth_many": "{{count}} al mes, de hasta {{minutes}} minutos",
-      "perMonth_other": "{{count}} al mes, de hasta {{minutes}} minutos"
-    }
-  },
-  "pack": {
-    "label": "Paquete adicional",
-    "lead_one": "{{count}} entrevista más por {{price}}.",
-    "lead_many": "{{count}} entrevistas más por {{price}}.",
-    "lead_other": "{{count}} entrevistas más por {{price}}.",
-    "body": "Se compra con Pro activo. No vencen y sirven aunque Pro termine."
-  },
-  "note": "Los pagos los gestiona {{merchant}}, el comerciante registrado (merchant of record). Cancela cuando quieras desde tu cuenta; Pro sigue activo hasta el final del período que pagaste. Lee la <refunds>política de reembolsos</refunds> y los <terms>términos</terms>."
+    "proSignedIn": "Ver el plan Pro"
+  }
 }

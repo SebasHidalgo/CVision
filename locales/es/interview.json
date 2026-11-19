@@ -140,8 +140,7 @@
     },
     "continueStarts_one": "Continuar — te queda {{count}} conexión",
     "continueStarts_many": "Continuar — te quedan {{count}} conexiones",
-    "continueStarts_other": "Continuar — te quedan {{count}} conexiones",
-    "title": "Sala de entrevista"
+    "continueStarts_other": "Continuar — te quedan {{count}} conexiones"
   },
   "list": {
     "title": "Cada ensayo, registrado.",
