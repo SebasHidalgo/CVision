@@ -10,6 +10,7 @@ M11-B). Pages move to it one phase at a time; the landing is the first.
 | File | What it holds |
 |---|---|
 | `tokens.css` | The Tailwind theme (`@theme`) and the CSS variables. Imported once by `app/globals.css`. |
+| `tokens.ts` | The colours and radii of `tokens.css` as literals, for code that cannot read a variable (Clerk derives its shades from literal colours). `tokens.test.ts` fails when the two disagree, and checks the contrast ratios below. |
 | `fonts.ts` | Host Grotesk through `next/font` (`--font-host-grotesk`). Fraunces and IBM Plex Mono load in the root layout. |
 | `motion.ts` | Easings and durations for scripts (WAAPI, timers); `tokens.css` has the same values for CSS. |
 | `StatusMark.tsx` | The requirement status square. |
@@ -27,8 +28,16 @@ meanings. When the last page migrates, the old tokens go and the prefix can be d
 
 - **Colour** (`bg-ed-*`, `text-ed-*`, `border-ed-*`): `ed-bg #0C0D0F` (page), `ed-panel #121316` (surface),
   `ed-raise #17181C` (raised or hovered), `ed-sheet #131417` (a document: the CV sheet), `ed-line #24262B` and
-  `ed-line-2 #34363C` (edges), `ed-ink #EDEDEA`, `ed-ink-2 #A3A6AD`, `ed-ink-3`, and `ed-signal #3EDC8A` with
-  `ed-signal-wash` (8 %).
+  `ed-line-2 #34363C` (dividers and frames), `ed-field #6B6E75` (a form control's edge), `ed-ink #EDEDEA`,
+  `ed-ink-2 #A3A6AD`, `ed-ink-3`, `ed-signal #3EDC8A` with `ed-signal-wash` (8 %), and the danger pair below.
+- **Contrast on the four grounds** (WCAG 2.x ratio; `tokens.test.ts` holds the floors):
+
+  | Token | bg | panel | raise | sheet | Floor |
+  |---|---|---|---|---|---|
+  | `ed-danger-text #FF7F71` | 7.89 | 7.54 | 7.20 | 7.48 | 7:1, text |
+  | `ed-field #6B6E75` | 3.81 | 3.64 | 3.47 | 3.61 | 3:1, a control's edge (1.4.11) |
+  | `ed-line-2 #34363C` | 1.61 | 1.54 | 1.47 | 1.53 | none: a divider, never a control's edge |
+  | `ed-danger #B4382A` | 3.28 | 3.13 | 2.99 | 3.10 | none: a fill, never text |
 - **ink-3 depends on what it sits on.** On the open page (`.ed-root`) it equals ink-2, because text there may lie over
   a lit ground; inside a surface (`.ed-surface`) or the chrome (`.ed-chrome`: header, footer) it is the quieter
   `#8A8E96`. Both pass AA on their ground.
@@ -47,7 +56,12 @@ meanings. When the last page migrates, the old tokens go and the prefix can be d
 - **Status marks** (shape first, colour second): met = filled signal, partly met = signal outline half filled, not
   met = ink-3 outline, not shown in your CV = dashed ink-2 outline. 11 px, always with the status written next to it.
 - **Focus**: 2 px ink outline, 3 px offset, following the element's own radius, on every focusable element under `.ed-root`.
-- **Danger** (`ed-danger`, `ed-danger-hover`): only for ending a live call. White text on it is 6.4:1.
+- **Danger**: `ed-danger` and `ed-danger-hover` are fills, only for ending a live call (white text on them is
+  5.93:1 and 7.14:1). Danger as text (an error message, a field in error) is `ed-danger-text`: the same hue,
+  lightened to 7:1 or more on every ground. Filled, it takes `ed-bg` text (7.89:1), never white (2.5:1). A message
+  in it still says what went wrong in words; colour is never the only cue.
+- **Form controls**: an input, select or textarea draws its edge in `ed-field` (`border-ed-field`), never
+  `ed-line-2`; hover goes to ink-2, focus to the ink ring, an error to `ed-danger-text`.
 - **Motion**: `ease-ed-out` (entrances), `ease-ed-settle` (open and close), `ease-ed-story` (the story's object);
   durations 200 / 380 / 600 ms; `animate-ed-rise` and `animate-ed-fade`. Every motion has a reduced-motion path.
 
@@ -103,11 +117,36 @@ language. Every other page switches in place.
 - **One footer**, `components/layout/Footer.tsx`, under every page; `FooterGate` hides it in the interview room,
   which fills the viewport.
 - **Clerk** (`lib/clerkAppearance.ts`, applied once by the root `ClerkProvider`) and the **toasts** (sonner on its
-  dark theme, `components/providers/Providers.tsx`) are in the dark design. Clerk takes literal colours: they copy
-  `tokens.css` by hand.
+  dark theme, `components/providers/Providers.tsx`) are in the dark design. Clerk takes literal colours: they come
+  from `components/design-system/tokens.ts`, which a test keeps equal to `tokens.css`; the card's shadow is the CSS
+  variable itself. Clerk draws an input's edge as a 1 px box-shadow at 11 % of its border colour (1.03:1 on the
+  card): the appearance replaces it on `input[data-variant="default"]` with `ed-field`, ink-2 on hover, a 2 px ink
+  ring on focus and `ed-danger-text` in error (Clerk's `data-feedback="error"`). Its error text is `colorDanger`,
+  the danger text token; its filled danger buttons (the profile's "Remove" forms) get `ed-bg` text.
+- **No paper grain.** The old system's noise layer (`body::before`, multiply at 4.5 %) is gone from every page, the
+  ones not migrated yet included.
 - **404**: `app/not-found.tsx` → `screens/NotFound`, with the shell's header and footer (the root not-found sits
   above `app/(root)/layout.tsx`).
 - A migrated page under `app/(root)` makes its `ed-root` element `flex-1`, so the dark canvas reaches the footer.
+
+## Translations on a page (`components/i18n/`)
+
+The analysis page and the interview feedback page share three pieces, drawn in the system with no overrides:
+
+- `TranslationPending` (client) and `TranslationNotice` (server) are the page's **status line**
+  (`TranslationStatus.tsx`): body-size text in ink-2 behind a 6 px ink-2 square centred on the first line. The
+  square pulses while the translation runs (`motion-safe:` only: still under reduced motion) and is never the signal
+  green, which marks only what a CV proves. The "Show the original" link is ink with an ink-3 underline and a 44 px
+  target. A screen passes `className` for its spacing and nothing else; which component shows, and with which
+  action, is the screen's call (the analysis page's `TranslationLine`).
+- `Prose` renders model prose, or its skeleton while the translation is on its way: bars on `ed-line-2` that pulse
+  only when motion is allowed, `data-prose-pending`, hidden from assistive tech.
+
+## The verdict rule
+
+One copy, in `common:verdictRule` (`weak`, `fair`, `strong`, `notShown`, and `term` for the label before each
+sentence): the analysis page lists it under "How it's counted" and the landing's example prints it as one
+paragraph. The verdict words are `common:score.fit.*`.
 
 ## Migrated pages and the rest
 
