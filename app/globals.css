@@ -242,19 +242,6 @@
     }
   }
 
-  /* Scroll entrance (components/motion/Reveal.tsx): hidden only with JavaScript and motion allowed. */
-  @media (prefers-reduced-motion: no-preference) {
-    html[data-js] [data-reveal] {
-      transition:
-        opacity 700ms var(--ease-out) var(--reveal-delay, 0s),
-        transform 700ms var(--ease-out) var(--reveal-delay, 0s);
-    }
-    html[data-js] [data-reveal]:not([data-shown]) {
-      opacity: 0;
-      transform: translateY(18px);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;

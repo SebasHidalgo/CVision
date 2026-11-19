@@ -176,12 +176,5 @@
       "needsPack": "No interviews left this period",
       "noStarts": "No starts left"
     }
-  },
-  "destination": {
-    "ready": "Open the interview room",
-    "pending": "Preparing your feedback",
-    "done": "Read interview feedback",
-    "failed": "See what went wrong",
-    "expired": "Interview expired"
   }
 }

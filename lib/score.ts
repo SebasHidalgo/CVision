@@ -29,27 +29,3 @@ export function toneKey(wording: ToneWording, tone: ScoreTone) {
   return `score.${wording}.${tone}` as const;
 }
 
-// Literal class names so Tailwind can see them.
-export const TONE_CLASS: Record<
-  ScoreTone,
-  { text: string; bg: string; soft: string; border: string }
-> = {
-  weak: {
-    text: "text-weak",
-    bg: "bg-weak",
-    soft: "bg-weak-soft",
-    border: "border-weak",
-  },
-  fair: {
-    text: "text-fair",
-    bg: "bg-fair",
-    soft: "bg-fair-soft",
-    border: "border-fair",
-  },
-  strong: {
-    text: "text-strong",
-    bg: "bg-strong",
-    soft: "bg-strong-soft",
-    border: "border-strong",
-  },
-};

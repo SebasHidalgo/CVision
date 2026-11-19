@@ -187,12 +187,5 @@
       "needsPack": "Sin entrevistas en este período",
       "noStarts": "No te quedan conexiones"
     }
-  },
-  "destination": {
-    "ready": "Abrir la sala de entrevista",
-    "pending": "Preparando tu feedback",
-    "done": "Leer el feedback de la entrevista",
-    "failed": "Ver qué salió mal",
-    "expired": "Entrevista vencida"
   }
 }

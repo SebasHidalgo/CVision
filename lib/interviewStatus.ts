@@ -30,17 +30,6 @@ export function interviewPhase(status: InterviewStatus): InterviewPhase {
   }
 }
 
-/** What a link to an interview says, by phase: keys of the `interview` namespace. */
-const LABEL_KEY = {
-  ready: "destination.ready",
-  pending: "destination.pending",
-  done: "destination.done",
-  failed: "destination.failed",
-  expired: "destination.expired",
-} as const satisfies Record<InterviewPhase, string>;
-
-export type InterviewDestinationLabelKey = (typeof LABEL_KEY)[InterviewPhase];
-
 /**
  * The failure reasons the feedback step writes (lib/ai/interviewFeedback.ts): the candidate
  * answered and only the scoring failed. Every other FAILED interview (nothing said, the call lost
@@ -75,8 +64,8 @@ export function liveAttempt<T extends { status: InterviewStatus }>(attempts: T[]
 export function interviewDestination(interview: {
   id: string;
   status: InterviewStatus;
-}): { href: string; labelKey: InterviewDestinationLabelKey; phase: InterviewPhase } {
+}): { href: string; phase: InterviewPhase } {
   const phase = interviewPhase(interview.status);
   const href = phase === "ready" ? `/interview/${interview.id}` : `/interview/${interview.id}/feedback`;
-  return { href, labelKey: LABEL_KEY[phase], phase };
+  return { href, phase };
 }
