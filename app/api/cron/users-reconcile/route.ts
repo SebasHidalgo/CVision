@@ -1,4 +1,5 @@
 import { reconcileUsers, type ReconcileReport } from "@/lib/accountReconcile";
+import { refuseUnlessCron } from "@/lib/cronAuth";
 
 // The Clerk lookups plus up to 25 account deletions (Paddle, the bucket and ElevenLabs each).
 export const maxDuration = 60;
@@ -30,14 +31,8 @@ const counts = (report: ReconcileReport) => ({
  * Answers counts only; the ids are in the per-deletion log lines.
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    console.error(`${LOG} CRON_SECRET is not set; refusing`);
-    return Response.json({ ok: false, code: "CRON_MISCONFIGURED" }, { status: 500 });
-  }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const refusal = refuseUnlessCron(request, LOG);
+  if (refusal) return refusal;
 
   try {
     const report = await reconcileUsers({ apply: true, deadline: Date.now() + DELETION_BUDGET_MS });

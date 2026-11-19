@@ -1,4 +1,5 @@
 import { collectOrphans } from "@/lib/supabase/gc";
+import { refuseUnlessCron } from "@/lib/cronAuth";
 
 // Listing the bucket a folder at a time plus the deletes.
 export const maxDuration = 60;
@@ -15,14 +16,8 @@ const LOG = "[CVision][cron] storage-gc:";
  * missed is caught up by the next. Answers counts only, never a key.
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    console.error(`${LOG} CRON_SECRET is not set; refusing`);
-    return Response.json({ ok: false, code: "CRON_MISCONFIGURED" }, { status: 500 });
-  }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const refusal = refuseUnlessCron(request, LOG);
+  if (refusal) return refusal;
 
   try {
     const report = await collectOrphans({ remove: true });
