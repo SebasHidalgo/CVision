@@ -16,7 +16,7 @@ import { INTERVIEW_PACK_CREDITS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import DeleteAccount from "./components/DeleteAccount";
 import SignInPanel from "./components/SignInPanel";
-import { accountView, PRO_FACTS } from "./utils/accountView";
+import { accountView, forfeitedPeriodEnd, PRO_FACTS } from "./utils/accountView";
 
 const REMOVED = ["analyses", "interviews", "voice", "billing", "signIn"] as const;
 const KEPT = ["paddle", "log", "trialClaim"] as const;
@@ -31,6 +31,7 @@ export default async function AccountScreen() {
   const view = accountView(summary);
   const standing = standingCopy(view.standing, t, locale);
   const subscribed = view.standing.kind === "active" || view.standing.kind === "past-due" || view.standing.kind === "cancels";
+  const forfeited = forfeitedPeriodEnd(view.standing);
   const periodDate = formatLongDate(view.period.date, locale);
 
   return (
@@ -177,7 +178,7 @@ export default async function AccountScreen() {
                 </div>
               </Surface>
               <div className="mt-6">
-                <DeleteAccount subscribed={subscribed} />
+                <DeleteAccount subscribed={subscribed} forfeitsUntil={forfeited ? forfeited.toISOString() : null} />
               </div>
             </AccountSection>
           </div>

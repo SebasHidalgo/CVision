@@ -26,7 +26,7 @@ export type LegalPage = (typeof LEGAL_PAGES)[number];
  * fingerprint of each page's words in both languages and fails when they change without this date moving.
  */
 export const LEGAL_UPDATED: Record<LegalPage, string> = {
-  terms: "2026-11-18",
-  privacy: "2026-11-18",
-  refunds: "2026-11-11",
+  terms: "2026-11-19",
+  privacy: "2026-11-19",
+  refunds: "2026-11-19",
 };

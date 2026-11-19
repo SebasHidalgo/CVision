@@ -24,7 +24,7 @@ export type PlanComparisonProps = {
   actions: Record<PlanKey, React.ReactNode>;
   /** Nothing for a visitor; the pricing page passes the reader's standing. */
   standing?: Partial<Record<PlanKey, PlanStanding | null>>;
-  /** The level of the plan names in the stacked layout: 2 on the pricing page, 3 inside the landing's section. */
+  /** The level of the plan names, in the table and the cards alike: 2 on the pricing page, 3 inside the landing's section. */
   headingLevel?: 2 | 3;
   /** Keeps the plan names' ids unique on the page. */
   idPrefix?: string;
@@ -64,7 +64,8 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
                   data-current={current === key || undefined}
                   className={cn(CELL, "border-b border-line-2 pt-5 pb-5", current === key && CURRENT_RULE)}
                 >
-                  <PlanName>{view.plans[key].name}</PlanName>
+                  {/* HTML keeps h1–h6 out of a <th>: the heading is an ARIA one, so the column header stays a header. */}
+                  <PlanName level={headingLevel}>{view.plans[key].name}</PlanName>
                   <PlanPrice plan={view.plans[key]} />
                 </th>
               ))}
@@ -148,10 +149,15 @@ export function PlanComparison({ view, actions, standing, headingLevel = 3, idPr
   );
 }
 
-/** A plan's name, set in the display face. */
-function PlanName({ children, as: Tag = "span", id }: { children: string; as?: "span" | "h2" | "h3"; id?: string }) {
+/** A plan's name, set in the display face: an <hN> element, or with `level` a span with the heading role. */
+function PlanName({ children, as: Tag = "span", id, level }: { children: string; as?: "span" | "h2" | "h3"; id?: string; level?: 2 | 3 }) {
   return (
-    <Tag id={id} className="block font-display text-title font-normal text-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]">
+    <Tag
+      id={id}
+      role={level ? "heading" : undefined}
+      aria-level={level}
+      className="block font-display text-title font-normal text-ink [font-variation-settings:'opsz'_72,'SOFT'_0,'WONK'_0]"
+    >
       {children}
     </Tag>
   );

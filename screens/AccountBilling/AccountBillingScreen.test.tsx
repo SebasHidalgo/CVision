@@ -96,7 +96,7 @@ describe("Plan & billing", () => {
     const page = await renderIn("en", summaryOf("FREE"));
     expect(page.text).toContain("You're on Free.");
     expect(page.text).toContain("No subscription");
-    expect(page.text).toContain("Pro is $15 a month: 4 voice interviews of up to 12 minutes, up to 50 analyses and your whole history.");
+    expect(page.text).toContain("Pro is $15 a month: 4 voice interviews of up to 12 minutes and up to 50 analyses.");
     expect(page.checkouts).toEqual(["pro_monthly"]);
     expect(page.portal).toBe(false);
     expect(page.text).toContain("Packs of 4 more interviews are sold with Pro.");
@@ -114,10 +114,11 @@ describe("Plan & billing", () => {
     expect(page.text).toMatch(/Interview credits\s*0/);
   });
 
-  it("past due: the portal to fix the card, Pro kept until the period's end", async () => {
+  it("past due: the portal to fix the card, Pro kept while Paddle retries, and no 'until' date", async () => {
     const page = await renderIn("en", summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ status: "PAST_DUE" }), hasBillingAccount: true }));
     expect(page.text).toContain("Payment failed");
-    expect(page.text).toContain("Update your payment method to keep Pro after December 1, 2026.");
+    expect(page.text).toContain("Paddle is retrying it over the next few days. Pro stays on meanwhile: update your payment method in the billing portal to keep it.");
+    expect(page.text).not.toContain("December 1, 2026");
     expect(page.portal).toBe(true);
     expect(page.checkouts).toEqual(["interview_pack"]);
   });
@@ -145,7 +146,7 @@ describe("Plan & billing", () => {
 
   it("an ended subscription: Free again, Pro on sale, the credits still usable", async () => {
     const page = await renderIn("en", summaryOf("FREE", { credits: 4, hadVoice: true }, { subscription: subscription({ status: "CANCELED" }), hasBillingAccount: true }));
-    expect(page.text).toContain("Your Pro subscription ended. Nothing was deleted, and Pro brings your whole history back.");
+    expect(page.text).toContain("Your Pro subscription ended. Nothing was deleted: everything you made is still here.");
     expect(page.checkouts).toEqual(["pro_monthly"]);
     expect(page.text).toMatch(/Interview credits\s*4/);
     expect(page.text).toContain("Each one is a full 12-minute interview, on any plan. They never expire.");

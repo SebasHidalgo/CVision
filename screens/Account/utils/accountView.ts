@@ -64,5 +64,17 @@ export function accountView(summary: ViewInput): AccountView {
   return { standing, period, analyses, interviews, credits: creditsView(summary) };
 }
 
+/**
+ * The paid time deleting the account throws away: deletion cancels a subscription at once (`effective_from:
+ * immediately`), so Pro that would have run to a date ends now. Renewing and canceling-at-period-end both hold a
+ * period already paid for. Past due does not: its period is the one whose charge failed and is being retried. A comp
+ * was never paid, and paused or ended subscriptions give no Pro to lose.
+ */
+export function forfeitedPeriodEnd(standing: AccountStanding): Date | null {
+  if (standing.kind === "active") return standing.renewsAt;
+  if (standing.kind === "cancels") return standing.endsAt;
+  return null;
+}
+
 /** Pro's figures, for the copy that names them. */
 export const PRO_FACTS = { interviewsPerMonth: PLANS.PRO.interviewsPerMonth, minutes: FULL_MINUTES } as const;

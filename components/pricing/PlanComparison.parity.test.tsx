@@ -7,7 +7,7 @@ import { tFor } from "@/lib/i18n/testing";
 import { PricingSection } from "@/screens/Home/components/pricing/PricingSection";
 import PricingScreen from "@/screens/Pricing/PricingScreen";
 import { PlanComparison } from "./PlanComparison";
-import { pricingView } from "./pricingView";
+import { PLAN_KEYS, pricingView } from "./pricingView";
 
 // The landing says its plans are the pricing page's: the same components, fed the same view, not a copy that drifts.
 
@@ -90,5 +90,24 @@ describe.each(LOCALES)("%s: the landing's plans and the pricing page's", (locale
     }
     // Every figure is the plans' and the catalog's.
     expect(table.textContent).toContain(tFor("pricing", locale)("rows.analyses.pro", { count: 50 }));
+  });
+
+  it("names each plan with a heading in both layouts, at the page's level: 2 on /pricing, 3 in the landing's section", async () => {
+    request.locale = locale;
+    const { plans } = pricingView({ t: tFor("pricing", locale), common: tFor("common", locale), locale });
+    const names = PLAN_KEYS.map((key) => plans[key].name);
+    for (const [renderPage, level] of [
+      [PricingScreen, 2],
+      [PricingSection, 3],
+    ] as const) {
+      const root = render(await renderPage()).container;
+      // The table's column headers keep their role; HTML keeps an <hN> out of a <th>, so the heading is an ARIA one.
+      const columns = [...root.querySelectorAll('[data-pricing-part="table"] th[scope="col"]')];
+      expect(columns.map((th) => th.querySelector('[role="heading"]')?.getAttribute("aria-level"))).toEqual([String(level), String(level)]);
+      expect(columns.map((th) => th.querySelector('[role="heading"]')?.textContent)).toEqual(names);
+      expect(root.querySelectorAll('[data-pricing-part="table"] h1, [data-pricing-part="table"] h2, [data-pricing-part="table"] h3')).toHaveLength(0);
+      expect([...root.querySelectorAll(`[data-pricing-part="cards"] h${level}`)].map((h) => h.textContent)).toEqual(names);
+      cleanup();
+    }
   });
 });

@@ -29,7 +29,11 @@ vi.mock("@/lib/database/usage", () => ({ currentUsageSummary: async () => reques
 vi.mock("@/components/i18n/ClientMessages", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 vi.mock("@/components/i18n/LocaleMenu", () => ({ default: () => <span data-locale-menu /> }));
 vi.mock("./components/SignInPanel", () => ({ default: () => <span data-sign-in-panel /> }));
-vi.mock("./components/DeleteAccount", () => ({ default: ({ subscribed }: { subscribed: boolean }) => <span data-delete-account={String(subscribed)} /> }));
+vi.mock("./components/DeleteAccount", () => ({
+  default: ({ subscribed, forfeitsUntil }: { subscribed: boolean; forfeitsUntil: string | null }) => (
+    <span data-delete-account={String(subscribed)} data-forfeits-until={forfeitsUntil ?? "none"} />
+  ),
+}));
 
 const PERIOD_END = new Date("2026-12-01T00:00:00.000Z");
 
@@ -86,13 +90,13 @@ describe("the account page", () => {
 
     expect(text).toContain("Free");
     expect(text).toContain("No subscription");
-    expect(text).toContain("3 analyses a month, and your last 3 kept in your history.");
+    expect(text).toContain("3 analyses a month, and everything you've analyzed and rehearsed stays in your lists.");
     expect(text).toContain("Resets on December 1, 2026.");
     expect(text).toMatch(/2\s*of 3 left/);
     expect(container.querySelector('[data-cells="2/3"]')).not.toBeNull();
     expect(text).toContain("Free trial interview");
     expect(text).toContain("Available");
-    expect(text).toContain("One 5-minute practice interview with the AI interviewer, once per account.");
+    expect(text).toContain("One 5-minute practice interview with the AI interviewer, once per account and email address.");
     expect(text).not.toMatch(/of 0|Interviews/);
     expect(text).not.toContain("Interview credits");
     // Free is offered Pro, and Plan & billing.
@@ -136,19 +140,36 @@ describe("the account page", () => {
   it("states every subscription standing with its date in full", async () => {
     const cases: [UsageSummary, string, string][] = [
       [summaryOf("PRO", {}, { source: "subscription", subscription: subscription({}) }), "Active", "Renews on December 1, 2026."],
-      [summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ status: "PAST_DUE" }) }), "Payment failed", "to keep Pro after December 1, 2026."],
+      [
+        summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ status: "PAST_DUE" }) }),
+        "Payment failed",
+        "Your last payment didn't go through and Paddle is retrying it over the next few days. Pro stays on meanwhile: update your payment method in the billing portal to keep it.",
+      ],
       [
         summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ cancelAtPeriodEnd: true, scheduledChangeAt: PERIOD_END }) }),
         "Ends December 1, 2026",
         "Pro ends on December 1, 2026; Free's allowance applies after that.",
       ],
       [summaryOf("FREE", { hadVoice: true }, { subscription: subscription({ status: "PAUSED", currentPeriodEnd: null }) }), "Subscription paused", "so you're on Free until you resume it."],
-      [summaryOf("FREE", { hadVoice: true }, { subscription: subscription({ status: "CANCELED" }) }), "Subscription ended", "Nothing was deleted, and Pro brings your whole history back."],
+      [summaryOf("FREE", { hadVoice: true }, { subscription: subscription({ status: "CANCELED" }) }), "Subscription ended", "Nothing was deleted: everything you made is still here."],
     ];
     for (const [summary, label, line] of cases) {
       const { text } = await renderIn("en", summary);
       expect(text).toContain(label);
       expect(text).toContain(line);
+      cleanup();
+    }
+  });
+
+  it("past due: what Paddle does, with no 'Pro until' date (its retries last days, not to the period's end)", async () => {
+    for (const [locale, line, date] of [
+      ["en", "Paddle is retrying it over the next few days. Pro stays on meanwhile", "December 1, 2026"],
+      ["es", "Paddle lo está reintentando durante los próximos días. Mientras tanto conservas Pro", "1 de diciembre de 2026"],
+    ] as const) {
+      const { container } = await renderIn(locale, summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ status: "PAST_DUE" }) }));
+      const plan = (container.querySelector('section[aria-labelledby="account-plan"]')?.textContent ?? "").replace(/\s+/g, " ");
+      expect(plan, locale).toContain(line);
+      expect(plan, locale).not.toContain(date);
       cleanup();
     }
   });
@@ -170,6 +191,21 @@ describe("the account page", () => {
     expect(free.container.querySelector('[data-delete-account="false"]')).not.toBeNull();
     expect(free.text).toContain("Paddle, the merchant of record, keeps your invoices");
     expect(free.text).toContain("The interview conversations at ElevenLabs, our voice provider");
+  });
+
+  it("hands the delete control the end of a paid period it would cut short: renewing or canceling, not past due or a comp", async () => {
+    const forfeits = async (summary: UsageSummary) => {
+      const { container } = await renderIn("en", summary);
+      const value = container.querySelector("[data-forfeits-until]")?.getAttribute("data-forfeits-until");
+      cleanup();
+      return value;
+    };
+    const iso = PERIOD_END.toISOString();
+    expect(await forfeits(summaryOf("PRO", {}, { source: "subscription", subscription: subscription({}) }))).toBe(iso);
+    expect(await forfeits(summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ cancelAtPeriodEnd: true, scheduledChangeAt: PERIOD_END }) }))).toBe(iso);
+    expect(await forfeits(summaryOf("PRO", {}, { source: "subscription", subscription: subscription({ status: "PAST_DUE" }) }))).toBe("none");
+    expect(await forfeits(summaryOf("PRO"))).toBe("none");
+    expect(await forfeits(summaryOf("FREE"))).toBe("none");
   });
 
   it("says the same in Spanish, dates in full", async () => {

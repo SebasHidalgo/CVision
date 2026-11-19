@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/components/design-system/Button";
 import { ConfirmDialog } from "@/components/design-system/ConfirmDialog";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
+import { useLocale } from "@/hooks/useLocale";
+import { formatLongDate } from "@/lib/format";
 import { deleteAccountAction } from "../actions/deleteAccountAction";
 
 /** If signing out has not left the page by then (Clerk hung, or refused a session already gone), go home by hand. */
@@ -15,10 +17,12 @@ export const LEAVE_FALLBACK_MS = 6_000;
  * The account's delete: a confirmation that names what goes, the action, then sign-out and home. A refusal stays
  * here, under the button, in words; the account is whole after one. After a deletion the button gives way to a
  * status line and the client session ends; a deleted Clerk user's session is already revoked, so a sign-out that
- * fails or hangs still ends in a full load of the home page.
+ * fails or hangs still ends in a full load of the home page. `forfeitsUntil` (ISO) is the end of a paid period the
+ * deletion cuts short; the confirmation names it, formatted here so a language switch in place follows.
  */
-export default function DeleteAccount({ subscribed }: { subscribed: boolean }) {
+export default function DeleteAccount({ subscribed, forfeitsUntil = null }: { subscribed: boolean; forfeitsUntil?: string | null }) {
   const { t } = useTranslation("account");
+  const locale = useLocale();
   const errorCopy = useErrorCopy();
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
@@ -99,6 +103,7 @@ export default function DeleteAccount({ subscribed }: { subscribed: boolean }) {
         onOpenChange={setOpen}
         title={t("overview.delete.confirmTitle")}
         body={t(subscribed ? "overview.delete.confirmBodySubscribed" : "overview.delete.confirmBody")}
+        note={forfeitsUntil ? t("overview.delete.forfeit", { date: formatLongDate(forfeitsUntil, locale) }) : undefined}
         confirmLabel={t("overview.delete.confirm")}
         cancelLabel={t("overview.delete.cancel")}
         pendingLabel={t("overview.delete.deleting")}

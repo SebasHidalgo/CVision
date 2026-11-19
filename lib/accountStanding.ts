@@ -20,7 +20,8 @@ export type AccountStanding =
   | { kind: "paused" }
   | { kind: "comp" }
   | { kind: "active"; renewsAt: Date }
-  | { kind: "past-due"; periodEnd: Date }
+  // No date: the provider's retry window is days, and the mirror's period is the unpaid one being retried.
+  | { kind: "past-due" }
   | { kind: "cancels"; endsAt: Date };
 
 export type StandingKind = AccountStanding["kind"];
@@ -50,9 +51,8 @@ export function accountStanding({ plan, source, subscription, resetsAt }: Standi
   if (plan === "PRO") {
     if (source === "comp" || !subscription) return { kind: "comp" };
     if (subscription.cancelAtPeriodEnd && subscription.scheduledChangeAt) return { kind: "cancels", endsAt: subscription.scheduledChangeAt };
-    const periodEnd = subscription.currentPeriodEnd ?? resetsAt;
-    if (subscription.status === "PAST_DUE") return { kind: "past-due", periodEnd };
-    return { kind: "active", renewsAt: periodEnd };
+    if (subscription.status === "PAST_DUE") return { kind: "past-due" };
+    return { kind: "active", renewsAt: subscription.currentPeriodEnd ?? resetsAt };
   }
   if (!subscription) return { kind: "free" };
   // A Free account's subscription grants nothing: paused, or over (canceled, or its scheduled end has passed).

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { UsageSummary } from "@/lib/database/usage";
 import { decideEntitlement } from "@/lib/interviewEntitlement";
 import { PLANS, type PlanId } from "@/lib/plans";
-import { accountView } from "./accountView";
+import { accountView, forfeitedPeriodEnd } from "./accountView";
 
 const PERIOD_END = new Date("2026-12-01T00:00:00.000Z");
 
@@ -94,5 +94,14 @@ describe("accountView", () => {
     );
     expect(view.standing).toEqual({ kind: "cancels", endsAt });
     expect(view.period).toEqual({ kind: "pro-ends", date: endsAt });
+  });
+});
+
+describe("forfeitedPeriodEnd", () => {
+  it("names the paid time a deletion throws away: renewing and canceling at period end, never past due, a comp or no Pro", () => {
+    const date = new Date("2026-12-14T00:00:00.000Z");
+    expect(forfeitedPeriodEnd({ kind: "active", renewsAt: date })).toBe(date);
+    expect(forfeitedPeriodEnd({ kind: "cancels", endsAt: date })).toBe(date);
+    for (const kind of ["past-due", "comp", "paused", "canceled", "free"] as const) expect(forfeitedPeriodEnd({ kind }), kind).toBeNull();
   });
 });

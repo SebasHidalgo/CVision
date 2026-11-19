@@ -11,9 +11,9 @@ import { LEGAL_VALUES } from "./utils/values";
  * this test until the date and the fingerprint are updated together.
  */
 const RECORDED: Record<LegalPage, { updated: string; fingerprint: string }> = {
-  terms: { updated: "2026-11-18", fingerprint: "ad7ea37c8ecb7335" },
-  privacy: { updated: "2026-11-18", fingerprint: "59fc9978e297749d" },
-  refunds: { updated: "2026-11-11", fingerprint: "a5488795fe494671" },
+  terms: { updated: "2026-11-19", fingerprint: "4b90366337e855ce" },
+  privacy: { updated: "2026-11-19", fingerprint: "2fb1a3f7014def4d" },
+  refunds: { updated: "2026-11-19", fingerprint: "9d0ebc266a1e2559" },
 };
 
 /** The values a page prints: those its strings name. */

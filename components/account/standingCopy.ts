@@ -26,7 +26,8 @@ export function standingCopy(standing: AccountStanding, t: TFunction<"account">,
     case "active":
       return { shape, label: t("standing.active"), line: t("planLine.renews", { date: formatLongDate(standing.renewsAt, locale) }) };
     case "past-due":
-      return { shape, label: t("standing.pastDue"), line: t("planLine.pastDue", { date: formatLongDate(standing.periodEnd, locale) }) };
+      // No date: Paddle's retries last days, not to the period's end.
+      return { shape, label: t("standing.pastDue"), line: t("planLine.pastDue") };
     case "cancels": {
       const date = formatLongDate(standing.endsAt, locale);
       return { shape, label: t("standing.cancels", { date }), line: t("planLine.cancels", { date }) };

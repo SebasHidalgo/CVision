@@ -27,10 +27,8 @@ describe("accountStanding", () => {
     expect(accountStanding({ plan: "PRO", source: "comp", subscription: null, resetsAt: RESETS })).toEqual({ kind: "comp" });
     expect(accountStanding({ plan: "PRO", source: "subscription", subscription: subscription(), resetsAt: RESETS })).toEqual({ kind: "active", renewsAt: PERIOD_END });
     expect(accountStanding({ plan: "PRO", source: "subscription", subscription: subscription({ status: "TRIALING" }), resetsAt: RESETS })).toEqual({ kind: "active", renewsAt: PERIOD_END });
-    expect(accountStanding({ plan: "PRO", source: "subscription", subscription: subscription({ status: "PAST_DUE" }), resetsAt: RESETS })).toEqual({
-      kind: "past-due",
-      periodEnd: PERIOD_END,
-    });
+    // Past due carries no date: Paddle's retries end within days, not at the period's end.
+    expect(accountStanding({ plan: "PRO", source: "subscription", subscription: subscription({ status: "PAST_DUE" }), resetsAt: RESETS })).toEqual({ kind: "past-due" });
     expect(
       accountStanding({ plan: "PRO", source: "subscription", subscription: subscription({ cancelAtPeriodEnd: true, scheduledChangeAt: PERIOD_END }), resetsAt: RESETS }),
     ).toEqual({ kind: "cancels", endsAt: PERIOD_END });
@@ -63,7 +61,7 @@ describe("accountStanding", () => {
     expect(offersProCheckout({ kind: "free" }, "PAST_DUE")).toBe(false);
     for (const kind of ["paused", "comp"] as const) expect(offersProCheckout({ kind }, null)).toBe(false);
     expect(offersProCheckout({ kind: "active", renewsAt: RESETS }, null)).toBe(false);
-    expect(offersProCheckout({ kind: "past-due", periodEnd: RESETS }, null)).toBe(false);
+    expect(offersProCheckout({ kind: "past-due" }, null)).toBe(false);
     expect(offersProCheckout({ kind: "cancels", endsAt: RESETS }, null)).toBe(false);
     expect(STANDING_SHAPE).toEqual({ active: "filled", comp: "filled", "past-due": "half", cancels: "half", paused: "empty", canceled: "empty", free: "empty" });
   });
