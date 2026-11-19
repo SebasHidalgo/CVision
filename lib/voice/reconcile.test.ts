@@ -5,10 +5,10 @@ import {
   markSessionLost,
   storeConversationTranscript,
 } from "@/lib/database/interviewTranscript";
-import { MAX_CALL_SECONDS } from "@/lib/interviewLimits";
+import { INTERVIEW_GRACE_SECONDS, MAX_CALL_SECONDS, MAX_INTERVIEW_DURATION_SECONDS } from "@/lib/interviewLimits";
 import { toCallRecord } from "@/lib/voice/elevenlabs/wire";
 import { fetchConversation } from "@/lib/voice";
-import { RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/voice/postCall";
+import { CALL_OVERRUN_TOLERANCE_SECONDS, isStranded, RECONCILE_GRACE_SECONDS, RECONCILE_MIN_INTERVAL_MS, SESSION_LOST } from "@/lib/voice/postCall";
 import { previousCallUnrecorded, reconcileChangedRow, reconcileNeedsFeedback, reconcileStrandedInterview, settlePreviousCall, SETTLE_PATIENCE_MS, SETTLE_RETRY_MS, UNREPORTED_CALL_MIN_AGE_MS, type PreviousCallFacts } from "./reconcile";
 
 vi.mock("@/lib/database/interviewTranscript", () => ({
@@ -32,6 +32,7 @@ const row = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForRecon
   transcriptSource: null,
   startedAt: new Date(NOW.getTime() - WINDOW_MS - 1_000),
   lastSessionAt: null,
+  callAllowedSeconds: null,
   segments: null,
   endedAt: null,
   startCount: 1,
@@ -214,6 +215,80 @@ describe("reconcileStrandedInterview", () => {
 
     vi.mocked(storeConversationTranscript).mockResolvedValue({ outcome: "duplicate", interviewId: INTERVIEW_ID });
     expect(reconcileNeedsFeedback(await reconcileStrandedInterview(INTERVIEW_ID, NOW))).toBe(false);
+  });
+});
+
+describe("a late reconnect: the latest call is measured on its own clock", () => {
+  // The first call began 16 minutes ago and dropped at 6:00 after the candidate spoke; the reconnect was issued
+  // 2 minutes ago with the 6 minutes left. The first session is far past the full call's limit; the live call is not.
+  const T0 = new Date(NOW.getTime() - 16 * 60_000);
+  const reconnectAt = new Date(NOW.getTime() - 2 * 60_000);
+  const left = MAX_INTERVIEW_DURATION_SECONDS - 6 * 60;
+  const reconnected = (overrides: Partial<Awaited<ReturnType<typeof fetchInterviewForReconcile>>> = {}) =>
+    row({
+      startedAt: T0,
+      lastSessionAt: reconnectAt,
+      callAllowedSeconds: left,
+      conversationId: "conv_2",
+      startCount: 2,
+      segments: [{ conversationId: "conv_1", durationSeconds: 360, turns: [] }] as never,
+      ...overrides,
+    });
+  const facts = (overrides: Record<string, unknown> = {}) => ({
+    status: "IN_PROGRESS" as const,
+    conversationId: "conv_2",
+    hasTranscript: false,
+    startedAt: T0,
+    lastSessionAt: reconnectAt,
+    callAllowedSeconds: left,
+    endedAt: null,
+    ...overrides,
+  });
+  // When the reconnect's own limit (its allowance, the grace and the room's margin) plus the reconcile grace is up.
+  const strandedAt = reconnectAt.getTime() + (left + CALL_OVERRUN_TOLERANCE_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
+
+  it("reproduces the defect: measured from the first session, a reconnect two minutes into its call reads as over", () => {
+    // What the feedback page and the list passed before: the first session's time, the full call's limit.
+    expect(isStranded(facts({ lastSessionAt: undefined, callAllowedSeconds: undefined }), NOW, MAX_CALL_SECONDS)).toBe(true);
+  });
+
+  it("is live while the reconnect runs, and over once its own limit and the grace have passed", () => {
+    expect(isStranded(facts(), NOW, MAX_CALL_SECONDS)).toBe(false);
+    expect(isStranded(facts(), new Date(strandedAt), MAX_CALL_SECONDS)).toBe(false);
+    expect(isStranded(facts(), new Date(strandedAt + 1), MAX_CALL_SECONDS)).toBe(true);
+    // Much sooner than the full call's 13.5 minutes from the reconnect: a call with 6 minutes left cannot run that long.
+    expect(strandedAt).toBeLessThan(reconnectAt.getTime() + (MAX_CALL_SECONDS + RECONCILE_GRACE_SECONDS) * 1000);
+  });
+
+  it("never waits past the agent's hard limit, and falls back to it on a row without an allowance", () => {
+    const first = facts({ startedAt: reconnectAt, callAllowedSeconds: MAX_INTERVIEW_DURATION_SECONDS });
+    const hardLimit = reconnectAt.getTime() + (MAX_CALL_SECONDS + RECONCILE_GRACE_SECONDS) * 1000;
+    // A first full call: its allowance and tolerance (825 s) would pass the platform's cut (810 s), which wins.
+    expect(MAX_INTERVIEW_DURATION_SECONDS + CALL_OVERRUN_TOLERANCE_SECONDS).toBeGreaterThan(MAX_CALL_SECONDS);
+    expect(isStranded(first, new Date(hardLimit), MAX_CALL_SECONDS)).toBe(false);
+    expect(isStranded(first, new Date(hardLimit + 1), MAX_CALL_SECONDS)).toBe(true);
+    expect(isStranded(facts({ callAllowedSeconds: null }), new Date(hardLimit), MAX_CALL_SECONDS)).toBe(false);
+    expect(isStranded(facts({ callAllowedSeconds: null }), new Date(hardLimit + 1), MAX_CALL_SECONDS)).toBe(true);
+  });
+
+  it("a five-minute trial is stranded after its own length, not the full call's", () => {
+    const trial = facts({ startedAt: reconnectAt, callAllowedSeconds: 300 });
+    const at = reconnectAt.getTime() + (300 + INTERVIEW_GRACE_SECONDS + 15 + RECONCILE_GRACE_SECONDS) * 1000;
+    expect(isStranded(trial, new Date(at), MAX_CALL_SECONDS)).toBe(false);
+    expect(isStranded(trial, new Date(at + 1), MAX_CALL_SECONDS)).toBe(true);
+  });
+
+  it("the room's end report still decides when it came, whatever the clocks say", () => {
+    expect(isStranded(facts({ endedAt: new Date(NOW.getTime() - RECONCILE_GRACE_SECONDS * 1000) }), NOW, MAX_CALL_SECONDS)).toBe(true);
+  });
+
+  it("the reconcile asks the platform nothing while the reconnect is live, and asks once it must be over", async () => {
+    vi.mocked(fetchInterviewForReconcile).mockResolvedValue(reconnected());
+    expect(await reconcileStrandedInterview(INTERVIEW_ID, NOW)).toEqual({ kind: "not-stranded" });
+    expect(fetchConversation).not.toHaveBeenCalled();
+
+    expect((await reconcileStrandedInterview(INTERVIEW_ID, new Date(strandedAt + 1))).kind).toBe("stored");
+    expect(fetchConversation).toHaveBeenCalledWith("conv_2");
   });
 });
 

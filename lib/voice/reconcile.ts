@@ -67,8 +67,10 @@ export async function reconcileStrandedInterview(
       status: row.status,
       conversationId: row.conversationId,
       hasTranscript: row.transcriptSource !== null,
-      // The latest call's own start: a resumed interview began long before it.
-      startedAt: row.lastSessionAt ?? row.startedAt,
+      // The latest call's own clock and allowance: a resumed interview began long before it, with more time.
+      startedAt: row.startedAt,
+      lastSessionAt: row.lastSessionAt,
+      callAllowedSeconds: row.callAllowedSeconds,
       endedAt: row.endedAt,
     },
     now,

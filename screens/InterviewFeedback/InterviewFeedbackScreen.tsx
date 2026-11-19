@@ -55,6 +55,9 @@ export default async function InterviewFeedbackScreen({
     conversationId: row.conversationId,
     hasTranscript: row.transcriptSource !== null,
     startedAt: row.startedAt,
+    // A reconnect is measured on its own clock and allowance, not from the first call.
+    lastSessionAt: row.lastSessionAt,
+    callAllowedSeconds: row.callAllowedSeconds,
     endedAt: row.endedAt,
   });
 

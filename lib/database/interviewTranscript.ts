@@ -208,6 +208,7 @@ export async function fetchInterviewForReconcile(interviewId: string) {
         transcriptSource: true,
         startedAt: true,
         lastSessionAt: true,
+        callAllowedSeconds: true,
         endedAt: true,
         startCount: true,
         usageEventId: true,

@@ -109,19 +109,38 @@ export type StrandedCandidate = {
   status: InterviewStatus;
   conversationId: string | null;
   hasTranscript: boolean;
+  /** The first session's time, kept across reconnects. */
   startedAt: Date | null;
+  /** The latest session's issue: a reconnect's own clock. Absent on a caller that does not read it, null on old rows. */
+  lastSessionAt?: Date | null;
+  /** Seconds the latest call was allowed (a reconnect gets what was left). Absent or null: the agent's hard limit. */
+  callAllowedSeconds?: number | null;
   /** The room's report of the end of the call, when it made one. */
   endedAt: Date | null;
 };
 
 /**
+ * Where the latest call's clock starts and the most it can run. A reconnect is issued long after the first call
+ * began and is allowed only what was left: it is measured from its own session, for its allowance plus the room's
+ * tolerance (the grace and the room's hang-up margin), never past the agent's hard limit (`maxDurationSeconds`).
+ * A row without those facts falls back to the first session and the hard limit.
+ */
+export function latestCallLimit(
+  row: Pick<StrandedCandidate, "startedAt" | "lastSessionAt" | "callAllowedSeconds">,
+  maxDurationSeconds: number,
+): { from: Date | null; seconds: number } {
+  const allowed = typeof row.callAllowedSeconds === "number" ? row.callAllowedSeconds + CALL_OVERRUN_TOLERANCE_SECONDS : maxDurationSeconds;
+  return { from: row.lastSessionAt ?? row.startedAt, seconds: Math.min(allowed, maxDurationSeconds) };
+}
+
+/**
  * An interview whose latest call must be over and whose transcript never
  * arrived. When the room reported the end of the call, the window is the
  * grace from that moment. When it did not (the tab was closed mid-call), it
- * is the agent's hard limit plus the grace, counted from the session issue,
- * the latest the call could have ended. A grace of zero is the fast path
- * for a call that ended seconds after it started: stranded as soon as the
- * room has reported the end.
+ * is the latest call's limit plus the grace, counted from that call's session
+ * issue (`latestCallLimit`), the latest the call could have ended. A grace
+ * of zero is the fast path for a call that ended seconds after it started:
+ * stranded as soon as the room has reported the end.
  */
 export function isStranded(
   row: StrandedCandidate,
@@ -133,7 +152,8 @@ export function isStranded(
   if (!row.conversationId || row.hasTranscript || !row.startedAt) return false;
   const graceMs = graceSeconds * 1000;
   if (row.endedAt) return now.getTime() - row.endedAt.getTime() >= graceMs;
-  return now.getTime() - row.startedAt.getTime() > maxDurationSeconds * 1000 + graceMs;
+  const { from, seconds } = latestCallLimit(row, maxDurationSeconds);
+  return from !== null && now.getTime() - from.getTime() > seconds * 1000 + graceMs;
 }
 
 /** A call may run this far past its paid time before it is reported: the grace, plus a margin. */
