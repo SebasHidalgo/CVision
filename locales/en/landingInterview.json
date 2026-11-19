@@ -34,116 +34,6 @@
     "afterSub": "Your feedback",
     "note": "A replica of the app's screens, playing the example conversation. The app keeps the transcript with its times; it doesn't record the audio of your call."
   },
-  "app": {
-    "interview": {
-      "room": {
-        "eyebrow": "Interview room · Attempt {{attempt}}",
-        "status": {
-          "ready": "Ready when you are",
-          "speaking": "Interviewer speaking",
-          "yourTurn": "Your turn",
-          "ended": "Interview ended"
-        },
-        "startButton": {
-          "start": "Start the interview"
-        },
-        "clock": {
-          "timeLeft": "Time left",
-          "length": "Interview length"
-        },
-        "interviewer": "Interviewer",
-        "you": "You",
-        "candidate": "Candidate",
-        "length": "Length",
-        "upTo_one": "Up to {{count}} minute",
-        "upTo_other": "Up to {{count}} minutes",
-        "source": {
-          "period_one": "{{count}} of {{limit}} interviews left this period. This one uses one of them.",
-          "period_other": "{{count}} of {{limit}} interviews left this period. This one uses one of them."
-        },
-        "hint": {
-          "idle": "The questions come from the posting and your analysis.",
-          "live": "Speak naturally. End the interview whenever you are done.",
-          "ended": "Opening your feedback."
-        },
-        "end": "End the interview",
-        "openingFeedback": "Opening your feedback",
-        "transcript": {
-          "label": "Live transcript",
-          "title": "Transcript",
-          "listening": "Listening",
-          "empty": "Empty",
-          "lines_one": "{{count}} line",
-          "lines_other": "{{count}} lines",
-          "emptyLive": "Every finished sentence lands here as it is said.",
-          "emptyIdle": "Once the call starts, the conversation is written down here as it happens."
-        },
-        "language": {
-          "label": "Interview language",
-          "en": "English",
-          "es": "Spanish",
-          "note": "Proposed from the posting. The interviewer speaks and listens in the language you choose here."
-        }
-      }
-    },
-    "feedback": {
-      "header": {
-        "eyebrow": "Interview feedback · {{date}}",
-        "kicker": "Mock interview"
-      },
-      "actions": {
-        "allInterviews": "All interviews"
-      },
-      "report": {
-        "overall": "Overall performance",
-        "gaps": {
-          "eyebrow": "Your weak spots, in the room",
-          "title": "The analysis flagged these. Here is how each one went."
-        },
-        "outcome": {
-          "addressed": "Addressed",
-          "partially": "Partly addressed"
-        },
-        "answers": {
-          "eyebrow": "Answers that stood out",
-          "title": "In your own words.",
-          "worked": "Worked",
-          "didntLand": "Didn't land"
-        },
-        "readings": {
-          "eyebrow": "Five readings",
-          "title": "Where the interview held up, and where it didn't."
-        },
-        "strengths": "What worked",
-        "improve": "Work on this",
-        "finalAssessment": "Final assessment"
-      },
-      "categories": {
-        "communicationSkills": "Communication Skills",
-        "technicalKnowledge": "Technical Knowledge",
-        "problemSolving": "Problem Solving",
-        "culturalFit": "Cultural Fit",
-        "confidenceAndClarity": "Confidence and Clarity"
-      },
-      "stats": {
-        "answers_one": "{{count}} answer",
-        "answers_other": "{{count}} answers",
-        "wordsEach_one": "{{count}} word each",
-        "wordsEach_other": "{{count}} words each",
-        "onFloor_one": "about {{count}} min on the floor",
-        "onFloor_other": "about {{count}} min on the floor"
-      },
-      "transcript": {
-        "title": "Transcript",
-        "lines_one": "{{count}} line",
-        "lines_other": "{{count}} lines",
-        "show": "show",
-        "hide": "hide",
-        "you": "You",
-        "interviewer": "Interviewer"
-      }
-    }
-  },
   "example": {
     "gaps": {
       "r3": "You named the database and what you do with it. Add it to your CV: it's what R3 is missing.",
@@ -152,6 +42,13 @@
     "answers": {
       "a1": "You answered with what you did in the database, not with a list of tools.",
       "a2": "You said what happened and how you fixed it, but not what you changed so it doesn't happen again."
+    },
+    "categories": {
+      "communicationSkills": "You answered in short, direct sentences and named what you did, not the tools around it.",
+      "technicalKnowledge": "PostgreSQL came with real work behind it: the payments tables and their migrations. AWS stayed at what you haven't done.",
+      "problemSolving": "On the tip bug you rolled back, refunded and told the team, in that order. Say what you changed afterwards.",
+      "culturalFit": "You said what draws you to the role, a product to grow with, and owned the production bug without blaming anyone.",
+      "confidenceAndClarity": "Direct about the gaps, with no filler. Some answers end on the task instead of the result."
     },
     "worked": {
       "w1": "Asked about the database, you answered with what you did, not with a list of tools.",

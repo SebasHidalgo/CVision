@@ -22,6 +22,10 @@ const LANDING_NS = [
   "landingInterview",
   "landingPricing",
   "landingFaq",
+  // The interview section renders the app's feedback report, with the app's own labels.
+  "feedback",
+  // ...and the app's interview room (components/interview/room), with its own labels.
+  "interview",
 ] as const satisfies readonly Namespace[];
 
 /** The landing: sections only, in page order. */

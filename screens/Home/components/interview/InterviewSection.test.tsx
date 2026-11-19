@@ -2,13 +2,11 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ROOM_PARTS } from "@/components/interview/room/RoomView";
 import { createI18n } from "@/lib/i18n/instance";
 import { RESOURCES } from "@/lib/i18n/resources";
 import { InterviewSection } from "./InterviewSection";
 import { timelineFor } from "./talk";
-
-// Vite's CSS pipeline can't read the project's PostCSS config under vitest: class names stand in for the module.
-vi.mock("./Room.module.css", () => ({ default: new Proxy({}, { get: (_, key) => String(key) }) }));
 
 /** A stand-in for HTMLAudioElement: records what was asked of it, plays nothing, requests nothing. */
 class FakeAudio {
@@ -68,6 +66,8 @@ afterEach(() => {
 });
 
 const soundButton = () => screen.getByRole("button", { name: "Sound" });
+/** The room's parts in document order, as the shared view tags them. */
+const roomParts = (root: ParentNode) => [...root.querySelectorAll("[data-room-part]")].map((el) => el.getAttribute("data-room-part"));
 
 describe("InterviewSection", () => {
   it("requests no audio until the sound is turned on, then the reader's language's files", () => {
@@ -126,6 +126,34 @@ describe("InterviewSection", () => {
     act(() => void vi.advanceTimersByTime(1500));
     expect(screen.getByRole("tab", { name: /After/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Communication Skills")).toBeTruthy();
+  });
+
+  it("is the app's room: the shared view's parts, in its order, before and during the call", () => {
+    const { container } = render(<InterviewSection />);
+    const room = container.querySelector('[data-room-part="frame"]')!;
+    expect(room.getAttribute("data-variant")).toBe("replica");
+    expect(roomParts(container)).toEqual(ROOM_PARTS.filter((part) => part !== "panel"));
+    fireEvent.click(screen.getByRole("button", { name: "Start the interview" }));
+    act(() => void vi.advanceTimersByTime(1000));
+    expect(roomParts(container)).toEqual(ROOM_PARTS.filter((part) => part !== "panel" && part !== "facts"));
+    // The interviewer opens: its turn by the app's rule, in its words and on its meter.
+    const status = container.querySelector('[data-room-part="status"]')!;
+    expect(status.getAttribute("data-turn")).toBe("interviewer");
+    expect(container.querySelector('[data-meter="interviewer"]')!.getAttribute("data-floor")).toBe("has");
+  });
+
+  it("says whose turn it is the way the app does: the interviewer's through its question, then the candidate's", () => {
+    render(<InterviewSection />);
+    fireEvent.click(screen.getByRole("button", { name: "Start the interview" }));
+    const [first, second] = timelineFor("en").lines;
+    // Before the first word: the interviewer holds the turn.
+    act(() => void vi.advanceTimersByTime(first.start * 500));
+    expect(screen.getByText("Interviewer's turn")).toBeTruthy();
+    // Just after the question ends, before the answer: still the interviewer's.
+    act(() => void vi.advanceTimersByTime((first.start + first.seconds + 0.1 - first.start / 2) * 1000));
+    expect(screen.getByText("Interviewer speaking")).toBeTruthy();
+    act(() => void vi.advanceTimersByTime((second.start - (first.start + first.seconds) + 0.3) * 1000));
+    expect(screen.getByText("Your turn")).toBeTruthy();
   });
 
   it("switches screens from the keyboard", () => {

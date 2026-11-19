@@ -138,7 +138,7 @@ export function Screens({ talk, script, reduce, locale }: { talk: TalkState; scr
           <span className="ml-auto grid size-7 place-items-center rounded-full border border-ed-line-2 bg-ed-raise text-[11px] text-ed-ink lg:ml-0">{initials}</span>
         </div>
         <div ref={roomPanel} id={`${id}-panel-during`} role="tabpanel" aria-labelledby={`${id}-tab-during`} hidden={view !== "during"} className={PANEL_H}>
-          <Room talk={talk} script={script} reduce={reduce} role={example.role} company={example.company} candidate={example.candidate} locale={locale} />
+          <Room talk={talk} script={script} role={example.role} company={example.company} candidate={example.candidate} locale={locale} />
         </div>
         <div
           ref={reportPanel}

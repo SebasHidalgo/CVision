@@ -34,123 +34,6 @@
     "afterSub": "Tu feedback",
     "note": "Réplica de las pantallas de la app con la conversación de ejemplo. La app guarda la transcripción con sus tiempos; no graba el audio de tu llamada."
   },
-  "app": {
-    "interview": {
-      "room": {
-        "eyebrow": "Sala de entrevista · Intento {{attempt}}",
-        "status": {
-          "ready": "Cuando quieras",
-          "speaking": "Habla el entrevistador",
-          "yourTurn": "Tu turno",
-          "ended": "Entrevista terminada"
-        },
-        "startButton": {
-          "start": "Empezar la entrevista"
-        },
-        "clock": {
-          "timeLeft": "Tiempo restante",
-          "length": "Duración de la entrevista"
-        },
-        "interviewer": "Entrevistador",
-        "you": "Tú",
-        "candidate": "Postulante",
-        "length": "Duración",
-        "upTo_one": "Hasta {{count}} minuto",
-        "upTo_many": "Hasta {{count}} minutos",
-        "upTo_other": "Hasta {{count}} minutos",
-        "source": {
-          "period_one": "Te queda {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
-          "period_many": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una.",
-          "period_other": "Te quedan {{count}} de {{limit}} entrevistas de este período. Esta usa una."
-        },
-        "hint": {
-          "idle": "Las preguntas salen de la oferta y de tu análisis.",
-          "live": "Habla con naturalidad. Termina la entrevista cuando quieras.",
-          "ended": "Abriendo tu feedback."
-        },
-        "end": "Terminar la entrevista",
-        "openingFeedback": "Abriendo tu feedback",
-        "transcript": {
-          "label": "Transcripción en vivo",
-          "title": "Transcripción",
-          "listening": "Escuchando",
-          "empty": "Vacía",
-          "lines_one": "{{count}} línea",
-          "lines_many": "{{count}} líneas",
-          "lines_other": "{{count}} líneas",
-          "emptyLive": "Cada frase terminada aparece aquí en cuanto se dice.",
-          "emptyIdle": "Cuando empiece la llamada, la conversación se va escribiendo aquí a medida que ocurre."
-        },
-        "language": {
-          "label": "Idioma de la entrevista",
-          "en": "Inglés",
-          "es": "Español",
-          "note": "Propuesto según la oferta. El entrevistador habla y escucha en el idioma que elijas aquí."
-        }
-      }
-    },
-    "feedback": {
-      "header": {
-        "eyebrow": "Feedback de la entrevista · {{date}}",
-        "kicker": "Entrevista de práctica"
-      },
-      "actions": {
-        "allInterviews": "Todas las entrevistas"
-      },
-      "report": {
-        "overall": "Desempeño general",
-        "gaps": {
-          "eyebrow": "Tus puntos débiles, en la entrevista",
-          "title": "El análisis señaló estas brechas. Así te fue con cada una."
-        },
-        "outcome": {
-          "addressed": "Abordada",
-          "partially": "Abordada en parte"
-        },
-        "answers": {
-          "eyebrow": "Respuestas que destacaron",
-          "title": "En tus propias palabras.",
-          "worked": "Funcionó",
-          "didntLand": "No convenció"
-        },
-        "readings": {
-          "eyebrow": "Cinco lecturas",
-          "title": "Dónde se sostuvo la entrevista y dónde no."
-        },
-        "strengths": "Lo que funcionó",
-        "improve": "Trabaja en esto",
-        "finalAssessment": "Valoración final"
-      },
-      "categories": {
-        "communicationSkills": "Habilidades de comunicación",
-        "technicalKnowledge": "Conocimientos técnicos",
-        "problemSolving": "Resolución de problemas",
-        "culturalFit": "Afinidad cultural",
-        "confidenceAndClarity": "Seguridad y claridad"
-      },
-      "stats": {
-        "answers_one": "{{count}} respuesta",
-        "answers_many": "{{count}} respuestas",
-        "answers_other": "{{count}} respuestas",
-        "wordsEach_one": "{{count}} palabra por respuesta",
-        "wordsEach_many": "{{count}} palabras por respuesta",
-        "wordsEach_other": "{{count}} palabras por respuesta",
-        "onFloor_one": "alrededor de {{count}} min con la palabra",
-        "onFloor_many": "unos {{count}} min con la palabra",
-        "onFloor_other": "unos {{count}} min con la palabra"
-      },
-      "transcript": {
-        "title": "Transcripción",
-        "lines_one": "{{count}} línea",
-        "lines_many": "{{count}} líneas",
-        "lines_other": "{{count}} líneas",
-        "show": "mostrar",
-        "hide": "ocultar",
-        "you": "Tú",
-        "interviewer": "Entrevistador"
-      }
-    }
-  },
   "example": {
     "gaps": {
       "r3": "Nombraste la base de datos y lo que haces con ella. Súmalo a tu CV: es lo que le falta a R3.",
@@ -159,6 +42,13 @@
     "answers": {
       "a1": "Respondiste con lo que hiciste en la base de datos, no con una lista de herramientas.",
       "a2": "Contaste qué pasó y cómo lo arreglaste, pero no qué cambiaste para que no se repita."
+    },
+    "categories": {
+      "communicationSkills": "Respondiste con frases cortas y directas, y nombraste lo que hiciste, no las herramientas alrededor.",
+      "technicalKnowledge": "PostgreSQL vino con trabajo real detrás: las tablas de pagos y sus migraciones. AWS quedó en lo que no hiciste.",
+      "problemSolving": "Con el error de las propinas revertiste, devolviste el dinero y avisaste al equipo, en ese orden. Di qué cambiaste después.",
+      "culturalFit": "Dijiste qué te atrae del puesto, un producto con el que crecer, y te hiciste cargo del error sin culpar a nadie.",
+      "confidenceAndClarity": "Directo sobre las brechas, sin relleno. Algunas respuestas terminan en la tarea en vez del resultado."
     },
     "worked": {
       "w1": "Cuando te preguntaron por la base de datos, respondiste con lo que hiciste, no con una lista de herramientas.",

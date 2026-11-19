@@ -1,3 +1,4 @@
+import { foldTurn, readTurn, type TimedTurnEvent, type Turn } from "@/components/interview/room/turn";
 import type { Locale } from "@/lib/i18n/config";
 import { INTERVIEW_TIERS } from "@/lib/plans";
 
@@ -31,8 +32,10 @@ export const TALK_LINES: readonly TalkLineData[] = [
   { id: "l8", who: "c", at: 109, seconds: { es: 6.73, en: 5.07 } },
 ];
 
-/** Silence between two lines of the excerpt, seconds. */
+/** Silence after an interviewer line before the answer, seconds. */
 export const TALK_GAP = 0.4;
+/** Silence after an answer: the interviewer takes a beat before its next line, as the app's room shows it. */
+export const REPLY_GAP = 1.1;
 const LEAD_IN = 0.3;
 const TAIL = 0.8;
 
@@ -52,7 +55,7 @@ function build(locale: Locale): Timeline {
   const lines: TimedLine[] = [];
   for (const l of TALK_LINES) {
     const prev = lines[lines.length - 1];
-    lines.push({ id: l.id, who: l.who, at: l.at, seconds: l.seconds[locale], start: prev ? prev.start + prev.seconds + TALK_GAP : LEAD_IN });
+    lines.push({ id: l.id, who: l.who, at: l.at, seconds: l.seconds[locale], start: prev ? prev.start + prev.seconds + (prev.who === "c" ? REPLY_GAP : TALK_GAP) : LEAD_IN });
   }
   const last = lines[lines.length - 1];
   return { lines, end: last.start + last.seconds + TAIL };
@@ -86,6 +89,33 @@ export function callTimeAt(timeline: Timeline, t: number): number {
   const l = timeline.lines[i];
   const next = timeline.lines[i + 1]?.at ?? l.at + l.seconds;
   return l.at + Math.min(t - l.start, next - l.at);
+}
+
+/**
+ * The excerpt's call as the app's room hears it (ms): the call opens, each interviewer line arrives with its voice,
+ * each answer is heard as it starts and arrives as a line once said. The room's turn rule reads these.
+ */
+export function turnEventsFor(timeline: Timeline): TimedTurnEvent[] {
+  const events: TimedTurnEvent[] = [{ at: 0, event: "connected" }];
+  for (const l of timeline.lines) {
+    const start = l.start * 1000;
+    const end = (l.start + l.seconds) * 1000;
+    if (l.who === "e") events.push({ at: start, event: "interviewer-line" }, { at: start, event: "voice-start" }, { at: end, event: "voice-stop" });
+    else events.push({ at: start, event: "candidate-voice" }, { at: end, event: "candidate-line" });
+  }
+  return events.sort((a, b) => a.at - b.at);
+}
+
+/** Who holds the turn at excerpt time t (seconds), by the app's rule. */
+export function turnAt(events: readonly TimedTurnEvent[], t: number): Turn {
+  const ms = t * 1000;
+  return readTurn(foldTurn(events, ms), ms).turn;
+}
+
+/** Whose voice is heard at excerpt time t, if anyone's. */
+export function voiceAt(timeline: Timeline, t: number): Who | null {
+  const line = timeline.lines.find((l) => t >= l.start && t < l.start + l.seconds);
+  return line ? line.who : null;
 }
 
 /** "4:05". */
