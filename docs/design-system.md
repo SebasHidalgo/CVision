@@ -165,6 +165,27 @@ The room, the feedback page and the landing's interview section are the same com
 The room preview (`/dev/room-preview?state=<name>`, dev tools only) renders every state through the real room;
 the names are in `screens/Interview/RoomPreviewScreen.tsx`.
 
+## The account pages (M11-E, `components/account/`)
+
+`/account` (the plan, this period's usage, the language, Clerk's sign-in settings, deleting the account) and
+`/account/billing` (the subscription and its portal, the packs, a checkout being confirmed) are two siblings under
+one tab row (`AccountTabs`), each a ledger of numbered sections on the grid (`AccountSection`: number and title in
+the left four columns, content over the right eight; `UsageRow`, `Figure`, `Cells`, `RowNote` for the figures).
+
+- **Standing**: one of seven states (`lib/accountStanding.ts`, pure: free, ended, paused, comp, active, past due,
+  ending) with a `Mark` by shape in ink: filled (Pro in force), half (Pro ending or at risk), empty (no Pro); dashed
+  for a trial the account cannot have. Never green: nothing here is a CV proof. `standingCopy` gives its label and
+  sentence, dates in full.
+- **Figures**: a small allowance (Free's analyses, Pro's interviews) is a row of cells, filled for what is left,
+  beside the figure in mono; Pro's analyses are named as "up to 50", never counted, until the cap is reached; Free
+  shows its trial instead of a period of interviews.
+- **The billing buttons** (`components/billing/`) are the system's pill (`buttonClass`, mapping the callers' old
+  `default`/`outline` and sizes) with the focus ring stated on the button (`buttonStyle.ts`); the portal's error is
+  `ed-danger-text`; Paddle's overlay opens in its dark theme. The language menu (`components/i18n/LocaleMenu.tsx`)
+  is a pill drawn as a form control (`ed-field` edge) with the header's menu surface.
+- **Deleting the account**: a ghost pill in `ed-danger-text`, the lists of what goes and what Paddle keeps on a
+  surface, and the system's `ConfirmDialog`.
+
 ## The verdict rule
 
 One copy, in `common:verdictRule` (`weak`, `fair`, `strong`, `notShown`, and `term` for the label before each
