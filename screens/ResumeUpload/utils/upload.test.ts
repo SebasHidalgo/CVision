@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { putResumeFile, runResumeUpload, type UploadStage } from "./upload";
+import { newSubmissionKey, putResumeFile, runResumeUpload, submissionKeyFor, type Submission, type UploadStage } from "./upload";
 
 const KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
 const UPLOAD_URL = `https://project.supabase.test/storage/v1/object/upload/sign/files-bucket/${KEY}?token=up_tok`;
 
 const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "cv.pdf", { type: "application/pdf" });
 const details = { companyName: "Northwind", jobTitle: "Frontend Engineer", jobDescription: "React." };
+const SUBMISSION = "9f0c4a52-6c1e-4e7a-9d3b-2a5f8e1c7b40";
 
 type Deps = Parameters<typeof runResumeUpload>[0];
 
@@ -13,6 +14,7 @@ function deps(overrides: Partial<Deps> = {}) {
   return {
     file,
     details,
+    submissionKey: SUBMISSION,
     createUpload: vi.fn(async () => ({ ok: true as const, data: { resumeKey: KEY, uploadUrl: UPLOAD_URL } })),
     putFile: vi.fn(async () => ({ status: 200, code: null })),
     analyze: vi.fn(async () => ({ ok: true as const, data: { resumeId: "resume_1" } })),
@@ -29,7 +31,7 @@ describe("runResumeUpload", () => {
 
     expect(result).toEqual({ ok: true, resumeId: "resume_1" });
     expect(d.putFile).toHaveBeenCalledWith(UPLOAD_URL, file);
-    expect(d.analyze).toHaveBeenCalledWith({ ...details, resumeKey: KEY });
+    expect(d.analyze).toHaveBeenCalledWith({ ...details, resumeKey: KEY, submissionKey: SUBMISSION });
     expect(stages).toEqual(["uploading", "analyzing"]);
   });
 
@@ -116,5 +118,43 @@ describe("putResumeFile", () => {
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>gateway</html>", { status: 502 })));
     expect(await putResumeFile(UPLOAD_URL, file)).toEqual({ status: 502, code: null });
+  });
+});
+
+describe("submissionKeyFor: one key per submission", () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const sent = (overrides: Partial<Submission> = {}): Submission => ({ key: SUBMISSION, details, file, ...overrides });
+  const mint = () => "fresh-key";
+
+  it("mints a key for a first submission", () => {
+    expect(submissionKeyFor(null, details, file, mint)).toBe("fresh-key");
+  });
+
+  it("reuses the last key when the same submission is sent again after a failure, the same file picked again included", () => {
+    expect(submissionKeyFor(sent(), { ...details }, file, mint)).toBe(SUBMISSION);
+    const repicked = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "cv.pdf", { type: "application/pdf", lastModified: file.lastModified });
+    expect(submissionKeyFor(sent(), details, repicked, mint)).toBe(SUBMISSION);
+  });
+
+  it("mints a new key when a field or the file changed", () => {
+    expect(submissionKeyFor(sent(), { ...details, companyName: "Contoso" }, file, mint)).toBe("fresh-key");
+    expect(submissionKeyFor(sent(), { ...details, jobTitle: "Backend Engineer" }, file, mint)).toBe("fresh-key");
+    expect(submissionKeyFor(sent(), { ...details, jobDescription: "Go." }, file, mint)).toBe("fresh-key");
+    const other = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31])], "cv.pdf", { type: "application/pdf", lastModified: file.lastModified });
+    expect(submissionKeyFor(sent(), details, other, mint)).toBe("fresh-key");
+    const renamed = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "cv-v2.pdf", { type: "application/pdf", lastModified: file.lastModified });
+    expect(submissionKeyFor(sent(), details, renamed, mint)).toBe("fresh-key");
+    const edited = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "cv.pdf", { type: "application/pdf", lastModified: file.lastModified + 1 });
+    expect(submissionKeyFor(sent(), details, edited, mint)).toBe("fresh-key");
+  });
+
+  it("mints UUIDs, also where crypto.randomUUID is missing (plain http on a LAN address)", () => {
+    expect(newSubmissionKey()).toMatch(UUID);
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: (bytes: Uint8Array) => real.getRandomValues(bytes) });
+    const fallback = newSubmissionKey();
+    vi.unstubAllGlobals();
+    expect(fallback).toMatch(UUID);
+    expect(fallback).not.toBe(newSubmissionKey());
   });
 });

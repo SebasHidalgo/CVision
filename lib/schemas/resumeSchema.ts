@@ -58,11 +58,13 @@ export type CreateResumeInput = z.infer<typeof createResumeInputSchema>;
 
 /**
  * What `analyzeResumeAction` receives once the file is in storage: the same
- * fields and the object's key. Shape only; whose key it is, the action
+ * fields, the object's key, and the key the form minted for this submission
+ * (the same on a retry of it). Shape only; whose key it is, the action
  * checks against the session.
  */
 export const analyzeResumeInputSchema = resumeDetailsSchema.extend({
   resumeKey: z.string().regex(RESUME_KEY_PATTERN, "Not a resume key"),
+  submissionKey: z.uuid(),
 });
 
 

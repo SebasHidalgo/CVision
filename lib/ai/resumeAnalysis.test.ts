@@ -14,7 +14,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
 vi.mock("@/lib/database/usage", () => ({
-  reserveUsage: vi.fn(async () => ({ eventId: "evt_1" })),
+  reserveAnalysis: vi.fn(async () => ({ kind: "reserved", eventId: "evt_1" })),
   refundUsage: vi.fn(async () => true),
 }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
@@ -28,6 +28,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/database/resume", () => ({
   createResume: vi.fn(async () => "resume_1"),
+  fetchResumeKey: vi.fn(async () => null),
 }));
 
 // The inputs the golden was recorded with. Changing one invalidates it.
@@ -69,6 +70,7 @@ function viaActionPath(resumeText: string) {
       jobTitle: JOB_TITLE,
       jobDescription: JOB_DESCRIPTION,
       resumeKey: "cv/user_1/11111111-2222-4333-8444-555555555555.pdf",
+      submissionKey: "9f0c4a52-6c1e-4e7a-9d3b-2a5f8e1c7b40",
     }),
   );
 }

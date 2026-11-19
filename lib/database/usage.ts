@@ -3,14 +3,13 @@ import "server-only";
 import { Prisma, type UsageKind } from "@prisma/client";
 import { cache } from "react";
 import prisma from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth";
+import { getOptionalUserIdOutsideProxy, requireUserId } from "@/lib/auth";
 import { quotaPeriodFor, type PlanStanding, type SubscriptionStanding } from "@/lib/billing/access";
 import { reconcileIfStale } from "@/lib/billing/reconcile";
 import type { CheckoutItem } from "@/lib/billing/types";
 import {
   AnalysisQuotaExceededError,
   InterviewQuotaExceededError,
-  type ErrorMeta,
 } from "@/lib/error/errors";
 import { handleError } from "@/lib/error/handleError";
 import {
@@ -40,8 +39,8 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
  * billing webhook (credits). Every read and write is scoped by the user id
  * it was given.
  *
- * The primitives, and nothing else touches the table: `reserveUsage`
- * (analyses: check and insert in one serializable transaction),
+ * The primitives, and nothing else touches the table: `reserveAnalysis`
+ * (check and insert in one serializable transaction),
  * `reserveInterview` (the unit the entitlement names, same discipline),
  * `refundUsage`, `revokeUnusedInterviewCredits`, and in credits.ts (no
  * `lib/auth` in its graph, for the reconcile script) the credit balance
@@ -60,37 +59,10 @@ const RESERVE_ATTEMPTS = 3;
 
 export type Reservation = { eventId: string };
 
-type Allowance = {
-  limit: number;
-  /** Null for a lifetime quota (the trial). */
-  period: QuotaPeriod | null;
-};
-
-/** The kinds a plain reservation can be made of; interviews go through `reserveInterview`, grants and revokes are the webhook's. */
-function allowanceFor(standing: PlanStanding, kind: UsageKind, now: Date): Allowance {
-  const limits = PLANS[standing.plan];
-  switch (kind) {
-    case "ANALYSIS":
-      return { limit: limits.analysesPerMonth, period: quotaPeriodFor(standing, now) };
-    case "INTERVIEW":
-      return { limit: limits.interviewsPerMonth, period: quotaPeriodFor(standing, now) };
-    case "INTERVIEW_TRIAL":
-      return { limit: limits.trialInterviews, period: null };
-    case "INTERVIEW_CREDIT":
-    case "INTERVIEW_CREDIT_GRANT":
-    case "INTERVIEW_CREDIT_REVOKE":
-      throw new Error(`${kind} is not reserved through reserveUsage`);
-  }
-}
-
-function refusal(plan: PlanId, kind: UsageKind, allowance: Allowance): never {
-  const meta: ErrorMeta = {
-    plan,
-    ...(allowance.period ? { resetsAt: allowance.period.end.toISOString() } : {}),
-  };
-  if (kind === "ANALYSIS") throw new AnalysisQuotaExceededError(meta);
-  throw new InterviewQuotaExceededError(meta);
-}
+export type AnalysisReservation =
+  | ({ kind: "reserved" } & Reservation)
+  /** An earlier request for the same submission holds a live unit and may still save the analysis: nothing was taken. */
+  | { kind: "in-flight" };
 
 /** The unique index "UsageEvent_one_live_trial" refused the insert; the (kind, refId) unique is a different collision. */
 export function isLiveTrialConflict(error: unknown): boolean {
@@ -114,39 +86,53 @@ async function serializable<T>(run: (tx: Prisma.TransactionClient) => Promise<T>
 }
 
 /**
- * Takes one unit of `kind` for the user, or throws the typed refusal with
- * the reset date. The count and the insert run under serializable isolation
- * and the loser of a race retries, so the last unit is taken once.
+ * Takes the unit of one analysis, or throws the typed refusal with the reset
+ * date. The count and the insert run under serializable isolation and the
+ * loser of a race retries, so the last unit is taken once.
+ *
+ * `refId` is the analysis id, which the action derives from the submission:
+ * a retry of the same submission names the same analysis. While an earlier
+ * request for it holds a live unit younger than `inFlightMs` (the longest a
+ * request can live), nothing is taken and the caller waits for that
+ * request's row instead of paying for a second one. A refunded earlier unit,
+ * or a live one older than that (a request killed before its catch ran, or
+ * an analysis deleted since), stays as it is and a new unit is taken under
+ * `<analysisId>#<n>`, n counting every earlier one: `(kind, refId)` is
+ * unique and refunds mark, never delete.
  */
-export async function reserveUsage(
+export async function reserveAnalysis(
   userId: string,
-  kind: UsageKind,
-  refId: string,
+  analysisId: string,
+  inFlightMs: number,
   now = new Date(),
-): Promise<Reservation> {
+): Promise<AnalysisReservation> {
   try {
     return await serializable(async (tx) => {
-      const standing = await resolvePlanStandingIn(tx, userId, now);
-      const allowance = allowanceFor(standing, kind, now);
-
-      const used = await tx.usageEvent.count({
-        where: {
-          userId,
-          kind,
-          refundedAt: null,
-          ...(allowance.period ? { createdAt: { gte: allowance.period.start, lt: allowance.period.end } } : {}),
-        },
+      const earlier = await tx.usageEvent.findMany({
+        where: { userId, kind: "ANALYSIS", refId: { startsWith: analysisId } },
+        select: { createdAt: true, refundedAt: true },
       });
-      if (used >= allowance.limit) refusal(standing.plan, kind, allowance);
+      const live = earlier.some((event) => event.refundedAt === null && now.getTime() - event.createdAt.getTime() < inFlightMs);
+      if (live) return { kind: "in-flight" as const };
 
+      const standing = await resolvePlanStandingIn(tx, userId, now);
+      const period = quotaPeriodFor(standing, now);
+      const used = await tx.usageEvent.count({
+        where: { userId, kind: "ANALYSIS", refundedAt: null, createdAt: { gte: period.start, lt: period.end } },
+      });
+      if (used >= PLANS[standing.plan].analysesPerMonth) {
+        throw new AnalysisQuotaExceededError({ plan: standing.plan, resetsAt: period.end.toISOString() });
+      }
+
+      const refId = earlier.length === 0 ? analysisId : `${analysisId}#${earlier.length + 1}`;
       const event = await tx.usageEvent.create({
-        data: { userId, kind, refId, createdAt: now },
+        data: { userId, kind: "ANALYSIS", refId, createdAt: now },
         select: { id: true },
       });
-      return { eventId: event.id };
+      return { kind: "reserved" as const, eventId: event.id };
     });
   } catch (error) {
-    handleError(error, "Failed to reserve usage");
+    handleError(error, "Failed to reserve an analysis");
   }
 }
 
@@ -400,6 +386,22 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
  * standing in one render read it once. Identity from the session.
  */
 export const currentUsageSummary: () => Promise<UsageSummary> = cache(async () => usageSummary(await requireUserId()));
+
+/**
+ * The signed-in caller's plan, for the shell's header (its account menu offers Pricing to everyone but Pro);
+ * null signed out, or when it cannot be read: a header never takes a page down. Without Clerk's middleware (a
+ * missing static file renders the not-found page) reading the session throws: no plan either.
+ */
+export const currentShellPlan: () => Promise<PlanId | null> = cache(async () => {
+  const userId = await getOptionalUserIdOutsideProxy();
+  if (!userId) return null;
+  try {
+    return (await resolvePlanStanding(userId)).plan;
+  } catch {
+    // resolvePlanStanding logged it.
+    return null;
+  }
+});
 
 /** What the caller's next interview start would get, once per request. */
 export const currentInterviewEntitlement: () => Promise<InterviewEntitlement> = cache(async () => resolveInterviewEntitlement(await requireUserId()));

@@ -1,8 +1,9 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "./support/fixtures";
 import { createAccount, deleteAccount, signIn, type TestAccount } from "./support/accounts";
-import { interviewCta, mainText, runAnalysis, switchLanguage } from "./support/app";
+import { fillAnalysisForm, interviewCta, mainText, runAnalysis, switchLanguage } from "./support/app";
 import { copyFor, literal, localeOf, type SpecLocale } from "./support/copy";
+import { db } from "./support/db";
 import { assertSandbox } from "./support/env";
 import { seedAnalysis } from "./support/seed";
 
@@ -81,4 +82,58 @@ test("an analysis switches in place: skeletons in its prose only while a transla
   expect(again.skeletons).toBe(0);
   expect(back.skeletons).toBe(0);
   await switchLanguage(page, locale);
+});
+
+test("a retry after the analysis's response was lost opens the analysis already saved, charged once", async ({ page }, testInfo) => {
+  // The rule is the server's and the same in both languages: one paid call, in the English project only.
+  test.skip(localeOf(testInfo) !== "en", "language-independent; one real analysis is enough");
+  test.setTimeout(300_000);
+  const t = copyFor("en");
+  // Its own account, so the ledger and the analyses can be counted exactly.
+  const own = await createAccount("smoke-retry");
+  try {
+    await signIn(page, own);
+    await fillAnalysisForm(page);
+
+    // The first analysis POST reaches the server and finishes there; its response never reaches the page. Every
+    // analysis POST's submission key is recorded.
+    const lost: { first?: { resumeId: string } } = {};
+    const sentKeys: string[] = [];
+    await page.route("**/resume/upload", async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      if (request.method() !== "POST" || !request.headers()["next-action"] || !body.includes('"submissionKey"')) return route.fallback();
+      sentKeys.push(/"submissionKey":"([0-9a-f-]{36})"/.exec(body)?.[1] ?? "");
+      if (lost.first) return route.fallback();
+      const response = await route.fetch({ timeout: 180_000 });
+      lost.first = { resumeId: /"resumeId":"([0-9a-f-]{36})"/.exec(await response.text())?.[1] ?? "" };
+      await route.abort("connectionreset");
+    });
+
+    await page.locator('button[type="submit"]').first().click();
+    const notice = page.locator("[data-failure-notice]");
+    await expect(notice).toBeVisible({ timeout: 180_000 });
+    await expect(notice).toContainText(t("errors:codes.REQUEST_FAILED"));
+    const first = lost.first;
+    if (!first) throw new Error("the analysis request was never intercepted");
+    expect(first.resumeId).toMatch(/^[0-9a-f-]{36}$/);
+    console.log(`[smoke] the first request saved ${first.resumeId}; its response was dropped`);
+
+    // The same submission again: a new upload, the same key, and the analysis already saved.
+    const started = Date.now();
+    await page.locator('button[type="submit"]').first().click();
+    await page.waitForURL(/\/resume\/analysis\/[^/?]+$/, { timeout: 60_000 });
+    console.log(`[smoke] retry → saved analysis in ${Date.now() - started} ms`);
+    expect(page.url().endsWith(`/resume/analysis/${first.resumeId}`)).toBe(true);
+    expect(sentKeys).toHaveLength(2);
+    expect(sentKeys[1]).toBe(sentKeys[0]);
+
+    // One analysis, one unit, nothing refunded: the retry reserved nothing and called no model.
+    const analyses = await db.resumeAnalysis.findMany({ where: { userId: own.id }, select: { id: true } });
+    expect(analyses.map((row) => row.id)).toEqual([first.resumeId]);
+    const units = await db.usageEvent.findMany({ where: { userId: own.id, kind: "ANALYSIS" }, select: { refId: true, refundedAt: true } });
+    expect(units).toEqual([{ refId: first.resumeId, refundedAt: null }]);
+  } finally {
+    await deleteAccount(own);
+  }
 });

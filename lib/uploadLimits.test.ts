@@ -53,7 +53,7 @@ describe("resume size limit: the form's schema", () => {
 describe("action body limit", () => {
   it("fits the largest analysis request with room to spare, since no action carries a file", () => {
     // Worst case: every text field at its cap in 3-byte UTF-8 characters,
-    // plus a key. React serializes the argument as JSON with a small frame.
+    // plus the two keys. React serializes the argument as JSON with a small frame.
     const wide = (length: number) => "€".repeat(length);
     const body = JSON.stringify([
       {
@@ -61,6 +61,7 @@ describe("action body limit", () => {
         jobTitle: wide(MAX_JOB_TITLE_CHARS),
         jobDescription: wide(MAX_JOB_DESCRIPTION_CHARS),
         resumeKey: "cv/user_33lmzGC7RVwHdO7fMab9Qd6Ing8/11111111-2222-4333-8444-555555555555.pdf",
+        submissionKey: "9f0c4a52-6c1e-4e7a-9d3b-2a5f8e1c7b40",
       },
     ]);
     const bytes = new TextEncoder().encode(body).byteLength;
@@ -71,14 +72,17 @@ describe("action body limit", () => {
     expect(MAX_ACTION_BODY_BYTES).toBeLessThanOrEqual(1024 * 1024);
   });
 
-  it("the action's schema takes a key, never a file", () => {
-    const parsed = analyzeResumeInputSchema.safeParse({
+  it("the action's schema takes a key, never a file, and the submission's key", () => {
+    const valid = {
       companyName: "Northwind",
       jobTitle: "Frontend Engineer",
       jobDescription: "Build and ship the checkout flow.",
       resumeKey: "cv/user_1/11111111-2222-4333-8444-555555555555.pdf",
-    });
-    expect(parsed.success).toBe(true);
+      submissionKey: "9f0c4a52-6c1e-4e7a-9d3b-2a5f8e1c7b40",
+    };
+    expect(analyzeResumeInputSchema.safeParse(valid).success).toBe(true);
+    expect(analyzeResumeInputSchema.safeParse({ ...valid, submissionKey: undefined }).success).toBe(false);
+    expect(analyzeResumeInputSchema.safeParse({ ...valid, submissionKey: "retry-1" }).success).toBe(false);
 
     expect(
       analyzeResumeInputSchema.safeParse({
@@ -86,6 +90,7 @@ describe("action body limit", () => {
         jobTitle: "Frontend Engineer",
         jobDescription: "Build and ship the checkout flow.",
         resumeKey: "https://x.supabase.co/storage/v1/object/public/files-bucket/cv/user_1/x.pdf",
+        submissionKey: "9f0c4a52-6c1e-4e7a-9d3b-2a5f8e1c7b40",
       }).success,
     ).toBe(false);
   });

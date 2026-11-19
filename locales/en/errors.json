@@ -26,6 +26,7 @@
     "INTERVIEW_START_LIMIT": "This interview has used all of its starts: every connection to the interviewer counts as one. Rehearse again from the analysis.",
     "INTERVIEW_CONTEXT_MISSING": "This interview has no analysis to build questions from. Run a new analysis and rehearse from there.",
     "ANALYSIS_BUSY": "An interview for this analysis is in progress. Try again when it ends.",
+    "ANALYSIS_IN_PROGRESS": "Your analysis is still running from your last try. Wait a minute and try again: if it finished, we'll open it. This didn't use another analysis.",
     "ANALYSIS_QUOTA_EXCEEDED": "You've used this month's analyses.",
     "INTERVIEW_QUOTA_EXCEEDED": "Voice interviews are part of Pro.",
     "RATE_LIMITED": "Too many requests in a short time. Wait a moment and try again.",

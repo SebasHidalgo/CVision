@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { actionErrorCopy, resetDateCopy } from "@/lib/error/actionErrorCopy";
 import type { Locale } from "@/lib/i18n/config";
 import { tFor } from "@/lib/i18n/testing";
 import type { AnalysisQuotaView } from "@/lib/plans";
+import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
+import { createResumeUploadAction } from "@/screens/ResumeUpload/actions/createResumeUploadAction";
 import UploadForm, { quotaLine } from "./UploadForm";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -87,5 +89,60 @@ describe("UploadForm and the analysis quota", () => {
     expect(screen.getByRole("status").textContent).toBe("You've used your 50 analyses for this period. They reset Nov 1.");
     expect(screen.queryByRole("link", { name: "See Pro" })).toBeNull();
     expect(screen.getByRole("button", { name: /run the analysis/i }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("UploadForm: one key per submission", () => {
+  const KEY = "cv/user_1/11111111-2222-4333-8444-555555555555.pdf";
+  const pdf = () => new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "cv.pdf", { type: "application/pdf", lastModified: 1 });
+
+  const fill = async (company: string) => {
+    fireEvent.change(screen.getByLabelText("Company"), { target: { value: company } });
+    fireEvent.change(screen.getByLabelText("Job title"), { target: { value: "Frontend Engineer" } });
+    fireEvent.change(screen.getByLabelText("The posting"), { target: { value: "Build the checkout in React." } });
+  };
+  const pick = async (container: HTMLElement) => {
+    const input = container.querySelector("input#resume") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [pdf()], configurable: true });
+    fireEvent.change(input);
+    await waitFor(() => expect(screen.getByText("cv.pdf")).toBeTruthy());
+  };
+  const submit = async (calls: number) => {
+    fireEvent.click(screen.getByRole("button", { name: /run the analysis/i }));
+    await waitFor(() => expect(vi.mocked(analyzeResumeAction)).toHaveBeenCalledTimes(calls));
+    // The failed run hands the form back.
+    await waitFor(() => expect(screen.getByRole("button", { name: /run the analysis/i })).toBeTruthy());
+  };
+  const keys = () => vi.mocked(analyzeResumeAction).mock.calls.map(([sent]) => (sent as { submissionKey: string }).submissionKey);
+
+  it("sends the same key when the same submission is retried after a lost response, and a new one once a field changes", async () => {
+    vi.mocked(analyzeResumeAction).mockReset();
+    vi.mocked(createResumeUploadAction).mockResolvedValue({ ok: true, data: { resumeKey: KEY, uploadUrl: "https://storage.test/upload" } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    // The response of the analysis never arrives: the action call itself rejects.
+    vi.mocked(analyzeResumeAction).mockRejectedValue(new TypeError("Failed to fetch"));
+
+    const { container } = render(<UploadForm quota={pro(40)} />);
+    await fill("Northwind");
+    await pick(container);
+
+    await submit(1);
+    // The failure takes focus, and nothing around it in the form is a live region that would read it again.
+    const notice = await waitFor(() => {
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.hasAttribute("data-failure-notice")).toBe(true);
+      return focused;
+    });
+    for (let node: HTMLElement | null = notice; node; node = node.parentElement) {
+      expect(node.hasAttribute("aria-live") || ["alert", "status", "log"].includes(node.getAttribute("role") ?? "")).toBe(false);
+    }
+    await submit(2);
+    await fill("Contoso");
+    await submit(3);
+
+    const [first, retry, changed] = keys();
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(retry).toBe(first);
+    expect(changed).not.toBe(first);
   });
 });

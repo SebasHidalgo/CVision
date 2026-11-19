@@ -32,6 +32,8 @@ export type ErrorCode =
   | "INTERVIEW_CONTEXT_MISSING"
   // Deleting an analysis while a rehearsal of it is live or being scored.
   | "ANALYSIS_BUSY"
+  // A retry of a submission whose first request is still running.
+  | "ANALYSIS_IN_PROGRESS"
   // Plans and limits (lib/plans.ts).
   | "ANALYSIS_QUOTA_EXCEEDED"
   | "INTERVIEW_QUOTA_EXCEEDED"
@@ -238,6 +240,13 @@ export class InterviewStartLimitError extends AppError {
 export class AnalysisBusyError extends AppError {
   constructor(message = "An interview of this analysis is in progress") {
     super("ANALYSIS_BUSY", message);
+  }
+}
+
+/** A retry of the same submission arrived while its first request was still analyzing, and outlasted the wait. */
+export class AnalysisInProgressError extends AppError {
+  constructor(message = "An earlier request for this submission is still running") {
+    super("ANALYSIS_IN_PROGRESS", message);
   }
 }
 

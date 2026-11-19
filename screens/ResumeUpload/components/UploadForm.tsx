@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { TFunction } from "i18next";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { buttonClass } from "@/components/design-system/Button";
@@ -26,7 +26,7 @@ import type upload from "@/locales/en/upload.json";
 import { analyzeResumeAction } from "@/screens/ResumeUpload/actions/analyzeResumeAction";
 import { createResumeUploadAction } from "@/screens/ResumeUpload/actions/createResumeUploadAction";
 import type { RunClock, RunPhase } from "@/screens/ResumeUpload/utils/runSteps";
-import { runResumeUpload, type UploadStage } from "@/screens/ResumeUpload/utils/upload";
+import { runResumeUpload, submissionKeyFor, type Submission, type UploadStage } from "@/screens/ResumeUpload/utils/upload";
 import AnalysisInProgress, { type SentDetails } from "./AnalysisInProgress";
 import FailureNotice from "./FailureNotice";
 import Field, { errorIdOf, fieldClass } from "./Field";
@@ -79,6 +79,9 @@ export default function UploadForm({ quota }: UploadFormProps) {
   const locale = useLocale();
   const [run, setRun] = useState<Run | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // The last submission that did not open its analysis: sending it again reuses its key, so a response lost on
+  // the way back opens the analysis it saved instead of running (and charging) a second one.
+  const lastSubmission = useRef<Submission | null>(null);
   const exhausted = quota.left === 0;
 
   const {
@@ -127,6 +130,8 @@ export default function UploadForm({ quota }: UploadFormProps) {
 
   const onSubmit = async (data: CreateResumeInput) => {
     const { resume, ...details } = data;
+    const submissionKey = submissionKeyFor(lastSubmission.current, details, resume);
+    lastSubmission.current = { key: submissionKey, details, file: resume };
     setFailure(null);
     setRun({
       phase: "uploading",
@@ -138,12 +143,14 @@ export default function UploadForm({ quota }: UploadFormProps) {
     const result = await runResumeUpload({
       file: resume,
       details,
+      submissionKey,
       createUpload: createResumeUploadAction,
       analyze: analyzeResumeAction,
       onStage: enter,
     });
 
     if (result.ok) {
+      lastSubmission.current = null;
       // Stay on the progress view: resetting now would bring back a
       // submittable form until the report loads, inviting a double submit.
       enter("opening");

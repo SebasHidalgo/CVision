@@ -5,10 +5,11 @@ import { translateAnalysis } from "@/lib/ai/contentTranslation";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { toGuardStats } from "@/lib/ai/schemas";
 import { assertRateLimit } from "@/lib/database/rateLimit";
-import { createResume } from "@/lib/database/resume";
-import { refundUsage, reserveUsage, type Reservation } from "@/lib/database/usage";
+import { createResume, fetchResumeKey } from "@/lib/database/resume";
+import { refundUsage, reserveAnalysis, type Reservation } from "@/lib/database/usage";
 import { ensureUser } from "@/lib/database/user";
 import {
+  AnalysisInProgressError,
   FileTooLargeError,
   NotAPdfError,
   NotFoundError,
@@ -22,6 +23,7 @@ import { analyzeResumeInputSchema } from "@/lib/schemas/resumeSchema";
 import { isResumeKeyOf } from "@/lib/supabase/resumeKey";
 import { downloadObject, removeObject } from "@/lib/supabase/server";
 import { MAX_RESUME_BYTES } from "@/lib/uploadLimits";
+import { analysisIdFor } from "@/screens/ResumeUpload/utils/analysisId";
 import type { ActionResult } from "@/types/action";
 
 /**
@@ -32,18 +34,34 @@ import type { ActionResult } from "@/types/action";
  * bytes behind it are checked as if they had arrived in the request.
  *
  * Only a stored row consumes a unit. The unit is reserved before the
- * download, against an analysis id minted here, and given back on every
+ * download, against the analysis id the submission names, and given back on every
  * failure, the user's own file included: a scan or a renamed file never
  * reaches the model, so it costs nothing, and the hourly rate limit is what
  * bounds abuse. And once the key is known to be the caller's, every refusal
  * removes the object: the losing tab at the last analysis of the month, a
  * rate-limited burst, a form that failed validation and the file errors all
  * leave nothing behind in the bucket.
+ *
+ * A submission is named by the key the form minted for it and resends on a
+ * retry, and the analysis id is derived from it. A retry whose first request
+ * saved the analysis (its response lost on the way back) gets that analysis:
+ * no unit, no model call, and its own upload removed. A retry that arrives
+ * while the first request still holds its unit waits for that request's row.
+ * Two requests that both reach the insert (only after the first outlived
+ * `REQUEST_LIFETIME_MS`) collide on the primary key: the loser gives its
+ * unit back and answers with the winner's analysis.
  */
 // The upload page's maxDuration (100 s) less a margin: the translation at the end only uses what is left.
 const ACTION_BUDGET_MS = 95_000;
 // Less than this left and the translation waits for the first view instead.
 const MIN_TRANSLATION_MS = 8_000;
+// No request outlives the upload page's maxDuration (100 s); the margin covers clock skew between instances.
+const REQUEST_LIFETIME_MS = 110_000;
+// How long a retry waits for the first request of its submission; what is left still fits an analysis.
+const SUBMISSION_WAIT_MS = 40_000;
+const SUBMISSION_POLL_MS = 1_500;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export async function analyzeResumeAction(
   input: unknown,
@@ -78,12 +96,30 @@ export async function analyzeResumeAction(
       );
     }
 
-    const { companyName, jobTitle, jobDescription, resumeKey } = parsed.data;
+    const { companyName, jobTitle, jobDescription, resumeKey, submissionKey } = parsed.data;
 
-    // The unit, before the download and the model call. The analysis id is
-    // minted now so the ledger can name what it paid for.
-    const resumeId = crypto.randomUUID();
-    reservation = await reserveUsage(userId, "ANALYSIS", resumeId);
+    // The analysis this submission names, so the ledger can name what it paid
+    // for and a retry of the submission names the same one.
+    const resumeId = analysisIdFor(userId, submissionKey);
+
+    // The unit, before the download and the model call; or the analysis an
+    // earlier request for this submission saved, or is about to.
+    const waitUntil = Date.now() + SUBMISSION_WAIT_MS;
+    for (;;) {
+      const savedKey = await fetchResumeKey(resumeId);
+      if (savedKey !== null) {
+        await dropDuplicateUpload(resumeKey, savedKey);
+        ownedKey = null;
+        return { ok: true, data: { resumeId } };
+      }
+      const outcome = await reserveAnalysis(userId, resumeId, REQUEST_LIFETIME_MS);
+      if (outcome.kind === "reserved") {
+        reservation = outcome;
+        break;
+      }
+      if (Date.now() + SUBMISSION_POLL_MS > waitUntil) throw new AnalysisInProgressError();
+      await sleep(SUBMISSION_POLL_MS);
+    }
 
     const bytes = await downloadObject(resumeKey);
     if (!bytes) throw new UploadFailedError("No object under the resume key");
@@ -106,15 +142,30 @@ export async function analyzeResumeAction(
       logId: resumeId,
     });
 
-    await createResume({
-      id: resumeId,
-      companyName,
-      jobTitle,
-      jobDescription,
-      resumeKey,
-      feedback,
-      guardStats: toGuardStats(guard),
-    });
+    try {
+      await createResume({
+        id: resumeId,
+        companyName,
+        jobTitle,
+        jobDescription,
+        resumeKey,
+        feedback,
+        guardStats: toGuardStats(guard),
+      });
+    } catch (error) {
+      // The insert failed as a whole; a row under this id now can only be another request's for this submission.
+      const winnerKey = await fetchResumeKey(resumeId).catch(() => null);
+      if (winnerKey === null) throw error;
+      const { eventId } = reservation;
+      reservation = null;
+      await refundUsage(eventId, "DUPLICATE_SUBMISSION").catch((refundError) => {
+        console.error(`[CVision] refund of ${eventId} failed:`, refundError);
+      });
+      await dropDuplicateUpload(resumeKey, winnerKey);
+      ownedKey = null;
+      console.warn(`[CVision] analysis ${resumeId}: a duplicate request of the submission lost the insert; unit returned`);
+      return { ok: true, data: { resumeId } };
+    }
 
     // The row points at the object and the unit is spent for good.
     ownedKey = null;
@@ -147,6 +198,11 @@ export async function analyzeResumeAction(
     }
     return result;
   }
+}
+
+/** The upload of a retry whose analysis is already saved: removed, unless the saved row points at that same object. */
+async function dropDuplicateUpload(uploadedKey: string, savedKey: string): Promise<void> {
+  if (uploadedKey !== savedKey) await removeObject(uploadedKey);
 }
 
 /** The key the request names, if it names one at all; whose it is, the caller checks. */

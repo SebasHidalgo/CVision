@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth";
+import { getOptionalUserIdOutsideProxy, requireUserId } from "@/lib/auth";
 import type { PlanStanding, SubscriptionStanding } from "@/lib/billing/access";
 import { reconcileIfStale } from "@/lib/billing/reconcile";
 import { PLANS } from "@/lib/plans";
@@ -10,17 +10,18 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
 import {
   analysisQuotaView,
   billingStatus,
+  currentShellPlan,
   interviewQuotaView,
   isLiveTrialConflict,
   refundUsage,
   reserveInterview,
-  reserveUsage,
+  reserveAnalysis,
   resolveInterviewEntitlement,
   revokeUnusedInterviewCredits,
   usageSummary,
 } from "./usage";
 
-vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
+vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1"), getOptionalUserIdOutsideProxy: vi.fn(async () => "user_1") }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
 // The plan is derived (lib/billing/access.ts), read here through the billing data module.
 vi.mock("./billing", () => ({
@@ -32,7 +33,7 @@ vi.mock("./billing", () => ({
 vi.mock("@/lib/billing/reconcile", () => ({ reconcileIfStale: vi.fn(async () => false) }));
 
 const tx = {
-  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), groupBy: vi.fn() },
+  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
   interview: { count: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
@@ -128,6 +129,7 @@ beforeEach(() => {
   tx.usageEvent.count.mockResolvedValue(0);
   tx.usageEvent.create.mockResolvedValue({ id: "evt_1" });
   tx.usageEvent.findUnique.mockResolvedValue(null);
+  tx.usageEvent.findMany.mockResolvedValue([]);
   tx.usageEvent.groupBy.mockResolvedValue([]);
   tx.interview.count.mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
@@ -137,14 +139,21 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-describe("reserveUsage", () => {
-  it("counts the period's non-refunded events of the kind and inserts, serializably, with the plan derived inside the transaction", async () => {
+const IN_FLIGHT_MS = 110_000;
+const ago = (ms: number) => new Date(NOW.getTime() - ms);
+
+describe("reserveAnalysis", () => {
+  it("counts the period's non-refunded analyses and inserts under the analysis id, serializably, with the plan derived inside the transaction", async () => {
     tx.usageEvent.count.mockResolvedValue(2);
 
-    expect(await reserveUsage("user_1", "ANALYSIS", "analysis_1", NOW)).toEqual({ eventId: "evt_1" });
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
 
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+    expect(tx.usageEvent.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", kind: "ANALYSIS", refId: { startsWith: "analysis_1" } },
+      select: { createdAt: true, refundedAt: true },
     });
     expect(resolvePlanStandingIn).toHaveBeenCalledWith(tx, "user_1", NOW);
     expect(tx.usageEvent.count).toHaveBeenCalledWith({
@@ -156,10 +165,43 @@ describe("reserveUsage", () => {
     });
   });
 
+  it("takes nothing while an earlier request for the same submission holds a live unit: the caller waits for its row", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([{ createdAt: ago(20_000), refundedAt: null }]);
+
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "in-flight" });
+    expect(resolvePlanStandingIn).not.toHaveBeenCalled();
+    expect(tx.usageEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("after a refunded earlier unit, takes a new one under <id>#<n>, the refunded row kept", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([
+      { createdAt: ago(60_000), refundedAt: ago(50_000) },
+      { createdAt: ago(30_000), refundedAt: ago(25_000) },
+    ]);
+
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
+    expect(tx.usageEvent.create).toHaveBeenCalledWith({
+      data: { userId: "user_1", kind: "ANALYSIS", refId: "analysis_1#3", createdAt: NOW },
+      select: { id: true },
+    });
+  });
+
+  it("a live unit older than any request can live (a killed request, or a deleted analysis) is not waited for and not refunded: a new unit is taken", async () => {
+    tx.usageEvent.findMany.mockResolvedValue([{ createdAt: ago(IN_FLIGHT_MS), refundedAt: null }]);
+
+    expect(await reserveAnalysis("user_1", "analysis_1", IN_FLIGHT_MS, NOW)).toEqual({ kind: "reserved", eventId: "evt_1" });
+    expect(tx.usageEvent.create).toHaveBeenCalledWith({
+      data: { userId: "user_1", kind: "ANALYSIS", refId: "analysis_1#2", createdAt: NOW },
+      select: { id: true },
+    });
+    // It still counts against the period: the quota is the count, and the old unit stays spent.
+    expect(tx.usageEvent.count).toHaveBeenCalled();
+  });
+
   it("refuses the fourth Free analysis of the month with the reset date, inserting nothing", async () => {
     tx.usageEvent.count.mockResolvedValue(PLANS.FREE.analysesPerMonth);
 
-    await expect(reserveUsage("user_1", "ANALYSIS", "analysis_4", NOW)).rejects.toMatchObject({
+    await expect(reserveAnalysis("user_1", "analysis_4", IN_FLIGHT_MS, NOW)).rejects.toMatchObject({
       code: "ANALYSIS_QUOTA_EXCEEDED",
       meta: { plan: "FREE", resetsAt: "2026-11-01T00:00:00.000Z" },
     });
@@ -170,7 +212,7 @@ describe("reserveUsage", () => {
     setStanding(subscribed());
     tx.usageEvent.count.mockResolvedValue(PLANS.PRO.analysesPerMonth);
 
-    await expect(reserveUsage("user_1", "ANALYSIS", "a", NOW)).rejects.toMatchObject({
+    await expect(reserveAnalysis("user_1", "a", IN_FLIGHT_MS, NOW)).rejects.toMatchObject({
       code: "ANALYSIS_QUOTA_EXCEEDED",
       meta: { plan: "PRO", resetsAt: "2026-11-05T00:00:00.000Z" },
     });
@@ -186,15 +228,8 @@ describe("reserveUsage", () => {
       .mockImplementationOnce(((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as never);
     tx.usageEvent.count.mockResolvedValue(PLANS.FREE.analysesPerMonth);
 
-    await expect(reserveUsage("user_1", "ANALYSIS", "a", NOW)).rejects.toMatchObject({ code: "ANALYSIS_QUOTA_EXCEEDED" });
+    await expect(reserveAnalysis("user_1", "a", IN_FLIGHT_MS, NOW)).rejects.toMatchObject({ code: "ANALYSIS_QUOTA_EXCEEDED" });
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
-    expect(tx.usageEvent.create).not.toHaveBeenCalled();
-  });
-
-  it("never reserves a credit, a grant or a revoke through the plain path", async () => {
-    for (const kind of ["INTERVIEW_CREDIT", "INTERVIEW_CREDIT_GRANT", "INTERVIEW_CREDIT_REVOKE"] as const) {
-      await expect(reserveUsage("user_1", kind, "x", NOW)).rejects.toMatchObject({ code: "UNKNOWN" });
-    }
     expect(tx.usageEvent.create).not.toHaveBeenCalled();
   });
 });
@@ -516,5 +551,25 @@ describe("billingStatus", () => {
     expect((await billingStatus("user_1", { transactionId: "txn_01", item: "interview_pack" }, NOW)).transactionApplied).toBe(false);
     setStanding(comped);
     expect((await billingStatus("user_1", { transactionId: "txn_01", item: "pro_monthly" }, NOW)).transactionApplied).toBe(false);
+  });
+});
+
+describe("currentShellPlan: the header's plan", () => {
+  it("is the derived plan of the session's user", async () => {
+    setStanding(comped);
+    expect(await currentShellPlan()).toBe("PRO");
+    expect(resolvePlanStanding).toHaveBeenCalledWith("user_1");
+  });
+
+  it("is null signed out, without reading anything", async () => {
+    vi.mocked(getOptionalUserIdOutsideProxy).mockResolvedValueOnce(null);
+    expect(await currentShellPlan()).toBeNull();
+    expect(resolvePlanStanding).not.toHaveBeenCalled();
+  });
+
+  // A session that cannot be read (no middleware) is getOptionalUserIdOutsideProxy's case: lib/auth/index.test.ts.
+  it("is null, never a thrown page, when the plan read fails", async () => {
+    vi.mocked(resolvePlanStanding).mockRejectedValueOnce(new Error("db down"));
+    expect(await currentShellPlan()).toBeNull();
   });
 });

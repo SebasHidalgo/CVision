@@ -29,8 +29,8 @@ export async function cvPdf(page: Page): Promise<Buffer> {
   return pdf;
 }
 
-/** Runs one analysis of the fixture (one paid model call) and returns the analysis page's URL. */
-export async function runAnalysis(page: Page): Promise<string> {
+/** Opens the upload page and fills it with the fixture: company, role, posting and the CV, ready to submit. */
+export async function fillAnalysisForm(page: Page): Promise<void> {
   const job = readFileSync(path.join(FIXTURE_DIR, "job.txt"), "utf8");
   const fixture = JSON.parse(readFileSync(path.join(FIXTURE_DIR, "fixture.json"), "utf8")) as { jobTitle: string };
   const pdf = await cvPdf(page);
@@ -40,6 +40,11 @@ export async function runAnalysis(page: Page): Promise<string> {
   await page.locator("#job-title").fill(fixture.jobTitle);
   await page.locator("#job-description").fill(job);
   await page.locator("input#resume").setInputFiles({ name: "cv.pdf", mimeType: "application/pdf", buffer: pdf });
+}
+
+/** Runs one analysis of the fixture (one paid model call) and returns the analysis page's URL. */
+export async function runAnalysis(page: Page): Promise<string> {
+  await fillAnalysisForm(page);
   await page.locator('button[type="submit"]').first().click();
   await page.waitForURL(/\/resume\/analysis\/[^/?]+$/, { timeout: 120_000 });
   await page.waitForLoadState("networkidle");
