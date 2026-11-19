@@ -3,7 +3,7 @@ import { fontText } from "@/components/design-system/fonts";
 import { StatusMark } from "@/components/design-system/StatusMark";
 import { Footer } from "@/components/layout/Footer";
 import { SiteHeader } from "@/components/navbar/SiteHeader";
-import { getOptionalUserId } from "@/lib/auth";
+import { getOptionalUserIdOutsideProxy } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 
 /**
@@ -11,7 +11,7 @@ import { getT } from "@/lib/i18n/server";
  * app's own layout, so the screen brings the shell's header and footer itself.
  */
 export default async function NotFoundScreen() {
-  const [t, userId] = await Promise.all([getT("notFound"), getOptionalUserId()]);
+  const [t, userId] = await Promise.all([getT("notFound"), getOptionalUserIdOutsideProxy()]);
   return (
     <div className={`ed-root ${fontText.variable} flex min-h-dvh flex-1 flex-col`}>
       <SiteHeader />

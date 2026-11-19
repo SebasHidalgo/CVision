@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { UnauthorizedError } from "@/lib/error/errors";
 
 /** Server Components only: redirects home when there is no session. */
@@ -30,6 +30,19 @@ export async function requireUserId(): Promise<string> {
 export async function getOptionalUserId(): Promise<string | null> {
   const { userId } = await auth();
   return userId ?? null;
+}
+
+/**
+ * getOptionalUserId for what may render without Clerk's middleware: the proxy skips static-file paths, so a missing
+ * /x.png renders the 404 with no session to read. There a visitor is anonymous instead of a 500.
+ */
+export async function getOptionalUserIdOutsideProxy(): Promise<string | null> {
+  try {
+    return await getOptionalUserId();
+  } catch (error) {
+    unstable_rethrow(error);
+    return null;
+  }
 }
 
 /**

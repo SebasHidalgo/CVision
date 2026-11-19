@@ -7,7 +7,7 @@ import { tFor } from "@/lib/i18n/testing";
 import NotFoundScreen from "./NotFoundScreen";
 
 const request = vi.hoisted(() => ({ locale: "en" as Locale, userId: "user_1" as string | null }));
-vi.mock("@/lib/auth", () => ({ getOptionalUserId: async () => request.userId }));
+vi.mock("@/lib/auth", () => ({ getOptionalUserIdOutsideProxy: async () => request.userId }));
 
 // Server components: getT reads the real locale files, in the language the test sets.
 vi.mock("@/lib/i18n/server", async () => {

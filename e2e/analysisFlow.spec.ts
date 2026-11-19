@@ -79,6 +79,10 @@ test("robots.txt is served, an unknown URL is a 404 page, and a private page sti
   expect(await page.locator("html").getAttribute("lang")).toBe(localeOf(testInfo));
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.locator('main a[href="/"]').first()).toBeVisible();
+  // A missing static file skips the proxy, so nothing can read the session: still the 404 page, never a 500.
+  const asset = await request.get("/no-such-image.png", { maxRedirects: 0 });
+  expect(asset.status()).toBe(404);
+  expect(await asset.text()).toMatch(/<h1/);
 
   // A real private page signed out goes to sign-in, never to the 404; the API answers 401 JSON.
   const privatePage = await request.get("/resume/analyses", { maxRedirects: 0 });

@@ -1,8 +1,7 @@
 import "server-only";
 
-import { unstable_rethrow } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { getOptionalUserId, requireUserId } from "@/lib/auth";
+import { getOptionalUserIdOutsideProxy, requireUserId } from "@/lib/auth";
 import { handleError } from "@/lib/error/handleError";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 
@@ -11,15 +10,8 @@ import { isLocale, type Locale } from "@/lib/i18n/config";
  * to read). A failed read is logged and reads as null: a page never fails over its language.
  */
 export async function savedLocale(): Promise<Locale | null> {
-  let userId: string | null;
-  try {
-    userId = await getOptionalUserId();
-  } catch (error) {
-    unstable_rethrow(error);
-    // The proxy skips static-file paths, so a missing /favicon.ico renders the not-found page
-    // without Clerk's middleware and reading the session throws: that request has no saved language.
-    return null;
-  }
+  // A missing static file renders the 404 without the proxy: that request has no session, so no saved language.
+  const userId = await getOptionalUserIdOutsideProxy();
   if (!userId) return null;
   try {
     const row = await prisma.user.findUnique({ where: { id: userId }, select: { locale: true } });
