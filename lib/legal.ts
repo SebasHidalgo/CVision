@@ -18,4 +18,15 @@ export const LEGAL_CONTACT_EMAIL = BRAND.supportEmail;
 /** The merchant of record for every purchase: it appears on the buyer's statement and handles refunds and taxes. */
 export const MERCHANT_OF_RECORD = "Paddle";
 
-export const LEGAL_DRAFT_DATE = "2026-10-20";
+export const LEGAL_PAGES = ["terms", "privacy", "refunds"] as const;
+export type LegalPage = (typeof LEGAL_PAGES)[number];
+
+/**
+ * When each page's text last changed (UTC day), printed as "Last updated". `screens/Legal/legalDates.test.ts` holds a
+ * fingerprint of each page's words in both languages and fails when they change without this date moving.
+ */
+export const LEGAL_UPDATED: Record<LegalPage, string> = {
+  terms: "2026-11-18",
+  privacy: "2026-11-18",
+  refunds: "2026-11-11",
+};

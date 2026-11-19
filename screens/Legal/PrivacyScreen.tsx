@@ -1,5 +1,6 @@
-import { getT } from "@/lib/i18n/server";
-import LegalDocument, { type LegalSection } from "./components/LegalDocument";
+import { getLocale, getT } from "@/lib/i18n/server";
+import LegalDocument from "./components/LegalDocument";
+import type { LegalSection } from "./utils/sections";
 
 const SECTIONS = [
   { heading: "privacy.responsible.heading", body: ["privacy.responsible.p1"] },
@@ -38,6 +39,6 @@ const SECTIONS = [
 ] as const satisfies readonly LegalSection[];
 
 export default async function PrivacyScreen() {
-  const t = await getT("legal");
-  return <LegalDocument t={t} page="privacy" sections={SECTIONS} />;
+  const [t, locale] = await Promise.all([getT("legal"), getLocale()]);
+  return <LegalDocument t={t} locale={locale} page="privacy" sections={SECTIONS} />;
 }

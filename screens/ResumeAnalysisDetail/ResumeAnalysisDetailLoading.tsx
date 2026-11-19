@@ -1,14 +1,10 @@
+import { Bone } from "@/components/design-system/Bone";
 import { fontText } from "@/components/design-system/fonts";
 import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [0, 1, 2];
 const ROWS = [0, 1, 2, 3];
-
-/** A bone of the report: a quiet block that breathes (the global reduced-motion rule stops it). */
-function Bone({ className }: { className?: string }) {
-  return <span aria-hidden className={cn("block animate-pulse rounded-[3px] bg-ed-raise", className)} />;
-}
 
 /** Same bones as the report (cover and verdict card, fixes, sections with the index) so the page settles instead of jumping. */
 export default async function ResumeAnalysisDetailLoading() {

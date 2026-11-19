@@ -1,5 +1,6 @@
-import { getT } from "@/lib/i18n/server";
-import LegalDocument, { type LegalSection } from "./components/LegalDocument";
+import { getLocale, getT } from "@/lib/i18n/server";
+import LegalDocument from "./components/LegalDocument";
+import type { LegalSection } from "./utils/sections";
 
 const SECTIONS = [
   { heading: "refunds.who.heading", body: ["refunds.who.p1"] },
@@ -10,6 +11,6 @@ const SECTIONS = [
 ] as const satisfies readonly LegalSection[];
 
 export default async function RefundsScreen() {
-  const t = await getT("legal");
-  return <LegalDocument t={t} page="refunds" sections={SECTIONS} />;
+  const [t, locale] = await Promise.all([getT("legal"), getLocale()]);
+  return <LegalDocument t={t} locale={locale} page="refunds" sections={SECTIONS} />;
 }

@@ -1,0 +1,10 @@
+{
+  "meta": "Something went wrong",
+  "status": "Error",
+  "title": "Something went wrong on our side.",
+  "body": "This page hit an error and couldn't be shown. Try again; if it keeps happening, come back in a few minutes.",
+  "retry": "Try again",
+  "retrying": "Trying again…",
+  "home": "Go to the home page",
+  "reference": "Reference {{digest}}"
+}

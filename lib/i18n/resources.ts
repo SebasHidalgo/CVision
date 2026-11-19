@@ -5,6 +5,7 @@ import enAnalysis from "@/locales/en/analysis.json";
 import enBilling from "@/locales/en/billing.json";
 import enCommon from "@/locales/en/common.json";
 import enErrors from "@/locales/en/errors.json";
+import enErrorPage from "@/locales/en/errorPage.json";
 import enFeedback from "@/locales/en/feedback.json";
 import enInterview from "@/locales/en/interview.json";
 import enLanding from "@/locales/en/landing.json";
@@ -25,6 +26,7 @@ import esAnalysis from "@/locales/es/analysis.json";
 import esBilling from "@/locales/es/billing.json";
 import esCommon from "@/locales/es/common.json";
 import esErrors from "@/locales/es/errors.json";
+import esErrorPage from "@/locales/es/errorPage.json";
 import esFeedback from "@/locales/es/feedback.json";
 import esInterview from "@/locales/es/interview.json";
 import esLanding from "@/locales/es/landing.json";
@@ -66,6 +68,7 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     interview: enInterview,
     feedback: enFeedback,
     legal: enLegal,
+    errorPage: enErrorPage,
     sentences: enSentences,
   },
   es: {
@@ -88,6 +91,7 @@ export const RESOURCES: Record<Locale, Record<Namespace, Record<string, unknown>
     interview: esInterview,
     feedback: esFeedback,
     legal: esLegal,
+    errorPage: esErrorPage,
     sentences: esSentences,
   },
 };

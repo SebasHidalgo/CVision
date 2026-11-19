@@ -1,0 +1,10 @@
+{
+  "meta": "Algo salió mal",
+  "status": "Error",
+  "title": "Algo salió mal de nuestro lado.",
+  "body": "Esta página tuvo un error y no se pudo mostrar. Vuelve a intentarlo; si sigue pasando, regresa en unos minutos.",
+  "retry": "Volver a intentar",
+  "retrying": "Volviendo a intentar…",
+  "home": "Ir al inicio",
+  "reference": "Referencia {{digest}}"
+}

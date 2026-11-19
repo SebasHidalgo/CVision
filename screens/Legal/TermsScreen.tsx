@@ -1,5 +1,6 @@
-import { getT } from "@/lib/i18n/server";
-import LegalDocument, { type LegalSection } from "./components/LegalDocument";
+import { getLocale, getT } from "@/lib/i18n/server";
+import LegalDocument from "./components/LegalDocument";
+import type { LegalSection } from "./utils/sections";
 
 const SECTIONS = [
   { heading: "terms.what.heading", body: ["terms.what.p1", "terms.what.p2"] },
@@ -14,6 +15,6 @@ const SECTIONS = [
 ] as const satisfies readonly LegalSection[];
 
 export default async function TermsScreen() {
-  const t = await getT("legal");
-  return <LegalDocument t={t} page="terms" sections={SECTIONS} />;
+  const [t, locale] = await Promise.all([getT("legal"), getLocale()]);
+  return <LegalDocument t={t} locale={locale} page="terms" sections={SECTIONS} />;
 }

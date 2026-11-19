@@ -4,6 +4,7 @@ import type analysis from "@/locales/en/analysis.json";
 import type billing from "@/locales/en/billing.json";
 import type common from "@/locales/en/common.json";
 import type errors from "@/locales/en/errors.json";
+import type errorPage from "@/locales/en/errorPage.json";
 import type feedback from "@/locales/en/feedback.json";
 import type interview from "@/locales/en/interview.json";
 import type landing from "@/locales/en/landing.json";
@@ -44,6 +45,7 @@ declare module "i18next" {
       interview: typeof interview;
       feedback: typeof feedback;
       legal: typeof legal;
+      errorPage: typeof errorPage;
       sentences: typeof sentences;
     };
     returnNull: false;
