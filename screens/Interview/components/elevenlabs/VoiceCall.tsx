@@ -39,6 +39,8 @@ export type VoiceCallHandlers = {
   onLineCorrected: (change: { original: string; corrected: string }) => void;
   /** Held in the platform's queue ("waiting"), then let through ("admitted"). */
   onQueue: (status: "waiting" | "admitted") => void;
+  /** The candidate cut the interviewer off: its audio stops, the turn is theirs. */
+  onInterrupted?: () => void;
   /** The interviewer asks the room to end the call; the answer goes back to it (REFUSED… at once; ALLOWED… when the room has something to say before it hangs up). */
   onEndRequest: (reason: unknown) => string | Promise<string>;
 };
@@ -55,6 +57,16 @@ function queueStatus(event: unknown): "waiting" | "admitted" | null {
   return detail?.status === "waiting" || detail?.status === "admitted" ? detail.status : null;
 }
 
+/** A level the SDK reports, or 0 when it has none (no call, a stubbed SDK). */
+function readLevel(get: (() => number) | undefined): number {
+  try {
+    const level = get?.() ?? 0;
+    return Number.isFinite(level) ? Math.max(0, level) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>;
 }
@@ -69,7 +81,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
       return `${END_TOOL_REFUSED}: the call continues. Ask your next interview question.`;
     }
   });
-  const { startSession, endSession, sendContextualUpdate, sendUserMessage, getInputVolume, mode } = useConversation({
+  const { startSession, endSession, sendContextualUpdate, sendUserMessage, getInputVolume, getOutputVolume, mode } = useConversation({
     onConnect: handlers.onConnect,
     onDisconnect: (details) => {
       // The platform hard limit arrives as an error event; it is the agent ending the call.
@@ -83,6 +95,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     onMessage: ({ role, message }) => handlers.onLine({ role, text: message }),
     onAgentResponseCorrection: ({ original_agent_response, corrected_agent_response }) =>
       handlers.onLineCorrected({ original: original_agent_response, corrected: corrected_agent_response }),
+    onInterruption: () => handlers.onInterrupted?.(),
     onDebug: (event: unknown) => {
       const status = queueStatus(event);
       if (!status) return;
@@ -93,14 +106,9 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
   });
 
   /** The candidate's microphone level now, 0 to 1; 0 when the SDK cannot read it. */
-  const candidateLevel = useCallback(() => {
-    try {
-      const level = getInputVolume();
-      return Number.isFinite(level) ? level : 0;
-    } catch {
-      return 0;
-    }
-  }, [getInputVolume]);
+  const candidateLevel = useCallback(() => readLevel(getInputVolume), [getInputVolume]);
+  /** The interviewer's voice as it plays, 0 to 1; 0 when the SDK cannot read it. */
+  const interviewerLevel = useCallback(() => readLevel(getOutputVolume), [getOutputVolume]);
 
   return {
     /** "speaking" while the interviewer talks, "listening" otherwise. */
@@ -119,6 +127,7 @@ export function useVoiceCall(handlers: VoiceCallHandlers) {
     /** A note for the interviewer that the candidate does not hear: the room's clock. */
     notify: (text: string) => sendContextualUpdate(text),
     candidateLevel,
+    interviewerLevel,
     /** Dev tools only: a typed candidate line, for the voice e2e. */
     say: (text: string) => sendUserMessage(text),
   };
