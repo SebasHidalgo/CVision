@@ -8,7 +8,7 @@ import {
 import { deleteUserRows } from "@/lib/database/userById";
 import { cancelSubscriptionNow } from "@/lib/billing";
 import { deleteConversation } from "@/lib/voice";
-import { AnalysisBusyError, VoiceUnavailableError } from "@/lib/error/errors";
+import { AnalysisBusyError, InterviewBusyError, VoiceUnavailableError } from "@/lib/error/errors";
 import { listObjects, removeObject, removeObjects } from "@/lib/supabase/server";
 import { deleteAccountCascade, deleteAnalysisCascade, deleteInterviewCascade, PLATFORM_DELETE_CONCURRENCY } from "./deletion";
 
@@ -125,9 +125,9 @@ describe("deleteInterviewCascade", () => {
   });
 
   it("lets the busy refusal through untouched, before anything external", async () => {
-    vi.mocked(deleteInterviewRows).mockRejectedValue(new AnalysisBusyError("The interview is in progress"));
+    vi.mocked(deleteInterviewRows).mockRejectedValue(new InterviewBusyError());
 
-    await expect(deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "ANALYSIS_BUSY" });
+    await expect(deleteInterviewCascade({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "INTERVIEW_BUSY" });
     expect(deleteConversation).not.toHaveBeenCalled();
   });
 

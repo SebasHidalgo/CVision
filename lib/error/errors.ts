@@ -32,6 +32,8 @@ export type ErrorCode =
   | "INTERVIEW_CONTEXT_MISSING"
   // Deleting an analysis while a rehearsal of it is live or being scored.
   | "ANALYSIS_BUSY"
+  // Deleting an interview while it is in a call or being scored.
+  | "INTERVIEW_BUSY"
   // A retry of a submission whose first request is still running.
   | "ANALYSIS_IN_PROGRESS"
   // Plans and limits (lib/plans.ts).
@@ -242,6 +244,13 @@ export class InterviewStartLimitError extends AppError {
 export class AnalysisBusyError extends AppError {
   constructor(message = "An interview of this analysis is in progress") {
     super("ANALYSIS_BUSY", message);
+  }
+}
+
+/** The interview is in a call or being scored: it cannot vanish under it. */
+export class InterviewBusyError extends AppError {
+  constructor(message = "The interview is in progress") {
+    super("INTERVIEW_BUSY", message);
   }
 }
 

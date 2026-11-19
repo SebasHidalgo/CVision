@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireUserId } from "@/lib/auth";
 import { deleteInterviewCascade } from "@/lib/deletion";
-import { AnalysisBusyError, UnauthorizedError } from "@/lib/error/errors";
+import { InterviewBusyError, UnauthorizedError } from "@/lib/error/errors";
 import { deleteOneInterviewAction } from "./deleteOneInterviewAction";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -32,9 +32,9 @@ describe("deleteOneInterviewAction", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("answers ANALYSIS_BUSY while it is in a call or being scored", async () => {
-    vi.mocked(deleteInterviewCascade).mockRejectedValue(new AnalysisBusyError("The interview is in progress"));
-    expect(await deleteOneInterviewAction({ interviewId: INTERVIEW_ID })).toEqual({ ok: false, code: "ANALYSIS_BUSY" });
+  it("answers INTERVIEW_BUSY while it is in a call or being scored", async () => {
+    vi.mocked(deleteInterviewCascade).mockRejectedValue(new InterviewBusyError());
+    expect(await deleteOneInterviewAction({ interviewId: INTERVIEW_ID })).toEqual({ ok: false, code: "INTERVIEW_BUSY" });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 

@@ -100,10 +100,10 @@ describe("deleteInterviewRows", () => {
     expect(tx.resumeAnalysis.deleteMany).not.toHaveBeenCalled();
   });
 
-  it.each(["IN_PROGRESS", "GENERATING"])("refuses with ANALYSIS_BUSY while it is %s, deleting nothing", async (status) => {
+  it.each(["IN_PROGRESS", "GENERATING"])("refuses with INTERVIEW_BUSY (not the analysis's code) while it is %s, deleting nothing", async (status) => {
     tx.interview.findFirst.mockResolvedValue({ status, issuedConversationIds: ["conv_a"] });
 
-    await expect(deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "ANALYSIS_BUSY" });
+    await expect(deleteInterviewRows({ interviewId: INTERVIEW_ID, userId: "user_1" })).rejects.toMatchObject({ code: "INTERVIEW_BUSY" });
     expect(tx.interview.deleteMany).not.toHaveBeenCalled();
   });
 

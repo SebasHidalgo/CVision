@@ -63,7 +63,7 @@ export type InterviewDeletion =
 /**
  * One interview: its row first (transcript, calls, feedback and the feedback's translations go with it; the analysis
  * and the usage ledger stay), then every conversation the session endpoint issued for it, at the voice platform. A
- * platform failure is logged with its id and never brings the row back. ANALYSIS_BUSY while it is in a call or being
+ * platform failure is logged with its id and never brings the row back. INTERVIEW_BUSY while it is in a call or being
  * scored, before anything external is touched.
  */
 export async function deleteInterviewCascade(params: { interviewId: string; userId: string }): Promise<InterviewDeletion> {

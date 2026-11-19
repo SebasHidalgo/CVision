@@ -67,3 +67,12 @@ describe("actionErrorCopy in Spanish", () => {
     expect(actionErrorCopy("SOMETHING_NEW" as ErrorCode)).toBe("Something went wrong on our side. Please try again.");
   });
 });
+
+describe("actionErrorCopy for a delete refused while something is live", () => {
+  it("names the interview, not its analysis, when the interview itself is busy", () => {
+    expect(actionErrorCopy("INTERVIEW_BUSY")).toBe("This interview is in progress or its feedback is being prepared. Try again when it's done.");
+    expect(actionErrorCopy("ANALYSIS_BUSY")).toBe("An interview for this analysis is in progress. Try again when it ends.");
+    expect(spanish("INTERVIEW_BUSY")).not.toBe(spanish("ANALYSIS_BUSY"));
+    expect(spanish("INTERVIEW_BUSY")).not.toBe(spanish("UNKNOWN"));
+  });
+});

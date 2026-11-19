@@ -2,7 +2,7 @@ import "server-only";
 
 import { Prisma, type InterviewStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { AnalysisBusyError } from "@/lib/error/errors";
+import { AnalysisBusyError, InterviewBusyError } from "@/lib/error/errors";
 import { handleError } from "@/lib/error/handleError";
 
 /**
@@ -109,7 +109,7 @@ export async function deleteInterviewRows(params: { interviewId: string; userId:
             });
             if (!row) return { deleted: false as const };
 
-            if (BUSY_INTERVIEW_STATUSES.has(row.status)) throw new AnalysisBusyError("The interview is in progress");
+            if (BUSY_INTERVIEW_STATUSES.has(row.status)) throw new InterviewBusyError();
 
             const removed = await tx.interview.deleteMany({
               where: { id: params.interviewId, userId: params.userId },
