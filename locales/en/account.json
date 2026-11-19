@@ -25,11 +25,11 @@
   "planLine": {
     "comp": "Pro is granted to your account at no charge: nothing renews and nothing is billed.",
     "cancels": "Your cancellation is scheduled: Pro stays until {{date}}, and nothing more will be charged.",
-    "pastDue": "The last payment didn't go through, and Paddle is retrying it. Update your payment method to keep Pro after {{date}}.",
+    "pastDue": "Your last payment didn't go through and Paddle is retrying it over the next few days. Pro stays on meanwhile: update your payment method in the billing portal to keep it.",
     "renews": "Renews on {{date}}. Cancel any time; Pro stays until the end of the period you paid for.",
-    "canceled": "Your Pro subscription ended. Nothing was deleted, and Pro brings your whole history back.",
+    "canceled": "Your Pro subscription ended. Nothing was deleted: everything you made is still here.",
     "paused": "Your subscription is paused, so you're on Free until you resume it.",
-    "free": "{{analyses}} analyses a month, and your last {{history}} kept in your history."
+    "free": "{{analyses}} analyses a month, and everything you've analyzed and rehearsed stays in your lists."
   },
   "overview": {
     "plan": {
@@ -62,12 +62,14 @@
       "keptTitle": "Kept",
       "kept": {
         "paddle": "Paddle, the merchant of record, keeps your invoices, transactions and customer record: they are tax records.",
-        "log": "A log of billing events (ids, types and times) stays for our accounting, tied only to an account id that no longer exists."
+        "log": "A log of billing events (ids, types and times) stays for our accounting, tied only to an account id that no longer exists.",
+        "trialClaim": "If you used the free trial interview, a one-way, keyed hash of your email stays, so the same email cannot get a second trial. It is linked to nothing else about you."
       },
       "action": "Delete account",
       "confirmTitle": "Delete your account?",
       "confirmBody": "Deleted now: your analyses and CVs; your interviews with their transcripts, feedback and translations; the conversations at our voice provider; any unused credits. Any subscription is canceled at once. Paddle keeps your invoices and customer record as tax records. You'll be signed out, and this can't be undone.",
       "confirmBodySubscribed": "Deleted now: your analyses and CVs; your interviews with their transcripts, feedback and translations; the conversations at our voice provider; any unused credits. Your subscription is canceled at once, so Pro ends now, not at the end of the period. Paddle keeps your invoices and customer record as tax records. This can't be undone.",
+      "forfeit": "You've paid for Pro until {{date}}. Deleting your account ends it now, and the rest of that period is forfeited.",
       "confirm": "Delete my account",
       "cancel": "Keep my account",
       "deleting": "Deleting your account…",
@@ -85,9 +87,11 @@
     "label": "Free trial interview",
     "available": "Available",
     "used": "Used",
+    "claimed": "Used with this email",
     "unavailable": "Not available",
-    "availableNote": "One {{minutes}}-minute practice interview with the AI interviewer, once per account.",
-    "unavailableNote": "The free trial is for accounts that have never had Pro or a full interview. Voice interviews are part of Pro."
+    "availableNote": "One {{minutes}}-minute practice interview with the AI interviewer, once per account and email address.",
+    "unavailableNote": "The free trial is for accounts that have never had Pro or a full interview. Voice interviews are part of Pro.",
+    "claimedNote": "This email address already had its free trial on another account. Voice interviews are part of Pro."
   },
   "credits": {
     "label": "Interview credits",
@@ -105,7 +109,7 @@
   },
   "subscription": {
     "title": "Subscription",
-    "offer": "Pro is {{price}} a month: {{interviews}} voice interviews of up to {{minutes}} minutes, up to {{analyses}} analyses and your whole history.",
+    "offer": "Pro is {{price}} a month: {{interviews}} voice interviews of up to {{minutes}} minutes and up to {{analyses}} analyses.",
     "comp": "There's no subscription to manage."
   },
   "packs": {

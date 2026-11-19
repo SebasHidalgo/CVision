@@ -26,6 +26,7 @@
     "INTERVIEW_START_LIMIT": "Esta entrevista usó todas sus conexiones: cada conexión con el entrevistador cuenta como una. Vuelve a ensayar desde el análisis.",
     "INTERVIEW_CONTEXT_MISSING": "Esta entrevista no tiene un análisis del que salgan las preguntas. Haz un análisis nuevo y ensaya desde ahí.",
     "ANALYSIS_BUSY": "Hay una entrevista en curso para este análisis. Inténtalo de nuevo cuando termine.",
+    "INTERVIEW_BUSY": "Esta entrevista está en curso o se está preparando su feedback. Inténtalo de nuevo cuando termine.",
     "ANALYSIS_IN_PROGRESS": "Tu análisis del intento anterior todavía se está procesando. Espera un minuto y vuelve a intentarlo: si terminó, lo abriremos. Esto no usó otro análisis.",
     "ANALYSIS_QUOTA_EXCEEDED": "Ya usaste los análisis de este mes.",
     "INTERVIEW_QUOTA_EXCEEDED": "Las entrevistas por voz son parte de Pro.",

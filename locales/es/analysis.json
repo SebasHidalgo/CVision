@@ -116,7 +116,7 @@
   "cta": {
     "eyebrow": "Siguiente paso",
     "preparing": "Preparando la entrevista…",
-    "openRoom": "Abrir la sala de entrevista",
+    "openRoom": "Continuar a la entrevista",
     "tryTrial": "Entrevista de prueba gratis · {{minutes}} min",
     "rehearse": "Ensayar la entrevista",
     "rehearseAgain": "Ensayar de nuevo",
@@ -142,6 +142,7 @@
       "live": "Tu entrevista está lista.",
       "trial": "Prueba en voz alta la entrevista para {{jobTitle}}.",
       "needsPro": "Ensaya esta entrevista en voz alta con Pro.",
+      "trialClaimed": "Este correo ya usó su prueba gratis.",
       "proExhausted": "Ya usaste las entrevistas de este período.",
       "again": "Vuelve a ensayarla.",
       "first": "Ensaya en voz alta la entrevista para {{jobTitle}}."

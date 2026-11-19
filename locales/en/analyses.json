@@ -32,21 +32,14 @@
     "body": "Paste a job post, upload your CV, and this page becomes the record of how each application stacks up.",
     "action": "Start your first analysis"
   },
-  "hidden": {
-    "title_one": "{{count}} older analysis is hidden",
-    "title_other": "{{count}} older analyses are hidden",
-    "why": "Free shows your last {{limit}} analyses. The older ones stay stored, CVs and interviews included, until you delete them. Pro shows them all again.",
-    "seePro": "See Pro",
-    "deleteAll_one": "Delete it",
-    "deleteAll_other": "Delete all {{count}}",
-    "listLabel": "Hidden analyses, newest first"
-  },
   "confirm": {
     "oneTitle": "Delete this analysis?",
     "oneBody": "{{jobTitle}} at {{companyName}}, {{date}}: the CV and the analysis go with it. This can't be undone.",
     "oneBodyInterviews_one": "{{jobTitle}} at {{companyName}}, {{date}}: the CV, the analysis and its interview, with its transcript and feedback, go with it. This can't be undone.",
     "oneBodyInterviews_other": "{{jobTitle}} at {{companyName}}, {{date}}: the CV, the analysis and its {{count}} interviews, with their transcripts and feedback, go with it. This can't be undone.",
     "oneConfirm": "Delete analysis",
+    "keep": "Keep it",
+    "deleting": "Deleting…",
     "allTitle_one": "Delete {{count}} older analysis?",
     "allTitle_other": "Delete {{count}} older analyses?",
     "allBody": "Their CVs and the analyses go with them. Your last {{limit}} stay. This can't be undone.",
@@ -54,9 +47,7 @@
     "allBodyInterviews_other": "Their CVs, the analyses and their {{count}} interviews, with transcripts and feedback, go with them. Your last {{limit}} stay. This can't be undone.",
     "allConfirm_one": "Delete it",
     "allConfirm_other": "Delete {{count}}",
-    "keep": "Keep it",
-    "keepAll": "Keep them",
-    "deleting": "Deleting…"
+    "keepAll": "Keep them"
   },
   "result": {
     "deletedOne": "Deleted {{jobTitle}} at {{companyName}}.",
@@ -69,5 +60,14 @@
     "remaining_one": "{{count}} is left: delete again to finish.",
     "remaining_other": "{{count}} are left: delete again to finish.",
     "unchanged": "Nothing was deleted: your history changed since this page loaded. Check the list and try again."
+  },
+  "hidden": {
+    "title_one": "{{count}} older analysis is hidden",
+    "title_other": "{{count}} older analyses are hidden",
+    "why": "Free shows your last {{limit}} analyses. The older ones stay stored, CVs and interviews included, until you delete them. Pro shows them all again.",
+    "seePro": "See Pro",
+    "deleteAll_one": "Delete it",
+    "deleteAll_other": "Delete all {{count}}",
+    "listLabel": "Hidden analyses, newest first"
   }
 }

@@ -25,11 +25,11 @@
   "planLine": {
     "comp": "Pro está otorgado a tu cuenta sin costo: no se renueva nada y no se cobra nada.",
     "cancels": "Tu cancelación está programada: conservas Pro hasta el {{date}} y no se te cobrará nada más.",
-    "pastDue": "El último pago no se procesó y Paddle lo está reintentando. Actualiza tu método de pago para conservar Pro después del {{date}}.",
+    "pastDue": "El último pago no se procesó y Paddle lo está reintentando durante los próximos días. Mientras tanto conservas Pro: actualiza tu método de pago en el portal de facturación para no perderlo.",
     "renews": "Se renueva el {{date}}. Cancela cuando quieras; conservas Pro hasta el final del período que pagaste.",
-    "canceled": "Tu suscripción a Pro terminó. No se borró nada, y con Pro recuperas todo tu historial.",
+    "canceled": "Tu suscripción a Pro terminó. No se borró nada: todo lo que hiciste sigue aquí.",
     "paused": "Tu suscripción está en pausa, así que tienes el plan Gratis hasta que la reanudes.",
-    "free": "{{analyses}} análisis al mes, y tus últimos {{history}} guardados en tu historial."
+    "free": "{{analyses}} análisis al mes, y todo lo que analizaste y ensayaste sigue en tus listas."
   },
   "overview": {
     "plan": {
@@ -62,12 +62,14 @@
       "keptTitle": "Se conserva",
       "kept": {
         "paddle": "Paddle, el comerciante registrado (merchant of record), conserva tus facturas, tus transacciones y tu registro de cliente: son registros fiscales.",
-        "log": "Un registro de los eventos de facturación (identificadores, tipos y horas) queda para nuestra contabilidad, ligado solo a un identificador de cuenta que ya no existe."
+        "log": "Un registro de los eventos de facturación (identificadores, tipos y horas) queda para nuestra contabilidad, ligado solo a un identificador de cuenta que ya no existe.",
+        "trialClaim": "Si usaste la entrevista de prueba gratis, queda un hash irreversible y con clave de tu correo, para que el mismo correo no reciba una segunda prueba. No está vinculado a ningún otro dato tuyo."
       },
       "action": "Eliminar la cuenta",
       "confirmTitle": "¿Eliminar tu cuenta?",
       "confirmBody": "Se elimina ahora: tus análisis y tus CV; tus entrevistas con sus transcripciones, su feedback y sus traducciones; las conversaciones en nuestro proveedor de voz; los créditos sin usar. Cualquier suscripción se cancela al instante. Paddle conserva tus facturas y tu registro de cliente como registros fiscales. Se cerrará tu sesión y no se puede deshacer.",
       "confirmBodySubscribed": "Se elimina ahora: tus análisis y tus CV; tus entrevistas con sus transcripciones, su feedback y sus traducciones; las conversaciones en nuestro proveedor de voz; los créditos sin usar. Tu suscripción se cancela al instante, así que Pro termina ahora y no al final del período. Paddle conserva tus facturas y tu registro de cliente como registros fiscales. No se puede deshacer.",
+      "forfeit": "Pagaste Pro hasta el {{date}}. Eliminar tu cuenta lo termina ahora y pierdes el resto de ese período.",
       "confirm": "Eliminar mi cuenta",
       "cancel": "Conservar mi cuenta",
       "deleting": "Eliminando tu cuenta…",
@@ -85,9 +87,11 @@
     "label": "Entrevista de prueba gratis",
     "available": "Disponible",
     "used": "Usada",
+    "claimed": "Usada con este correo",
     "unavailable": "No disponible",
-    "availableNote": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA, una sola vez por cuenta.",
-    "unavailableNote": "La prueba gratis es para cuentas que nunca tuvieron Pro ni una entrevista completa. Las entrevistas por voz son parte de Pro."
+    "availableNote": "Una entrevista de práctica de {{minutes}} minutos con el entrevistador de IA, una sola vez por cuenta y por correo.",
+    "unavailableNote": "La prueba gratis es para cuentas que nunca tuvieron Pro ni una entrevista completa. Las entrevistas por voz son parte de Pro.",
+    "claimedNote": "Este correo ya tuvo su prueba gratis en otra cuenta. Las entrevistas por voz son parte de Pro."
   },
   "credits": {
     "label": "Créditos de entrevista",
@@ -106,7 +110,7 @@
   },
   "subscription": {
     "title": "Suscripción",
-    "offer": "Pro cuesta {{price}} al mes: {{interviews}} entrevistas por voz de hasta {{minutes}} minutos, hasta {{analyses}} análisis y todo tu historial.",
+    "offer": "Pro cuesta {{price}} al mes: {{interviews}} entrevistas por voz de hasta {{minutes}} minutos y hasta {{analyses}} análisis.",
     "comp": "No hay ninguna suscripción que administrar."
   },
   "packs": {

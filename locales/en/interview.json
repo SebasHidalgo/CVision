@@ -112,6 +112,7 @@
       "pro": {
         "title": "You've used your free trial.",
         "titleHadVoice": "Voice interviews are part of Pro.",
+        "titleClaimed": "This email address already used its free trial.",
         "body": "Go Pro to do this interview: {{perMonth}} interviews a month, up to {{minutes}} minutes each, every one scored against its posting.",
         "checkout": "Get Pro · {{price}} a month",
         "seePricing": "See everything in Pro"
@@ -174,6 +175,16 @@
       "needsPro": "Needs Pro to start",
       "needsPack": "No interviews left this period",
       "noStarts": "No starts left"
+    },
+    "delete": {
+      "button": "Delete",
+      "label": "Delete the interview for {{role}} at {{companyName}}, {{date}}",
+      "title": "Delete this interview?",
+      "body": "{{role}} at {{companyName}}, {{date}}: the interview, its transcript and its feedback are deleted, here and at our voice provider. Its analysis stays. This can't be undone.",
+      "confirm": "Delete interview",
+      "keep": "Keep it",
+      "deleting": "Deleting…",
+      "deleted": "Deleted the interview for {{role}} at {{companyName}}."
     },
     "hidden": {
       "title_one": "{{count}} interview is hidden",

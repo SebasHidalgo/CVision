@@ -21,8 +21,8 @@
     },
     "plans": {
       "heading": "Plans, prices and billing",
-      "p1": "Free includes {{freeAnalyses}} CV checks per month, one {{trialMinutes}}-minute practice interview for an account that has never had Pro or a full interview, and your last {{freeHistory}} analyses. Pro is a monthly subscription that includes up to {{proAnalyses}} CV analyses a month, {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each, and your full history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
-      "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from your account page, and Pro stays active until the end of the period you paid for.",
+      "p1": "Free includes {{freeAnalyses}} CV analyses per month and one {{trialMinutes}}-minute practice interview, once per email address, for an account that has never had Pro or a full interview. Pro is a monthly subscription that includes up to {{proAnalyses}} CV analyses a month and {{proInterviews}} practice interviews per billing period of up to {{fullMinutes}} minutes each. The limits apply to what you create: every plan shows your whole history. Interview packs add {{packCredits}} practice interviews of up to {{fullMinutes}} minutes each and can be bought while Pro is active. Pack credits do not expire and can be used on any plan, Free or Pro, including after Pro ends.",
+      "p2": "Purchases are made through {{merchant}}, the merchant of record. {{merchant}} handles the payment, the invoice, applicable taxes and refunds, and appears on your statement. Prices are shown before you pay. A subscription renews each period until you cancel it; you can cancel at any time from your account page, and Pro stays active until the end of the period you paid for. Deleting your account is different: it cancels the subscription at once, Pro ends at that moment, and the rest of the period you paid for is forfeited; it is not refunded unless the refunds policy says otherwise.",
       "p3": "[PLACEHOLDER: price changes and how they are notified.]"
     },
     "fairUse": {
@@ -35,7 +35,7 @@
     },
     "content": {
       "heading": "Your content",
-      "p1": "Your CV, the postings you paste and your interview answers remain yours. You give us the permission needed to process them to provide the service (see the privacy page). You can delete an analysis, with its interviews, from its page, and your whole account from your profile."
+      "p1": "Your CV, the postings you paste and your interview answers remain yours. You give us the permission needed to process them to provide the service (see the privacy page). You can delete an analysis, with its interviews, from its page; a single interview from your list of interviews; and your whole account from the Account page (Delete account)."
     },
     "ending": {
       "heading": "Ending the service",
@@ -63,7 +63,8 @@
       "account": "Your account: an identifier and your sign-in details, held by our authentication provider (Clerk). We store the identifier and the interface language you choose, not your email or name.",
       "cv": "Your CV: the PDF you upload, kept in private storage so you can reopen it next to its analysis, and its text, which is sent to the AI model that writes the analysis.",
       "postings": "The job postings you paste: stored with each analysis and sent to the AI model with your CV's text.",
-      "interviews": "Your practice interviews: the conversation runs with the AI voice provider (ElevenLabs), which processes your voice and returns a transcript. The transcript is stored with the interview and sent to the AI model that writes the feedback. [PLACEHOLDER: whether audio recordings are retained by the voice provider and for how long.]",
+      "interviews": "Your practice interviews: the call runs with the AI voice provider (ElevenLabs). Your voice goes from your browser to it live, during the call (a direct connection, so it also sees your IP address), and it turns the call into a transcript. The transcript comes back to us, is stored with the interview and is sent to the AI model that writes the feedback.",
+      "interviewContext": "What the voice provider receives to brief the interviewer: your first name from your sign-in profile, the role and company, the full job posting, your analysis's summary and its lists of requirements (each with the analysis's note and, where there is one, the short quote from your CV it rests on), the interview's language and length, an identifier for the interview, and, when a dropped call is continued, the questions already asked and the beginning of your answers. It does not receive your email address, your CV file or your CV's full text.",
       "translations": "Translations: if you use the product in Spanish, the parts of your analyses and interview feedback that the AI model wrote are sent to the AI model to be translated, and the translation is stored with them. Quotes from your CV and the posting, and suggested bullets, are not translated.",
       "usage": "Usage: how many analyses and interviews you ran, for your plan's limits.",
       "billing": "Billing: if you buy a plan, the payment is handled by the merchant of record ({{merchant}}), which collects your email, country and payment details. We store only its identifiers for your customer and subscription, never a card or an email."
@@ -71,7 +72,7 @@
     "processors": {
       "heading": "Who processes it",
       "google": "Google (Gemini) writes the CV analysis and the interview feedback, and translates them, from the text we send.",
-      "elevenlabs": "ElevenLabs runs the voice interview and produces the transcript.",
+      "elevenlabs": "ElevenLabs runs the voice interview: it hears your voice, speaks the interviewer's questions and produces the transcript. The interviewer's replies are written by a language model that ElevenLabs runs for the interview (set to a Google Gemini model, with an OpenAI model as a fallback).",
       "clerk": "Clerk signs you in.",
       "supabase": "Supabase hosts the database and the private file storage.",
       "merchant": "{{merchant}} is the merchant of record for payments.",
@@ -80,7 +81,9 @@
     },
     "retention": {
       "heading": "How long we keep it",
-      "p1": "A CV lives as long as its analysis. Deleting an analysis deletes the CV, the analysis, its interviews and their feedback, and asks the voice provider to delete the conversations. Deleting your account deletes everything above and cancels any subscription. The merchant of record keeps the records it must keep for tax purposes. [PLACEHOLDER: backup retention windows.]"
+      "p1": "A CV lives as long as its analysis. Deleting an analysis deletes the CV, the analysis, its interviews and their feedback, and asks the voice provider to delete those conversations at once. Deleting an interview deletes it, its transcript and its feedback, and asks the same for its conversations. Deleting your account deletes everything above, asks the voice provider to delete every conversation, and cancels any subscription. The merchant of record keeps the records it must keep for tax purposes. [PLACEHOLDER: backup retention windows.]",
+      "voice": "The voice provider is set not to keep audio recordings of the calls and to keep its copy of each conversation (the transcript and the call's details) for at most 30 days; a conversation it was not asked to delete, or whose deletion failed, expires there after that. [PLACEHOLDER: confirm with the voice provider that no audio is kept and what its 30-day retention covers.]",
+      "trialClaim": "If you use the free trial interview, we keep a one-way hash of your email address, computed with a secret key, even after your account is deleted, only to stop the free trial from being claimed again with the same email; it cannot be turned back into your email and is used for nothing else."
     },
     "rights": {
       "heading": "Your rights",
@@ -100,7 +103,7 @@
     },
     "subscriptions": {
       "heading": "Subscriptions",
-      "p1": "You can cancel Pro at any time from your account page. Cancelling stops the next charge; Pro stays active until the end of the period you already paid for, and nothing is deleted when it ends. [PLACEHOLDER: whether a refund of the current period is offered, and under what conditions, e.g. within N days of a charge if no interview was run.]"
+      "p1": "You can cancel Pro at any time from your account page. Cancelling stops the next charge; Pro stays active until the end of the period you already paid for, and nothing is deleted when it ends. Deleting your account is not cancelling: it ends the subscription and Pro at once, and the rest of the period is forfeited. [PLACEHOLDER: whether deleting the account refunds any of the current period.] [PLACEHOLDER: whether a refund of the current period is offered, and under what conditions, e.g. within N days of a charge if no interview was run.]"
     },
     "packs": {
       "heading": "Interview packs",

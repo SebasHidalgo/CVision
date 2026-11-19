@@ -19,7 +19,7 @@
     },
     "afterwards": {
       "q": "¿Qué pasa con mi CV después?",
-      "a": "Se guarda en un almacenamiento privado mientras exista su análisis. Si borras el análisis, se borran el PDF y sus entrevistas. En el plan Gratis, los análisis más viejos quedan ocultos en tu lista, no borrados, y puedes borrarlos desde ahí."
+      "a": "Se guarda en un almacenamiento privado mientras exista su análisis. Si borras el análisis, se borran el PDF y sus entrevistas."
     },
     "language": {
       "q": "¿En qué idioma funciona?",

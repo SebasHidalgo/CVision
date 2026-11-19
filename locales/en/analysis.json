@@ -116,7 +116,7 @@
   "cta": {
     "eyebrow": "Next",
     "preparing": "Preparing the interview…",
-    "openRoom": "Open the interview room",
+    "openRoom": "Continue to the interview",
     "tryTrial": "Free trial interview · {{minutes}} min",
     "rehearse": "Rehearse the interview",
     "rehearseAgain": "Rehearse again",
@@ -138,6 +138,7 @@
       "live": "Your interview is ready.",
       "trial": "Try the {{jobTitle}} interview out loud.",
       "needsPro": "Rehearse this interview out loud, with Pro.",
+      "trialClaimed": "This email address already used its free trial.",
       "proExhausted": "This period's interviews are used.",
       "again": "Rehearse it again.",
       "first": "Rehearse the {{jobTitle}} interview out loud."

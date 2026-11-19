@@ -20,13 +20,6 @@
       "free_other": "{{count}} al mes",
       "pro": "Hasta {{count}} al mes"
     },
-    "history": {
-      "label": "Historial",
-      "last_one": "Tu último análisis",
-      "last_many": "Tus {{count}} últimos análisis",
-      "last_other": "Tus {{count}} últimos análisis",
-      "all": "Todo tu historial"
-    },
     "interviews": {
       "label": "Entrevista de voz",
       "trial_one": "Una de práctica de {{minutes}} minutos, una vez, para cuentas que nunca tuvieron Pro",
@@ -35,6 +28,13 @@
       "perMonth_one": "{{count}} al mes, de hasta {{minutes}} minutos",
       "perMonth_many": "{{count}} al mes, de hasta {{minutes}} minutos cada una",
       "perMonth_other": "{{count}} al mes, de hasta {{minutes}} minutos cada una"
+    },
+    "history": {
+      "label": "Historial",
+      "last_one": "Tu último análisis",
+      "last_many": "Tus {{count}} últimos análisis",
+      "last_other": "Tus {{count}} últimos análisis",
+      "all": "Todo tu historial"
     }
   },
   "free": {
@@ -64,8 +64,9 @@
     "detail": {
       "trialAvailable": "Tu entrevista de práctica gratis de {{minutes}} minutos te espera: empiézala desde cualquier análisis.",
       "trialUsed": "Ya hiciste tu entrevista de práctica gratis. Más entrevistas vienen con Pro.",
+      "trialClaimed": "Este correo ya tuvo su entrevista de práctica gratis en otra cuenta. Más entrevistas vienen con Pro.",
       "noTrial": "La entrevista de práctica gratis es para cuentas que nunca tuvieron Pro.",
-      "afterPro": "Tu suscripción a Pro terminó. No se borró nada: con Pro recuperas todo tu historial.",
+      "afterPro": "Tu suscripción a Pro terminó. No se borró nada: todo tu historial sigue aquí.",
       "renews": "Se renueva el {{date}}.",
       "comp": "Pro, cortesía de la casa: no se cobra nada.",
       "pastDue": "El último pago no se procesó y Paddle lo está reintentando. Actualiza tu método de pago para conservar Pro.",

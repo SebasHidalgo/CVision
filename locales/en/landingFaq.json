@@ -19,7 +19,7 @@
     },
     "afterwards": {
       "q": "What happens to my CV afterwards?",
-      "a": "It's kept in private storage for as long as its analysis exists. Delete the analysis, and the PDF and its interviews are deleted with it. On Free, older analyses are hidden from your list, not deleted, and you can still delete them there."
+      "a": "It's kept in private storage for as long as its analysis exists. Delete the analysis, and the PDF and its interviews are deleted with it."
     },
     "language": {
       "q": "Which languages does it work in?",

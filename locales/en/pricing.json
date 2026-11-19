@@ -19,18 +19,18 @@
       "free_other": "{{count}} a month",
       "pro": "Up to {{count}} a month"
     },
-    "history": {
-      "label": "History",
-      "last_one": "Your last analysis",
-      "last_other": "Your last {{count}} analyses",
-      "all": "Your full history"
-    },
     "interviews": {
       "label": "Voice interview",
       "trial_one": "One {{minutes}}-minute practice interview, once, for accounts that never had Pro",
       "trial_other": "{{count}} practice interviews of {{minutes}} minutes, for accounts that never had Pro",
       "perMonth_one": "{{count}} a month, up to {{minutes}} minutes",
       "perMonth_other": "{{count}} a month, up to {{minutes}} minutes each"
+    },
+    "history": {
+      "label": "History",
+      "last_one": "Your last analysis",
+      "last_other": "Your last {{count}} analyses",
+      "all": "Your full history"
     }
   },
   "free": {
@@ -59,8 +59,9 @@
     "detail": {
       "trialAvailable": "Your free {{minutes}}-minute practice interview is waiting: start it from any analysis.",
       "trialUsed": "You've had your free practice interview. More interviews come with Pro.",
+      "trialClaimed": "This email address already had its free practice interview on another account. More interviews come with Pro.",
       "noTrial": "The free practice interview is for accounts that never had Pro.",
-      "afterPro": "Your Pro subscription ended. Nothing was deleted: Pro brings your full history back.",
+      "afterPro": "Your Pro subscription ended. Nothing was deleted: your full history is still here.",
       "renews": "Renews on {{date}}.",
       "comp": "Pro on the house: nothing is billed.",
       "pastDue": "Your last payment didn't go through and Paddle is retrying it. Update your payment method to keep Pro.",

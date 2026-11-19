@@ -119,6 +119,7 @@
       "pro": {
         "title": "Ya usaste tu prueba gratis.",
         "titleHadVoice": "Las entrevistas por voz son parte de Pro.",
+        "titleClaimed": "Este correo ya usó su prueba gratis.",
         "body": "Pásate a Pro para hacer esta entrevista: {{perMonth}} entrevistas al mes, de hasta {{minutes}} minutos cada una, todas evaluadas contra su oferta.",
         "checkout": "Hazte Pro · {{price}} al mes",
         "seePricing": "Ver todo lo que incluye Pro"
@@ -185,6 +186,16 @@
       "needsPro": "Necesita Pro para empezar",
       "needsPack": "Sin entrevistas en este período",
       "noStarts": "No te quedan conexiones"
+    },
+    "delete": {
+      "button": "Borrar",
+      "label": "Borrar la entrevista de {{role}} en {{companyName}}, {{date}}",
+      "title": "¿Borrar esta entrevista?",
+      "body": "{{role}} en {{companyName}}, {{date}}: la entrevista, su transcripción y su feedback se borran, aquí y en nuestro proveedor de voz. Su análisis se queda. No se puede deshacer.",
+      "confirm": "Borrar entrevista",
+      "keep": "Conservarla",
+      "deleting": "Borrando…",
+      "deleted": "Borraste la entrevista de {{role}} en {{companyName}}."
     },
     "hidden": {
       "title_one": "{{count}} entrevista está oculta",

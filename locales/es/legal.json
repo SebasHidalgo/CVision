@@ -21,8 +21,8 @@
     },
     "plans": {
       "heading": "Planes, precios y facturación",
-      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes, una entrevista de práctica de {{trialMinutes}} minutos para una cuenta que nunca tuvo Pro ni una entrevista completa, y tus últimos {{freeHistory}} análisis. El plan Pro es una suscripción mensual que incluye hasta {{proAnalyses}} análisis de CV al mes, {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una, y todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica de hasta {{fullMinutes}} minutos cada una y se pueden comprar mientras Pro esté activo. Los créditos del paquete no vencen y se pueden usar en cualquier plan, Gratis o Pro, incluso después de que termine Pro.",
-      "p2": "Las compras se hacen a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} se encarga del pago, la factura, los impuestos que correspondan y los reembolsos, y es quien aparece en tu estado de cuenta. Los precios se muestran antes de pagar. Una suscripción se renueva en cada período hasta que la canceles; puedes cancelarla cuando quieras desde la página de tu cuenta, y Pro sigue activo hasta el final del período que pagaste.",
+      "p1": "El plan Gratis incluye {{freeAnalyses}} análisis de CV al mes y una entrevista de práctica de {{trialMinutes}} minutos, una sola vez por correo electrónico, para una cuenta que nunca tuvo Pro ni una entrevista completa. El plan Pro es una suscripción mensual que incluye hasta {{proAnalyses}} análisis de CV al mes y {{proInterviews}} entrevistas de práctica por período de facturación, de hasta {{fullMinutes}} minutos cada una. Los límites se aplican a lo que creas: todos los planes muestran todo tu historial. Los paquetes de entrevistas suman {{packCredits}} entrevistas de práctica de hasta {{fullMinutes}} minutos cada una y se pueden comprar mientras Pro esté activo. Los créditos del paquete no vencen y se pueden usar en cualquier plan, Gratis o Pro, incluso después de que termine Pro.",
+      "p2": "Las compras se hacen a través de {{merchant}}, el comerciante registrado (merchant of record). {{merchant}} se encarga del pago, la factura, los impuestos que correspondan y los reembolsos, y es quien aparece en tu estado de cuenta. Los precios se muestran antes de pagar. Una suscripción se renueva en cada período hasta que la canceles; puedes cancelarla cuando quieras desde la página de tu cuenta, y Pro sigue activo hasta el final del período que pagaste. Eliminar tu cuenta es distinto: cancela la suscripción al instante, Pro termina en ese momento y pierdes el resto del período que pagaste; no se reembolsa, salvo que la política de reembolsos diga otra cosa.",
       "p3": "[PLACEHOLDER: cambios de precio y cómo se avisan.]"
     },
     "fairUse": {
@@ -35,7 +35,7 @@
     },
     "content": {
       "heading": "Tu contenido",
-      "p1": "Tu CV, las ofertas que pegas y tus respuestas en las entrevistas siguen siendo tuyos. Nos das el permiso necesario para procesarlos y así prestarte el servicio (consulta la página de privacidad). Puedes borrar un análisis, con sus entrevistas, desde su página, y tu cuenta completa desde tu perfil."
+      "p1": "Tu CV, las ofertas que pegas y tus respuestas en las entrevistas siguen siendo tuyos. Nos das el permiso necesario para procesarlos y así prestarte el servicio (consulta la página de privacidad). Puedes borrar un análisis, con sus entrevistas, desde su página; una sola entrevista desde tu lista de entrevistas; y tu cuenta completa desde la página Cuenta (Eliminar la cuenta)."
     },
     "ending": {
       "heading": "Fin del servicio",
@@ -63,7 +63,8 @@
       "account": "Tu cuenta: un identificador y tus datos de inicio de sesión, que guarda nuestro proveedor de autenticación (Clerk). Nosotros guardamos el identificador y el idioma de la interfaz que elijas, no tu correo electrónico ni tu nombre.",
       "cv": "Tu CV: el PDF que subes, guardado en un almacenamiento privado para que puedas volver a abrirlo junto a su análisis, y su texto, que se envía al modelo de IA que escribe el análisis.",
       "postings": "Las ofertas de empleo que pegas: se guardan con cada análisis y se envían al modelo de IA junto con el texto de tu CV.",
-      "interviews": "Tus entrevistas de práctica: la conversación se hace con el proveedor de voz con IA (ElevenLabs), que procesa tu voz y devuelve una transcripción. La transcripción se guarda con la entrevista y se envía al modelo de IA que escribe el feedback. [PLACEHOLDER: si el proveedor de voz conserva las grabaciones de audio y por cuánto tiempo.]",
+      "interviews": "Tus entrevistas de práctica: la llamada se hace con el proveedor de voz con IA (ElevenLabs). Tu voz le llega desde tu navegador en vivo, durante la llamada (es una conexión directa, así que también ve tu dirección IP), y el proveedor convierte la llamada en una transcripción. La transcripción vuelve a nosotros, se guarda con la entrevista y se envía al modelo de IA que escribe el feedback.",
+      "interviewContext": "Lo que recibe el proveedor de voz para preparar al entrevistador: tu nombre de pila de tu perfil de inicio de sesión, el puesto y la empresa, la oferta de empleo completa, el resumen de tu análisis y sus listas de requisitos (cada uno con la nota del análisis y, cuando la hay, la cita breve de tu CV en la que se apoya), el idioma y la duración de la entrevista, un identificador de la entrevista y, cuando se continúa una llamada que se cortó, las preguntas ya hechas y el comienzo de tus respuestas. No recibe tu correo electrónico, el archivo de tu CV ni el texto completo de tu CV.",
       "translations": "Traducciones: si usas el producto en español, las partes de tus análisis y del feedback de tus entrevistas que escribió el modelo de IA se envían al modelo de IA para traducirlas, y la traducción se guarda con ellos. Las citas de tu CV y de la oferta, y las viñetas sugeridas, no se traducen.",
       "usage": "Uso: cuántos análisis y entrevistas hiciste, para los límites de tu plan.",
       "billing": "Facturación: si compras un plan, el pago lo gestiona el comerciante registrado ({{merchant}}), que recopila tu correo electrónico, tu país y tus datos de pago. Solo guardamos los identificadores de cliente y de suscripción que te asigna, nunca una tarjeta ni un correo electrónico."
@@ -71,7 +72,7 @@
     "processors": {
       "heading": "Quién lo procesa",
       "google": "Google (Gemini) escribe el análisis del CV y el feedback de la entrevista, y los traduce, a partir del texto que enviamos.",
-      "elevenlabs": "ElevenLabs lleva a cabo la entrevista por voz y genera la transcripción.",
+      "elevenlabs": "ElevenLabs lleva a cabo la entrevista por voz: escucha tu voz, dice las preguntas del entrevistador y genera la transcripción. Las respuestas del entrevistador las escribe un modelo de lenguaje que ElevenLabs ejecuta para la entrevista (configurado con un modelo Gemini de Google y un modelo de OpenAI como respaldo).",
       "clerk": "Clerk gestiona tu inicio de sesión.",
       "supabase": "Supabase aloja la base de datos y el almacenamiento privado de archivos.",
       "merchant": "{{merchant}} es el comerciante registrado (merchant of record) de los pagos.",
@@ -80,7 +81,9 @@
     },
     "retention": {
       "heading": "Cuánto tiempo lo guardamos",
-      "p1": "Un CV existe mientras exista su análisis. Borrar un análisis borra el CV, el análisis, sus entrevistas y su feedback, y le pide al proveedor de voz que borre las conversaciones. Borrar tu cuenta borra todo lo anterior y cancela cualquier suscripción. El comerciante registrado conserva los registros que debe conservar por motivos fiscales. [PLACEHOLDER: plazos de retención de las copias de seguridad.]"
+      "p1": "Un CV existe mientras exista su análisis. Borrar un análisis borra el CV, el análisis, sus entrevistas y su feedback, y le pide al proveedor de voz que borre esas conversaciones de inmediato. Borrar una entrevista la borra junto con su transcripción y su feedback, y pide lo mismo para sus conversaciones. Borrar tu cuenta borra todo lo anterior, le pide al proveedor de voz que borre todas las conversaciones y cancela cualquier suscripción. El comerciante registrado conserva los registros que debe conservar por motivos fiscales. [PLACEHOLDER: plazos de retención de las copias de seguridad.]",
+      "voice": "El proveedor de voz está configurado para no guardar grabaciones de audio de las llamadas y para conservar su copia de cada conversación (la transcripción y los datos de la llamada) durante 30 días como máximo; una conversación que no se le pidió borrar, o cuyo borrado falló, vence allí después de ese plazo. [PLACEHOLDER: confirmar con el proveedor de voz que no se guarda audio y qué cubren sus 30 días de retención.]",
+      "trialClaim": "Si usas la entrevista de prueba gratis, conservamos un hash unidireccional de tu correo electrónico, calculado con una clave secreta, aun después de que se elimine tu cuenta, solo para que la prueba gratis no se pueda volver a pedir con el mismo correo; no se puede convertir de nuevo en tu correo y no se usa para nada más."
     },
     "rights": {
       "heading": "Tus derechos",
@@ -100,7 +103,7 @@
     },
     "subscriptions": {
       "heading": "Suscripciones",
-      "p1": "Puedes cancelar Pro cuando quieras desde la página de tu cuenta. Cancelar detiene el próximo cobro; Pro sigue activo hasta el final del período que ya pagaste, y nada se borra cuando termina. [PLACEHOLDER: si se ofrece el reembolso del período en curso y en qué condiciones, p. ej., dentro de N días desde un cobro si no se hizo ninguna entrevista.]"
+      "p1": "Puedes cancelar Pro cuando quieras desde la página de tu cuenta. Cancelar detiene el próximo cobro; Pro sigue activo hasta el final del período que ya pagaste, y nada se borra cuando termina. Eliminar tu cuenta no es cancelar: termina la suscripción y Pro al instante, y se pierde el resto del período. [PLACEHOLDER: si eliminar la cuenta reembolsa algo del período en curso.] [PLACEHOLDER: si se ofrece el reembolso del período en curso y en qué condiciones, p. ej., dentro de N días desde un cobro si no se hizo ninguna entrevista.]"
     },
     "packs": {
       "heading": "Paquetes de entrevistas",
