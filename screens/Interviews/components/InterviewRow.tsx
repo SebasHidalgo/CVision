@@ -9,6 +9,7 @@ import { scoreTone, toneKey } from "@/lib/score";
 import { cn } from "@/lib/utils";
 import type { InterviewListItem } from "@/types/interview";
 import { timeLeft, type ListState } from "../utils/listState";
+import { DeleteInterview, type DeleteInterviewCopy } from "./DeleteInterview";
 
 /** Shared with the skeleton: stacked below 1024 px, the state beside the title from there. */
 export const ROW_GRID =
@@ -44,6 +45,24 @@ function reading(state: ListState, t: TFunction<"interview">): string {
   }
 }
 
+/** Rows that may be deleted: the cascade refuses one in a call or being scored, so those offer nothing. */
+const DELETABLE: ReadonlySet<ListState["kind"]> = new Set(["done", "failed", "expired"]);
+
+/** The delete's words for one row, in the screen's language: rendered here, so no namespace travels to the client. */
+function deleteCopy(interview: InterviewListItem, date: string, t: TFunction<"interview">): DeleteInterviewCopy {
+  const named = { role: interview.role, companyName: interview.companyName ?? "", date };
+  return {
+    button: t("list.delete.button"),
+    label: t("list.delete.label", named),
+    title: t("list.delete.title"),
+    body: t("list.delete.body", named),
+    confirm: t("list.delete.confirm"),
+    keep: t("list.delete.keep"),
+    deleting: t("list.delete.deleting"),
+    deleted: t("list.delete.deleted", named),
+  };
+}
+
 type InterviewRowProps = {
   interview: InterviewListItem;
   state: ListState;
@@ -51,6 +70,8 @@ type InterviewRowProps = {
   locale: Locale;
   t: TFunction<"interview">;
   common: TFunction<"common">;
+  /** The page heading's id: focus goes there once a deleted row is gone. */
+  headingId: string;
 };
 
 /**
@@ -58,8 +79,9 @@ type InterviewRowProps = {
  * The role is the row's link (to the room while it waits, to the feedback after); its hit area covers the row, and the
  * analysis link sits above it.
  */
-export function InterviewRow({ interview, state, n, locale, t, common }: InterviewRowProps) {
+export function InterviewRow({ interview, state, n, locale, t, common, headingId }: InterviewRowProps) {
   const destination = interviewDestination(interview);
+  const date = formatDate(interview.createdAt, locale);
   const label = reading(state, t);
   const scored = state.kind === "done" && state.score !== null ? state.score : null;
   const tone = scored !== null ? common(toneKey("performance", scoreTone(scored))) : null;
@@ -80,7 +102,7 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
 
       <div className="min-w-0 [grid-area:title]">
         <p className="mono text-[13px] text-ink-3">
-          <time dateTime={interview.createdAt.toISOString()}>{formatDate(interview.createdAt, locale)}</time>
+          <time dateTime={interview.createdAt.toISOString()}>{date}</time>
           <span aria-hidden> · </span>
           {t("list.attempt", { number: interview.attemptNumber })}
         </p>
@@ -128,6 +150,11 @@ export function InterviewRow({ interview, state, n, locale, t, common }: Intervi
               {interview.companyName ? `, ${interview.companyName}` : ""}
             </span>
           </Link>
+        )}
+        {DELETABLE.has(state.kind) && (
+          <div className="relative z-10 mt-2">
+            <DeleteInterview interviewId={interview.id} copy={deleteCopy(interview, date, t)} returnFocusTo={headingId} />
+          </div>
         )}
       </div>
 

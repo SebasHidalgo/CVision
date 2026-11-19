@@ -19,6 +19,7 @@ type AnalysisHeaderProps = {
   summary: string;
   resumeId: string;
   attempts: ResumeAnalysis["interviews"];
+  room: ResumeAnalysis["unstartedRoom"];
   quota: InterviewQuotaView;
 };
 
@@ -35,6 +36,7 @@ export default async function AnalysisHeader({
   summary,
   resumeId,
   attempts,
+  room,
   quota,
 }: AnalysisHeaderProps) {
   const [t, common] = await Promise.all([getT("analysis"), getT("common")]);
@@ -57,7 +59,7 @@ export default async function AnalysisHeader({
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <ResumeDrawer resumeId={resumeId} title={`${jobTitle} · ${companyName}`} />
-          <InterviewCta variant="compact" resumeId={resumeId} jobTitle={jobTitle} attempts={attempts} quota={quota} />
+          <InterviewCta variant="compact" resumeId={resumeId} jobTitle={jobTitle} attempts={attempts} room={room} quota={quota} />
         </div>
 
         <section aria-labelledby="quality-title" className="mt-12 max-w-[26rem] border-t border-line-2 pt-4">

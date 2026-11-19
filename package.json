@@ -30,6 +30,7 @@
     "billing:reconcile": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/reconcile.ts",
     "billing:doctor": "tsx --conditions=react-server --env-file-if-exists=.env scripts/billing/doctor.ts",
     "storage:gc": "tsx --conditions=react-server --env-file-if-exists=.env scripts/storage/gc.ts",
+    "interviews:gc": "tsx --conditions=react-server --env-file-if-exists=.env scripts/db/gc-unstarted-rooms.ts",
     "e2e": "node e2e/run.mjs all",
     "e2e:fast": "node e2e/run.mjs fast",
     "e2e:external": "node e2e/run.mjs external",

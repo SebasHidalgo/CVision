@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { fontText } from "@/components/design-system/fonts";
 import ClientMessages from "@/components/i18n/ClientMessages";
 import { localizedAnalysis } from "@/lib/ai/contentTranslation";
-import { fetchResumeAccess } from "@/lib/database/resume";
+import { fetchResumeById } from "@/lib/database/resume";
 import { currentUsageSummary, interviewQuotaView } from "@/lib/database/usage";
 import { formatLongDate } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
@@ -12,7 +12,6 @@ import AnalysisHeader from "./components/AnalysisHeader";
 import DeleteAnalysis from "./components/DeleteAnalysis";
 import DimensionNav from "./components/DimensionNav";
 import DimensionSections from "./components/DimensionSections";
-import HiddenAnalysis from "./components/HiddenAnalysis";
 import InterviewAttempts from "./components/InterviewAttempts";
 import InterviewCta from "./components/InterviewCta";
 import PriorityFixes from "./components/PriorityFixes";
@@ -39,17 +38,8 @@ export default async function ResumeAnalysisDetailScreen({
   original = false,
 }: ResumeAnalysisDetailScreenProps) {
   // Already scoped to the owner: another user's analysis reads as missing.
-  // The caller's own, beyond the plan's history, gets the notice instead.
-  const [access, t, locale] = await Promise.all([fetchResumeAccess(resumeAnalysisId), getT("analysis"), getLocale()]);
-  if (access.kind === "missing") redirect("/resume/analyses");
-  if (access.kind === "hidden") {
-    return (
-      <Page>
-        <HiddenAnalysis title={t("detail.historyTitle")} />
-      </Page>
-    );
-  }
-  const { analysis } = access;
+  const [analysis, t, locale] = await Promise.all([fetchResumeById(resumeAnalysisId), getT("analysis"), getLocale()]);
+  if (!analysis) redirect("/resume/analyses");
 
   // Stored feedback no longer matches the schema, so there is nothing to render.
   const { feedback: stored } = analysis;
@@ -83,6 +73,7 @@ export default async function ResumeAnalysisDetailScreen({
           summary={feedback.overall.summaryText}
           resumeId={analysis.id}
           attempts={analysis.interviews}
+          room={analysis.unstartedRoom}
           quota={quota}
         />
 
@@ -100,7 +91,7 @@ export default async function ResumeAnalysisDetailScreen({
 
           <div className="min-w-0 lg:col-span-9">
             <DimensionSections feedback={feedback} />
-            <InterviewCta variant="full" resumeId={analysis.id} jobTitle={analysis.jobTitle} attempts={analysis.interviews} quota={quota}>
+            <InterviewCta variant="full" resumeId={analysis.id} jobTitle={analysis.jobTitle} attempts={analysis.interviews} room={analysis.unstartedRoom} quota={quota}>
               <InterviewAttempts attempts={analysis.interviews} t={t} locale={locale} entitlement={quota.entitlement} />
             </InterviewCta>
             <DeleteAnalysis resumeId={analysis.id} jobTitle={analysis.jobTitle} companyName={analysis.companyName} />

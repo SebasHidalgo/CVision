@@ -7,7 +7,6 @@ export const LEGAL_VALUES = {
   email: LEGAL_CONTACT_EMAIL,
   merchant: MERCHANT_OF_RECORD,
   freeAnalyses: PLANS.FREE.analysesPerMonth,
-  freeHistory: PLANS.FREE.historyLimit,
   proAnalyses: PLANS.PRO.analysesPerMonth,
   proInterviews: PLANS.PRO.interviewsPerMonth,
   packCredits: INTERVIEW_PACK_CREDITS,

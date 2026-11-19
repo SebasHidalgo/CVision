@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FEEDBACK_CATEGORIES } from "@/lib/ai/schemas";
-import { mapDbInterviewFeedback, type DbInterviewFeedback } from "./mappers";
+import { mapDbInterviewFeedback, mapDbResume, type DbInterviewFeedback } from "./mappers";
 
 const row = (report: unknown): DbInterviewFeedback => ({
   id: "feedback_1",
@@ -61,5 +61,52 @@ describe("mapDbInterviewFeedback", () => {
         }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("mapDbResume: rooms that never started", () => {
+  const room = (id: string, attemptNumber: number, status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED", issuedConversationIds: string[] = []) => ({
+    id,
+    status,
+    attemptNumber,
+    failureReason: null,
+    createdAt: new Date("2026-11-10T00:00:00Z"),
+    startCount: issuedConversationIds.length,
+    usageEventId: null,
+    resumableUntil: null,
+    issuedConversationIds,
+    InterviewFeedback: status === "COMPLETED" ? { totalScore: 70 } : null,
+  });
+  const analysis = (interviews: ReturnType<typeof room>[]) =>
+    ({
+      id: "a1",
+      companyName: "Northwind",
+      jobTitle: "Data Analyst",
+      jobDescription: "",
+      resumeKey: "cv/user_1/a1.pdf",
+      userId: "user_1",
+      feedback: null,
+      guardStats: null,
+      createdAt: new Date("2026-11-01T00:00:00Z"),
+      interviews,
+    }) as unknown as Parameters<typeof mapDbResume>[0];
+
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("keeps a room never started out of the attempts, apart for the CTA, and numbers only what started", () => {
+    const mapped = mapDbResume(analysis([room("i3", 3, "SCHEDULED"), room("i2", 2, "IN_PROGRESS", ["conv_2"]), room("i1", 1, "COMPLETED", ["conv_1"])]));
+    expect(mapped.interviews.map((attempt) => [attempt.id, attempt.attemptNumber])).toEqual([
+      ["i2", 2],
+      ["i1", 1],
+    ]);
+    expect(mapped.unstartedRoom).toMatchObject({ id: "i3", status: "SCHEDULED", attemptNumber: 3 });
+  });
+
+  it("counts a room as started once a session was issued, even if its call failed and gave the start back", () => {
+    const mapped = mapDbResume(analysis([{ ...room("i1", 1, "IN_PROGRESS", ["conv_1"]), startCount: 0 }]));
+    expect(mapped.interviews.map((attempt) => attempt.id)).toEqual(["i1"]);
+    expect(mapped.unstartedRoom).toBeNull();
   });
 });

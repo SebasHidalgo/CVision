@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInterview } from "@/lib/database/interview";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { fetchResumeById } from "@/lib/database/resume";
-import { usageSummary, type UsageSummary } from "@/lib/database/usage";
+import { reserveInterview, usageSummary, type UsageSummary } from "@/lib/database/usage";
 import type { InterviewEntitlement } from "@/lib/interviewEntitlement";
 import { RateLimitedError } from "@/lib/error/errors";
 import { MAX_TECHSTACK_ITEM_CHARS, MAX_TECHSTACK_ITEMS } from "@/lib/schemas/interviewSchema";
@@ -12,7 +12,7 @@ import { createInterviewAction } from "./createInterviewAction";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
-vi.mock("@/lib/database/usage", () => ({ usageSummary: vi.fn() }));
+vi.mock("@/lib/database/usage", () => ({ usageSummary: vi.fn(), reserveInterview: vi.fn() }));
 vi.mock("@/lib/database/resume", () => ({ fetchResumeById: vi.fn() }));
 vi.mock("@/lib/database/interview", () => ({ createInterview: vi.fn() }));
 
@@ -31,6 +31,7 @@ function resumeWith(
     userId: "user_1",
     createdAt: "2026-10-01T00:00:00.000Z",
     interviews: [],
+    unstartedRoom: null,
     feedback: {
       skills: { matchedSkills },
     } as unknown as ResumeAnalysis["feedback"],
@@ -111,6 +112,16 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
     expect(assertRateLimit).toHaveBeenCalledWith("user_1", "interviewCreate");
   });
 
+  it("spends nothing on a new room: one rate-limit count and the row, the quota only read, no unit reserved", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(resumeWith([]));
+
+    expect((await createInterviewAction({ resumeId: RESUME_ID })).ok).toBe(true);
+    expect(assertRateLimit).toHaveBeenCalledTimes(1);
+    expect(usageSummary).toHaveBeenCalledTimes(1);
+    expect(createInterview).toHaveBeenCalledTimes(1);
+    expect(reserveInterview).not.toHaveBeenCalled();
+  });
+
   it("drops names too long for a chip and stops at the item cap", async () => {
     const many = Array.from({ length: MAX_TECHSTACK_ITEMS + 5 }, (_, i) => ({
       name: `Skill ${i}`,
@@ -140,20 +151,35 @@ describe("createInterviewAction: chips come from the stored analysis", () => {
 });
 
 describe("createInterviewAction: guards", () => {
-  it.each(["SCHEDULED", "IN_PROGRESS"] as const)(
-    "returns the live %s attempt instead of creating another, without consulting the quota",
-    async (status) => {
-      vi.mocked(fetchResumeById).mockResolvedValue(
-        resumeWith([], { interviews: [attempt("interview_2", status, 2), attempt("interview_1", "COMPLETED", 1)] }),
-      );
+  it("reuses the room that never started instead of creating another: no row, no quota read, no rate-limit count", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([], { interviews: [attempt("interview_1", "COMPLETED", 1)], unstartedRoom: attempt("interview_2", "SCHEDULED", 2) }),
+    );
 
-      const result = await createInterviewAction({ resumeId: RESUME_ID });
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: true, data: { interviewId: "interview_2" } });
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: true, data: { interviewId: "interview_2" } });
+    expect(createInterview).not.toHaveBeenCalled();
+    expect(usageSummary).not.toHaveBeenCalled();
+    expect(assertRateLimit).not.toHaveBeenCalled();
+  });
 
-      expect(result).toEqual({ ok: true, data: { interviewId: "interview_2" } });
-      expect(createInterview).not.toHaveBeenCalled();
-      expect(usageSummary).not.toHaveBeenCalled();
-    },
-  );
+  it("returns a started interview that can still go on instead of creating another", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(
+      resumeWith([], { interviews: [attempt("interview_2", "IN_PROGRESS", 2), attempt("interview_1", "COMPLETED", 1)] }),
+    );
+
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: true, data: { interviewId: "interview_2" } });
+    expect(createInterview).not.toHaveBeenCalled();
+    expect(usageSummary).not.toHaveBeenCalled();
+    expect(assertRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("reuses an unstarted room even when the plan has nothing left to start it with: the room says why", async () => {
+    vi.mocked(usageSummary).mockResolvedValue(summary({ trial: { available: false, used: true }, entitlement: entitlement("none") }));
+    vi.mocked(fetchResumeById).mockResolvedValue(resumeWith([], { unstartedRoom: attempt("interview_9", "SCHEDULED", 1) }));
+
+    expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: true, data: { interviewId: "interview_9" } });
+  });
 
   it.each(["COMPLETED", "FAILED", "FEEDBACK_PENDING"] as const)(
     "creates the next attempt when the latest is %s, however many there were",
@@ -186,11 +212,13 @@ describe("createInterviewAction: guards", () => {
     expect(fetchResumeById).not.toHaveBeenCalled();
   });
 
-  it("answers RATE_LIMITED before reading anything", async () => {
+  it("answers RATE_LIMITED before creating anything or reading the quota", async () => {
+    vi.mocked(fetchResumeById).mockResolvedValue(resumeWith([]));
     vi.mocked(assertRateLimit).mockRejectedValue(new RateLimitedError(600));
 
     expect(await createInterviewAction({ resumeId: RESUME_ID })).toEqual({ ok: false, code: "RATE_LIMITED", meta: { retryAfter: 600 } });
-    expect(fetchResumeById).not.toHaveBeenCalled();
+    expect(usageSummary).not.toHaveBeenCalled();
+    expect(createInterview).not.toHaveBeenCalled();
   });
 });
 

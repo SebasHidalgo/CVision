@@ -3,12 +3,12 @@ import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
 import type { PriceKey } from "@/lib/billing/types";
 import { formatMoney } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/config";
-import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS, type PlanId } from "@/lib/plans";
+import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
 
 export type PlanKey = "free" | "pro";
 export const PLAN_KEYS = ["free", "pro"] as const satisfies readonly PlanKey[];
 
-export type PricingRow = { id: "analyses" | "history" | "interviews"; label: string; free: string; pro: string };
+export type PricingRow = { id: "analyses" | "interviews"; label: string; free: string; pro: string };
 export type PricingPlan = { name: string; price: string; cadence: string | null };
 
 /** The comparison's words, every figure from lib/plans.ts and the catalog, in the reader's language. */
@@ -35,10 +35,6 @@ export function catalogPrice(key: PriceKey, locale: Locale): string {
 
 /** Pure: the landing and the pricing page pass their own `t`, the same view comes back. */
 export function pricingView({ t, common, locale }: { t: TFunction<"pricing">; common: TFunction<"common">; locale: Locale }): PricingView {
-  const history = (plan: PlanId) => {
-    const limit = PLANS[plan].historyLimit;
-    return limit === null ? t("rows.history.all") : t("rows.history.last", { count: limit });
-  };
   return {
     caption: t("compare.caption"),
     standingLabel: t("compare.standing"),
@@ -54,7 +50,6 @@ export function pricingView({ t, common, locale }: { t: TFunction<"pricing">; co
         free: t("rows.analyses.free", { count: PLANS.FREE.analysesPerMonth }),
         pro: t("rows.analyses.pro", { count: PLANS.PRO.analysesPerMonth }),
       },
-      { id: "history", label: t("rows.history.label"), free: history("FREE"), pro: history("PRO") },
       {
         id: "interviews",
         label: t("rows.interviews.label"),

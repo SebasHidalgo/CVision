@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
-import { fetchVisibleInterviews } from "./interview";
+import { fetchInterviews } from "./interview";
 
-// The interviews list's read: newest first, the plan's history applied, and the time a resumable interview has left.
+// The interviews list's read: newest first, only rooms that started, and the time a resumable interview has left.
 
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(async () => "user_1") }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn(async () => 0) }));
-vi.mock("./visibility", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./visibility")>()),
-  visibleAnalysisIds: vi.fn(async () => null),
-}));
 vi.mock("@/lib/prisma", () => ({ default: { interview: { findMany: vi.fn() } } }));
 
 const NOW = new Date("2026-11-18T12:00:00.000Z");
@@ -45,17 +41,17 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("fetchVisibleInterviews", () => {
+describe("fetchInterviews", () => {
   it("reads newest first with the id breaking ties, never the transcripts, and maps each row for the list", async () => {
     vi.mocked(prisma.interview.findMany).mockResolvedValueOnce([listRow()] as never);
-    const { interviews, hidden } = await fetchVisibleInterviews(NOW);
+    const interviews = await fetchInterviews(NOW);
 
     const args = vi.mocked(prisma.interview.findMany).mock.calls[0][0] as { orderBy: unknown; select: Record<string, unknown>; where: unknown };
-    expect(args.where).toEqual({ userId: "user_1" });
+    // A room that never started is not an interview: the filter is the one lib/interviewStatus.ts defines.
+    expect(args.where).toEqual({ userId: "user_1", OR: [{ status: { not: "SCHEDULED" } }, { issuedConversationIds: { isEmpty: false } }] });
     expect(args.orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
     expect(args.select.transcript).toBeUndefined();
     expect(args.select.segments).toBeUndefined();
-    expect(hidden).toEqual([]);
     expect(interviews).toEqual([
       expect.objectContaining({ id: "i1", companyName: "Northwind", analysisId: "a1", score: 74, held: true, hasTranscript: true, lastEnd: "user", secondsLeft: null }),
     ]);
@@ -83,7 +79,7 @@ describe("fetchVisibleInterviews", () => {
         },
       ] as never);
 
-    const { interviews } = await fetchVisibleInterviews(NOW);
+    const interviews = await fetchInterviews(NOW);
     expect(vi.mocked(prisma.interview.findMany).mock.calls[1][0]).toMatchObject({ where: { id: { in: ["i2"] }, userId: "user_1" } });
     // A five-minute trial that used 16 seconds.
     expect(interviews.map((row) => [row.id, row.secondsLeft, row.lastEnd])).toEqual([
@@ -98,7 +94,7 @@ describe("fetchVisibleInterviews", () => {
       .mockResolvedValueOnce([
         { id: "i3", tier: "FULL", status: "IN_PROGRESS", startCount: 3, resumableUntil: inMinutes(8), segments: [], transcript: said(20), transcriptSource: "elevenlabs", durationSeconds: 60, lastSessionAt: inMinutes(-2), endedAt: inMinutes(-1) },
       ] as never);
-    const { interviews } = await fetchVisibleInterviews(NOW);
+    const interviews = await fetchInterviews(NOW);
     expect(interviews[0].secondsLeft).toBeNull();
   });
 });

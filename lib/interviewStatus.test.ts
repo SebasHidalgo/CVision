@@ -3,7 +3,7 @@ import type { InterviewStatus } from "@prisma/client";
 import { FEEDBACK_FAILURE_REASONS } from "@/lib/ai/interviewFeedback";
 import { CALL_FAILED, SESSION_LOST } from "@/lib/voice/postCall";
 import { ABANDONED } from "@/lib/database/interviewExpiry";
-import { attemptRan, FAILED_AFTER_ANSWERS } from "./interviewStatus";
+import { attemptRan, FAILED_AFTER_ANSWERS, interviewStarted, STARTED_INTERVIEW } from "./interviewStatus";
 
 const ran = (status: InterviewStatus, failureReason: string | null = null) => attemptRan({ status, failureReason });
 
@@ -34,5 +34,26 @@ describe("attemptRan", () => {
   it("knows every failure the feedback step can write after answers, and only those", () => {
     const afterAnswers = Object.values(FEEDBACK_FAILURE_REASONS).filter((reason) => reason !== FEEDBACK_FAILURE_REASONS.noCandidateTurns);
     expect([...FAILED_AFTER_ANSWERS].sort()).toEqual(afterAnswers.sort());
+  });
+});
+
+describe("interviewStarted", () => {
+  it("is false only for a room still SCHEDULED with no session ever issued", () => {
+    expect(interviewStarted({ status: "SCHEDULED", issuedConversationIds: [] })).toBe(false);
+  });
+
+  it("is true once a session was issued, even after a failed call gave its start back", () => {
+    // CALL_FAILED: startCount back to 0, the unit refunded, the row still IN_PROGRESS with its conversation id.
+    expect(interviewStarted({ status: "IN_PROGRESS", issuedConversationIds: ["conv_1"] })).toBe(true);
+    expect(interviewStarted({ status: "SCHEDULED", issuedConversationIds: ["conv_1"] })).toBe(true);
+  });
+
+  it("is true for every status past SCHEDULED, rows from before the issued-id list included", () => {
+    const later: InterviewStatus[] = ["IN_PROGRESS", "FEEDBACK_PENDING", "GENERATING", "COMPLETED", "FAILED", "EXPIRED"];
+    for (const status of later) expect(interviewStarted({ status, issuedConversationIds: [] }), status).toBe(true);
+  });
+
+  it("has the same meaning as the Prisma filter the lists use", () => {
+    expect(STARTED_INTERVIEW).toEqual({ OR: [{ status: { not: "SCHEDULED" } }, { issuedConversationIds: { isEmpty: false } }] });
   });
 });

@@ -16,8 +16,10 @@ export type ResumeAnalysis = {
   resumeKey: string;
   userId: string;
   feedback: ResumeAnalysisFeedback | null;
-  /** Every rehearsal of this analysis, newest attempt first. */
+  /** Its rehearsals that started, newest attempt first. */
   interviews: InterviewAttempt[];
+  /** A room opened and never started (at most one: one live room per analysis), which the CTA reopens. */
+  unstartedRoom: InterviewAttempt | null;
   createdAt: string;
 };
 

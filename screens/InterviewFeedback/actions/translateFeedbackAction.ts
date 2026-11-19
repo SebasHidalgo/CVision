@@ -31,7 +31,7 @@ export async function translateFeedbackAction(input: unknown): Promise<ActionRes
     const interview = await fetchInterviewById(parsed.data.interviewId);
     const feedback = interview ? await fetchFeedbackByInterviewId(interview.id) : null;
     if (!interview || !feedback) throw new NotFoundError("No feedback to translate");
-    // The analysis supplies the protected terms; a hidden or deleted one leaves the role only.
+    // The analysis supplies the protected terms; without one (an unreadable analysis) the role only.
     const analysis = interview.resumeAnalysisId ? await fetchResumeById(interview.resumeAnalysisId) : null;
 
     const outcome = await translateFeedback(

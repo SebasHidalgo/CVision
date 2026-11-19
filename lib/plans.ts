@@ -30,12 +30,6 @@ export type PlanLimits = {
   interviewsPerMonth: number;
   /** Trial interviews in the account's lifetime, for an account that never had voice. */
   trialInterviews: number;
-  /**
-   * How many of the most recent analyses the plan shows; null for all.
-   * Older ones are hidden, never deleted: the lists leave them out and
-   * their pages answer with an upgrade notice, and Pro reveals them.
-   */
-  historyLimit: number | null;
 };
 
 export const PLANS: Record<PlanId, PlanLimits> = {
@@ -44,14 +38,12 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     announceAnalyses: true,
     interviewsPerMonth: 0,
     trialInterviews: 1,
-    historyLimit: 3,
   },
   PRO: {
     analysesPerMonth: 50,
     announceAnalyses: false,
     interviewsPerMonth: 4,
     trialInterviews: 0,
-    historyLimit: null,
   },
 };
 

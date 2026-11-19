@@ -1,9 +1,10 @@
 import { Prisma } from "@prisma/client";
-import type { ResumeAnalysis } from "@/types/resume";
+import type { InterviewAttempt, ResumeAnalysis } from "@/types/resume";
 import type { InterviewFeedback, InterviewListItem } from "@/types/interview";
 import { interviewFeedbackReportSchema } from "@/lib/ai/schemas";
 import { readCallEnd } from "@/lib/voice/callEnd";
 import { resumeFeedbackSchema } from "@/lib/schemas/resumeSchema";
+import { interviewStarted } from "@/lib/interviewStatus";
 
 /** Single source for the resume + feedback read shape. */
 export const resumeInclude = {
@@ -19,6 +20,7 @@ export const resumeInclude = {
       startCount: true,
       usageEventId: true,
       resumableUntil: true,
+      issuedConversationIds: true,
       InterviewFeedback: { select: { totalScore: true } },
     },
     orderBy: { attemptNumber: "desc" },
@@ -71,18 +73,24 @@ export function mapDbResume(db: DbResumeWithFeedback): ResumeAnalysis {
     resumeKey: db.resumeKey,
     userId: db.userId,
     feedback: parsed?.success ? parsed.data : null,
-    interviews: db.interviews.map((interview) => ({
-      id: interview.id,
-      status: interview.status,
-      attemptNumber: interview.attemptNumber,
-      failureReason: interview.failureReason,
-      totalScore: interview.InterviewFeedback?.totalScore ?? null,
-      createdAt: interview.createdAt.toISOString(),
-      startCount: interview.startCount,
-      held: interview.usageEventId !== null,
-      resumableUntil: interview.resumableUntil?.toISOString() ?? null,
-    })),
+    // A room that never started is not an interview: kept apart, for the CTA that reopens it.
+    interviews: db.interviews.filter(interviewStarted).map(mapAttempt),
+    unstartedRoom: db.interviews.filter((interview) => !interviewStarted(interview)).map(mapAttempt)[0] ?? null,
     createdAt: db.createdAt.toISOString(),
+  };
+}
+
+function mapAttempt(interview: DbResumeWithFeedback["interviews"][number]): InterviewAttempt {
+  return {
+    id: interview.id,
+    status: interview.status,
+    attemptNumber: interview.attemptNumber,
+    failureReason: interview.failureReason,
+    totalScore: interview.InterviewFeedback?.totalScore ?? null,
+    createdAt: interview.createdAt.toISOString(),
+    startCount: interview.startCount,
+    held: interview.usageEventId !== null,
+    resumableUntil: interview.resumableUntil?.toISOString() ?? null,
   };
 }
 

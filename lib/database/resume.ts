@@ -10,7 +10,9 @@ import type { ResumeAnalysis } from "@/types/resume";
 import { recordGuardStatsDaily } from "./guardStats";
 import { settleAnalysisUnitIn } from "./usage";
 import { mapDbResume, resumeInclude } from "./mappers";
-import { analysisHistory, hiddenAnalysisRows, isVisible, NEWEST_FIRST, visibleAnalysisIds, type AnalysisSummary } from "./visibility";
+
+/** The one order of a user's analyses in the list: newest first, the id breaking ties. */
+const NEWEST_FIRST: Prisma.ResumeAnalysisOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "desc" }];
 
 export type CreateResumeData = {
   /** Derived by the action from the submission before the unit is reserved, so the ledger can name the analysis. */
@@ -86,72 +88,20 @@ export async function createResume(data: CreateResumeData, now = new Date()): Pr
 }
 
 
-/**
- * What the list shows of an analysis the plan hides: enough to tell it apart
- * and delete it, nothing of its content (opening it stays a Pro feature).
- */
-export type HiddenResume = {
-  id: string;
-  jobTitle: string;
-  companyName: string;
-  createdAt: string;
-  /** Its interviews, which a delete takes with it. */
-  interviews: number;
-};
-
-const toHiddenResume = (row: AnalysisSummary): HiddenResume => ({
-  id: row.id,
-  jobTitle: row.jobTitle,
-  companyName: row.companyName,
-  createdAt: row.createdAt.toISOString(),
-  interviews: row._count.interviews,
-});
-
-export type VisibleResumes = {
-  /** The analyses the plan shows, newest first. */
-  analyses: ResumeAnalysis[];
-  /** Older ones the plan hides (Free's history rule); zero for Pro. */
-  hidden: number;
-  /** Those same hidden ones, newest first, as `HiddenResume`; empty for Pro. */
-  hiddenAnalyses: HiddenResume[];
-};
-
-/**
- * The caller's analyses within the plan's history, and the ones hidden beyond
- * it. Only the shown ones are read with their content: the split comes from
- * a read of summaries, then the shown rows by id.
- */
-export async function fetchVisibleResumes(): Promise<VisibleResumes> {
+/** The caller's analyses, newest first, each with its interviews. Every one, on every plan. */
+export async function fetchResumes(): Promise<ResumeAnalysis[]> {
   try {
     const userId = await requireUserId();
 
-    const { visibleIds, hidden } = await analysisHistory(userId);
-    const shown =
-      visibleIds?.length === 0
-        ? []
-        : await prisma.resumeAnalysis.findMany({
-            where: visibleIds === null ? { userId } : { userId, id: { in: visibleIds } },
-            include: resumeInclude,
-            orderBy: NEWEST_FIRST,
-          });
+    const rows = await prisma.resumeAnalysis.findMany({
+      where: { userId },
+      include: resumeInclude,
+      orderBy: NEWEST_FIRST,
+    });
 
-    return { analyses: shown.map(mapDbResume), hidden: hidden.length, hiddenAnalyses: hidden.map(toHiddenResume) };
+    return rows.map(mapDbResume);
   } catch (error) {
     handleError(error, "Failed to retrieve the resume analysis records");
-  }
-}
-
-/**
- * The caller's analyses beyond the plan's history, read now, newest first:
- * what a delete of "the hidden ones" may act on. Empty for Pro.
- */
-export async function fetchHiddenResumes(): Promise<HiddenResume[]> {
-  try {
-    const userId = await requireUserId();
-    const rows = await hiddenAnalysisRows(userId);
-    return rows.map(toHiddenResume);
-  } catch (error) {
-    handleError(error, "Failed to retrieve the hidden resume analyses");
   }
 }
 
@@ -171,20 +121,12 @@ export async function fetchResumeKey(id: string): Promise<string | null> {
   }
 }
 
-export type ResumeAccess =
-  /** Not there, or another user's: the two are not told apart. */
-  | { kind: "missing" }
-  /** The caller's, but beyond the plan's history: the page shows an upgrade notice. */
-  | { kind: "hidden" }
-  | { kind: "visible"; analysis: ResumeAnalysis };
-
 /**
- * Ownership lives in the `where` clause, so it can't be skipped and there is no
- * gap between reading and checking. "missing" covers both "not there" and
- * "not yours": telling them apart would leak the existence of other users'
- * ids. "hidden" is the caller's own analysis beyond the plan's history.
+ * One of the caller's analyses; `null` when it doesn't exist or belongs to another user. Ownership lives in the
+ * `where` clause, so it can't be skipped and there is no gap between reading and checking; the two nulls are not told
+ * apart, which would leak the existence of other users' ids.
  */
-export async function fetchResumeAccess(id: string): Promise<ResumeAccess> {
+export async function fetchResumeById(id: string): Promise<ResumeAnalysis | null> {
   try {
     const userId = await requireUserId();
 
@@ -192,19 +134,9 @@ export async function fetchResumeAccess(id: string): Promise<ResumeAccess> {
       where: { id, userId },
       include: resumeInclude,
     });
-    if (!dbResume) return { kind: "missing" };
 
-    const visible = await visibleAnalysisIds(userId);
-    if (!isVisible(visible, dbResume.id)) return { kind: "hidden" };
-
-    return { kind: "visible", analysis: mapDbResume(dbResume) };
+    return dbResume ? mapDbResume(dbResume) : null;
   } catch (error) {
     handleError(error, "Failed to retrieve resume analysis record");
   }
-}
-
-/** The analysis when the caller may see it; `null` when missing, another user's, or hidden by the plan. */
-export async function fetchResumeById(id: string): Promise<ResumeAnalysis | null> {
-  const access = await fetchResumeAccess(id);
-  return access.kind === "visible" ? access.analysis : null;
 }

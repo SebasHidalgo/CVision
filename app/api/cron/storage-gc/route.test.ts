@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { sweepUnstartedRooms } from "@/lib/database/unstartedRooms";
 import { refundAbandonedAnalyses } from "@/lib/database/usage";
 import { collectOrphans } from "@/lib/supabase/gc";
 import { GET } from "./route";
 
 vi.mock("@/lib/supabase/gc", () => ({ collectOrphans: vi.fn() }));
 vi.mock("@/lib/database/usage", () => ({ refundAbandonedAnalyses: vi.fn() }));
+vi.mock("@/lib/database/unstartedRooms", () => ({ sweepUnstartedRooms: vi.fn() }));
 
 const SECRET = "cron-secret-0123456789abcdef";
 
@@ -27,6 +29,7 @@ beforeEach(() => {
     after: [],
   });
   vi.mocked(refundAbandonedAnalyses).mockResolvedValue({ examined: 3, refunded: 2, settled: 1 });
+  vi.mocked(sweepUnstartedRooms).mockResolvedValue({ cutoff: new Date(0), rooms: 4, deleted: true });
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -35,10 +38,11 @@ describe("GET /api/cron/storage-gc", () => {
   it("runs the collector with deletion for the bearer Vercel sends, and answers counts only", async () => {
     expect(await get(`Bearer ${SECRET}`)).toEqual({
       status: 200,
-      body: { ok: true, data: { referencedKeys: 4, objects: 6, orphans: 1, orphanBytes: 100, deleted: 1, missing: 0, left: 0, abandonedUnits: { examined: 3, refunded: 2, settled: 1 } } },
+      body: { ok: true, data: { referencedKeys: 4, objects: 6, orphans: 1, orphanBytes: 100, deleted: 1, missing: 0, left: 0, abandonedUnits: { examined: 3, refunded: 2, settled: 1 }, unstartedRooms: 4 } },
     });
     expect(collectOrphans).toHaveBeenCalledWith({ remove: true });
     expect(refundAbandonedAnalyses).toHaveBeenCalledTimes(1);
+    expect(sweepUnstartedRooms).toHaveBeenCalledWith({ remove: true });
     const logged = String(vi.mocked(console.info).mock.calls[0][0]);
     expect(logged).not.toContain("cv/user_x");
   });
@@ -49,6 +53,7 @@ describe("GET /api/cron/storage-gc", () => {
     expect((await get(SECRET)).status).toBe(401);
     expect(collectOrphans).not.toHaveBeenCalled();
     expect(refundAbandonedAnalyses).not.toHaveBeenCalled();
+    expect(sweepUnstartedRooms).not.toHaveBeenCalled();
   });
 
   it("refuses everything, loudly, when CRON_SECRET is not configured", async () => {
@@ -69,5 +74,13 @@ describe("GET /api/cron/storage-gc", () => {
     expect(await get(`Bearer ${SECRET}`)).toEqual({ status: 500, body: { ok: false, code: "UNKNOWN" } });
     expect(collectOrphans).toHaveBeenCalledWith({ remove: true });
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("abandoned analysis units failed"), "Error: db down");
+  });
+
+  it("still runs the other steps when the room sweep fails, and answers 500 for it", async () => {
+    vi.mocked(sweepUnstartedRooms).mockRejectedValue(new Error("db down"));
+    expect(await get(`Bearer ${SECRET}`)).toEqual({ status: 500, body: { ok: false, code: "UNKNOWN" } });
+    expect(refundAbandonedAnalyses).toHaveBeenCalledTimes(1);
+    expect(collectOrphans).toHaveBeenCalledWith({ remove: true });
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("unstarted interview rooms failed"), "Error: db down");
   });
 });

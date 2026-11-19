@@ -6,6 +6,8 @@ import type { InterviewListItem } from "@/types/interview";
 import type { ListState } from "../utils/listState";
 import { InterviewRow } from "./InterviewRow";
 
+vi.mock("next/font/google", () => ({ Host_Grotesk: () => ({ variable: "font-text" }) }));
+vi.mock("@/screens/Interviews/actions/deleteOneInterviewAction", () => ({ deleteOneInterviewAction: vi.fn() }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...rest}>
@@ -40,7 +42,7 @@ const interview: InterviewListItem = {
 const row = (state: ListState, overrides: Partial<InterviewListItem> = {}, locale: "en" | "es" = "en") => {
   const root = document.createElement("ul");
   root.innerHTML = renderToStaticMarkup(
-    <InterviewRow interview={{ ...interview, ...overrides }} state={state} n="01" locale={locale} t={tFor("interview", locale)} common={tFor("common", locale)} />,
+    <InterviewRow interview={{ ...interview, ...overrides }} state={state} n="01" locale={locale} t={tFor("interview", locale)} common={tFor("common", locale)} headingId="interviews-title" />,
   );
   return root.querySelector("li") as HTMLLIElement;
 };
@@ -86,6 +88,22 @@ describe("InterviewRow", () => {
     expect(row({ kind: "resumable", early: false, secondsLeft: 60 }, waiting).querySelector("[data-mark]")?.getAttribute("data-mark")).toBe("half");
     expect(row({ kind: "needsPack" }, waiting).querySelector("[data-mark]")?.getAttribute("data-mark")).toBe("dashed");
     expect(row({ kind: "live" }, waiting).querySelector("[data-mark]")).toBeNull();
+  });
+
+  it("offers a delete, with its words rendered on the server, only where the cascade accepts one", () => {
+    const done = row({ kind: "done", score: 74 });
+    const button = done.querySelector("button");
+    expect(button?.textContent).toBe("Delete");
+    expect(button?.getAttribute("aria-label")).toBe("Delete the interview for Backend Engineer at Northwind, Nov 17, 2026");
+    expect(row({ kind: "failed" }, { status: "FAILED", score: null }).querySelector("button")).not.toBeNull();
+    expect(row({ kind: "expired" }, { status: "EXPIRED", score: null }).querySelector("button")).not.toBeNull();
+    // In a call, being saved, waiting or being scored: the delete would be refused, so it isn't offered.
+    const waiting = { status: "IN_PROGRESS" as const, score: null };
+    for (const state of [{ kind: "live" }, { kind: "saving" }, { kind: "ready" }, { kind: "resumable", early: false, secondsLeft: 60 }] as ListState[]) {
+      expect(row(state, waiting).querySelector("button"), state.kind).toBeNull();
+    }
+    expect(row({ kind: "pending" }, { status: "GENERATING", score: null }).querySelector("button")).toBeNull();
+    expect(row({ kind: "done", score: 74 }, {}, "es").querySelector("button")?.getAttribute("aria-label")).toBe("Borrar la entrevista de Backend Engineer en Northwind, 17 nov 2026");
   });
 
   it("reads in Spanish", () => {

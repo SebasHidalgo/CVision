@@ -2,7 +2,7 @@
 
 import { requireUserId } from "@/lib/auth";
 import { translateAnalysis, type TranslationOutcome } from "@/lib/ai/contentTranslation";
-import { fetchResumeAccess } from "@/lib/database/resume";
+import { fetchResumeById } from "@/lib/database/resume";
 import { NotFoundError } from "@/lib/error/errors";
 import { ValidationError } from "@/lib/error/ValidationError";
 import { toActionError } from "@/lib/error/toActionResult";
@@ -15,7 +15,7 @@ const BUDGET_MS = 27_000;
 
 /**
  * Translates the caller's analysis into the interface language, once: the page shows "Translating…"
- * and refreshes. Owner and plan visibility first; the translation consumes no quota and is
+ * and refreshes. Ownership first; the translation consumes no quota and is
  * rate-limited inside. Another tab asking for the same one waits for it instead of paying twice.
  */
 export async function translateAnalysisAction(input: unknown): Promise<ActionResult<{ outcome: TranslationOutcome }>> {
@@ -28,9 +28,9 @@ export async function translateAnalysisAction(input: unknown): Promise<ActionRes
     const locale = await getLocale();
     if (locale === "en") return { ok: true, data: { outcome: "unneeded" } };
 
-    const access = await fetchResumeAccess(parsed.data.resumeId);
-    if (access.kind !== "visible" || !access.analysis.feedback) throw new NotFoundError("No analysis to translate");
-    const { id, companyName, jobTitle, feedback } = access.analysis;
+    const analysis = await fetchResumeById(parsed.data.resumeId);
+    if (!analysis?.feedback) throw new NotFoundError("No analysis to translate");
+    const { id, companyName, jobTitle, feedback } = analysis;
 
     const outcome = await translateAnalysis(userId, { id, companyName, jobTitle, feedback }, locale, deadline);
     return { ok: true, data: { outcome } };

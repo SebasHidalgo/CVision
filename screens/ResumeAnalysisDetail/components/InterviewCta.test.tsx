@@ -52,9 +52,9 @@ const pro = (left: number, credits = 0): InterviewQuotaView => ({
   resetsAt: RESETS,
 });
 
-function mount(quota: InterviewQuotaView, attempts: InterviewAttempt[] = [], variant: "compact" | "full" = "full") {
+function mount(quota: InterviewQuotaView, attempts: InterviewAttempt[] = [], variant: "compact" | "full" = "full", room: InterviewAttempt | null = null) {
   return render(
-    <InterviewCta resumeId={RESUME_ID} jobTitle="Backend Engineer" attempts={attempts} quota={quota} variant={variant} />,
+    <InterviewCta resumeId={RESUME_ID} jobTitle="Backend Engineer" attempts={attempts} room={room} quota={quota} variant={variant} />,
   );
 }
 
@@ -133,14 +133,21 @@ describe("InterviewCta by plan", () => {
   it("links to a live attempt that holds its unit, whatever the plan says", () => {
     mount(free(false), [{ ...attempt("i3", "IN_PROGRESS", 3), startCount: 1, held: true }, attempt("i2", "COMPLETED", 2)]);
 
-    expect(screen.getByRole("link", { name: /open the interview room/i }).getAttribute("href")).toBe("/interview/i3");
+    expect(screen.getByRole("link", { name: /continue to the interview/i }).getAttribute("href")).toBe("/interview/i3");
     expect(screen.queryByText("Voice interviews are part of Pro.")).toBeNull();
   });
 
-  it("offers Pro, not the room, for a waiting attempt the plan cannot start", () => {
-    mount(free(false), [attempt("i3", "SCHEDULED", 3)]);
+  it("continues to a room that never started, ahead of the attempts that did", () => {
+    mount(free(true), [attempt("i2", "COMPLETED", 2), attempt("i1", "COMPLETED", 1)], "full", attempt("i3", "SCHEDULED", 3));
 
-    expect(screen.queryByRole("link", { name: /open the interview room/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /continue to the interview/i }).getAttribute("href")).toBe("/interview/i3");
+    expect(screen.queryByRole("button", { name: /free trial interview/i })).toBeNull();
+  });
+
+  it("offers Pro, not the room, for a waiting attempt the plan cannot start", () => {
+    mount(free(false), [], "full", attempt("i3", "SCHEDULED", 3));
+
+    expect(screen.queryByRole("link", { name: /continue to the interview/i })).toBeNull();
     expect(screen.getByText("Voice interviews are part of Pro.")).toBeTruthy();
     expect(screen.getByRole("link", { name: /see what pro includes/i }).getAttribute("href")).toBe("/pricing");
   });

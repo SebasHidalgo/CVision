@@ -10,12 +10,11 @@ import { resumeIdInputSchema } from "@/lib/schemas/resumeSchema";
 import type { ActionResult } from "@/types/action";
 
 /**
- * Deletes one of the caller's analyses from the list: a hidden one (its page
- * shows the upgrade notice, so the list is the only place to delete it) or
- * one whose stored feedback can't be read (its page redirects here).
- * Ownership is the only gate: the plan's history hides, it never protects a
- * user's own analysis from that user. ANALYSIS_BUSY while a rehearsal of it
- * is live; the cascade is the analysis page's (lib/deletion.ts).
+ * Deletes one of the caller's analyses from the list: one whose stored
+ * feedback can't be read (its page redirects here, so the list is the only
+ * place to delete it). Ownership is the only gate. ANALYSIS_BUSY while a
+ * rehearsal of it is live; the cascade is the analysis page's
+ * (lib/deletion.ts).
  */
 export async function deleteOneAnalysisAction(input: unknown): Promise<ActionResult<{ deleted: true }>> {
   try {

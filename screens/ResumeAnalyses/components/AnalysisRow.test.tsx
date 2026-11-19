@@ -48,6 +48,7 @@ const analysis = (patch: Partial<ResumeAnalysis>): ResumeAnalysis => ({
     { kind: "preferred", status: "met" },
   ]),
   interviews: [],
+  unstartedRoom: null,
   createdAt: "2026-11-02T00:00:00.000Z",
   ...patch,
 });

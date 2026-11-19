@@ -22,6 +22,8 @@ type InterviewCtaProps = {
   resumeId: string;
   jobTitle: string;
   attempts: ResumeAnalysis["interviews"];
+  /** A room opened and never started: the one to continue to, ahead of the attempts. */
+  room: ResumeAnalysis["unstartedRoom"];
   quota: InterviewQuotaView;
   /** "compact" sits in the header; "full" closes the report. */
   variant: "compact" | "full";
@@ -76,6 +78,7 @@ export default function InterviewCta({
   resumeId,
   jobTitle,
   attempts,
+  room,
   quota,
   variant,
   children,
@@ -111,7 +114,8 @@ export default function InterviewCta({
     setIsCreating(false);
   };
 
-  const live = liveAttempt(attempts);
+  // One live room per analysis: an unstarted one, or a started one that can still go on.
+  const live = room ?? liveAttempt(attempts);
   // "Again" only after a rehearsal that ran: an expired or never-answered attempt was not one.
   const rehearsed = attempts.some(attemptRan);
   const offer = interviewOffer(quota, live);

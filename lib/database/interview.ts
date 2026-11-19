@@ -10,6 +10,7 @@ import { STARTABLE_STATUSES, transcriptTurnSchema, type TranscriptTurn } from "@
 import { readCallEnd, withLateClaim, type CallEnd, type EndDetail, type RoomEndClaim } from "@/lib/voice/callEnd";
 import { readSegments, resumeState, type CallSegment } from "@/lib/voice/segments";
 import { MAX_INTERVIEW_STARTS } from "@/lib/interviewLimits";
+import { STARTED_INTERVIEW } from "@/lib/interviewStatus";
 import { INTERVIEW_TIERS, type InterviewTierId } from "@/lib/plans";
 import type { InterviewFeedback, InterviewListItem } from "@/types/interview";
 import { expireAbandonedInterviews } from "./interviewExpiry";
@@ -21,7 +22,9 @@ import {
   mapDbInterviewFeedback,
   mapDbInterviewListItem,
 } from "./mappers";
-import { hiddenInterviewRows, isVisible, NEWEST_INTERVIEWS_FIRST, visibleAnalysisIds, type InterviewSummary } from "./visibility";
+
+/** The one order of a user's interviews in the list: newest first, the id breaking ties. */
+const NEWEST_INTERVIEWS_FIRST: Prisma.InterviewOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "desc" }];
 
 /**
  * The room needs the posting; the session endpoint also needs the parts of
@@ -71,7 +74,10 @@ const CREATE_ATTEMPTS = 3;
  * The loser's transaction fails to serialize, or hits the unique on
  * (analysis, attempt), and the retry finds the winner. How many interviews
  * a user may run is the usage ledger's business, reserved at the first
- * token, not here.
+ * token, not here. The number shown never counts a room that did not
+ * start: a room is live until it starts, so an unstarted one always holds
+ * the highest number, nothing shows it, and when the sweep deletes it the
+ * next room takes the same number again.
  */
 export async function createInterview(
   data: CreateInterviewData
@@ -124,55 +130,24 @@ export async function createInterview(
 }
 
 /**
- * What the list shows of an interview the plan hides (its analysis is beyond the history): enough to tell it apart and
- * delete it, nothing of its transcript or feedback (opening it stays a Pro feature).
+ * The caller's interviews that started, every one on every plan: a room opened and never started is not an interview
+ * (lib/interviewStatus.ts). Newest first, the id breaking ties. A resumable one (a dropped call, or one the
+ * interviewer ended early) carries the interview time it has left, read from its calls the way the room reads it; only
+ * those rows load their transcripts.
  */
-export type HiddenInterview = {
-  id: string;
-  role: string;
-  companyName: string;
-  createdAt: string;
-};
-
-const toHiddenInterview = (row: Pick<InterviewSummary, "id" | "role" | "createdAt" | "resumeAnalysis">): HiddenInterview => ({
-  id: row.id,
-  role: row.role,
-  // A hidden interview always has its analysis: one without is never hidden.
-  companyName: row.resumeAnalysis?.companyName ?? "",
-  createdAt: row.createdAt.toISOString(),
-});
-
-export type VisibleInterviews = {
-  /** The caller's interviews whose analysis the plan shows, newest first. */
-  interviews: InterviewListItem[];
-  /** The interviews of analyses hidden by the plan's history rule, newest first; empty for Pro. */
-  hidden: HiddenInterview[];
-};
-
-/**
- * The caller's interviews split by the plan's history (an interview follows its analysis): the shown ones, and the
- * hidden ones as summaries. Newest first, the id breaking ties. A resumable one (a dropped call, or one the interviewer
- * ended early) carries the interview time it has left, read from its calls the way the room reads it; only those rows
- * load their transcripts.
- */
-export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleInterviews> {
+export async function fetchInterviews(now = new Date()): Promise<InterviewListItem[]> {
   try {
     const userId = await requireUserId();
     // A list is a read of every interview: the sweep for abandoned ones runs first.
     await expireAbandonedInterviews(userId, now);
 
-    const [rows, visible] = await Promise.all([
-      prisma.interview.findMany({
-        where: { userId },
-        select: interviewListSelect,
-        orderBy: NEWEST_INTERVIEWS_FIRST,
-      }),
-      visibleAnalysisIds(userId, now),
-    ]);
-    const shown = rows.filter((row) => isVisible(visible, row.resumeAnalysisId));
-    const hidden = rows.filter((row) => !isVisible(visible, row.resumeAnalysisId));
+    const rows = await prisma.interview.findMany({
+      where: { userId, ...STARTED_INTERVIEW },
+      select: interviewListSelect,
+      orderBy: NEWEST_INTERVIEWS_FIRST,
+    });
 
-    const resumableIds = shown.filter((row) => row.status === "IN_PROGRESS" && row.resumableUntil && row.resumableUntil.getTime() > now.getTime()).map((row) => row.id);
+    const resumableIds = rows.filter((row) => row.status === "IN_PROGRESS" && row.resumableUntil && row.resumableUntil.getTime() > now.getTime()).map((row) => row.id);
     const left = new Map<string, number>();
     if (resumableIds.length > 0) {
       const calls = await prisma.interview.findMany({
@@ -201,42 +176,27 @@ export async function fetchVisibleInterviews(now = new Date()): Promise<VisibleI
       }
     }
 
-    return { interviews: shown.map((row) => mapDbInterviewListItem(row, left.get(row.id) ?? null)), hidden: hidden.map(toHiddenInterview) };
+    return rows.map((row) => mapDbInterviewListItem(row, left.get(row.id) ?? null));
   } catch (error) {
     handleError(error, "Failed to retrieve the interview records");
   }
 }
 
 /**
- * The caller's interviews beyond the plan's history, read now, newest first: what a delete of "the hidden ones" may
- * act on. Empty for Pro.
+ * One of the caller's interviews, started or not (the room opens an unstarted one); `null` when it doesn't exist or
+ * belongs to another user, the two not told apart.
  */
-export async function fetchHiddenInterviews(): Promise<HiddenInterview[]> {
-  try {
-    const userId = await requireUserId();
-    const rows = await hiddenInterviewRows(userId);
-    return rows.map(toHiddenInterview);
-  } catch (error) {
-    handleError(error, "Failed to retrieve the hidden interviews");
-  }
-}
-
-/** `null` when it doesn't exist, belongs to another user, or its analysis is hidden by the plan. */
 export async function fetchInterviewById(
   interviewId: string
 ): Promise<InterviewWithResume | null> {
   try {
     const userId = await requireUserId();
 
-    const row = await prisma.interview.findFirst({
+    return await prisma.interview.findFirst({
       where: { id: interviewId, userId },
       include: interviewDetailInclude,
       omit: interviewOmit,
     });
-    if (!row) return null;
-
-    const visible = await visibleAnalysisIds(userId);
-    return isVisible(visible, row.resumeAnalysisId) ? row : null;
   } catch (error) {
     handleError(error, "Failed to retrieve interview record");
   }

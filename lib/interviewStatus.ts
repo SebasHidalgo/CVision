@@ -1,4 +1,20 @@
-import type { InterviewStatus } from "@prisma/client";
+import type { InterviewStatus, Prisma } from "@prisma/client";
+
+/**
+ * Whether a room ever became an interview: a voice session was issued for it. The first token is the one write that
+ * moves a room out of SCHEDULED, and it appends the conversation id to `issuedConversationIds`, a list nothing ever
+ * shortens. `startCount` is not the test: a call the platform could not run gives its start back. A room that never
+ * started is not listed, counted or numbered anywhere; its analysis's CTA reopens it, and the daily sweep deletes it
+ * after three days (lib/database/unstartedRooms.ts).
+ */
+export function interviewStarted(row: { status: InterviewStatus; issuedConversationIds: readonly string[] }): boolean {
+  return row.status !== "SCHEDULED" || row.issuedConversationIds.length > 0;
+}
+
+/** `interviewStarted` as a Prisma filter: the reads that list or count interviews spread it into their `where`. */
+export const STARTED_INTERVIEW = {
+  OR: [{ status: { not: "SCHEDULED" } }, { issuedConversationIds: { isEmpty: false } }],
+} satisfies Prisma.InterviewWhereInput;
 
 /**
  * What a status means for navigation. Three screens route on it (the list,

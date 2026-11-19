@@ -43,7 +43,7 @@ export const CATALOG: Record<PriceKey, CatalogProduct> = {
     key: "pro_monthly",
     name: `${BRAND.name} Pro`,
     description:
-      `Monthly subscription to ${BRAND.name} Pro, a self-assessment and practice tool for job seekers: up to ${PLANS.PRO.analysesPerMonth} checks a month of your own CV against job postings, ${PLANS.PRO.interviewsPerMonth} practice interviews a month with an AI voice interviewer (up to 12 minutes each), and your full history.`,
+      `Monthly subscription to ${BRAND.name} Pro, a self-assessment and practice tool for job seekers: up to ${PLANS.PRO.analysesPerMonth} checks a month of your own CV against job postings, and ${PLANS.PRO.interviewsPerMonth} practice interviews a month with an AI voice interviewer (up to 12 minutes each).`,
     amountMinor: "1500",
     interval: "month",
   },

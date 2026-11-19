@@ -15,7 +15,7 @@ export function standingCopy(standing: AccountStanding, t: TFunction<"account">,
       return {
         shape,
         label: t("standing.free"),
-        line: t("planLine.free", { analyses: PLANS.FREE.analysesPerMonth, history: PLANS.FREE.historyLimit }),
+        line: t("planLine.free", { analyses: PLANS.FREE.analysesPerMonth }),
       };
     case "canceled":
       return { shape, label: t("standing.canceled"), line: t("planLine.canceled") };
