@@ -7,7 +7,7 @@ vi.mock("./globals.css", () => ({}));
 vi.mock("next/font/google", () => {
   const font = () => ({ variable: "font", style: { fontFamily: "font" } });
   // Host Grotesk: Clerk's appearance names the design system's text face.
-  return { Fraunces: font, IBM_Plex_Mono: font, Schibsted_Grotesk: font, Host_Grotesk: font };
+  return { Fraunces: font, IBM_Plex_Mono: font, Host_Grotesk: font };
 });
 vi.mock("@/lib/i18n/server", () => ({ getLocale: async () => "en", getT: async () => (key: string) => key }));
 vi.mock("@clerk/nextjs", () => ({ ClerkProvider: ({ children }: { children: ReactNode }) => children }));

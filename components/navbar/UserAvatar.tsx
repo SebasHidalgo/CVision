@@ -1,7 +1,7 @@
 "use client";
 
 import type { useUser } from "@clerk/nextjs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import * as Avatar from "@radix-ui/react-avatar";
 import { cn } from "@/lib/utils";
 
 type SignedInUser = NonNullable<ReturnType<typeof useUser>["user"]>;
@@ -23,10 +23,12 @@ type UserAvatarProps = {
 /** The account's picture, or its initials on a raised ground. Decorative: the control around it carries the name. */
 export default function UserAvatar({ user, className }: UserAvatarProps) {
   return (
-    <Avatar className={cn("size-9 border border-ed-line-2", className)}>
-      <AvatarImage src={user.imageUrl} alt="" />
-      <AvatarFallback className="bg-ed-raise font-ed-mono text-[12px] font-medium text-ed-ink">{initialsFor(user)}</AvatarFallback>
-    </Avatar>
+    <Avatar.Root className={cn("relative flex size-9 shrink-0 overflow-hidden rounded-full border border-ed-line-2", className)}>
+      <Avatar.Image src={user.imageUrl} alt="" className="aspect-square size-full" />
+      <Avatar.Fallback className="flex size-full items-center justify-center rounded-full bg-ed-raise font-ed-mono text-[12px] font-medium text-ed-ink">
+        {initialsFor(user)}
+      </Avatar.Fallback>
+    </Avatar.Root>
   );
 }
 

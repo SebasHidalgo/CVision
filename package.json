@@ -58,7 +58,6 @@
     "@react-three/fiber": "9.8.2",
     "@supabase/supabase-js": "^2.75.0",
     "ai": "^7.0.99",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "26.5.11",
     "lucide-react": "^0.545.0",

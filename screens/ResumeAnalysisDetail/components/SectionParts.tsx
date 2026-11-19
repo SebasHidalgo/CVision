@@ -138,10 +138,10 @@ export function Evidence({ items, t }: { items: string[]; t: AnalysisT }) {
   if (items.length === 0) return null;
 
   return (
-    <details className="details-reset border-y border-ed-line">
-      <summary className="flex min-h-12 items-center justify-between gap-4 text-ed-body font-medium text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink">
+    <details className="group border-y border-ed-line">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 text-ed-body font-medium text-ed-ink-2 transition-colors duration-200 hover:text-ed-ink [&::-webkit-details-marker]:hidden">
         <span>{t("sections.evidence", { n: items.length })}</span>
-        <Plus data-marker aria-hidden className="size-4 flex-none" />
+        <Plus data-marker aria-hidden className="size-4 flex-none transition-transform duration-[250ms] ease-ed-out group-open:rotate-45" />
       </summary>
       <ul className="grid max-w-[68ch] gap-2.5 pt-1 pb-5">
         {items.map((item, i) => (

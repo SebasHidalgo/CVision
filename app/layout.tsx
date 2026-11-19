@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, IBM_Plex_Mono, Schibsted_Grotesk } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { fontText } from "@/components/design-system/fonts";
 import { ClerkProvider } from "@clerk/nextjs";
 import I18nProvider from "@/components/providers/I18nProvider";
 import Providers from "@/components/providers/Providers";
@@ -16,12 +17,6 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   axes: ["opsz", "SOFT", "WONK"],
-  display: "swap",
-});
-
-const schibsted = Schibsted_Grotesk({
-  variable: "--font-schibsted",
-  subsets: ["latin"],
   display: "swap",
 });
 
@@ -69,7 +64,7 @@ export default async function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
         </head>
         <body
-          className={`${fraunces.variable} ${schibsted.variable} ${plexMono.variable} flex min-h-dvh flex-col`}
+          className={`${fraunces.variable} ${fontText.variable} ${plexMono.variable} flex min-h-dvh flex-col`}
         >
           {/* Not keyed by locale: a language switch keeps the client tree (and its form state). */}
           <I18nProvider locale={locale} resources={pickResources(locale, GLOBAL_CLIENT_NAMESPACES)}>
