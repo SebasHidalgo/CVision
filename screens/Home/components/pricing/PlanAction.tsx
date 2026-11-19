@@ -1,15 +1,31 @@
 "use client";
 
-import { useTranslation } from "react-i18next";
-import { StartCta } from "@/screens/Home/components/StartCta";
-import { ProCta } from "./ProCta";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { ButtonLink } from "@/components/design-system/Button";
+import { SignUpButton } from "@/components/pricing/SignUpButton";
 
-/** A plan's button: Free starts an account (or the upload), Pro goes through the pricing page's checkout. */
-export function PlanAction({ plan, className }: { plan: "free" | "pro"; className?: string }) {
-  const { t } = useTranslation("landingPricing");
-  return plan === "free" ? (
-    <StartCta label={t("cta.free")} signedInLabel={t("cta.freeSignedIn")} variant="ghost" className={className} />
-  ) : (
-    <ProCta label={t("cta.pro")} signedInLabel={t("cta.proSignedIn")} className={className} />
+type PlanActionProps = {
+  plan: "free" | "pro";
+  /** Signed out: Clerk's sign-up, then the upload page (Free) or the pricing page and its checkout (Pro). */
+  signedOut: string;
+  /** Signed in: a link to the same page, which knows the reader's plan. */
+  signedIn: string;
+};
+
+/** A plan's action on the landing, which doesn't read the session on the server. */
+export function PlanAction({ plan, signedOut, signedIn }: PlanActionProps) {
+  const href = plan === "free" ? "/resume/upload" : "/pricing";
+  const variant = plan === "free" ? "ghost" : "solid";
+  return (
+    <>
+      <SignedOut>
+        <SignUpButton label={signedOut} redirect={href} variant={variant} className="max-sm:w-full" />
+      </SignedOut>
+      <SignedIn>
+        <ButtonLink href={href} variant={variant} className="max-sm:w-full">
+          {signedIn}
+        </ButtonLink>
+      </SignedIn>
+    </>
   );
 }

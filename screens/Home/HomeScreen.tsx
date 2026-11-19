@@ -20,7 +20,6 @@ const LANDING_NS = [
   "landingStory",
   "landingAnalysis",
   "landingInterview",
-  "landingPricing",
   "landingFaq",
   // The interview section renders the app's feedback report, with the app's own labels.
   "feedback",

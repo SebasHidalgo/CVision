@@ -1,162 +1,83 @@
-import Link from "next/link";
-import { Check } from "lucide-react";
-import SignInCtaButton from "@/components/auth/SignInCtaButton";
+import type { TFunction } from "i18next";
 import CheckoutButton from "@/components/billing/CheckoutButton";
-import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
-import ClientMessages from "@/components/i18n/ClientMessages";
-import RichText from "@/components/i18n/RichText";
-import Eyebrow from "@/components/layout/Eyebrow";
-import PageIntro from "@/components/layout/PageIntro";
+import { fontText } from "@/components/design-system/fonts";
+import { PageHeading } from "@/components/design-system/PageHeading";
+import { PackAddon } from "@/components/pricing/PackAddon";
+import { PaymentNote } from "@/components/pricing/PaymentNote";
+import { PlanComparison, type PlanStanding } from "@/components/pricing/PlanComparison";
+import { catalogPrice, FULL_MINUTES, PACK_CREDITS, pricingView, TRIAL_MINUTES } from "@/components/pricing/pricingView";
 import { getOptionalUserId } from "@/lib/auth";
-import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
-import type { PriceKey } from "@/lib/billing/types";
-import { usageSummary } from "@/lib/database/usage";
-import { formatMoney } from "@/lib/format";
+import { currentOpenSubscriptionStatus, usageSummary } from "@/lib/database/usage";
+import { formatLongDate } from "@/lib/format";
+import type { Locale } from "@/lib/i18n/config";
 import { getLocale, getT } from "@/lib/i18n/server";
-import { MERCHANT_OF_RECORD } from "@/lib/legal";
-import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
-
-// The billing buttons are client components that read this namespace.
-const BILLING_CLIENT_NS = ["billing"] as const;
+import { cn } from "@/lib/utils";
+import { ACTION_WRAP, PricingAction } from "./components/PricingAction";
+import { factsFromSummary, pricingState, type StandingSpec } from "./utils/planState";
 
 /**
- * Free and Pro side by side, with exactly the promises the plans make and
- * the prices the catalog sells at: one source, so the page and the checkout
- * cannot disagree. A visitor is sent to sign up; a Free member to the
- * checkout; a Pro member to the portal. Pro's analyses are "up to" its
- * monthly cap, as on every page that names the plan.
+ * Free and Pro, the same comparison as the landing's (components/pricing), with the reader's standing and the action
+ * that fits it: sign up for a visitor, the checkout for Free, the portal for a subscription, the pack for Pro. Every
+ * figure comes from lib/plans.ts and the catalog, so the page and the checkout cannot disagree.
  */
 export default async function PricingScreen() {
   const userId = await getOptionalUserId();
-  const [summary, t, common, locale] = await Promise.all([
+  const [summary, openSubscription, t, common, locale] = await Promise.all([
     userId ? usageSummary(userId) : null,
+    userId ? currentOpenSubscriptionStatus() : null,
     getT("pricing"),
     getT("common"),
     getLocale(),
   ]);
-  const plan = summary?.plan ?? null;
-  const price = (key: PriceKey) => formatMoney(Number(CATALOG[key].amountMinor) / 100, CATALOG_CURRENCY, locale);
-  const proPrice = price("pro_monthly");
-
-  // Exactly the owner's table, nothing more, with every figure from the limits the product enforces.
-  const freePromises = [
-    t("free.promises.analyses", { count: PLANS.FREE.analysesPerMonth }),
-    t("free.promises.trial", { minutes: INTERVIEW_TIERS.TRIAL.seconds / 60 }),
-    PLANS.FREE.historyLimit === null
-      ? t("pro.promises.history")
-      : t("free.promises.history", { count: PLANS.FREE.historyLimit }),
-  ];
-  const proPromises = [
-    t("pro.promises.analyses", { limit: PLANS.PRO.analysesPerMonth }),
-    t("pro.promises.interviews", { count: PLANS.PRO.interviewsPerMonth, minutes: INTERVIEW_TIERS.FULL.seconds / 60 }),
-    t("pro.promises.packs", { credits: INTERVIEW_PACK_CREDITS, price: price("interview_pack") }),
-    t("pro.promises.history"),
-  ];
+  const state = pricingState(summary ? factsFromSummary(summary, openSubscription) : { signedIn: false });
+  const view = pricingView({ t, common, locale });
+  const proPrice = catalogPrice("pro_monthly", locale);
 
   return (
-    <>
-      <div className="wrap py-12 lg:py-16">
-        <PageIntro eyebrow={t("intro.eyebrow")} title={t("intro.title")} lede={t("intro.lede")} />
-
-        <div className="grid gap-8 pt-10 lg:grid-cols-2 lg:gap-12 lg:pt-14">
-          <PlanColumn
-            id="free"
-            name={common("plan.FREE")}
-            price={formatMoney(0, CATALOG_CURRENCY, locale)}
-            cadence={t("free.cadence")}
-            promises={freePromises}
-            action={
-              plan === null ? (
-                <SignInCtaButton mode="signUp" forceRedirectUrl="/resume/upload" variant="outline" className="h-12 px-6 text-base">
-                  {t("free.start")}
-                </SignInCtaButton>
-              ) : (
-                <p className="eyebrow pt-3">{plan === "FREE" ? t("currentPlan") : t("free.includedInPro")}</p>
-              )
-            }
-          />
-          <PlanColumn
-            id="pro"
-            name={common("plan.PRO")}
-            price={proPrice}
-            cadence={t("pro.cadence")}
-            promises={proPromises}
-            highlighted
-            action={
-              plan === null ? (
-                <SignInCtaButton mode="signUp" forceRedirectUrl="/pricing" className="group h-12 px-6 text-base" arrow>
-                  {t("pro.signUp")}
-                </SignInCtaButton>
-              ) : plan === "FREE" ? (
-                <ClientMessages ns={BILLING_CLIENT_NS}>
-                  <CheckoutButton item="pro_monthly" label={t("pro.checkout", { price: proPrice })} className="h-12 px-6 text-base" />
-                </ClientMessages>
-              ) : (
-                <div className="flex flex-col items-start gap-3">
-                  {/* A comped Pro has no customer at the provider yet: nothing to manage there. */}
-                  {summary?.hasBillingAccount ? (
-                    <ClientMessages ns={BILLING_CLIENT_NS}>
-                      <ManageSubscriptionButton />
-                    </ClientMessages>
-                  ) : (
-                    <p className="eyebrow pt-3">{t("currentPlan")}</p>
-                  )}
-                  <Link href="/account/billing" className="link-rule text-sm text-ink-2">
-                    {common("nav.planBilling")}
-                  </Link>
-                </div>
-              )
-            }
-          />
-        </div>
-
-        <p className="mt-12 max-w-2xl text-sm leading-relaxed text-ink-2">
-          <RichText
-            ns="pricing"
-            i18nKey="finePrint"
-            values={{ currency: CATALOG_CURRENCY, merchant: MERCHANT_OF_RECORD }}
-            components={{
-              refunds: <Link href="/refunds" className="link-rule text-ink" />,
-              terms: <Link href="/terms" className="link-rule text-ink" />,
+    <div className={cn("ed-root flex-1", fontText.variable)} data-pricing-state={state.kind}>
+      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+        <PageHeading title={t("intro.title")} lede={t("intro.lede")} ruled />
+        <div className="mt-10 lg:mt-12">
+          <PlanComparison
+            view={view}
+            headingLevel={2}
+            idPrefix="pricing-plan"
+            standing={{ free: standingText(state.free.standing, t, locale), pro: standingText(state.pro.standing, t, locale) }}
+            actions={{
+              free: <PricingAction spec={state.free.action} proPrice={proPrice} t={t} common={common} />,
+              pro: <PricingAction spec={state.pro.action} proPrice={proPrice} t={t} common={common} />,
             }}
           />
-        </p>
+          <PackAddon
+            pack={view.pack}
+            headingLevel={2}
+            held={state.pack.held > 0 ? t("pack.held", { count: state.pack.held, minutes: FULL_MINUTES }) : null}
+            action={
+              state.pack.checkout && (
+                <CheckoutButton
+                  item="interview_pack"
+                  label={t("actions.buyPack", { count: PACK_CREDITS, price: catalogPrice("interview_pack", locale) })}
+                  size="default"
+                  className={ACTION_WRAP}
+                />
+              )
+            }
+          />
+          <PaymentNote />
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
-type PlanColumnProps = {
-  /** Stable, language-free: the heading's id. */
-  id: string;
-  name: string;
-  price: string;
-  cadence: string;
-  promises: readonly string[];
-  action: React.ReactNode;
-  highlighted?: boolean;
-};
-
-function PlanColumn({ id, name, price, cadence, promises, action, highlighted = false }: PlanColumnProps) {
-  return (
-    <section
-      aria-labelledby={`plan-${id}`}
-      className={highlighted ? "border border-ink p-8 lg:p-10" : "border border-line p-8 lg:p-10"}
-    >
-      <Eyebrow tick={highlighted}>{name}</Eyebrow>
-      <h2 id={`plan-${id}`} className="mt-5 flex items-baseline gap-2">
-        <span className="figure text-6xl text-ink">{price}</span>
-        <span className="eyebrow">{cadence}</span>
-      </h2>
-      <ul className="mt-8 space-y-3">
-        {promises.map((promise) => (
-          <li key={promise} className="flex items-start gap-3 text-ink">
-            <Check aria-hidden className="mt-1 size-4 shrink-0 text-signal" />
-            <span>{promise}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-10">{action}</div>
-    </section>
-  );
+/** The mapper's standing in words; dates in UTC, on the server, like every period. */
+function standingText(spec: StandingSpec | null, t: TFunction<"pricing">, locale: Locale): PlanStanding | null {
+  if (!spec) return null;
+  const date = (value: Date | undefined) => (value ? formatLongDate(value, locale) : "");
+  const detail = spec.detail;
+  return {
+    tone: spec.tone,
+    label: t(`state.mark.${spec.label}`, { date: date(spec.date) }),
+    detail: detail ? t(`state.detail.${detail.key}`, { date: date("date" in detail ? detail.date : undefined), minutes: TRIAL_MINUTES }) : null,
+  };
 }
