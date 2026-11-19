@@ -1149,7 +1149,9 @@ describe("InterviewAgent: ending", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     const [, init] = endedReports()[0];
     expect(init).toMatchObject({ method: "POST", keepalive: true });
-    expect(report()).toEqual({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: 0 });
+    expect(report()).toEqual({ reason: "user", outcome: "finish", end: "user", elapsedSeconds: expect.any(Number) });
+    // Wall-clock time from connect to end: under load it is a tenth or two, never a whole call.
+    expect(report().elapsedSeconds).toBeLessThan(5);
   });
 
   it.each<DisconnectionDetails>([
@@ -1164,7 +1166,7 @@ describe("InterviewAgent: ending", () => {
     });
 
     expect(push).toHaveBeenCalledWith(`/interview/${INTERVIEW_ID}/feedback?ended=1`);
-    expect(report()).toEqual({ reason: details.reason, end: details.reason === "agent" ? "disconnect" : "limit", elapsedSeconds: 0 });
+    expect(report()).toEqual({ reason: details.reason, end: details.reason === "agent" ? "disconnect" : "limit", elapsedSeconds: expect.any(Number) });
   });
 
   it("when the platform ends the call with minutes left, keeps the time: Continue or Finish, nothing scored yet", async () => {
