@@ -153,7 +153,11 @@ export async function layoutViolations(page: Page, label: string): Promise<Layou
     const obstacles = [...document.body.querySelectorAll("*")]
       .filter((el) => el.tagName.toLowerCase() === "svg" || !el.closest("svg"))
       .filter((el) => shown(el) && paints(el))
-      .map((el) => ({ el, box: el.getBoundingClientRect(), layer: layer(el) }));
+      // A painted box inside a scroller counts only where the scroller shows it, like text does.
+      .flatMap((el) => {
+        const [box] = el.parentElement ? clipped([el.getBoundingClientRect()], el.parentElement) : [el.getBoundingClientRect()];
+        return box ? [{ el, box, layer: layer(el) }] : [];
+      });
     const onTop = (rect: DOMRect, el: Element, owner: Element) => {
       const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
       return !!hit && (el === hit || el.contains(hit)) && !owner.contains(hit);
