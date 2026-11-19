@@ -1,5 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ABANDONED_ANALYSIS_MS, refundAbandonedAnalyses, refundUsage, settleAnalysisUnit } from "./usage";
+import prisma from "@/lib/prisma";
+import { ABANDONED_ANALYSIS_MS, refundAbandonedAnalyses, refundUsage, settleAnalysisUnitIn } from "./usage";
 
 /**
  * The abandoned-unit sweep and the settle, against an in-memory ledger that applies the same conditional `where`
@@ -9,7 +12,7 @@ import { ABANDONED_ANALYSIS_MS, refundAbandonedAnalyses, refundUsage, settleAnal
 
 type Unit = { id: string; userId: string; kind: string; refId: string; createdAt: Date; refundedAt: Date | null; refundReason: string | null; settledAt: Date | null };
 
-const db = vi.hoisted(() => ({ units: [] as Unit[], analyses: new Set<string>(), beforeAnalysisRead: null as null | (() => Promise<void>) }));
+const db = vi.hoisted(() => ({ units: [] as Unit[], analyses: new Set<string>(), beforeAnalysisRead: null as null | (() => Promise<void>), sql: [] as string[] }));
 
 type Where = Record<string, unknown>;
 const matches = (row: Record<string, unknown>, where: Where) =>
@@ -32,30 +35,40 @@ vi.mock("@/lib/prisma", () => {
     for (const unit of hit) Object.assign(unit, data);
     return hit;
   };
-  return {
-    default: {
-      usageEvent: {
-        findMany: vi.fn(async ({ where, select, take }: { where: Where; select: Record<string, boolean>; take?: number }) =>
-          db.units
-            .filter((unit) => matches(unit, where))
-            .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-            .slice(0, take ?? Infinity)
-            .map((unit) => pick(unit, select)),
-        ),
-        updateMany: vi.fn(async ({ where, data }: { where: Where; data: Partial<Unit> }) => ({ count: update(where, data).length })),
-        updateManyAndReturn: vi.fn(async ({ where, data, select }: { where: Where; data: Partial<Unit>; select: Record<string, boolean> }) =>
-          update(where, data).map((unit) => pick(unit, select)),
-        ),
-      },
-      resumeAnalysis: {
-        findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
-          // A request acting between the sweep's read of the ledger and its write.
-          await db.beforeAnalysisRead?.();
-          return where.id.in.filter((id) => db.analyses.has(id)).map((id) => ({ id }));
-        }),
-      },
+  const client: Record<string, unknown> = {
+    usageEvent: {
+      findMany: vi.fn(async ({ where, select, take }: { where: Where; select: Record<string, boolean>; take?: number }) =>
+        db.units
+          .filter((unit) => matches(unit, where))
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .slice(0, take ?? Infinity)
+          .map((unit) => pick(unit, select)),
+      ),
+      updateMany: vi.fn(async ({ where, data }: { where: Where; data: Partial<Unit> }) => ({ count: update(where, data).length })),
+      updateManyAndReturn: vi.fn(async ({ where, data, select }: { where: Where; data: Partial<Unit>; select: Record<string, boolean> }) =>
+        update(where, data).map((unit) => pick(unit, select)),
+      ),
+    },
+    resumeAnalysis: {
+      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
+        // A request acting between the sweep's read of the ledger and its write.
+        await db.beforeAnalysisRead?.();
+        return where.id.in.filter((id) => db.analyses.has(id)).map((id) => ({ id }));
+      }),
     },
   };
+  // The sweep's read is fixed SQL (the partial index's predicate): the ledger answers it, and the text is kept to check.
+  client.$queryRaw = vi.fn(async (strings: TemplateStringsArray, cutoff: Date, limit: number) => {
+    db.sql.push(strings.join("?"));
+    return db.units
+      .filter((unit) => unit.kind === "ANALYSIS" && unit.refundedAt === null && unit.settledAt === null && unit.createdAt.getTime() < cutoff.getTime())
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, limit)
+      .map((unit) => ({ id: unit.id, refId: unit.refId }));
+  });
+  // A refund runs in a transaction; the in-memory ledger is its own client.
+  client.$transaction = vi.fn(async (run: (tx: unknown) => Promise<unknown>) => run(client));
+  return { default: client };
 });
 vi.mock("@/lib/auth", () => ({ requireUserId: vi.fn(), getOptionalUserIdOutsideProxy: vi.fn() }));
 vi.mock("./interviewExpiry", () => ({ expireAbandonedInterviews: vi.fn() }));
@@ -79,11 +92,14 @@ const unit = (overrides: Partial<Unit> = {}): Unit => ({
   ...overrides,
 });
 const byId = (id: string) => db.units.find((one) => one.id === id)!;
+/** The settle as createResume runs it, on its transaction's client (here the in-memory ledger). */
+const settle = (eventId: string, userId = "user_1") => settleAnalysisUnitIn(prisma, { eventId, userId }, NOW);
 
 beforeEach(() => {
   db.units = [];
   db.analyses = new Set();
   db.beforeAnalysisRead = null;
+  db.sql = [];
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -153,7 +169,7 @@ describe("the sweep against a late request: never charged twice, never given bac
     db.units = [unit()];
 
     await refundAbandonedAnalyses(NOW);
-    expect(await settleAnalysisUnit("evt_1", NOW)).toBe(false);
+    expect(await settle("evt_1")).toBe(false);
     // The request's own refund afterwards is a no-op: the unit was returned once.
     expect(await refundUsage("evt_1", "UNKNOWN")).toBe(false);
     expect(byId("evt_1")).toMatchObject({ refundedAt: NOW, refundReason: "ABANDONED_REQUEST", settledAt: null });
@@ -162,7 +178,7 @@ describe("the sweep against a late request: never charged twice, never given bac
   it("the request first (settled, its row saved), then the sweep: the unit stays spent", async () => {
     db.units = [unit()];
 
-    expect(await settleAnalysisUnit("evt_1", NOW)).toBe(true);
+    expect(await settle("evt_1")).toBe(true);
     db.analyses.add(ANALYSIS);
     expect(await refundAbandonedAnalyses(NOW)).toEqual({ examined: 0, refunded: 0, settled: 0 });
     expect(byId("evt_1")).toMatchObject({ refundedAt: null, settledAt: NOW });
@@ -171,26 +187,46 @@ describe("the sweep against a late request: never charged twice, never given bac
   it("the request settles between the sweep's read and its write: the sweep's conditional refund misses it", async () => {
     db.units = [unit()];
     db.beforeAnalysisRead = async () => {
-      expect(await settleAnalysisUnit("evt_1", NOW)).toBe(true);
+      expect(await settle("evt_1")).toBe(true);
     };
 
     expect(await refundAbandonedAnalyses(NOW)).toEqual({ examined: 1, refunded: 0, settled: 0 });
     expect(byId("evt_1")).toMatchObject({ refundedAt: null, settledAt: NOW });
   });
 
-  it("a settled unit whose insert then failed is still refunded by its request, once", async () => {
+  it("a held unit whose insert failed (its settle rolled back with it) is refunded by its request, once", async () => {
     db.units = [unit({ createdAt: ago(5_000) })];
 
-    expect(await settleAnalysisUnit("evt_1", NOW)).toBe(true);
     expect(await refundUsage("evt_1", "UNKNOWN")).toBe(true);
     expect(await refundUsage("evt_1", "UNKNOWN")).toBe(false);
-    expect(byId("evt_1").refundReason).toBe("UNKNOWN");
+    expect(byId("evt_1")).toMatchObject({ refundReason: "UNKNOWN", settledAt: null });
   });
 
   it("settles only an analysis unit, and only once", async () => {
     db.units = [unit(), unit({ id: "trial", kind: "INTERVIEW_TRIAL", refId: OTHER })];
-    expect(await settleAnalysisUnit("trial", NOW)).toBe(false);
-    expect(await settleAnalysisUnit("evt_1", NOW)).toBe(true);
-    expect(await settleAnalysisUnit("evt_1", NOW)).toBe(false);
+    expect(await settle("trial")).toBe(false);
+    // Another account's id never settles: the user is in the where.
+    expect(await settle("evt_1", "user_2")).toBe(false);
+    expect(await settle("evt_1")).toBe(true);
+    expect(await settle("evt_1")).toBe(false);
+  });
+});
+
+describe("the sweep's read and the partial index it is for", () => {
+  const MIGRATIONS = path.resolve(__dirname, "..", "..", "prisma", "migrations");
+  const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
+  it("filters with the index's predicate, word for word, so the planner can prove the index applies", async () => {
+    const folder = readdirSync(MIGRATIONS).find((name) => name.endsWith("_held_analysis_index"));
+    expect(folder).toBeDefined();
+    const sql = readFileSync(path.join(MIGRATIONS, folder!, "migration.sql"), "utf8");
+    const predicate = /CREATE INDEX "UsageEvent_held_analysis" ON "UsageEvent" \("createdAt"\) WHERE (.+);/.exec(oneLine(sql))?.[1];
+    expect(predicate).toBe(`"kind" = 'ANALYSIS' AND "refundedAt" IS NULL AND "settledAt" IS NULL`);
+
+    await refundAbandonedAnalyses(NOW);
+    expect(db.sql).toHaveLength(1);
+    const query = oneLine(db.sql[0]);
+    expect(query).toContain(`WHERE ${predicate} AND "createdAt" < ?`);
+    expect(query).toContain(`ORDER BY "createdAt" ASC`);
   });
 });

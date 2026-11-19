@@ -5,8 +5,8 @@ import { translateAnalysis } from "@/lib/ai/contentTranslation";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { toGuardStats } from "@/lib/ai/schemas";
 import { assertRateLimit } from "@/lib/database/rateLimit";
-import { createResume, fetchResumeKey } from "@/lib/database/resume";
-import { refundUsage, reserveAnalysis, settleAnalysisUnit, type Reservation } from "@/lib/database/usage";
+import { createResume, fetchResumeKey, type CreatedResume } from "@/lib/database/resume";
+import { refundUsage, reserveAnalysis, type Reservation } from "@/lib/database/usage";
 import { ensureUser } from "@/lib/database/user";
 import {
   AnalysisInProgressError,
@@ -59,9 +59,11 @@ import type { ActionResult } from "@/types/action";
  * `REQUEST_LIFETIME_MS`) collide on the primary key: the loser gives its
  * unit back and answers with the winner's analysis.
  *
- * The unit is settled (spent for good) right before the insert, and only if
- * it is still held: a unit the abandoned-request sweep or a retry already gave
- * back is never saved under. The time budget (utils/budget.ts) bounds the
+ * The unit is settled (spent for good) in the insert's own transaction, and
+ * only if it is still held: no request can die between the charge and the
+ * row, and a unit the abandoned-request sweep or a retry already gave back is
+ * never saved under (that request answers with the retry's analysis if it is
+ * saved, ANALYSIS_IN_PROGRESS if not, and removes its upload). The time budget (utils/budget.ts) bounds the
  * wait and hands the model a deadline, so a retry that waited still fits the
  * page's maxDuration: its optional steps are skipped, not its analysis.
  */
@@ -148,13 +150,10 @@ export async function analyzeResumeAction(
       deadline: modelDeadline(deadline),
     });
 
-    // Spent for good from here, unless it was given back meanwhile: then nothing is saved under it.
-    if (!(await settleAnalysisUnit(reservation.eventId))) {
-      throw new Error(`Analysis unit ${reservation.eventId} is no longer held; not saving under it`);
-    }
-
+    // The unit is spent in the insert's transaction, unless it was given back meanwhile: then nothing is saved.
+    let saved: CreatedResume;
     try {
-      await createResume({
+      saved = await createResume({
         id: resumeId,
         companyName,
         jobTitle,
@@ -162,9 +161,11 @@ export async function analyzeResumeAction(
         resumeKey,
         feedback,
         guardStats: toGuardStats(guard),
+        usageEventId: reservation.eventId,
       });
     } catch (error) {
-      // The insert failed as a whole; a row under this id now can only be another request's for this submission.
+      // The insert failed as a whole, its settle with it (the unit is still held for the refunds below); a row
+      // under this id now can only be another request's for this submission.
       const winnerKey = await fetchResumeKey(resumeId).catch(() => null);
       if (winnerKey === null) throw error;
       const { eventId } = reservation;
@@ -176,6 +177,22 @@ export async function analyzeResumeAction(
       ownedKey = null;
       console.warn(`[CVision] analysis ${resumeId}: a duplicate request of the submission lost the insert; unit returned`);
       return { ok: true, data: { resumeId } };
+    }
+
+    if (saved.kind === "unit-released") {
+      // Given back already (a retry of this submission took this request for dead, or the sweep): nothing to refund.
+      const { eventId } = reservation;
+      reservation = null;
+      console.warn(`[CVision] analysis ${resumeId}: unit ${eventId} was given back before the insert; nothing saved`);
+      // The retry that took over may have saved the analysis already: answer with it, this upload is not its file.
+      const winnerKey = await fetchResumeKey(resumeId).catch(() => null);
+      if (winnerKey !== null) {
+        await dropDuplicateUpload(resumeKey, winnerKey);
+        ownedKey = null;
+        return { ok: true, data: { resumeId } };
+      }
+      // Still running elsewhere: the same answer a retry gets while the first request runs. The catch removes the upload.
+      throw new AnalysisInProgressError(`Analysis unit ${eventId} was given back before the insert`);
     }
 
     // The row points at the object and the unit is spent for good.

@@ -40,8 +40,8 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
  * it was given.
  *
  * The primitives, and nothing else touches the table: `reserveAnalysis`
- * (check and insert in one serializable transaction), `settleAnalysisUnit`
- * (the unit spent for good, right before its row is saved),
+ * (check and insert in one serializable transaction), `settleAnalysisUnitIn`
+ * (the unit spent for good, in the transaction that saves its row),
  * `refundAbandonedAnalyses` (the daily sweep of units whose request died),
  * `reserveInterview` (the unit the entitlement names, same discipline),
  * `refundUsage`, `revokeUnusedInterviewCredits`, and in credits.ts (no
@@ -164,21 +164,22 @@ export async function reserveAnalysis(
 }
 
 /**
- * Spends an analysis unit for good, right before the row it pays for is saved: false when the unit is no longer
- * held (given back by the sweep, by a retry of the same submission, or refunded), and the caller must then not save
- * under it. One conditional update, so it and a refund of the same unit cannot both win. A failure after this (the
- * insert itself) still refunds normally: a refund does not look at settledAt.
+ * Spends an analysis unit for good, on the client of the transaction that saves the row it pays for (createResume):
+ * false when the unit is no longer held (given back by the sweep, by a retry of the same submission, or refunded),
+ * and the caller must then save nothing. One conditional update, so it and a refund of the same unit cannot both
+ * win; in the insert's transaction, so a unit is never spent without its row: an insert that fails rolls the settle
+ * back with it, and the unit is still held for the request's own refund.
  */
-export async function settleAnalysisUnit(eventId: string, now = new Date()): Promise<boolean> {
-  try {
-    const result = await prisma.usageEvent.updateMany({
-      where: { id: eventId, kind: "ANALYSIS", refundedAt: null, settledAt: null },
-      data: { settledAt: now },
-    });
-    return result.count === 1;
-  } catch (error) {
-    handleError(error, `Failed to settle analysis unit ${eventId}`);
-  }
+export async function settleAnalysisUnitIn(
+  db: Prisma.TransactionClient,
+  { eventId, userId }: { eventId: string; userId: string },
+  now = new Date(),
+): Promise<boolean> {
+  const result = await db.usageEvent.updateMany({
+    where: { id: eventId, userId, kind: "ANALYSIS", refundedAt: null, settledAt: null },
+    data: { settledAt: now },
+  });
+  return result.count === 1;
 }
 
 export type AbandonedAnalysesReport = {
@@ -199,12 +200,14 @@ export type AbandonedAnalysesReport = {
 export async function refundAbandonedAnalyses(now = new Date(), { limit = 500 }: { limit?: number } = {}): Promise<AbandonedAnalysesReport> {
   try {
     const cutoff = new Date(now.getTime() - ABANDONED_ANALYSIS_MS);
-    const held = await prisma.usageEvent.findMany({
-      where: { kind: "ANALYSIS", refundedAt: null, settledAt: null, createdAt: { lt: cutoff } },
-      select: { id: true, refId: true },
-      orderBy: { createdAt: "asc" },
-      take: limit,
-    });
+    // The predicate of the partial index "UsageEvent_held_analysis", word for word, so the planner can use it. Prisma
+    // sends an enum as CAST($1::text AS "UsageKind"), which it cannot prove equal to 'ANALYSIS' (enum_in is not
+    // immutable): measured, a findMany never picks that index. Fixed SQL, only the cutoff and the limit as parameters.
+    const held = await prisma.$queryRaw<{ id: string; refId: string }[]>`
+      SELECT "id", "refId" FROM "UsageEvent"
+      WHERE "kind" = 'ANALYSIS' AND "refundedAt" IS NULL AND "settledAt" IS NULL AND "createdAt" < ${cutoff}
+      ORDER BY "createdAt" ASC
+      LIMIT ${limit}`;
     const units = held.flatMap((event) => {
       const analysisId = ANALYSIS_REF.exec(event.refId)?.[1];
       return analysisId ? [{ id: event.id, analysisId }] : [];

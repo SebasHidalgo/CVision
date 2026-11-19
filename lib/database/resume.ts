@@ -8,6 +8,7 @@ import type { GuardStats } from "@/lib/ai/schemas";
 import type { ResumeAnalysisFeedback } from "@/lib/schemas/resumeSchema";
 import type { ResumeAnalysis } from "@/types/resume";
 import { recordGuardStatsDaily } from "./guardStats";
+import { settleAnalysisUnitIn } from "./usage";
 import { mapDbResume, resumeInclude } from "./mappers";
 import { analysisHistory, hiddenAnalysisRows, isVisible, NEWEST_FIRST, visibleAnalysisIds, type AnalysisSummary } from "./visibility";
 
@@ -22,22 +23,34 @@ export type CreateResumeData = {
   feedback: ResumeAnalysisFeedback;
   /** What the guardrail did to the model's answer, for `npm run report:guards`. */
   guardStats: GuardStats;
+  /** The analysis unit reserved for it: spent in the insert's transaction. */
+  usageEventId: string;
 };
+
+export type CreatedResume =
+  | { kind: "saved"; id: string }
+  /** The unit was given back before the insert (a retry of the submission took it as dead, or the sweep): nothing saved. */
+  | { kind: "unit-released" };
 
 // Prisma types Json columns as a recursive union that a concrete object is not
 // assignable to. One documented cast instead of one per field.
 const toJson = (value: unknown) => value as Prisma.InputJsonValue;
 
 /**
- * Stores the analysis, its feedback and, in the same transaction, the day's
- * anonymous guardrail tallies, so the two cannot drift apart. Database
- * writes only inside the transaction: nothing external is awaited there.
+ * Spends the analysis unit and stores the analysis, its feedback and the
+ * day's anonymous guardrail tallies, in one transaction: no request can die
+ * between the charge and the row, and a unit given back meanwhile saves
+ * nothing (`unit-released`). Database writes only inside the transaction:
+ * nothing external is awaited there.
  */
-export async function createResume(data: CreateResumeData, now = new Date()): Promise<string> {
+export async function createResume(data: CreateResumeData, now = new Date()): Promise<CreatedResume> {
   try {
     const userId = await requireUserId();
 
     return await prisma.$transaction(async (tx) => {
+      // The settle first: an insert that fails rolls it back, so the unit stays held for the caller's refund.
+      if (!(await settleAnalysisUnitIn(tx, { eventId: data.usageEventId, userId }, now))) return { kind: "unit-released" as const };
+
       const created = await tx.resumeAnalysis.create({
         data: {
           id: data.id,
@@ -65,7 +78,7 @@ export async function createResume(data: CreateResumeData, now = new Date()): Pr
         select: { id: true },
       });
       await recordGuardStatsDaily(tx, "ANALYSIS", now, data.guardStats);
-      return created.id;
+      return { kind: "saved" as const, id: created.id };
     });
   } catch (error) {
     handleError(error, "Failed to create a resume analysis record");

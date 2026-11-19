@@ -5,7 +5,7 @@ import { emptyGuardReport } from "@/lib/ai/analysisGuardrails";
 import { analyzeResume } from "@/lib/ai/resumeAnalysis";
 import { assertRateLimit } from "@/lib/database/rateLimit";
 import { createResume, fetchResumeKey } from "@/lib/database/resume";
-import { refundUsage, reserveAnalysis, settleAnalysisUnit } from "@/lib/database/usage";
+import { refundUsage, reserveAnalysis } from "@/lib/database/usage";
 import {
   AiBillingError,
   AiRateLimitedError,
@@ -27,14 +27,14 @@ import { analyzeResumeAction } from "./analyzeResumeAction";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/database/user", () => ({ ensureUser: vi.fn(async () => "user_1") }));
 vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => {}) }));
-vi.mock("@/lib/database/usage", () => ({ reserveAnalysis: vi.fn(), refundUsage: vi.fn(async () => true), settleAnalysisUnit: vi.fn(async () => true) }));
+vi.mock("@/lib/database/usage", () => ({ reserveAnalysis: vi.fn(), refundUsage: vi.fn(async () => true) }));
 vi.mock("@/lib/supabase/server", () => ({ downloadObject: vi.fn(), removeObject: vi.fn(async () => true) }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
   return { ...actual, extractPdfText: vi.fn() };
 });
 vi.mock("@/lib/ai/resumeAnalysis", () => ({ analyzeResume: vi.fn() }));
-vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => "resume_1"), fetchResumeKey: vi.fn(async () => null) }));
+vi.mock("@/lib/database/resume", () => ({ createResume: vi.fn(async () => ({ kind: "saved", id: "resume_1" })), fetchResumeKey: vi.fn(async () => null) }));
 vi.mock("@/lib/i18n/server", () => ({ getLocale: vi.fn(async () => "en") }));
 vi.mock("@/lib/ai/contentTranslation", () => ({ translateAnalysis: vi.fn(async () => "ready") }));
 
@@ -71,8 +71,7 @@ beforeEach(() => {
   vi.mocked(reserveAnalysis).mockResolvedValue({ kind: "reserved", eventId: "evt_1" });
   vi.mocked(fetchResumeKey).mockResolvedValue(null);
   vi.mocked(refundUsage).mockResolvedValue(true);
-  vi.mocked(settleAnalysisUnit).mockResolvedValue(true);
-  vi.mocked(createResume).mockImplementation(async (data) => data.id);
+  vi.mocked(createResume).mockImplementation(async (data) => ({ kind: "saved", id: data.id }));
   vi.mocked(downloadObject).mockResolvedValue(pdfBytes());
   vi.mocked(extractPdfText).mockResolvedValue({ text: "Jane Doe. Frontend engineer.", accentsComposed: 0 });
   vi.mocked(analyzeResume).mockResolvedValue({
@@ -229,31 +228,43 @@ describe("analyzeResumeAction: every failure refunds", () => {
 });
 
 describe("analyzeResumeAction: the unit is spent only with its row", () => {
-  it("settles the unit after the model and right before the insert", async () => {
+  it("hands the unit to the insert after the model: the settle and the row are one transaction (createResume)", async () => {
     expect((await analyzeResumeAction(input())).ok).toBe(true);
 
-    expect(settleAnalysisUnit).toHaveBeenCalledExactlyOnceWith("evt_1");
-    const order = (fn: unknown) => vi.mocked(fn as () => unknown).mock.invocationCallOrder[0];
-    expect(order(analyzeResume)).toBeLessThan(order(settleAnalysisUnit));
-    expect(order(settleAnalysisUnit)).toBeLessThan(order(createResume));
+    expect(createResume).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: SUBMITTED_ID, usageEventId: "evt_1" }));
+    expect(vi.mocked(analyzeResume).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(createResume).mock.invocationCallOrder[0]);
+    expect(refundUsage).not.toHaveBeenCalled();
   });
 
-  it("a unit given back meanwhile (the abandoned-request sweep, a retry) is never saved under: no row, the upload removed", async () => {
-    vi.mocked(settleAnalysisUnit).mockResolvedValueOnce(false);
+  it("a unit given back meanwhile (a retry of the submission, the sweep) saves nothing: ANALYSIS_IN_PROGRESS, its upload removed, no refund twice", async () => {
+    vi.mocked(createResume).mockResolvedValueOnce({ kind: "unit-released" });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "UNKNOWN" });
-    expect(createResume).not.toHaveBeenCalled();
-    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
-    // The refund is conditional on the unit still being held: this one changes nothing, and no second unit is taken.
+    expect(await analyzeResumeAction(input())).toEqual({ ok: false, code: "ANALYSIS_IN_PROGRESS" });
+    expect(removeObject).toHaveBeenCalledExactlyOnceWith(OWN_KEY);
+    // Whoever gave it back refunded it: this request does not, and takes no second unit.
+    expect(refundUsage).not.toHaveBeenCalled();
     expect(reserveAnalysis).toHaveBeenCalledTimes(1);
   });
 
-  it("a row that fails after the settle still gives the unit back", async () => {
+  it("a unit given back to a retry that already saved the analysis answers with that analysis, this upload removed", async () => {
+    vi.mocked(fetchResumeKey).mockResolvedValueOnce(null).mockResolvedValue(OTHER_OWN_KEY);
+    vi.mocked(createResume).mockResolvedValueOnce({ kind: "unit-released" });
+    vi.mocked(getLocale).mockResolvedValue("es");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await analyzeResumeAction(input(OWN_KEY))).toEqual({ ok: true, data: { resumeId: SUBMITTED_ID } });
+    expect(removeObject).toHaveBeenCalledExactlyOnceWith(OWN_KEY);
+    expect(refundUsage).not.toHaveBeenCalled();
+    expect(translateAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("an insert that fails rolled its settle back: the unit is still held and goes back", async () => {
     vi.mocked(createResume).mockRejectedValueOnce(new Error("connection reset"));
 
     expect(await analyzeResumeAction(input())).toMatchObject({ ok: false, code: "UNKNOWN" });
-    expect(settleAnalysisUnit).toHaveBeenCalledWith("evt_1");
-    expect(refundUsage).toHaveBeenCalledWith("evt_1", "UNKNOWN");
+    expect(refundUsage).toHaveBeenCalledExactlyOnceWith("evt_1", "UNKNOWN");
+    expect(removeObject).toHaveBeenCalledWith(OWN_KEY);
   });
 });
 

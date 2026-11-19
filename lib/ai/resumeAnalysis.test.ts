@@ -16,7 +16,6 @@ vi.mock("@/lib/database/rateLimit", () => ({ assertRateLimit: vi.fn(async () => 
 vi.mock("@/lib/database/usage", () => ({
   reserveAnalysis: vi.fn(async () => ({ kind: "reserved", eventId: "evt_1" })),
   refundUsage: vi.fn(async () => true),
-  settleAnalysisUnit: vi.fn(async () => true),
 }));
 vi.mock("@/lib/pdfParse", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pdfParse")>();
@@ -28,7 +27,7 @@ vi.mock("@/lib/supabase/server", () => ({
   removeObject: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/database/resume", () => ({
-  createResume: vi.fn(async () => "resume_1"),
+  createResume: vi.fn(async () => ({ kind: "saved", id: "resume_1" })),
   fetchResumeKey: vi.fn(async () => null),
 }));
 
