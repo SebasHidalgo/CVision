@@ -1,11 +1,12 @@
 // Puts an account in a usage state without spending voice credits, to see each state of the interview room.
 // Usage: npm run dev:usage -- --email <e> [--interviews-used <n>] [--trial-used] [--credits <n>] [--plan free|pro]
-//        npm run dev:usage -- --email <e> --reset-trial   (the free trial again; interviews and feedback stay)
+//        npm run dev:usage -- --email <e> --reset-trial   (the free trial again, its email claim too; interviews and feedback stay)
 // Refuses unless ALLOW_DEV_TOOLS=1 and PADDLE_ENV=sandbox, and only against a Clerk development instance.
 import { parseArgs } from "node:util";
 import { PrismaClient } from "@prisma/client";
 import { resolvePlanStanding } from "@/lib/database/billing";
 import { devToolsAllowed } from "@/lib/devTools";
+import { normalizeEmail, readTrialPepper, trialClaimHash } from "@/lib/trialClaim";
 import { applyDevUsage, resetDevTrial, type DevUsageTarget } from "./usageState";
 
 const { values: args } = parseArgs({
@@ -60,9 +61,16 @@ async function main() {
     await db.user.upsert({ where: { id: userId }, create: { id: userId }, update: {} });
     if (args["reset-trial"]) {
       if (plan) await db.user.update({ where: { id: userId }, data: { compPlan: plan === "PRO" ? "PRO" : null } });
-      const reset = await resetDevTrial(db, userId, (id, now) => resolvePlanStanding(id, now));
+      // The named address's claim goes too: it may come from a deleted account of the same email.
+      const pepper = readTrialPepper();
+      const inbox = normalizeEmail(args.email);
+      if (!pepper) console.log("  note: TRIAL_CLAIM_PEPPER is not set: only the claims the given-back units wrote are removed");
+      const emailHashes = pepper && inbox ? [trialClaimHash(inbox, pepper)] : [];
+      const reset = await resetDevTrial(db, userId, (id, now) => resolvePlanStanding(id, now), new Date(), { emailHashes });
       const next = reset.entitlement;
-      console.log(`${userId}: ${reset.trialsReset} trial unit(s) given back, ${reset.interviewsReleased} unfinished interview(s) released; interviews and feedback kept`);
+      console.log(
+        `${userId}: ${reset.trialsReset} trial unit(s) given back, ${reset.claimsRemoved} email claim(s) removed, ${reset.interviewsReleased} unfinished interview(s) released; interviews and feedback kept`,
+      );
       console.log(`  next start: ${next.source === "none" ? `nothing (${next.reason})` : `${next.source}, ${next.maxDurationSeconds / 60} min`} on plan ${next.plan}`);
       for (const note of reset.notes) console.log(`  note: ${note}`);
       return;

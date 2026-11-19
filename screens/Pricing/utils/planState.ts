@@ -15,7 +15,8 @@ export type PricingFacts =
       /** A subscription still open (not canceled), granting or not: a Pro checkout would refuse while there is one. */
       openSubscription: SubscriptionStatusId | null;
       everSubscribed: boolean;
-      trial: { available: boolean; used: boolean };
+      /** `blocked` "claimed": the account's email already used its free trial on another account. */
+      trial: { available: boolean; used: boolean; blocked?: "claimed" | "unavailable" | null };
       /** Pack credits held. */
       credits: number;
       /** A customer at the provider: the portal exists for them. */
@@ -46,7 +47,7 @@ export type PlanActionSpec =
   | { kind: "none" };
 
 export type StandingDetail =
-  | { key: "trialAvailable" | "trialUsed" | "noTrial" | "afterPro" | "comp" | "pastDue" | "paused" | "pending" }
+  | { key: "trialAvailable" | "trialUsed" | "trialClaimed" | "noTrial" | "afterPro" | "comp" | "pastDue" | "paused" | "pending" }
   | { key: "renews" | "canceling"; date: Date };
 
 export type StandingSpec = {
@@ -139,12 +140,17 @@ export function pricingState(facts: PricingFacts): PricingState {
   }
 
   // The trial is only for accounts that never had voice (never subscribed, never a full interview).
-  const detail: StandingDetail = trial.available
+  // A trial that could not be checked (fail closed) gets no line: no reason shown is better than a wrong one.
+  const detail: StandingDetail | null = trial.available
     ? { key: "trialAvailable" }
     : everSubscribed
       ? { key: "afterPro" }
       : trial.used
         ? { key: "trialUsed" }
-        : { key: "noTrial" };
+        : trial.blocked === "claimed"
+          ? { key: "trialClaimed" }
+          : trial.blocked === "unavailable"
+            ? null
+            : { key: "noTrial" };
   return { kind: everSubscribed ? "free-after-pro" : "free", free: free(detail), pro: { standing: null, action: { kind: "checkout-pro" } }, pack };
 }

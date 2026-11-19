@@ -162,7 +162,7 @@ export default function RoomOffer({ entry, facts, preview }: RoomOfferProps) {
     <div data-offer={pro ? "pro" : "pack"} className="flex flex-col items-start">
       <PanelLine className="font-medium">
         {pro
-          ? t(entry.reason === "had-voice" ? "room.offer.pro.titleHadVoice" : "room.offer.pro.title")
+          ? t(entry.reason === "had-voice" ? "room.offer.pro.titleHadVoice" : entry.reason === "trial-claimed" ? "room.offer.pro.titleClaimed" : "room.offer.pro.title")
           : t("room.offer.pack.title", { limit: facts.periodLimit, date: resetDate(entry.resetsAt) })}
       </PanelLine>
       <PanelSub className="max-w-[52ch]">

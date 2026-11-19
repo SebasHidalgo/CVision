@@ -47,6 +47,20 @@ describe("accountView", () => {
     expect(withCredits.credits).toEqual({ balance: 3, pending: 0, note: "free" });
   });
 
+  it("says the email already used its trial on another account, and never blames the email when the check could not run", () => {
+    const claimed = summaryOf("FREE");
+    claimed.trial = { available: false, used: false, blocked: "claimed" };
+    expect(accountView(claimed).interviews).toMatchObject({ state: "claimed", note: "claimed" });
+
+    const covered = summaryOf("FREE", { credits: 2 });
+    covered.trial = { available: false, used: false, blocked: "claimed" };
+    expect(accountView(covered).interviews).toMatchObject({ state: "claimed", note: "credits-cover" });
+
+    const unchecked = summaryOf("FREE");
+    unchecked.trial = { available: false, used: false, blocked: "unavailable" };
+    expect(accountView(unchecked).interviews).toMatchObject({ state: "unavailable", note: "pro-only" });
+  });
+
   it("names Pro's analyses as a cap, never a count, until the cap is reached", () => {
     expect(accountView(summaryOf("PRO", { analysesUsed: 12 })).analyses).toEqual({ kind: "up-to", limit: 50, reached: false });
     expect(accountView(summaryOf("PRO", { analysesUsed: 50 })).analyses).toEqual({ kind: "up-to", limit: 50, reached: true });

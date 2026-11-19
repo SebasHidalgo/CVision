@@ -50,7 +50,8 @@ export type InterviewOffer =
   | { kind: "pro-exhausted"; resetsAt: string }
   /** A Free account holding pack credits: each one is a full interview, before any trial. */
   | { kind: "credits"; credits: number }
-  | { kind: "needs-pro" };
+  /** `claimed`: the account's email already used its free trial on another account. */
+  | { kind: "needs-pro"; claimed?: true };
 
 /** A waiting attempt is offered only when it can start (or its room has something to say): one the plan cannot start falls through to what to buy, as in the room. */
 export function interviewOffer(quota: InterviewQuotaView, live: WaitingInterview | null, now = new Date()): InterviewOffer {
@@ -70,7 +71,8 @@ export function interviewOffer(quota: InterviewQuotaView, live: WaitingInterview
     case "trial":
       return { kind: "trial" };
     case "none":
-      return entitlement.plan === "PRO" && entitlement.resetsAt ? { kind: "pro-exhausted", resetsAt: entitlement.resetsAt } : { kind: "needs-pro" };
+      if (entitlement.plan === "PRO" && entitlement.resetsAt) return { kind: "pro-exhausted", resetsAt: entitlement.resetsAt };
+      return entitlement.reason === "trial-claimed" ? { kind: "needs-pro", claimed: true } : { kind: "needs-pro" };
   }
 }
 
@@ -208,7 +210,7 @@ export default function InterviewCta({
       : offer.kind === "trial"
         ? t("cta.heading.trial", { jobTitle })
         : offer.kind === "needs-pro"
-          ? t("cta.heading.needsPro")
+          ? t(offer.claimed ? "cta.heading.trialClaimed" : "cta.heading.needsPro")
           : offer.kind === "pro-exhausted"
             ? t("cta.heading.proExhausted")
             : rehearsed

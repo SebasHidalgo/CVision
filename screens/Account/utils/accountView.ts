@@ -16,7 +16,13 @@ export type AccountView = {
   analyses: { kind: "count"; left: number; limit: number } | { kind: "up-to"; limit: number; reached: boolean };
   interviews:
     | { kind: "period"; left: number; limit: number; minutes: number }
-    | { kind: "trial"; state: "available" | "used" | "unavailable"; note: "available" | "credits-cover" | "pro-only" | "unavailable"; minutes: number };
+    | {
+        kind: "trial";
+        /** "claimed": the account's email already used its free trial on another account. */
+        state: "available" | "used" | "claimed" | "unavailable";
+        note: "available" | "credits-cover" | "pro-only" | "claimed" | "unavailable";
+        minutes: number;
+      };
   credits: CreditsView | null;
 };
 
@@ -39,9 +45,19 @@ export function accountView(summary: ViewInput): AccountView {
   if (pro) {
     interviews = { kind: "period", left: summary.interviews.left, limit: summary.interviews.limit, minutes: FULL_MINUTES };
   } else {
-    const state = summary.trial.available ? "available" : summary.trial.used ? "used" : "unavailable";
+    const { trial } = summary;
+    const state = trial.available ? "available" : trial.used ? "used" : trial.blocked === "claimed" ? "claimed" : "unavailable";
+    // A trial that could not be checked (fail closed) says only what is certain: voice is Pro's.
     const note =
-      state === "available" ? "available" : summary.credits.balance > 0 ? "credits-cover" : state === "used" ? "pro-only" : "unavailable";
+      state === "available"
+        ? "available"
+        : summary.credits.balance > 0
+          ? "credits-cover"
+          : state === "claimed"
+            ? "claimed"
+            : state === "used" || trial.blocked === "unavailable"
+              ? "pro-only"
+              : "unavailable";
     interviews = { kind: "trial", state, note, minutes: TRIAL_MINUTES };
   }
 

@@ -19,7 +19,7 @@ export type DevUsageTarget = {
 
 export type DevUsageReport = { plan: PlanStanding["plan"]; periodEnd: Date; interviewsUsed: number; trialUsed: boolean; credits: number; notes: string[] };
 
-type Db = Pick<PrismaClient, "usageEvent" | "user" | "interview" | "$transaction">;
+type Db = Pick<PrismaClient, "usageEvent" | "user" | "interview" | "trialClaim" | "$transaction">;
 
 /** The reset's audit rows: refunded on creation, so they count for nothing, and never removed by a later run. */
 export const DEV_RESET_PREFIX = "dev-reset:";
@@ -28,6 +28,8 @@ export const DEV_RESET_REASON = "DEV_RESET_TRIAL";
 export type DevResetReport = {
   /** Trial units given back. */
   trialsReset: number;
+  /** Email claims removed: the ones those units wrote, and the named email's. */
+  claimsRemoved: number;
   /** Interviews not yet finished that held a trial unit: their next start reserves again. */
   interviewsReleased: number;
   /** Of those, interviews whose unit no longer existed (a ledger row deleted by hand). */
@@ -41,13 +43,28 @@ export type DevResetReport = {
  * Makes the account's free trial available again, consistently: every live
  * trial unit is given back (marked, like any refund), every interview that
  * can still start and holds a trial unit, or a unit that no longer exists,
- * lets go of it, and an audit row records the reset. Interviews, their
+ * lets go of it, and an audit row records the reset. The email claims the
+ * given-back units wrote are removed, as a refund removes them, and so is
+ * the claim of each hash in `emailHashes` (the address the tool was run
+ * for: its claim may come from a deleted account). Interviews, their
  * transcripts and their feedback stay. What else keeps a trial away (a
  * subscription once, a full interview, a Pro plan) is reported, not undone.
  */
-export async function resetDevTrial(db: Db, userId: string, standingOf: (userId: string, now: Date) => Promise<PlanStanding>, now = new Date()): Promise<DevResetReport> {
+export async function resetDevTrial(
+  db: Db,
+  userId: string,
+  standingOf: (userId: string, now: Date) => Promise<PlanStanding>,
+  now = new Date(),
+  { emailHashes = [] }: { emailHashes?: readonly string[] } = {},
+): Promise<DevResetReport> {
   const counts = await db.$transaction(async (tx) => {
-    const reset = await tx.usageEvent.updateMany({ where: { userId, kind: "INTERVIEW_TRIAL", refundedAt: null }, data: { refundedAt: now, refundReason: DEV_RESET_REASON } });
+    const reset = await tx.usageEvent.updateManyAndReturn({
+      where: { userId, kind: "INTERVIEW_TRIAL", refundedAt: null },
+      data: { refundedAt: now, refundReason: DEV_RESET_REASON },
+      select: { trialClaimHashes: true },
+    });
+    const hashes = [...new Set([...reset.flatMap((row) => row.trialClaimHashes), ...emailHashes])];
+    const claims = hashes.length > 0 ? await tx.trialClaim.deleteMany({ where: { emailHash: { in: hashes } } }) : { count: 0 };
     const held = await tx.interview.findMany({
       where: { userId, usageEventId: { not: null }, status: { in: ["SCHEDULED", "IN_PROGRESS"] } },
       select: { id: true, usageEventId: true, paidBy: true },
@@ -60,7 +77,7 @@ export async function resetDevTrial(db: Db, userId: string, standingOf: (userId:
     await tx.usageEvent.create({
       data: { userId, kind: "INTERVIEW_TRIAL", refId: `${DEV_RESET_PREFIX}${now.toISOString()}:${randomUUID()}`, createdAt: now, refundedAt: now, refundReason: DEV_RESET_REASON },
     });
-    return { trialsReset: reset.count, interviewsReleased: release.length, dangling: missing.length };
+    return { trialsReset: reset.length, claimsRemoved: claims.count, interviewsReleased: release.length, dangling: missing.length };
   });
 
   const standing = await standingOf(userId, now);

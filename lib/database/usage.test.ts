@@ -7,6 +7,7 @@ import { reconcileIfStale } from "@/lib/billing/reconcile";
 import { PLANS } from "@/lib/plans";
 import { findBillingCustomer, resolvePlanStanding, resolvePlanStandingIn, transactionApplied } from "./billing";
 import { expireAbandonedInterviews } from "./interviewExpiry";
+import { trialIdentityFor } from "@/lib/trialIdentity";
 import {
   analysisQuotaView,
   billingStatus,
@@ -31,16 +32,20 @@ vi.mock("./billing", () => ({
   transactionApplied: vi.fn(async () => false),
 }));
 vi.mock("@/lib/billing/reconcile", () => ({ reconcileIfStale: vi.fn(async () => false) }));
+// The account's verified emails, hashed: one inbox, "h_1". Read only when the trial would otherwise be open.
+vi.mock("@/lib/trialIdentity", () => ({ trialIdentityFor: vi.fn(async () => ({ kind: "emails", hashes: ["h_1"] })) }));
 
 const tx = {
-  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), groupBy: vi.fn(), updateMany: vi.fn() },
+  usageEvent: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), groupBy: vi.fn(), updateMany: vi.fn(), updateManyAndReturn: vi.fn() },
   interview: { count: vi.fn() },
+  trialClaim: { findFirst: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({
   default: {
     $transaction: vi.fn(),
     usageEvent: { count: vi.fn(), updateMany: vi.fn(), create: vi.fn(), groupBy: vi.fn() },
     interview: { count: vi.fn() },
+    trialClaim: { findFirst: vi.fn() },
   },
 }));
 
@@ -89,7 +94,7 @@ type Facts = { analyses?: number; periodUsed?: number; trials?: number; fullEver
  * interviews. `fullEver` is the lifetime count of period interviews; a
  * consumed credit counts as voice on its own.
  */
-function factsIn(db: typeof tx, { analyses = 0, periodUsed = 0, trials = 0, fullEver = 0, credits = 0, creditsUsed = 0, pending = 0 }: Facts) {
+function factsIn(db: Pick<typeof tx, "usageEvent" | "interview">, { analyses = 0, periodUsed = 0, trials = 0, fullEver = 0, credits = 0, creditsUsed = 0, pending = 0 }: Facts) {
   db.usageEvent.groupBy
     .mockResolvedValueOnce([
       { kind: "ANALYSIS", _count: { _all: analyses } },
@@ -133,6 +138,12 @@ beforeEach(() => {
   tx.usageEvent.groupBy.mockResolvedValue([]);
   tx.usageEvent.updateMany.mockResolvedValue({ count: 0 });
   tx.interview.count.mockResolvedValue(0);
+  tx.usageEvent.updateManyAndReturn.mockResolvedValue([]);
+  tx.trialClaim.findFirst.mockResolvedValue(null);
+  tx.trialClaim.createMany.mockResolvedValue({ count: 1 });
+  tx.trialClaim.deleteMany.mockResolvedValue({ count: 0 });
+  vi.mocked(prisma.trialClaim.findFirst).mockResolvedValue(null);
+  vi.mocked(trialIdentityFor).mockResolvedValue({ kind: "emails", hashes: ["h_1"] });
   vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
   vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([] as never);
   vi.mocked(prisma.interview.count).mockResolvedValue(0);
@@ -270,7 +281,7 @@ describe("reserveInterview: the entitlement decided inside the transaction", () 
     expect(tx.usageEvent.count).toHaveBeenCalledWith({ where: { kind: "INTERVIEW_TRIAL", refId: { startsWith: "int_1" }, refundedAt: { not: null } } });
     expect(tx.interview.count).toHaveBeenCalledWith({ where: { userId: "user_1", status: "IN_PROGRESS", paidBy: "CREDIT", usageEventId: { not: null } } });
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
-      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1", createdAt: NOW },
+      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1", createdAt: NOW, trialClaimHashes: ["h_1"] },
       select: { id: true },
     });
   });
@@ -281,7 +292,7 @@ describe("reserveInterview: the entitlement decided inside the transaction", () 
     tx.usageEvent.count.mockResolvedValueOnce(1);
     expect(await reserveInterview("user_1", "int_1", NOW)).toMatchObject({ kind: "INTERVIEW_TRIAL", source: "trial" });
     expect(tx.usageEvent.create).toHaveBeenCalledWith({
-      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#2", createdAt: NOW },
+      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#2", createdAt: NOW, trialClaimHashes: ["h_1"] },
       select: { id: true },
     });
 
@@ -290,7 +301,7 @@ describe("reserveInterview: the entitlement decided inside the transaction", () 
     tx.usageEvent.count.mockResolvedValueOnce(2);
     await reserveInterview("user_1", "int_1", NOW);
     expect(tx.usageEvent.create).toHaveBeenLastCalledWith({
-      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#3", createdAt: NOW },
+      data: { userId: "user_1", kind: "INTERVIEW_TRIAL", refId: "int_1#3", createdAt: NOW, trialClaimHashes: ["h_1"] },
       select: { id: true },
     });
   });
@@ -440,21 +451,25 @@ describe("the credits (the grant and the balance live in credits.ts, tested ther
   });
 
   it("a refunded credit consumption is a credit again: the silent session's refund is the ordinary one", async () => {
-    vi.mocked(prisma.usageEvent.updateMany).mockResolvedValueOnce({ count: 1 });
+    tx.usageEvent.updateManyAndReturn.mockResolvedValueOnce([{ kind: "INTERVIEW_CREDIT", trialClaimHashes: [] }]);
     expect(await refundUsage("evt_credit", "NO_CANDIDATE_TURNS")).toBe(true);
-    expect(prisma.usageEvent.updateMany).toHaveBeenCalledWith({
+    expect(tx.usageEvent.updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: "evt_credit", refundedAt: null },
       data: { refundedAt: expect.any(Date), refundReason: "NO_CANDIDATE_TURNS" },
+      select: { kind: true, trialClaimHashes: true },
     });
+    expect(tx.trialClaim.deleteMany).not.toHaveBeenCalled();
   });
 });
 
 describe("refundUsage", () => {
-  it("dates the refund once; a second refund changes nothing", async () => {
-    vi.mocked(prisma.usageEvent.updateMany).mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+  it("dates the refund once, in a transaction; a second refund changes nothing", async () => {
+    tx.usageEvent.updateManyAndReturn.mockResolvedValueOnce([{ kind: "ANALYSIS", trialClaimHashes: [] }]).mockResolvedValueOnce([]);
 
     expect(await refundUsage("evt_1", "AI_UNAVAILABLE")).toBe(true);
     expect(await refundUsage("evt_1", "AI_UNAVAILABLE")).toBe(false);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(tx.trialClaim.deleteMany).not.toHaveBeenCalled();
   });
 });
 

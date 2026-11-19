@@ -5,7 +5,8 @@ import { INTERVIEW_TIERS, PLANS, type InterviewTierId, type PlanId } from "@/lib
  * rules the owner set: a Pro takes one of the period's interviews, then a
  * pack credit; a Free account takes a credit if it holds any (a full
  * interview on the main agent), else its lifetime trial if it never had
- * voice (the trial agent), else nothing. Pure, so the ledger runs it inside
+ * voice and no verified email of it used a trial before (the trial agent),
+ * else nothing. Pure, so the ledger runs it inside
  * its reservation transaction and every page runs the same function on the
  * same facts: the CTA, the room's label and countdown, the create action's
  * pre-check and the session endpoint cannot disagree, which is how the
@@ -29,7 +30,14 @@ export type EntitlementReason =
   /** A Free account whose trial is used, with no credits. */
   | "trial-used"
   /** A Free account that never tried but had voice (a subscription once, or a full interview): no trial. */
-  | "had-voice";
+  | "had-voice"
+  /** One of the account's verified emails already used a free trial, on another account (deleted or not). */
+  | "trial-claimed"
+  /** The emails could not be checked against the claims (no verified email, no pepper, Clerk down): no trial, fail closed. */
+  | "trial-unavailable";
+
+/** What keeps a Free account's own trial away: its email's claim, or a check that could not run. */
+export type TrialBlock = "claimed" | "unavailable";
 
 export type EntitlementRemaining = {
   /** The period's interviews left (0 for Free). */
@@ -66,6 +74,8 @@ export type EntitlementFacts = {
   trialsUsed: number;
   /** A subscription at any time, or a full interview ever: no trial for this account. */
   hadVoice: boolean;
+  /** Read only when `trialOpen` (the account would otherwise have its trial): the email check's answer, null when clear. */
+  trialBlock?: TrialBlock | null;
   /** The current quota period's end. */
   periodEnd: Date;
 };
@@ -75,10 +85,16 @@ export const AGENT_SECONDS: Record<EntitlementAgent, number> = {
   trial: INTERVIEW_TIERS.TRIAL.seconds,
 };
 
+/** The account's own trial before its emails are checked: Free, never had voice, not used. Only then is the claim read. */
+export function trialOpen(facts: Pick<EntitlementFacts, "plan" | "hadVoice" | "trialsUsed">): boolean {
+  return facts.plan === "FREE" && !facts.hadVoice && facts.trialsUsed < PLANS.FREE.trialInterviews;
+}
+
 export function decideEntitlement(facts: EntitlementFacts): InterviewEntitlement {
   const limits = PLANS[facts.plan];
   const periodLeft = Math.max(0, limits.interviewsPerMonth - facts.periodUsed);
-  const trialLeft = facts.plan === "FREE" && !facts.hadVoice ? Math.max(0, limits.trialInterviews - facts.trialsUsed) : 0;
+  const blocked = trialOpen(facts) ? (facts.trialBlock ?? null) : null;
+  const trialLeft = trialOpen(facts) && !blocked ? Math.max(0, limits.trialInterviews - facts.trialsUsed) : 0;
   const remaining: EntitlementRemaining = {
     period: periodLeft,
     periodLimit: limits.interviewsPerMonth,
@@ -113,7 +129,7 @@ export function decideEntitlement(facts: EntitlementFacts): InterviewEntitlement
     agent: null,
     maxDurationSeconds: 0,
     remaining,
-    reason: facts.hadVoice ? "had-voice" : "trial-used",
+    reason: facts.hadVoice ? "had-voice" : blocked === "claimed" ? "trial-claimed" : blocked === "unavailable" ? "trial-unavailable" : "trial-used",
     resetsAt,
   };
 }

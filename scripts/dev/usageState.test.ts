@@ -8,26 +8,47 @@ const standing = (plan: "FREE" | "PRO", everSubscribed = false) => ({ plan, sour
 type Held = { id: string; usageEventId: string | null; paidBy: "TRIAL" | "PERIOD" | "CREDIT" | null };
 
 /** A database of one account: its live trial rows, the interviews that hold a unit, and the ledger ids that still exist. */
-function fakeDb({ liveTrials = 1, held = [] as Held[], existing = [] as string[], fullEver = 0, credits = 0 }) {
+function fakeDb({ liveTrials = 1, held = [] as Held[], existing = [] as string[], fullEver = 0, credits = 0, claimHashes = [] as string[][] }) {
   const usageEvent = {
-    updateMany: vi.fn(async () => ({ count: liveTrials })),
+    updateManyAndReturn: vi.fn(async () => Array.from({ length: liveTrials }, (_, i) => ({ trialClaimHashes: claimHashes[i] ?? [] }))),
     findMany: vi.fn(async () => existing.map((id) => ({ id }))),
     create: vi.fn(async () => ({ id: "audit" })),
     count: vi.fn(async ({ where }: { where: { kind: unknown } }) => (typeof where.kind === "string" ? 0 : fullEver)),
     groupBy: vi.fn(async () => (credits > 0 ? [{ kind: "INTERVIEW_CREDIT_GRANT", _sum: { units: credits } }] : [])),
   };
   const interview = { findMany: vi.fn(async () => held), updateMany: vi.fn(async () => ({ count: held.length })) };
-  const db = { usageEvent, interview, user: {}, $transaction: vi.fn(async (run: (tx: unknown) => unknown) => run({ usageEvent, interview })) };
-  return { db: db as never, usageEvent, interview };
+  const trialClaim = { deleteMany: vi.fn(async ({ where }: { where: { emailHash: { in: string[] } } }) => ({ count: where.emailHash.in.length })) };
+  const db = { usageEvent, interview, trialClaim, user: {}, $transaction: vi.fn(async (run: (tx: unknown) => unknown) => run({ usageEvent, interview, trialClaim })) };
+  return { db: db as never, usageEvent, interview, trialClaim };
 }
 
 describe("dev:usage --reset-trial", () => {
+  it("removes the email claims the given-back units wrote and the named address's, once each, so the trial is the email's again", async () => {
+    const { db, trialClaim } = fakeDb({ liveTrials: 2, claimHashes: [["h_a", "h_b"], ["h_b"]] });
+
+    const report = await resetDevTrial(db, "user_1", async () => standing("FREE"), NOW, { emailHashes: ["h_named", "h_a"] });
+
+    expect(trialClaim.deleteMany).toHaveBeenCalledWith({ where: { emailHash: { in: ["h_a", "h_b", "h_named"] } } });
+    expect(report).toMatchObject({ trialsReset: 2, claimsRemoved: 3 });
+  });
+
+  it("touches no claim when no unit wrote one and no address was named", async () => {
+    const { db, trialClaim } = fakeDb({ liveTrials: 1 });
+
+    expect(await resetDevTrial(db, "user_1", async () => standing("FREE"), NOW)).toMatchObject({ claimsRemoved: 0 });
+    expect(trialClaim.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("gives every live trial unit back as a marked refund, never a deletion, and leaves an audit row that counts for nothing", async () => {
     const { db, usageEvent } = fakeDb({ liveTrials: 1 });
 
     const report = await resetDevTrial(db, "user_1", async () => standing("FREE"), NOW);
 
-    expect(usageEvent.updateMany).toHaveBeenCalledWith({ where: { userId: "user_1", kind: "INTERVIEW_TRIAL", refundedAt: null }, data: { refundedAt: NOW, refundReason: DEV_RESET_REASON } });
+    expect(usageEvent.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { userId: "user_1", kind: "INTERVIEW_TRIAL", refundedAt: null },
+      data: { refundedAt: NOW, refundReason: DEV_RESET_REASON },
+      select: { trialClaimHashes: true },
+    });
     const audit = (usageEvent.create.mock.calls as unknown as [[{ data: { refId: string; refundedAt: Date; refundReason: string; kind: string } }]])[0][0];
     expect(audit.data).toMatchObject({ userId: "user_1", kind: "INTERVIEW_TRIAL", refundedAt: NOW, refundReason: DEV_RESET_REASON });
     expect(audit.data.refId.startsWith(DEV_RESET_PREFIX)).toBe(true);

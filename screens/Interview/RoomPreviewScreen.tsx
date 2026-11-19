@@ -28,7 +28,7 @@ const PREVIEW_ID = "00000000-0000-4000-8000-000000000000";
  * utils/previewStates.ts: ready, trial, credit, held, mic-denied; microphone, connecting, queued; waiting, speaking,
  * your-turn, turns (scripted: a pause between two sentences, the hold, the answer, an interruption), last-minute,
  * closing, goodbye, ending; early-end, dropped, dropped-no-time, silent-drop; cap, voice-down, needs-pro,
- * needs-pro-had-voice, paused, needs-pack, past-due; purchase-waiting, confirming, stalled. An unknown state is a 404.
+ * needs-pro-had-voice, needs-pro-claimed, paused, needs-pack, past-due; purchase-waiting, confirming, stalled. An unknown state is a 404.
  */
 export default async function RoomPreviewScreen({ state, drip = false, closing = false }: { state?: string; drip?: boolean; closing?: boolean }) {
   if (!devToolsAllowed()) notFound();

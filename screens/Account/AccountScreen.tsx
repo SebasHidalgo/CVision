@@ -19,7 +19,7 @@ import SignInPanel from "./components/SignInPanel";
 import { accountView, PRO_FACTS } from "./utils/accountView";
 
 const REMOVED = ["analyses", "interviews", "voice", "billing", "signIn"] as const;
-const KEPT = ["paddle", "log"] as const;
+const KEPT = ["paddle", "log", "trialClaim"] as const;
 
 /**
  * The account: the plan and its standing, this period's analyses and interviews (the trial instead for Free, the
@@ -103,7 +103,7 @@ export default async function AccountScreen() {
                     label={t("trial.label")}
                     figure={
                       <span className="flex items-center gap-2.5 text-body font-medium text-ink">
-                        <Mark shape={view.interviews.state === "available" ? "filled" : view.interviews.state === "used" ? "empty" : "dashed"} />
+                        <Mark shape={view.interviews.state === "available" ? "filled" : view.interviews.state === "used" || view.interviews.state === "claimed" ? "empty" : "dashed"} />
                         {t(`trial.${view.interviews.state}`)}
                       </span>
                     }
@@ -115,7 +115,9 @@ export default async function AccountScreen() {
                           ? t("interviews.creditsCover", { perMonth: PRO_FACTS.interviewsPerMonth })
                           : view.interviews.note === "pro-only"
                             ? t("interviews.proOnly")
-                            : t("trial.unavailableNote")}
+                            : view.interviews.note === "claimed"
+                              ? t("trial.claimedNote")
+                              : t("trial.unavailableNote")}
                     </RowNote>
                   </UsageRow>
                 )}

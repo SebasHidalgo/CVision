@@ -17,6 +17,10 @@ describe("decideRoomEntry", () => {
   it("offers Pro to a Free account with nothing left, and the pack to a Pro one, with the renewal date", () => {
     expect(decideRoomEntry({ ...base, entitlement: entitlement({ trialsUsed: 1 }) })).toEqual({ kind: "needs-pro", reason: "trial-used" });
     expect(decideRoomEntry({ ...base, entitlement: entitlement({ hadVoice: true }) })).toEqual({ kind: "needs-pro", reason: "had-voice" });
+    // The email already used its trial on another account: said so, with the same Pro offer.
+    expect(decideRoomEntry({ ...base, entitlement: entitlement({ trialBlock: "claimed" }) })).toEqual({ kind: "needs-pro", reason: "trial-claimed" });
+    // A check that could not run says only what is certain: voice is Pro's.
+    expect(decideRoomEntry({ ...base, entitlement: entitlement({ trialBlock: "unavailable" }) })).toEqual({ kind: "needs-pro", reason: "had-voice" });
     expect(decideRoomEntry({ ...base, entitlement: entitlement({ plan: "PRO", periodUsed: 4, hadVoice: true }) })).toEqual({ kind: "needs-pack", resetsAt: periodEnd.toISOString() });
   });
 

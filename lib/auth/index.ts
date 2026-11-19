@@ -1,4 +1,4 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { UnauthorizedError } from "@/lib/error/errors";
 
@@ -43,6 +43,16 @@ export async function getOptionalUserIdOutsideProxy(): Promise<string | null> {
     unstable_rethrow(error);
     return null;
   }
+}
+
+/**
+ * Every email address on the account with its verification, for the free trial's claim (lib/trialIdentity.ts).
+ * The same Backend API read as `currentUser()`, keyed by the id the caller resolved from its session, so the
+ * ledger keeps its explicit-id contract. Throws when Clerk cannot answer.
+ */
+export async function accountEmailAddresses(userId: string): Promise<{ emailAddress: string; verification: { status: string } | null }[]> {
+  const user = await (await clerkClient()).users.getUser(userId);
+  return user.emailAddresses.map((email) => ({ emailAddress: email.emailAddress, verification: email.verification ? { status: email.verification.status } : null }));
 }
 
 /**

@@ -77,6 +77,16 @@ describe("interviewOffer", () => {
     expect(interviewOffer(free(false, 5), null)).toEqual({ kind: "credits", credits: 5 });
     expect(interviewOffer(free(true, 1), null)).toEqual({ kind: "credits", credits: 1 });
   });
+
+  it("tells an email that already used its trial on another account so, instead of offering the trial", () => {
+    const claimed: InterviewQuotaView = {
+      ...free(true),
+      trialAvailable: false,
+      entitlement: decideEntitlement({ plan: "FREE", periodUsed: 0, credits: 0, trialsUsed: 0, hadVoice: false, trialBlock: "claimed", periodEnd: new Date(RESETS) }),
+    };
+    expect(interviewOffer(claimed, null)).toEqual({ kind: "needs-pro", claimed: true });
+    expect(interviewOffer(free(false), null)).toEqual({ kind: "needs-pro" });
+  });
 });
 
 describe("InterviewCta by plan", () => {

@@ -16,10 +16,17 @@ export type RoomEntry =
   | { kind: "continue" }
   /** A fresh start, paid by this source. */
   | { kind: "start"; source: Exclude<EntitlementSource, "none"> }
-  /** Free, trial used, no credits; `subscription`: an open one granting nothing (show the portal). */
-  | { kind: "needs-pro"; reason: "trial-used" | "had-voice"; subscription?: "paused" | "pending" }
+  /** Free with no trial (used, had voice, or its email claimed) and no credits; `subscription`: an open one granting nothing (show the portal). */
+  | { kind: "needs-pro"; reason: NeedsProReason; subscription?: "paused" | "pending" }
   /** Pro with the period's interviews used and no credits; `pastDue` when the last payment failed. */
   | { kind: "needs-pack"; resetsAt: string; pastDue?: boolean };
+
+/**
+ * Why a Free account has nothing to start. "trial-claimed": one of its emails already used a trial on another
+ * account. A trial that could not be checked (no verified email, no pepper, Clerk down) reads as "had-voice": the
+ * generic Pro line, never a claim the account cannot see.
+ */
+type NeedsProReason = "trial-used" | "had-voice" | "trial-claimed";
 
 export type RoomEntryFacts = {
   startCount: number;
@@ -46,7 +53,8 @@ export function decideRoomEntry(facts: RoomEntryFacts): RoomEntry {
   if (entitlement?.plan === "PRO" && entitlement.resetsAt) {
     return { kind: "needs-pack", resetsAt: entitlement.resetsAt, ...(open === "PAST_DUE" ? { pastDue: true } : {}) };
   }
-  const reason = entitlement?.reason === "had-voice" ? "had-voice" : "trial-used";
+  const reason: NeedsProReason =
+    entitlement?.reason === "trial-claimed" ? "trial-claimed" : entitlement?.reason === "had-voice" || entitlement?.reason === "trial-unavailable" ? "had-voice" : "trial-used";
   return open ? { kind: "needs-pro", reason, subscription: open === "PAUSED" ? "paused" : "pending" } : { kind: "needs-pro", reason };
 }
 

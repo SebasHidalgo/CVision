@@ -57,6 +57,11 @@ describe("pricingState", () => {
     expect(pricingState(facts({ trial: { available: false, used: false } })).free.standing?.detail).toEqual({ key: "noTrial" });
   });
 
+  it("a Free account whose email used its trial on another account is told so; a check that could not run gets no line", () => {
+    expect(pricingState(facts({ trial: { available: false, used: false, blocked: "claimed" } })).free.standing?.detail).toEqual({ key: "trialClaimed" });
+    expect(pricingState(facts({ trial: { available: false, used: false, blocked: "unavailable" } })).free.standing?.detail).toBeNull();
+  });
+
   it("Free after a canceled Pro: nothing deleted, Pro again by checkout (a canceled subscription may be replaced), credits shown", () => {
     const state = pricingState(facts({ everSubscribed: true, trial: { available: false, used: false }, subscription: subscribed("CANCELED"), credits: 3, hasBillingAccount: true }));
     expect(state.kind).toBe("free-after-pro");

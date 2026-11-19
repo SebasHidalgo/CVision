@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_SECONDS, decideEntitlement, PAID_BY_SOURCE, sourceOfPaidBy, tierOfAgent, USAGE_KIND_BY_SOURCE, type EntitlementFacts } from "./interviewEntitlement";
+import { AGENT_SECONDS, decideEntitlement, PAID_BY_SOURCE, sourceOfPaidBy, tierOfAgent, trialOpen, USAGE_KIND_BY_SOURCE, type EntitlementFacts } from "./interviewEntitlement";
 import { INTERVIEW_TIERS, PLANS } from "./plans";
 
 const PERIOD_END = new Date("2026-11-05T00:00:00Z");
@@ -49,6 +49,24 @@ describe("decideEntitlement: the one answer to which interview the next start ge
     expect(decideEntitlement(facts())).toMatchObject({ source: "trial", agent: "trial", maxDurationSeconds: AGENT_SECONDS.trial, reason: "trial-available", remaining: { trial: 1 } });
     expect(decideEntitlement(facts({ trialsUsed: 1 }))).toMatchObject({ source: "none", agent: null, reason: "trial-used", remaining: { trial: 0 } });
     expect(decideEntitlement(facts({ hadVoice: true }))).toMatchObject({ source: "none", reason: "had-voice", remaining: { trial: 0 } });
+  });
+
+  it("an email that already used a trial on another account gets none, with its own reason; credits still pay; a check that could not run fails closed", () => {
+    expect(decideEntitlement(facts({ trialBlock: "claimed" }))).toMatchObject({ source: "none", agent: null, reason: "trial-claimed", remaining: { trial: 0 } });
+    expect(decideEntitlement(facts({ trialBlock: "claimed", credits: 2 }))).toMatchObject({ source: "credit", reason: "credit", remaining: { trial: 0, credits: 2 } });
+    expect(decideEntitlement(facts({ trialBlock: "unavailable" }))).toMatchObject({ source: "none", reason: "trial-unavailable", remaining: { trial: 0 } });
+    // The account's own history decides first: a block never relabels a used trial or an account that had voice.
+    expect(decideEntitlement(facts({ trialBlock: "claimed", trialsUsed: 1 }))).toMatchObject({ reason: "trial-used" });
+    expect(decideEntitlement(facts({ trialBlock: "claimed", hadVoice: true }))).toMatchObject({ reason: "had-voice" });
+    expect(decideEntitlement(facts({ plan: "PRO", trialBlock: "claimed" }))).toMatchObject({ source: "period" });
+    expect(decideEntitlement(facts({ trialBlock: null }))).toMatchObject({ source: "trial" });
+  });
+
+  it("opens the trial check only for a Free account that never had voice and never used it", () => {
+    expect(trialOpen(facts())).toBe(true);
+    expect(trialOpen(facts({ trialsUsed: 1 }))).toBe(false);
+    expect(trialOpen(facts({ hadVoice: true }))).toBe(false);
+    expect(trialOpen(facts({ plan: "PRO" }))).toBe(false);
   });
 
   it("carries the credits held by open interviews, so a page can say they are pending return", () => {

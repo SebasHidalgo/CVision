@@ -35,6 +35,7 @@ export const PREVIEW_STATES = [
   "voice-down",
   "needs-pro",
   "needs-pro-had-voice",
+  "needs-pro-claimed",
   "paused",
   "needs-pack",
   "past-due",
@@ -168,6 +169,8 @@ export function previewProps(state: PreviewState, fixture: PreviewFixture, { ful
       return blocked({ kind: "needs-pro", reason: "trial-used" });
     case "needs-pro-had-voice":
       return blocked({ kind: "needs-pro", reason: "had-voice" });
+    case "needs-pro-claimed":
+      return blocked({ kind: "needs-pro", reason: "trial-claimed" });
     case "paused":
       return blocked({ kind: "needs-pro", reason: "had-voice", subscription: "paused" });
     case "needs-pack":

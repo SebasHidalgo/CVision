@@ -15,10 +15,15 @@ import { handleError } from "@/lib/error/handleError";
 import {
   decideEntitlement,
   tierOfAgent,
+  trialOpen,
   USAGE_KIND_BY_SOURCE,
+  type EntitlementFacts,
   type EntitlementSource,
   type InterviewEntitlement,
+  type TrialBlock,
 } from "@/lib/interviewEntitlement";
+import type { TrialIdentity } from "@/lib/trialClaim";
+import { trialIdentityFor } from "@/lib/trialIdentity";
 import {
   INTERVIEW_TIERS,
   PLANS,
@@ -43,7 +48,8 @@ import { expireAbandonedInterviews } from "./interviewExpiry";
  * (check and insert in one serializable transaction), `settleAnalysisUnitIn`
  * (the unit spent for good, in the transaction that saves its row),
  * `refundAbandonedAnalyses` (the daily sweep of units whose request died),
- * `reserveInterview` (the unit the entitlement names, same discipline),
+ * `reserveInterview` (the unit the entitlement names, same discipline; a
+ * trial also claims its verified emails, TrialClaim, freed by its refund),
  * `refundUsage`, `revokeUnusedInterviewCredits`, and in credits.ts (no
  * `lib/auth` in its graph, for the reconcile script) the credit balance
  * and the grant. The plan is never read from a column: it is derived
@@ -85,6 +91,15 @@ export function isLiveTrialConflict(error: unknown): boolean {
   const target = error.meta?.target;
   const names = Array.isArray(target) ? target.map(String) : typeof target === "string" ? [target] : [];
   return names.length > 0 && !names.includes("refId");
+}
+
+/** A TrialClaim insert collided with an existing claim: another account of the same email took the trial first. */
+function isTrialClaimConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  if (error.meta?.modelName === "TrialClaim") return true;
+  const target = error.meta?.target;
+  const names = Array.isArray(target) ? target.map(String) : typeof target === "string" ? [target] : [];
+  return names.includes("emailHash") || names.includes("TrialClaim_pkey");
 }
 
 /** Runs a serializable transaction, retrying the loser of a serialization race. */
@@ -239,22 +254,32 @@ export async function refundAbandonedAnalyses(now = new Date(), { limit = 500 }:
   }
 }
 
-/** Gives a unit back, once: a second refund of the same event changes nothing. A refunded credit is a credit again. */
+/**
+ * Gives a unit back, once: a second refund of the same event changes nothing. A refunded credit is a credit again;
+ * a refunded trial frees the email claims its reservation wrote, in the same transaction.
+ */
 export async function refundUsage(eventId: string, reason: string): Promise<boolean> {
   try {
-    return await refundUsageIn(prisma, eventId, reason);
+    return await prisma.$transaction((tx) => refundUsageIn(tx, eventId, reason));
   } catch (error) {
     handleError(error, "Failed to refund usage");
   }
 }
 
-/** The refund on the client given (a transaction, or the pool), for a caller that pairs it with another write. */
+/** The refund on the transaction given, for a caller that pairs it with another write. */
 export async function refundUsageIn(db: Prisma.TransactionClient, eventId: string, reason: string): Promise<boolean> {
-  const result = await db.usageEvent.updateMany({
+  const refunded = await db.usageEvent.updateManyAndReturn({
     where: { id: eventId, refundedAt: null },
     data: { refundedAt: new Date(), refundReason: reason },
+    select: { kind: true, trialClaimHashes: true },
   });
-  return result.count === 1;
+  if (refunded.length !== 1) return false;
+  const [unit] = refunded;
+  // The trial was not spent: the emails it claimed may take it again.
+  if (unit.kind === "INTERVIEW_TRIAL" && unit.trialClaimHashes.length > 0) {
+    await db.trialClaim.deleteMany({ where: { emailHash: { in: unit.trialClaimHashes } } });
+  }
+  return true;
 }
 
 /**
@@ -307,23 +332,43 @@ async function entitlementFactsIn(db: Prisma.TransactionClient, userId: string, 
   };
 }
 
-/** What the next interview start would get, decided on the facts read inside the caller's transaction. */
-export async function resolveInterviewEntitlementIn(tx: Prisma.TransactionClient, userId: string, now = new Date()): Promise<InterviewEntitlement> {
-  const standing = await resolvePlanStandingIn(tx, userId, now);
-  const { facts } = await entitlementFactsIn(tx, userId, standing, now);
-  return decideEntitlement(facts);
+/** Supplies the account's trial identity (its verified emails' claim hashes) when the trial's check needs it. */
+type TrialIdentitySource = () => Promise<TrialIdentity>;
+
+/** The trial's block from the claims table: any of the account's hashes claimed, or an identity that could not be read. */
+async function trialBlockIn(db: Prisma.TransactionClient, identity: TrialIdentity): Promise<TrialBlock | null> {
+  if (identity.kind === "unavailable") return "unavailable";
+  const claimed = await db.trialClaim.findFirst({ where: { emailHash: { in: identity.hashes } }, select: { emailHash: true } });
+  return claimed ? "claimed" : null;
+}
+
+/**
+ * The facts with the trial's email check, made only when the account would otherwise have its trial (a Free
+ * account that never had voice and never used it): Pro, credit holders past their trial and accounts that had
+ * voice never reach Clerk for it.
+ */
+async function withTrialBlock(db: Prisma.TransactionClient, facts: EntitlementFacts, identity: TrialIdentitySource): Promise<EntitlementFacts> {
+  if (!trialOpen(facts)) return facts;
+  return { ...facts, trialBlock: await trialBlockIn(db, await identity()) };
 }
 
 /** The same decision for a page: the room's label before the first token, and anything else that shows what a start would get. */
-export async function resolveInterviewEntitlement(userId: string, now = new Date()): Promise<InterviewEntitlement> {
+export async function resolveInterviewEntitlement(
+  userId: string,
+  now = new Date(),
+  identity: TrialIdentitySource = () => trialIdentityFor(userId),
+): Promise<InterviewEntitlement> {
   try {
     const standing = await resolvePlanStanding(userId, now);
     const { facts } = await entitlementFactsIn(prisma, userId, standing, now);
-    return decideEntitlement(facts);
+    return decideEntitlement(await withTrialBlock(prisma, facts, identity));
   } catch (error) {
     handleError(error, `Failed to resolve the interview entitlement (user=${userId})`);
   }
 }
+
+/** The reservation's first pass found the trial open without the identity in hand: read it outside the transaction. */
+const NEEDS_IDENTITY = Symbol("needs-identity");
 
 export type InterviewReservation = Reservation & {
   kind: UsageKind;
@@ -344,29 +389,65 @@ export type InterviewReservation = Reservation & {
  * `<interviewId>#<n>`, n counting the refunded ones before it: every
  * reservation keeps its row, and the retry the refund promised can happen.
  * An active reservation under the same id still collides, as it should.
+ *
+ * A trial also claims every verified email of the account (TrialClaim, one
+ * row per hash, the hashes kept on the unit so its refund frees them), in
+ * the same transaction: an email another account claimed first is the
+ * quota refusal, never a crash. The identity needs Clerk, which never runs
+ * inside the transaction: when the trial would pay and the identity is not
+ * in hand, the first pass writes nothing and the identity is read before
+ * the second.
  */
-export async function reserveInterview(userId: string, interviewId: string, now = new Date()): Promise<InterviewReservation> {
+export async function reserveInterview(
+  userId: string,
+  interviewId: string,
+  now = new Date(),
+  identitySource: TrialIdentitySource = () => trialIdentityFor(userId, { fresh: true }),
+): Promise<InterviewReservation> {
   try {
-    return await serializable(async (tx) => {
-      const entitlement = await resolveInterviewEntitlementIn(tx, userId, now);
-      if (entitlement.source === "none") {
-        throw new InterviewQuotaExceededError({ plan: entitlement.plan, ...(entitlement.resetsAt ? { resetsAt: entitlement.resetsAt } : {}) });
-      }
-      const kind = USAGE_KIND_BY_SOURCE[entitlement.source];
-      const tier = tierOfAgent(entitlement.agent ?? "main");
-      const refunded = await tx.usageEvent.count({ where: { kind, refId: { startsWith: interviewId }, refundedAt: { not: null } } });
-      const event = await tx.usageEvent
-        .create({
-          data: { userId, kind, refId: refunded === 0 ? interviewId : `${interviewId}#${refunded + 1}`, createdAt: now },
-          select: { id: true },
-        })
-        .catch((error: unknown) => {
-          // The database holds one live trial per account (a partial unique index): a second one is a refusal, not a crash.
-          if (kind === "INTERVIEW_TRIAL" && isLiveTrialConflict(error)) throw new InterviewQuotaExceededError({ plan: entitlement.plan });
-          throw error;
-        });
-      return { eventId: event.id, kind, tier, seconds: INTERVIEW_TIERS[tier].seconds, source: entitlement.source };
-    });
+    let identity: TrialIdentity | null = null;
+    for (let pass = 0; pass < 2; pass += 1) {
+      const outcome = await serializable(async (tx) => {
+        const standing = await resolvePlanStandingIn(tx, userId, now);
+        const { facts } = await entitlementFactsIn(tx, userId, standing, now);
+        // Only a start the trial would pay for needs the emails: a credit or a period interview never reads them.
+        const unchecked = decideEntitlement(facts);
+        if (unchecked.source === "trial" && identity === null) return NEEDS_IDENTITY;
+        const entitlement = unchecked.source === "trial" && identity ? decideEntitlement({ ...facts, trialBlock: await trialBlockIn(tx, identity) }) : unchecked;
+        const refuse = () =>
+          new InterviewQuotaExceededError({ plan: entitlement.plan, ...(entitlement.resetsAt ? { resetsAt: entitlement.resetsAt } : {}) });
+        if (entitlement.source === "none") throw refuse();
+        const kind = USAGE_KIND_BY_SOURCE[entitlement.source];
+        const tier = tierOfAgent(entitlement.agent ?? "main");
+
+        // A trial is chosen only with an identity whose emails are unclaimed (decideEntitlement).
+        const trialClaimHashes = kind === "INTERVIEW_TRIAL" && identity?.kind === "emails" ? identity.hashes : [];
+        if (kind === "INTERVIEW_TRIAL" && trialClaimHashes.length === 0) throw refuse();
+        if (trialClaimHashes.length > 0) {
+          await tx.trialClaim.createMany({ data: trialClaimHashes.map((emailHash) => ({ emailHash, createdAt: now })) }).catch((error: unknown) => {
+            // Another account of the same email took its trial between the read and this insert.
+            if (isTrialClaimConflict(error)) throw refuse();
+            throw error;
+          });
+        }
+
+        const refunded = await tx.usageEvent.count({ where: { kind, refId: { startsWith: interviewId }, refundedAt: { not: null } } });
+        const event = await tx.usageEvent
+          .create({
+            data: { userId, kind, refId: refunded === 0 ? interviewId : `${interviewId}#${refunded + 1}`, createdAt: now, ...(trialClaimHashes.length > 0 ? { trialClaimHashes } : {}) },
+            select: { id: true },
+          })
+          .catch((error: unknown) => {
+            // The database holds one live trial per account (a partial unique index): a second one is a refusal, not a crash.
+            if (kind === "INTERVIEW_TRIAL" && isLiveTrialConflict(error)) throw refuse();
+            throw error;
+          });
+        return { eventId: event.id, kind, tier, seconds: INTERVIEW_TIERS[tier].seconds, source: entitlement.source };
+      });
+      if (outcome !== NEEDS_IDENTITY) return outcome;
+      identity = await identitySource();
+    }
+    throw new Error("unreachable: the trial identity was read and the reservation asked for it again");
   } catch (error) {
     handleError(error, "Failed to reserve the interview unit");
   }
@@ -418,7 +499,8 @@ export type UsageSummary = {
   interviews: { used: number; limit: number; left: number };
   /** Pack credits held, and those held by interviews still in progress (back when those end without an answer). */
   credits: { balance: number; pending: number };
-  trial: { available: boolean; used: boolean };
+  /** `blocked`: the account's own trial is kept away by its email's claim, or by a check that could not run. */
+  trial: { available: boolean; used: boolean; blocked?: TrialBlock | null };
   /** What the next interview start would get, decided on these same facts. */
   entitlement: InterviewEntitlement;
   /** The current quota period: the billing period of a subscribed Pro, the UTC month otherwise. */
@@ -449,7 +531,9 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
     const { plan } = standing;
     const limits = PLANS[plan];
 
-    const [{ period, facts, analysesUsed }, customer] = await Promise.all([entitlementFactsIn(prisma, userId, standing, now), findBillingCustomer(userId)]);
+    const [{ period, facts: ledgerFacts, analysesUsed }, customer] = await Promise.all([entitlementFactsIn(prisma, userId, standing, now), findBillingCustomer(userId)]);
+    // A third wave, only for an account whose own trial is still open: its emails against the claims.
+    const facts = await withTrialBlock(prisma, ledgerFacts, () => trialIdentityFor(userId));
     const entitlement = decideEntitlement(facts);
 
     return {
@@ -466,10 +550,11 @@ export async function usageSummary(userId: string, now = new Date()): Promise<Us
         limit: limits.interviewsPerMonth,
         left: entitlement.remaining.period,
       },
-      credits: { balance: facts.credits, pending: facts.creditsPending },
+      credits: { balance: facts.credits, pending: ledgerFacts.creditsPending },
       trial: {
         used: facts.trialsUsed > 0,
         available: entitlement.remaining.trial > 0,
+        ...(facts.trialBlock ? { blocked: facts.trialBlock } : {}),
       },
       entitlement,
       period,
