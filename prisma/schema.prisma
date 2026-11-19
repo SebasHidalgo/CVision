@@ -88,6 +88,9 @@ model UsageEvent {
   /// request holds it (and on every other kind). A held unit whose request
   /// died is given back; a settled one never is (lib/database/usage.ts).
   settledAt    DateTime?
+  /// The trial claims a trial reservation wrote (TrialClaim.emailHash); a
+  /// refund of that reservation removes them. Empty on every other kind.
+  trialClaimHashes String[] @default([])
 
   @@unique([kind, refId])
   @@index([userId, kind, createdAt])
@@ -442,4 +445,14 @@ model GuardStatDaily {
   count  Int       @default(0)
 
   @@id([date, kind, check, action])
+}
+
+/// One free trial per email, across deleted and re-created accounts: an
+/// HMAC-SHA256 of a normalized email (keyed with TRIAL_CLAIM_PEPPER) and the
+/// time, written when a trial unit is spent and removed when it is given
+/// back. No user id, by design: a deleted account leaves nothing here that
+/// names the person, and the deletion cascade never touches this table.
+model TrialClaim {
+  emailHash String   @id
+  createdAt DateTime @default(now())
 }
