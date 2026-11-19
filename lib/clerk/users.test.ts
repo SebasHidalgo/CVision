@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CLERK_LOOKUP_BATCH, ClerkLookupError, clerkUserLookup } from "./users";
+import { CLERK_LOOKUP_BATCH, ClerkDeleteError, ClerkLookupError, clerkUserLookup, deleteClerkUser } from "./users";
 
 type Reply = { status: number; body?: unknown; headers?: Record<string, string> } | Error;
 
@@ -108,4 +108,50 @@ describe("isGone", () => {
 
 it("refuses to start without a secret key", () => {
   expect(() => clerkUserLookup({ secretKey: " " })).toThrow(/CLERK_SECRET_KEY is not set/);
+});
+
+describe("deleteClerkUser", () => {
+  /** A fetch that answers once, recording the method and URL it was asked. */
+  function answering(reply: Reply) {
+    const calls: { method: string; url: URL }[] = [];
+    const fetch = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      calls.push({ method: init?.method ?? "GET", url: new URL(String(input)) });
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer sk_test_secret");
+      if (reply instanceof Error) throw reply;
+      return new Response(reply.body === undefined ? "not json" : JSON.stringify(reply.body), { status: reply.status });
+    });
+    return { fetch: fetch as unknown as typeof globalThis.fetch, calls };
+  }
+
+  it("deletes the account by its id, once", async () => {
+    const { fetch, calls } = answering({ status: 200, body: { object: "user", id: "user_a", deleted: true } });
+    expect(await deleteClerkUser("user_a", { secretKey: "sk_test_secret", fetch })).toBe("deleted");
+    expect(calls).toEqual([{ method: "DELETE", url: new URL("https://api.clerk.com/v1/users/user_a") }]);
+  });
+
+  it("reads Clerk's own not-found as already gone", async () => {
+    const { fetch } = answering({ status: 404, body: NOT_FOUND });
+    expect(await deleteClerkUser("user_a", { secretKey: "sk_test_secret", fetch })).toBe("already-gone");
+  });
+
+  it.each([
+    ["a 429 (no retry: a person is waiting)", { status: 429, body: {} }],
+    ["a 500", { status: 500, body: { errors: [{ code: "internal" }] } }],
+    ["a 401", { status: 401, body: {} }],
+    ["a 404 that is not Clerk's resource_not_found", { status: 404, body: { errors: [{ code: "other" }] } }],
+    ["a 200 for another account", { status: 200, body: { id: "user_b", deleted: true } }],
+    ["a 200 that does not say deleted", { status: 200, body: { id: "user_a" } }],
+    ["a network failure", new TypeError("fetch failed")],
+  ] as const)("throws on %s, after one call", async (_label, reply) => {
+    const { fetch, calls } = answering(reply as Reply);
+    await expect(deleteClerkUser("user_a", { secretKey: "sk_test_secret", fetch })).rejects.toThrow(ClerkDeleteError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("refuses without a secret key or an id, calling nobody", async () => {
+    const { fetch, calls } = answering({ status: 200, body: {} });
+    await expect(deleteClerkUser("user_a", { secretKey: " ", fetch })).rejects.toThrow(/CLERK_SECRET_KEY is not set/);
+    await expect(deleteClerkUser("", { secretKey: "sk_test_secret", fetch })).rejects.toThrow(ClerkDeleteError);
+    expect(calls).toHaveLength(0);
+  });
 });

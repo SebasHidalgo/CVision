@@ -1,14 +1,19 @@
 import "server-only";
 
 /**
- * Which Clerk accounts still exist, read from Clerk's Backend API with the
- * secret key over plain fetch (no SDK: this runs in a cron route and in a
- * script, and only needs two reads). Built for a caller that deletes on a
- * "gone" answer, so every answer that is not certain throws
- * `ClerkLookupError`: a 5xx, a 401/403, a network failure or timeout, a
- * body of the wrong shape, a 429 that outlasts its retries, a list that
- * names an account nobody asked about. Only a 404 that Clerk itself labels
- * `resource_not_found`, for that one id, reads as gone.
+ * Clerk's Backend API with the secret key over plain fetch (no SDK: this
+ * runs in a cron route, a script and the account page's delete action).
+ *
+ * Which accounts still exist: built for a caller that deletes on a "gone"
+ * answer, so every answer that is not certain throws `ClerkLookupError`: a
+ * 5xx, a 401/403, a network failure or timeout, a body of the wrong shape,
+ * a 429 that outlasts its retries, a list that names an account nobody
+ * asked about. Only a 404 that Clerk itself labels `resource_not_found`,
+ * for that one id, reads as gone.
+ *
+ * Deleting one account (`deleteClerkUser`): one attempt, no retry, since a
+ * person is waiting; anything but a confirmed deletion throws
+ * `ClerkDeleteError`.
  */
 
 const API = "https://api.clerk.com/v1";
@@ -23,6 +28,10 @@ export const CLERK_LOOKUP_BATCH = 100;
 
 export class ClerkLookupError extends Error {
   override name = "ClerkLookupError";
+}
+
+export class ClerkDeleteError extends Error {
+  override name = "ClerkDeleteError";
 }
 
 export type ClerkUserLookup = {
@@ -119,4 +128,41 @@ export function clerkUserLookup({ secretKey, fetch: fetchImpl = fetch, sleep = d
       throw new ClerkLookupError(`user: HTTP ${status} ${errorCodes(body).join(",")}`.trim());
     },
   };
+}
+
+export type ClerkUserDeletion = "deleted" | "already-gone";
+
+/**
+ * Deletes the account at Clerk, which ends its sessions and fires
+ * `user.deleted` to the app's webhook. An account Clerk no longer has
+ * (a 404 labelled `resource_not_found`) is already where the caller wants
+ * it. Anything else throws `ClerkDeleteError`, so the caller deletes
+ * nothing of its own.
+ */
+export async function deleteClerkUser(
+  id: string,
+  { secretKey, fetch: fetchImpl = fetch }: Omit<Dependencies, "sleep">,
+): Promise<ClerkUserDeletion> {
+  if (!secretKey.trim()) throw new ClerkDeleteError("CLERK_SECRET_KEY is not set");
+  if (!id.trim()) throw new ClerkDeleteError("no user id");
+  let response: Response;
+  try {
+    response = await fetchImpl(new URL(`${API}/users/${encodeURIComponent(id)}`), {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${secretKey}`, "clerk-api-version": API_VERSION, accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new ClerkDeleteError(`delete: no answer (${error instanceof Error ? error.name : "network"})`);
+  }
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  const answer = body as { id?: unknown; deleted?: unknown } | null;
+  if (response.status === 200 && answer?.id === id && answer.deleted === true) return "deleted";
+  if (response.status === 404 && errorCodes(body).includes("resource_not_found")) return "already-gone";
+  throw new ClerkDeleteError(`delete: HTTP ${response.status} ${errorCodes(body).join(",")}`.trim());
 }

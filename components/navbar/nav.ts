@@ -5,6 +5,7 @@ export type NavItem = {
     | "nav.interviews"
     | "nav.howItWorks"
     | "nav.pricing"
+    | "nav.account"
     | "nav.planBilling"
     | "nav.analysisSection"
     | "nav.interviewSection"
@@ -33,15 +34,17 @@ export const LANDING_SECTIONS: readonly NavItem[] = [
   { href: "#faq", labelKey: "nav.faq", section: [] },
 ];
 
+// The two account pages are siblings: each is current only on itself.
+const ACCOUNT: NavItem = { href: "/account", labelKey: "nav.account", section: [] };
 const PLAN_BILLING: NavItem = { href: "/account/billing", labelKey: "nav.planBilling", section: ["/account/billing"] };
 const PRICING: NavItem = { href: "/pricing", labelKey: "nav.pricing", section: ["/pricing"] };
 
 /**
- * The account's pages; "Account" (Clerk's profile) and "Sign out" are actions, not links. Pricing only when it
- * has something to sell: not to Pro, whose plan and packs live under Plan & billing.
+ * The account's pages (Clerk's profile is reached from the account page); "Sign out" is an action, not a link.
+ * Pricing only when it has something to sell: not to Pro, whose plan and packs live under Plan & billing.
  */
 export function accountLinks(offerPricing: boolean): readonly NavItem[] {
-  return offerPricing ? [PLAN_BILLING, PRICING] : [PLAN_BILLING];
+  return offerPricing ? [ACCOUNT, PLAN_BILLING, PRICING] : [ACCOUNT, PLAN_BILLING];
 }
 
 /**

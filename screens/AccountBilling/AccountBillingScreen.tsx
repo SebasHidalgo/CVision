@@ -1,17 +1,24 @@
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { AccountSection, Figure, RowNote, UsageRow } from "@/components/account/AccountSection";
+import { AccountTabs } from "@/components/account/AccountTabs";
+import { Mark } from "@/components/account/Mark";
+import { standingCopy } from "@/components/account/standingCopy";
 import CheckoutButton from "@/components/billing/CheckoutButton";
 import ManageSubscriptionButton from "@/components/billing/ManageSubscriptionButton";
+import { buttonClass, textLinkClass } from "@/components/design-system/Button";
+import { fontText } from "@/components/design-system/fonts";
+import { PageHeading } from "@/components/design-system/PageHeading";
+import { Surface } from "@/components/design-system/Surface";
 import ClientMessages from "@/components/i18n/ClientMessages";
-import LocaleMenu from "@/components/i18n/LocaleMenu";
-import PageIntro from "@/components/layout/PageIntro";
-import { Button } from "@/components/ui/button";
+import { accountStanding, creditsView, offersProCheckout } from "@/lib/accountStanding";
 import type { Activation } from "@/lib/billing/activation";
 import { CATALOG, CATALOG_CURRENCY } from "@/lib/billing/catalog";
-import { currentTransactionApplied, currentUsageSummary } from "@/lib/database/usage";
-import { formatLongDate, formatMoney } from "@/lib/format";
+import { currentOpenSubscriptionStatus, currentTransactionApplied, currentUsageSummary } from "@/lib/database/usage";
+import { formatMoney } from "@/lib/format";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { INTERVIEW_PACK_CREDITS, INTERVIEW_TIERS, PLANS } from "@/lib/plans";
+import { cn } from "@/lib/utils";
 import BillingActivation from "./components/BillingActivation";
 
 type AccountBillingScreenProps = {
@@ -19,151 +26,118 @@ type AccountBillingScreenProps = {
   activation: Activation | null;
 };
 
-const TRIAL_MINUTES = INTERVIEW_TIERS.TRIAL.seconds / 60;
 const FULL_MINUTES = INTERVIEW_TIERS.FULL.seconds / 60;
 
+// A label with a price may not fit one line on the narrowest phones: the pill grows instead of overflowing.
+const WRAPS = "h-auto max-w-full whitespace-normal py-2.5 text-center";
+
 /**
- * The plan in force and what it leaves: the period's end or the scheduled
- * cancellation, the interviews left, the credits, and the two things a
- * member can do (buy a pack, manage the subscription in the provider's
- * portal). After a checkout the change arrives by webhook, so the page
- * polls for that transaction until it lands instead of claiming it already
- * has; while it waits, the checkout button is out of reach. Last, the
- * interface language, saved to the account.
+ * Plan & billing: the subscription and its state, the provider's portal, and the interview packs. After a
+ * checkout the change arrives by webhook, so the page polls for that transaction until it lands instead of
+ * claiming it already has; while it waits, every checkout on the page is out of reach. A Pro checkout is offered
+ * only where it can succeed (no open subscription), a pack only to Pro; the portal to anyone with a customer at
+ * the provider. The plan's usage and the language are on the account page.
  */
 export default async function AccountBillingScreen({ activation }: AccountBillingScreenProps) {
-  const [summary, applied, t, common, locale] = await Promise.all([
+  const [summary, openSubscription, applied, t, locale] = await Promise.all([
     currentUsageSummary(),
+    currentOpenSubscriptionStatus(),
     activation ? currentTransactionApplied(activation.transactionId) : Promise.resolve(false),
     getT("account"),
-    getT("common"),
     getLocale(),
   ]);
-  const { plan, source, subscription, credits, interviews, hasBillingAccount } = summary;
+  const { plan, hasBillingAccount } = summary;
   const pro = plan === "PRO";
-
-  const periodEnd = formatLongDate(summary.resetsAt, locale);
-  const cancelsAt = subscription?.cancelAtPeriodEnd && subscription.scheduledChangeAt ? formatLongDate(subscription.scheduledChangeAt, locale) : null;
+  const standing = accountStanding(summary);
+  const copy = standingCopy(standing, t, locale);
+  const credits = creditsView(summary);
   const price = (item: keyof typeof CATALOG) => formatMoney(Number(CATALOG[item].amountMinor) / 100, CATALOG_CURRENCY, locale);
 
-  const planLine = pro
-    ? source === "comp"
-      ? t("planLine.comp")
-      : cancelsAt
-        ? t("planLine.cancels", { date: cancelsAt })
-        : subscription?.status === "PAST_DUE"
-          ? t("planLine.pastDue", { date: periodEnd })
-          : t("planLine.renews", { date: periodEnd })
-    : subscription?.status === "CANCELED"
-      ? t("planLine.canceled")
-      : subscription?.status === "PAUSED"
-        ? t("planLine.paused")
-        : t("planLine.free", { analyses: PLANS.FREE.analysesPerMonth, history: PLANS.FREE.historyLimit });
-
-  // Free has no period of interviews: it has the lifetime trial and, after a Pro that ended, pack credits.
-  const trial = summary.trial.available ? "available" : summary.trial.used ? "used" : "unavailable";
-  const trialNote =
-    trial === "available"
-      ? t("trial.availableNote", { minutes: TRIAL_MINUTES })
-      : credits.balance > 0
-        ? t("interviews.creditsCover", { perMonth: PLANS.PRO.interviewsPerMonth })
-        : trial === "used"
-          ? t("interviews.proOnly")
-          : t("trial.unavailableNote");
-  // Packs are sold to Pro only, so a Free account sees credits only when it holds some.
-  const showCredits = pro || credits.balance > 0 || credits.pending > 0;
+  // While a payment is being confirmed, no second checkout can start from this page.
+  const confirming = activation && (
+    <button type="button" disabled className={buttonClass({ className: "cursor-progress disabled:opacity-75 hover:translate-y-0" })}>
+      <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
+      {t("actions.confirming")}
+    </button>
+  );
 
   return (
-    <div className="wrap py-12 lg:py-16">
-      <PageIntro eyebrow={t("intro.eyebrow")} title={pro ? t("intro.titlePro") : t("intro.titleFree")} lede={planLine} />
+    <div className={cn("ed-root flex-1", fontText.variable)}>
+      <div className="ed-wrap pt-[clamp(40px,6vw,88px)] pb-ed-section">
+        <PageHeading title={pro ? t("intro.titlePro") : t("intro.titleFree")} />
+        <AccountTabs current="billing" t={t} />
 
-      {activation && (
-        <div className="border-b border-line py-8">
+        {activation && (
           <ClientMessages ns={["account"]}>
-            <BillingActivation activation={activation} applied={applied} />
+            <Surface data-activation className="mt-8 p-6 max-sm:p-5">
+              <BillingActivation activation={activation} applied={applied} />
+            </Surface>
           </ClientMessages>
-        </div>
-      )}
-
-      <dl className="grid gap-8 py-10 sm:grid-cols-3 lg:py-14">
-        {pro ? (
-          <div>
-            <dt className="eyebrow">{t("interviews.label")}</dt>
-            <dd className="figure mt-3 text-5xl text-ink">
-              {interviews.left}
-              <span className="eyebrow ml-2">{t("interviews.of", { limit: interviews.limit })}</span>
-            </dd>
-            <p className="mt-2 text-sm text-ink-2">{t("interviews.resets", { date: periodEnd })}</p>
-          </div>
-        ) : (
-          <div>
-            <dt className="eyebrow">{t("trial.label")}</dt>
-            <dd className="display-md mt-3 text-ink">{t(`trial.${trial}`)}</dd>
-            <p className="mt-2 text-sm text-ink-2">{trialNote}</p>
-          </div>
         )}
-        {showCredits && (
-          <div>
-            <dt className="eyebrow">{t("credits.label")}</dt>
-            <dd className="figure mt-3 text-5xl text-ink">{credits.balance}</dd>
-            <p className="mt-2 text-sm text-ink-2">
-              {credits.balance === 0
-                ? t("credits.none", { size: INTERVIEW_PACK_CREDITS })
-                : pro
-                  ? t("credits.pro")
-                  : t("credits.free", { minutes: FULL_MINUTES })}
+
+        <div className="mt-[clamp(8px,2vw,16px)]">
+          <AccountSection n="01" id="billing-subscription" title={t("subscription.title")}>
+            <p data-standing={standing.kind} className="flex items-center gap-2.5 text-ed-body font-medium text-ed-ink">
+              <Mark shape={copy.shape} />
+              {copy.label}
             </p>
-            {credits.pending > 0 && (
-              <p className="mt-2 text-sm text-ink-2" role="status">
-                {t("credits.pending", { count: credits.pending })}
+            <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">{copy.line}</p>
+            {offersProCheckout(standing, openSubscription) && (
+              <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">
+                {t("subscription.offer", {
+                  price: price("pro_monthly"),
+                  interviews: PLANS.PRO.interviewsPerMonth,
+                  minutes: FULL_MINUTES,
+                  analyses: PLANS.PRO.analysesPerMonth,
+                })}
               </p>
             )}
-          </div>
-        )}
-        <div>
-          <dt className="eyebrow">{t("analyses.label")}</dt>
-          <dd className="figure mt-3 text-5xl text-ink">
-            {pro ? "∞" : summary.analyses.left}
-            {!pro && <span className="eyebrow ml-2">{t("analyses.ofMonth", { limit: PLANS.FREE.analysesPerMonth })}</span>}
-          </dd>
-          <p className="mt-2 text-sm text-ink-2">{pro ? t("analyses.pro", { limit: PLANS.PRO.analysesPerMonth }) : t("analyses.free", { limit: PLANS.FREE.historyLimit ?? 0 })}</p>
-        </div>
-      </dl>
+            {standing.kind === "comp" && <p className="mt-3 max-w-[62ch] text-ed-body text-ed-ink-2">{t("subscription.comp")}</p>}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-10">
-        {activation ? (
-          <Button disabled size="default" className="gap-2">
-            <Loader2 className="size-4 animate-spin" />
-            {t("actions.confirming")}
-          </Button>
-        ) : pro ? (
-          <CheckoutButton
-            item="interview_pack"
-            label={t("actions.buyPack", { count: INTERVIEW_PACK_CREDITS, price: price("interview_pack") })}
-            size="default"
-          />
-        ) : (
-          <CheckoutButton item="pro_monthly" label={t("actions.getPro", { price: price("pro_monthly") })} size="default" />
-        )}
-        {hasBillingAccount && <ManageSubscriptionButton />}
-        <Link href="/pricing" className="link-rule px-2 text-sm text-ink-2">
-          {t("actions.compare")}
-        </Link>
+            <div className="mt-6 flex flex-wrap items-start gap-3">
+              {offersProCheckout(standing, openSubscription) && (confirming || <CheckoutButton item="pro_monthly" label={t("actions.getPro", { price: price("pro_monthly") })} className={WRAPS} />)}
+              {hasBillingAccount && <ManageSubscriptionButton />}
+              {!pro && (
+                <Link href="/pricing" className={cn(textLinkClass, "px-2")}>
+                  {t("actions.compare")}
+                </Link>
+              )}
+            </div>
+            {hasBillingAccount && <p className="mt-6 max-w-[62ch] text-ed-body text-ed-ink-2">{t("portalNote")}</p>}
+          </AccountSection>
+
+          <AccountSection n="02" id="billing-packs" title={t("packs.title")}>
+            {credits && (
+              <dl data-credits>
+                <UsageRow label={t("credits.label")} figure={<Figure value={credits.balance} />}>
+                  <RowNote>
+                    {credits.note === "none"
+                      ? t("credits.none", { size: INTERVIEW_PACK_CREDITS })
+                      : credits.note === "pro"
+                        ? t("credits.pro")
+                        : t("credits.free", { minutes: FULL_MINUTES })}
+                  </RowNote>
+                  {credits.pending > 0 && <RowNote>{t("credits.pending", { count: credits.pending })}</RowNote>}
+                </UsageRow>
+              </dl>
+            )}
+            {pro ? (
+              <div className={cn(credits && "mt-6")}>
+                {confirming || (
+                  <CheckoutButton
+                    item="interview_pack"
+                    label={t("actions.buyPack", { count: INTERVIEW_PACK_CREDITS, price: price("interview_pack") })}
+                    variant="outline"
+                    className={WRAPS}
+                  />
+                )}
+              </div>
+            ) : (
+              <p className={cn("max-w-[62ch] text-ed-body text-ed-ink-2", credits && "mt-6")}>{t("packs.proOnly", { count: INTERVIEW_PACK_CREDITS })}</p>
+            )}
+          </AccountSection>
+        </div>
       </div>
-
-      {hasBillingAccount && <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-2">{t("portalNote")}</p>}
-
-      <section aria-labelledby="account-language-title" className="mt-16 border-t border-line pt-10 lg:mt-20">
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-xl">
-            <h2 id="account-language-title" className="eyebrow">
-              {common("locale.accountTitle")}
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-ink-2">{common("locale.accountBody")}</p>
-          </div>
-          <LocaleMenu className="self-start md:self-auto" />
-        </div>
-      </section>
     </div>
   );
 }

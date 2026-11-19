@@ -99,6 +99,8 @@ export const RATE_LIMITS = {
    * so 30 an hour caps a user near USD 0.09/h while covering a language switch over a full history.
    */
   translation: { limit: 30, windowMs: 60 * 60_000 },
+  /** Deleting the account: one provider call to the sign-in service per press; a retry or two after a failure, no loop. */
+  accountDeletion: { limit: 3, windowMs: 60 * 60_000 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;

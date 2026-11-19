@@ -44,7 +44,7 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
   const { t } = useTranslation("common");
   const pathname = usePathname();
   const { user } = useUser();
-  const { openUserProfile, signOut } = useClerk();
+  const { signOut } = useClerk();
   const marketing = variant === "marketing";
   const { current, pending, switchTo, prefetch } = useLocaleSwitch({ reload: marketing });
   const sheet = useRef<HTMLDialogElement>(null);
@@ -76,11 +76,6 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
     return () => desktop.removeEventListener("change", onChange);
   }, [desktopQuery]);
 
-  // Clerk's modals mount in <body>: the sheet closes first so they are not inert.
-  const openAccount = () => {
-    close();
-    openUserProfile();
-  };
   const leave = () => {
     close();
     void signOut({ redirectUrl: "/" });
@@ -184,11 +179,6 @@ export default function MenuSheet({ variant, desktopQuery, className, offerPrici
               )}
               {pages(SIGNED_IN_NAV, t("nav.primary"))}
               <ul className="mt-4">
-                <li>
-                  <button type="button" onClick={openAccount} className={ACCOUNT_ROW}>
-                    {t("nav.account")}
-                  </button>
-                </li>
                 {accountLinks(offerPricing).map((item) => {
                   const active = currentFor(item, pathname);
                   return (

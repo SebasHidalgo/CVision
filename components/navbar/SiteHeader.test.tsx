@@ -244,6 +244,16 @@ describe("Pricing in the account menu", () => {
     expect(sheetLinks()).toContain("/pricing");
   });
 
+  it("links Account to the account page, which holds Clerk's profile, in the menu and in the sheet", () => {
+    render(<SiteHeader offerPricing />);
+    menuLinks();
+    expect(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Account" }).getAttribute("href")).toBe("/account");
+    cleanup();
+    render(<SiteHeader offerPricing />);
+    expect(sheetLinks().slice(-3)).toEqual(["/account", "/account/billing", "/pricing"]);
+    expect(clerk.openUserProfile).not.toHaveBeenCalled();
+  });
+
   it("is left out for Pro, in the menu and in the sheet, Plan & billing kept", () => {
     render(<SiteHeader offerPricing={false} />);
     expect(menuLinks()).toEqual(["Account", "Plan & billing", "Sign out"]);

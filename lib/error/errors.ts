@@ -45,6 +45,8 @@ export type ErrorCode =
   | "PACK_REQUIRES_PRO"
   | "NO_BILLING_ACCOUNT"
   | "BILLING_PORTAL_UNAVAILABLE"
+  // The account page's delete: the sign-in provider did not confirm the deletion, so nothing was removed.
+  | "ACCOUNT_DELETION_FAILED"
   // Client-side only: the Action call itself rejected (network, platform 413
   // or 504, stale deployment), so no server code exists to report.
   | "REQUEST_FAILED"
@@ -324,5 +326,16 @@ export class NoBillingAccountError extends AppError {
 export class BillingPortalUnavailableError extends AppError {
   constructor(message = "Billing portal unavailable", options?: ErrorOptions) {
     super("BILLING_PORTAL_UNAVAILABLE", message, options);
+  }
+}
+
+/**
+ * The sign-in provider did not confirm the account's deletion (down, timed
+ * out, refused the key): nothing of the account was removed, and a retry
+ * later is the way out.
+ */
+export class AccountDeletionFailedError extends AppError {
+  constructor(message = "The account could not be deleted at the sign-in provider", options?: ErrorOptions) {
+    super("ACCOUNT_DELETION_FAILED", message, options);
   }
 }

@@ -5,7 +5,8 @@ import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Mark } from "@/components/account/Mark";
+import { buttonClass } from "@/components/design-system/Button";
 import { useErrorCopy } from "@/hooks/useErrorCopy";
 import { BILLING_POLL_CEILING_MS, useTransactionLanding } from "@/components/billing/useTransactionLanding";
 import { ACCOUNT_BILLING_PATH, type Activation } from "@/lib/billing/activation";
@@ -71,8 +72,8 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   if (phase === "landed") {
     return (
-      <p className="flex items-center gap-3 text-lg text-ink" role="status">
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-signal" />
+      <p className="flex items-center gap-3 text-ed-body font-medium text-ed-ink" role="status">
+        <Mark shape="filled" />
         {t(pro ? "activation.landedPro" : "activation.landedPack")}
       </p>
     );
@@ -80,8 +81,8 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   if (phase === "waiting") {
     return (
-      <p className="flex items-center gap-3 text-lg text-ink" role="status">
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-signal animate-blink" />
+      <p className="flex items-start gap-3 text-ed-body text-ed-ink" role="status">
+        <Mark shape="half" className="mt-[0.45em] motion-safe:animate-pulse" />
         {t(pro ? "activation.waitingPro" : "activation.waitingPack")}
       </p>
     );
@@ -89,14 +90,20 @@ export default function BillingActivation({ activation, applied }: BillingActiva
 
   return (
     <div className="flex flex-col items-start gap-4" role="status">
-      <p className="flex items-center gap-3 text-lg text-ink">
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-fair" />
+      <p className="flex items-start gap-3 text-ed-body text-ed-ink">
+        <Mark shape="half" className="mt-[0.45em]" />
         {t("activation.stalled")}
       </p>
-      <Button onClick={checkAgain} disabled={phase === "checking"} variant="outline" size="sm" className="gap-2">
-        {phase === "checking" && <Loader2 className="size-4 animate-spin" />}
+      <button
+        type="button"
+        onClick={checkAgain}
+        disabled={phase === "checking"}
+        aria-busy={phase === "checking" || undefined}
+        className={buttonClass({ variant: "ghost", size: "sm", className: "disabled:cursor-progress disabled:opacity-75" })}
+      >
+        {phase === "checking" && <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />}
         {t("activation.checkAgain")}
-      </Button>
+      </button>
     </div>
   );
 }

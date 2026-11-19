@@ -25,7 +25,11 @@ export const APP_ROUTES: readonly AppRoute[] = [
   { path: "/api/cron/storage-gc", access: "public" },
   { path: "/api/cron/users-reconcile", access: "public" },
   // The app.
+  { path: "/account", access: "signed-in" },
   { path: "/account/billing", access: "signed-in" },
+  { path: "/dev/crash", access: "signed-in" },
+  { path: "/dev/error", access: "signed-in" },
+  { path: "/dev/loading", access: "signed-in" },
   { path: "/dev/room-preview", access: "signed-in" },
   { path: "/interview/[id]", access: "signed-in" },
   { path: "/interview/[id]/feedback", access: "signed-in" },

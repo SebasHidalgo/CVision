@@ -16,7 +16,7 @@ import UserAvatar, { UserIdentity } from "./UserAvatar";
  */
 export default function UserMenu({ offerPricing }: { offerPricing: boolean }) {
   const { user, isLoaded } = useUser();
-  const { openUserProfile, signOut } = useClerk();
+  const { signOut } = useClerk();
   const { t } = useTranslation("common");
 
   if (!isLoaded || !user) {
@@ -41,9 +41,6 @@ export default function UserMenu({ offerPricing }: { offerPricing: boolean }) {
             <UserIdentity user={user} fallback={t("nav.yourAccount")} />
           </DropdownMenu.Label>
           <DropdownMenu.Separator className={MENU_SEPARATOR} />
-          <DropdownMenu.Item className={MENU_ITEM} onSelect={() => openUserProfile()}>
-            {t("nav.account")}
-          </DropdownMenu.Item>
           {accountLinks(offerPricing).map((item) => (
             <DropdownMenu.Item key={item.href} asChild className={MENU_ITEM}>
               <Link href={item.href}>{t(item.labelKey)}</Link>

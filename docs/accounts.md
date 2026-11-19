@@ -62,6 +62,23 @@ subscription mirrors. `BillingEvent` rows stay: they are the audit trail
 and hold no personal data. Paddle keeps the customer, the transactions,
 the invoices and the cancelled subscription for its own records.
 
+**From the account page** (`/account`, "Delete account"): a confirmation
+that names what goes and what Paddle keeps, then `deleteAccountAction`
+(`screens/Account/actions/`): session → rate limit (`accountDeletion`, 3
+an hour) → an explicit `{ confirm: true }` → `DELETE /v1/users/{id}` at
+Clerk (`deleteClerkUser` in `lib/clerk/users.ts`: one attempt, a 404
+labelled `resource_not_found` counts as done) → `deleteAccountCascade`
+inline. Clerk goes first: if it does not confirm, nothing of ours is
+touched and the page says `ACCOUNT_DELETION_FAILED` ("nothing was
+removed"). Once Clerk has deleted the account, a failure of the local
+cascade is logged in capitals with the user id and the answer is still ok:
+the `user.deleted` webhook (which runs the same idempotent cascade, often at
+the same moment) and the daily users reconcile finish it. The client then
+signs out with Clerk and goes home; a sign-out that throws or has not left
+the page after 6 s ends in a full load of `/`. The account page reaches
+Clerk's own profile (email, sign-in methods, sessions) through
+`openUserProfile`, under "Sign-in and security".
+
 If the owner enables "Allow users to delete their accounts" in Clerk, the
 profile's delete button fires the same webhook. The browser suite's
 accounts are deleted the same way, and `npm run e2e:cleanup` removes any
