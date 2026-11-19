@@ -10,8 +10,6 @@ import { isKnownPath, matchAppRoute } from "@/lib/routeAccess";
 // Server Action, Route Handler and data-layer call checks the session again.
 const isPublicRoute = (pathname: string) => matchAppRoute(pathname)?.access === "public";
 
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
-
 // An API consumer gets an honest status: Clerk's own protection answers a
 // signed-out API call with its 404 page, which the room's client tolerates
 // but nobody can act on.
@@ -20,11 +18,6 @@ const isApiRoute = createRouteMatcher(["/api(.*)"]);
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
   if (isPublicRoute(pathname)) return;
-
-  if (isAdminRoute(req) && !(await auth()).userId) {
-    const url = new URL("/", req.url);
-    return NextResponse.redirect(url);
-  }
 
   if (isApiRoute(req)) {
     if (!(await auth()).userId) {

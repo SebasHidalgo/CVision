@@ -122,10 +122,11 @@ describe("proxy", () => {
     expect(protect).toHaveBeenCalledTimes(1);
   });
 
-  it("sends a signed-out admin visit home", async () => {
-    const response = await run("/admin/users", null);
-    expect(response?.status).toBe(307);
-    expect(response?.headers.get("location")).toBe("https://cvision.test/");
+  it("treats /admin like any path no page serves: no redirect home, on to Next's not-found", async () => {
+    for (const userId of [null, "user_1"]) {
+      expect(await run("/admin/users", userId)).toBeUndefined();
+    }
+    expect(protect).not.toHaveBeenCalled();
   });
 });
 
